@@ -37,7 +37,6 @@ export const ajaxMove = (world, ...places) =>
 
 let start;
 export function ajaxStart() {
-  // The Ajax journey starts with the Theban gate errands already settled.
   start ||= openGreekGate(greekStart({ full: true }));
   return structuredClone(start);
 }
@@ -83,8 +82,6 @@ function reachCamp() {
 
 let camp;
 export function ajaxCamp() {
-  // Dialogue and burial tests need independent camp states, not a repeated
-  // walk across the mainland for every assertion.
   camp ||= reachCamp();
   return structuredClone(camp);
 }

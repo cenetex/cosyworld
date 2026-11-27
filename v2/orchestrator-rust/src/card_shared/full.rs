@@ -800,7 +800,14 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
                 Ok(prior.clone())
             }
         } else {
-            store::commit_with_reveal(&tx, id, &mut w, action, revealed, time)
+            elysium_models::attach_ready_portraits(
+                &tx,
+                id,
+                &w,
+                &state.generated_asset_dir,
+                &mut action,
+            )
+            .and_then(|()| store::commit_with_reveal(&tx, id, &mut w, action, revealed, time))
         };
         let result = match valid {
             Ok(v) => v,

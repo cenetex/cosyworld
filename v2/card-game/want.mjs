@@ -23,7 +23,7 @@ import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
-import { isElysiumModel } from "./elysium-models.mjs";
+import { elysiumPortraitReady, elysiumResidentAnchored } from "./elysium-models.mjs";
 import { knowsFact, questFactId, questTerms } from "./knowledge.mjs";
 import { gainTrust } from "./world/company.mjs";
 import { HEARD_FROM, heardWant, validRumours } from "./world/rumours.mjs";
@@ -74,11 +74,11 @@ export function knownActors(s, place) {
     return entityActive(s, id);
   });
 }
-// Pack residents keep to their own scene unless their data lets them travel.
 export const wantless = (id) => forest.people[id]?.wants === false;
 export const travels = (id, s = null) =>
   (!isPackActor(id) && forest.people[id]?.travels !== false) ||
   freed(s, id) ||
+  elysiumPortraitReady(s, id) ||
   id === BOARDY ||
   humanAvatarIds.includes(id) ||
   packPeople[id]?.personalQuests === true ||
@@ -453,7 +453,7 @@ export function wantCandidates(
     .sort();
 }
 export function nextWant(s, actor, api, previous = null) {
-  if (wantless(actor) || isElysiumModel(actor)) return null;
+  if (wantless(actor) || elysiumResidentAnchored(s, actor)) return null;
   const staged = stagedNext(s, actor, previous);
   if (staged) return staged;
   const thick = previous?.from === HEARD_FROM && authoredWant(actor);
@@ -862,7 +862,7 @@ export function reviseStalledWants(s, actors, api, before = s) {
     if (
       want &&
       want.step?.verb !== "call" &&
-      !isElysiumModel(id) &&
+      !elysiumResidentAnchored(s, id) &&
       !api.player(id) &&
       !humanAvatarIds.includes(id) &&
       entityActive(s, id) &&

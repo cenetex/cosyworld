@@ -1914,6 +1914,7 @@
   var elysiumModelToken = (id) => `${id}-token`;
   var firstTalk = (record7) => record7?.talkedAt === void 0 ? record7?.scatteredAt : record7.talkedAt;
   var keepsElysiumToken = (resident, item) => isElysiumModel(resident) && elysiumModelToken(resident) === item;
+  var elysiumPortraitReady = (world, id) => world?.elysiumEncounters?.[id]?.portraitReady === true;
   function validElysiumName(name) {
     return typeof name === "string" && [...name].length <= 40 && /\p{Alphabetic}/u.test(name) && !/[^\p{Alphabetic} -]/u.test(name) && name.trim().split(/ +/u).length <= 3;
   }
@@ -1933,8 +1934,10 @@
     return Object.entries(records).every(([resident, record7]) => {
       if (!isElysiumModel(resident) || !s.actors[resident] || !s.items[elysiumModelToken(resident)] || !record7 || !seq(record7.scatteredAt))
         return false;
-      const { talkedAt, scatteredAt, returnedAt, returnedBy } = record7;
-      const fields3 = Object.keys(record7).filter((field) => field !== "talkedAt").sort().join();
+      const { talkedAt, scatteredAt, returnedAt, returnedBy, portraitReady } = record7;
+      if (Object.hasOwn(record7, "portraitReady") && (portraitReady !== true || !returnedAt))
+        return false;
+      const fields3 = Object.keys(record7).filter((field) => !["talkedAt", "portraitReady"].includes(field)).sort().join();
       if (Object.hasOwn(record7, "talkedAt") && talkedAt !== null && (!seq(talkedAt) || talkedAt <= scatteredAt))
         return false;
       if (fields3 === "scatteredAt") return true;
@@ -2353,7 +2356,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 43,
+        revision: 44,
         name: "The Wine-Dark Sea",
         description: "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -4365,6 +4368,16 @@
                     kind: "item_at",
                     item: "greek-wheat",
                     place: "greek-piraeus"
+                  },
+                  {
+                    kind: "choice",
+                    key: "greek-story-aristophanes-acharnians-outcome",
+                    value: "first"
+                  },
+                  {
+                    kind: "choice",
+                    key: "greek-story-aristophanes-acharnians-outcome",
+                    value: "second"
                   },
                   {
                     kind: "met",
@@ -7119,7 +7132,21 @@
             name: "Letter to Argos",
             holder: "greek-tauris",
             art: "assets/greek-drama/burial-petition.png",
-            seed: "The object Iphigenia asks you to bring to the dispute."
+            seed: "Iphigenia\u2019s letter bears Electra\u2019s acknowledgment after it is delivered to her in Argos.",
+            lifecycle: "kept",
+            author: "greek-story-euripides-orestes-first",
+            records: [
+              "greek-tauris-deliver-letter"
+            ],
+            recordText: {
+              "greek-tauris-deliver-letter": "Electra received Iphigenia\u2019s account of Orestes\u2019s release and lodged the letter with the household papers at Argos."
+            },
+            reservedUntil: [
+              {
+                kind: "receipt",
+                choiceId: "greek-tauris-deliver-letter"
+              }
+            ]
           },
           "greek-story-euripides-tauris-record": {
             name: "Taurian Departure Order",
@@ -8702,7 +8729,7 @@
               "greek-areopagus-admit-atreid-witnesses"
             ],
             recordText: {
-              "greek-areopagus-file-atreid-evidence": "Athena entered the earlier Argive household evidence beside Orestes\u2019s case and issued a witness order with the ballot still a separate matter.",
+              "greek-areopagus-file-atreid-evidence": "Athena filed the Argive evidence and asked travelers to escort Cilissa from Agamemnon\u2019s tomb to testify in Orestes\u2019s case.",
               "greek-areopagus-admit-atreid-witnesses": "The Furies\u2019 leader admitted the named household witnesses to the court\u2019s waiting stones and reserved the first bench for them."
             }
           },
@@ -15284,7 +15311,7 @@
             at: "greek-tauris",
             on: "talk",
             humanOnly: true,
-            text: "Iphigenia takes her letter from the altar step and puts it in your hands. She asks you to tell the household in Argos that Orestes is alive.",
+            text: "Iphigenia takes her letter from the altar step and puts it in your hands. Give it to her sister Electra at the Jury Yard of Argos so the household will know Orestes left the altar alive.",
             requires: [
               {
                 kind: "choice",
@@ -15306,6 +15333,37 @@
               {
                 kind: "give_item",
                 item: "greek-story-euripides-tauris-object"
+              }
+            ]
+          },
+          {
+            id: "greek-tauris-deliver-letter",
+            workId: "euripides-iphigenia-in-tauris",
+            subject: "greek-story-euripides-orestes-first",
+            at: "greek-argive-jury",
+            on: "give",
+            humanOnly: true,
+            text: "Electra unfolds Iphigenia\u2019s letter and writes a receipt on the back. She thanks you for carrying her sister\u2019s account of Orestes\u2019s release and lays it beside the household papers.",
+            requires: [
+              {
+                kind: "receipt",
+                choiceId: "greek-tauris-entrust-letter"
+              },
+              {
+                kind: "holding",
+                item: "greek-story-euripides-tauris-object",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-story-euripides-tauris-object",
+                place: "greek-argive-jury"
+              },
+              {
+                kind: "trust",
+                level: 2
               }
             ]
           },
@@ -16795,7 +16853,10 @@
             ],
             premise: "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
             status: "branching-episode",
-            hookChoiceIds: [],
+            hookChoiceIds: [
+              "greek-eleusis-urn-at-altar",
+              "greek-eleusis-urn-at-quay"
+            ],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -17910,6 +17971,7 @@
             "greek-eleusis-urn-at-altar",
             "greek-eleusis-urn-at-quay",
             "greek-tauris-entrust-letter",
+            "greek-tauris-deliver-letter",
             "greek-helen-egypt-report-pagasae",
             "greek-susa-read-missing-names",
             "greek-seven-gates-set-watch",
@@ -25385,6 +25447,7 @@
   // v2/card-game/pack-transport.mjs
   var TRANSPORT_VERSION = 3;
   var PHASES = ["docked", "course", "sea", "arrived"];
+  var atBerth = (state) => state.phase === "docked" || state.phase === "arrived";
   var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
   var transportPlace = (place) => Boolean(shipAt(place));
   var passengers = (s, id) => Object.entries(s.actors).filter(
@@ -25489,13 +25552,13 @@
   );
   function canDisembark(s, id, actor) {
     const state = read(s, id);
-    return Boolean(
-      actor && state.phase === "arrived" && s.actors[actor]?.place === transports[id].place && state.riders.includes(actor)
-    );
+    if (!atBerth(state) || s.actors[actor]?.place !== transports[id].place)
+      return false;
+    return state.riders.includes(actor) || controlledByHuman(s, actor) && !courseOptions(s, id, actor).length;
   }
   function courseOptions(s, id, actor = null) {
     const t = transports[id], state = read(s, id);
-    if (!["docked", "arrived"].includes(state.phase)) return [];
+    if (!atBerth(state)) return [];
     if (actor && s.actors[actor]?.place !== t.place) return [];
     if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
     return openLanes(s, t, state.dock, actor);
@@ -26100,6 +26163,34 @@
     (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
   );
 
+  // v2/card-game/world/company.mjs
+  var coreActors = [.../* @__PURE__ */ new Set([...humanAvatarIds, ...Object.keys(forest_default.people)])];
+  var core = new Set(coreActors);
+  var needsTrust = (id, other) => id !== other && (core.has(id) || core.has(other));
+  function startingTrust(id, actors2) {
+    return Object.fromEntries(
+      (core.has(id) ? actors2 : coreActors).filter((other) => id !== other).map((other) => [other, 0])
+    );
+  }
+  function addTrustLinks(actors2, id) {
+    for (const [other, actor] of Object.entries(actors2))
+      if (needsTrust(id, other)) actor.trust[id] ??= 0;
+  }
+  function compactTrust(actors2) {
+    for (const [id, actor] of Object.entries(actors2))
+      for (const [other, value] of Object.entries(actor?.trust ?? {}))
+        if (value === 0 && id !== other && Object.hasOwn(actors2, other) && !needsTrust(id, other))
+          delete actor.trust[other];
+  }
+  function validTrust(actors2, id, trust, actorCount) {
+    if (!trust || typeof trust !== "object" || Array.isArray(trust)) return false;
+    const peers = Object.keys(trust);
+    const complete = core.has(id) ? peers.length === actorCount - 1 : coreActors.every((other) => Object.hasOwn(trust, other));
+    return complete && peers.every(
+      (other) => other !== id && Object.hasOwn(actors2, other) && Number.isInteger(trust[other]) && trust[other] >= 0 && trust[other] <= 3
+    );
+  }
+
   // v2/card-game/world/rumours.mjs
   var RUMOURS_HELD = 3;
   var TELL_FAILS = 2;
@@ -26132,16 +26223,24 @@
   var REFUSAL_LIMIT = 3;
   var STALL_TURNS = 48;
   var CONTENT_TURNS = 24;
-  var knownActors = (s) => [
-    .../* @__PURE__ */ new Set([
+  function knownActors(s, place) {
+    const discovered = /* @__PURE__ */ new Map();
+    const ids3 = /* @__PURE__ */ new Set([
       ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
       ...s.controlledActors || []
-    ])
-  ].filter(
-    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
-  );
+    ]);
+    return [...ids3].filter((id) => {
+      if (place !== void 0 && s.actors[id]?.place !== place) return false;
+      if (isPackActor(id) && id !== BOARDY) {
+        const pack = packPeople[id].packId;
+        if (!discovered.has(pack)) discovered.set(pack, packDiscovered(s, pack));
+        if (!discovered.get(pack) && s.packs?.[pack]?.met?.[id] === void 0) return false;
+      }
+      return entityActive(s, id);
+    });
+  }
   var wantless = (id) => forest_default.people[id]?.wants === false;
-  var travels = (id, s = null) => !isPackActor(id) && forest_default.people[id]?.travels !== false || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var travels = (id, s = null) => !isPackActor(id) && forest_default.people[id]?.travels !== false || freed(s, id) || elysiumPortraitReady(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
   var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
   var rankXp = (r) => r * (r - 1) / 2;
   var startXp = (id) => rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
@@ -26378,6 +26477,31 @@
       w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean" || w.step?.verb === "lay" && w.lit === true) && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals <= REFUSAL_LIMIT
     );
   }
+
+  // v2/card-game/world/items.mjs
+  var SHORT_CHAIN = 32;
+  function rootHolder(s, id) {
+    let holder = s.items[id].holder;
+    for (let step = 0; step < SHORT_CHAIN; step++) {
+      if (!s.items[holder]) return holder;
+      if (holder === id) throw new Error("An item holds itself.");
+      holder = s.items[holder].holder;
+    }
+    holder = s.items[id].holder;
+    const visited = /* @__PURE__ */ new Set([id]);
+    while (s.items[holder]) {
+      if (visited.has(holder)) throw new Error("An item holds itself.");
+      visited.add(holder);
+      holder = s.items[holder].holder;
+    }
+    return holder;
+  }
+  function itemPlace(s, id) {
+    const holder = rootHolder(s, id);
+    return s.actors[holder]?.place || holder;
+  }
+  var carried = (s, actor, itemIds = Object.keys(s.items)) => itemIds.filter((id) => rootHolder(s, id) === actor);
+  var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
 
   // v2/card-game/book-schema.mjs
   var BOOK_KEYS = [
@@ -28535,6 +28659,20 @@
   function validatePackStates(world) {
     return !packStatesFault(world);
   }
+  function isProgressionRequirement(condition) {
+    if (condition.kind === "not")
+      return isProgressionRequirement(condition.condition);
+    if (condition.kind === "any")
+      return condition.conditions.every(isProgressionRequirement);
+    return ["choice", "choice_unset", "flag", "receipt"].includes(condition.kind);
+  }
+  function progressionRequirementsMet(world, packId, requires = []) {
+    return conditionsMet(
+      world,
+      packId,
+      requires.filter(isProgressionRequirement)
+    );
+  }
   function packStatesFault(world) {
     if (!record5(world.packs) || !validJourneyProgress(world, packDefinitions) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
       return "packs";
@@ -28566,18 +28704,15 @@
       ))
         return `pack:${pack.id}:met`;
       const events = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
-      const choices = {}, flags = {}, seenTurns = /* @__PURE__ */ new Set();
+      const choices = {}, flags = {}, receipts = {}, seenTurns = /* @__PURE__ */ new Set();
       const projection = {
         ...world,
-        packs: { ...world.packs, [pack.id]: { ...state, choices, flags } }
+        packs: {
+          ...world.packs,
+          [pack.id]: { ...state, choices, flags, receipts }
+        }
       };
-      const progressionMet = (requirements = []) => conditionsMet(
-        projection,
-        pack.id,
-        requirements.filter(
-          (c) => ["choice", "choice_unset", "flag"].includes(c.kind)
-        )
-      );
+      const progressionMet = (requires) => progressionRequirementsMet(projection, pack.id, requires);
       for (const [id, turn] of events) {
         const c = pack.choices?.find((c2) => c2.id === id);
         if (!c?.effects.length || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
@@ -28592,15 +28727,16 @@
           }
           if (effect.kind === "set_flag") flags[effect.key] = effect.value;
         }
+        receipts[id] = turn;
       }
       const equals = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => owns5(b, k) && b[k] === v);
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return `pack:${pack.id}:flags`;
       for (const [id, actor] of Object.entries(pack.avatars))
-        if (!entityEnabled(world, id, true) && !departed(pack, state, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns5(state.met, id)))
+        if ((world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns5(state.met, id)) && !entityEnabled(world, id, true) && !departed(pack, state, id))
           return `pack:${pack.id}:actor:${id}`;
       for (const [id, item] of Object.entries(pack.items || {}))
-        if (!entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && !(gone(world, id) && world.items[id]?.holder === restForGood(id)) && !(item.home !== void 0 && world.items[id]?.holder === item.home) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
+        if ((world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)) && !entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && !(gone(world, id) && world.items[id]?.holder === restForGood(id)) && !(item.home !== void 0 && world.items[id]?.holder === item.home))
           return `pack:${pack.id}:item:${id}`;
     }
     return null;
@@ -28630,85 +28766,6 @@
       const choices = choicesFor(hands, id), arrived = before ? choices.filter((item) => before[item] !== id) : [], saved = actor.heldItem;
       actor.heldItem = arrived.includes(saved) ? saved : arrived.at(-1) ?? (saved === null || choices.includes(saved) ? saved : choices[0] ?? null);
     }
-  }
-
-  // v2/card-game/radio-item.mjs
-  var RADIO_ITEM = "ratiradio-portable-radio";
-  function validRadioItem(world) {
-    const item = world.items[RADIO_ITEM];
-    return !item || !Object.hasOwn(item, "radioOn") || typeof item.radioOn === "boolean";
-  }
-
-  // v2/card-game/world/catalog.mjs
-  var places = { ...forest_default.places, ...packPlaces };
-  var sanctuaries = Object.keys(places).filter(
-    (id) => places[id].sanctuary === true
-  );
-  var people = { ...forest_default.people, ...packPeople };
-  var things = { ...packThings, ...forest_default.things };
-  var arcanaCards = Object.fromEntries(
-    arcana_default.cards.map((card) => [card.id, card])
-  );
-  validatePackLinks(places, people, things);
-  var nameOf2 = (id) => places[id]?.name || people[id]?.name || things[id]?.name || arcanaCards[id]?.name || "the world";
-  var NAMED2 = /^(?:The|An?) |^\p{L}+['’]s? /u;
-  var theName2 = (id) => NAMED2.test(nameOf2(id)) ? nameOf2(id) : `the ${nameOf2(id)}`;
-
-  // v2/card-game/world/want-words.mjs
-  var UNKNOWN = {
-    item: "something you haven't found",
-    person: "someone you haven't met",
-    place: "somewhere you haven't discovered"
-  };
-  var ANY = {
-    item: "something",
-    person: "someone",
-    place: "somewhere",
-    quest: "a quest"
-  };
-  var SEEK = {
-    item: "find something",
-    person: "meet someone",
-    place: "discover somewhere"
-  };
-  var kindOf2 = (id) => people[id] ? "person" : places[id] ? "place" : "item";
-  var TABLE = {
-    name: nameOf2,
-    kind: kindOf2,
-    drink: (id) => consumable(id) === "drink"
-  };
-  function wantWords(want, known = () => true, { approach: approach2 = null, cards = TABLE } = {}) {
-    if (!want) return "nothing in particular";
-    if (want.kind === "connect") return "introduce two people";
-    const name = (id, kind) => id == null ? ANY[kind] : known(id) ? cards.name(id) : UNKNOWN[cards.kind(id)];
-    const list = (ids3) => [...new Set(ids3.map(name))].join(", ");
-    const near = (word, id) => id == null || known(id) || cards.kind(id) !== "place" ? `${word} ${name(id, "place")}` : name(id);
-    const step = want.step, what = name(want.target, want.kind), cold = want.target != null && !known(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb, act = cold && SEEK[want.kind]?.startsWith(`${verb} `) ? SEEK[want.kind] : `${verb} ${what}`;
-    if (step?.verb === "lay")
-      return `lay ${want.lit ? "the lit " : ""}${list(step.items)} ${near("in", want.target)}`;
-    if (step?.verb === "call")
-      return callWords(want, name);
-    if (step?.verb === "give")
-      return `give ${what} to ${name(step.to, "person")}`;
-    if (step?.verb === "trade")
-      return `trade ${what} for ${name(step.for, "item")}`;
-    if (step?.verb === "eat")
-      return `${cards.drink(want.target) ? "drink" : "eat"} ${what}${step.with !== void 0 ? ` with ${name(step.with, "person")}` : ""}${step.at ? ` ${near("at", step.at)}` : ""}`;
-    if (step?.verb === "bring" && want.kind === "person")
-      return `bring ${what} ${near("to", step.at ?? step.to)}`;
-    if (step?.verb === "bring")
-      return `${cold ? `${SEEK.item}, and bring it` : `bring ${what}`} ${step.to ? `to ${name(step.to)} ${near("at", step.at)}` : near("to", step.at)}`;
-    if (step?.at) return `${act} ${near("at", step.at)}`;
-    if (step?.verb === "wait") return `wait ${near("at", want.target)}`;
-    if (step?.verb === "rest")
-      return approach2 && !cold ? `${approach2} ${what} and rest there` : `rest ${near("at", want.target)}`;
-    if (step?.verb === "depart") return `see ${what} depart`;
-    if (step) return act;
-    if (cold) return SEEK[want.kind] ?? SEEK.person;
-    if (want.kind === "item")
-      return `hold ${want.lit === void 0 ? "" : want.lit ? "the lit " : "the dark "}${what}`;
-    if (want.kind === "place") return `${approach2 ?? "go to"} ${what}`;
-    return `talk with ${what}`;
   }
 
   // v2/card-game/lamp-room-fuel.mjs
@@ -28751,91 +28808,27 @@
     };
   }
 
-  // v2/card-game/station-exits.mjs
-  var roads = forest_default.places.station.exits;
-  var STATION_EXIT_LIMIT = 3;
-  var movedStationDoors = ["boardyai-parlour", "ratiradio-staff-kitchen"];
-  function stationExitOrder(world, eligible) {
-    const candidates2 = [...new Set(eligible)].filter((id) => !roads.includes(id));
-    const earlier = (world.stationExitOrder || []).filter(
-      (id) => candidates2.includes(id)
+  // v2/card-game/lamp-state.mjs
+  function installLampFuel(world) {
+    const lamp = world.items.lamp;
+    if (!["fuelRooms", "fuelPlace", "fuelVisit"].some(
+      (key2) => Object.hasOwn(lamp, key2)
+    ))
+      Object.assign(lamp, roomFuelFromTurns(lamp.fuel, itemPlace(world, "lamp")));
+    if (!validLampRoomFuel(lamp)) throw new Error("Invalid lamp room fuel.");
+  }
+  function settleLamp(world) {
+    installLampFuel(world);
+    const lamp = world.items.lamp, owner2 = rootHolder(world, "lamp");
+    Object.assign(
+      lamp,
+      settleLampRoomFuel(lamp, {
+        place: itemPlace(world, "lamp"),
+        held: Boolean(world.actors[owner2] && heldItem(world, owner2) === "lamp"),
+        grounded: !world.actors[owner2]
+      })
     );
-    return [...earlier, ...candidates2.filter((id) => !earlier.includes(id))];
-  }
-  function stationExits(world, eligible, available = eligible) {
-    const fixed = roads.filter((id) => eligible.includes(id));
-    const admitted = [...fixed, ...stationExitOrder(world, eligible)].slice(
-      0,
-      STATION_EXIT_LIMIT
-    );
-    return admitted.filter((id) => available.includes(id));
-  }
-  var validStationExitOrder = (world, targets) => world.stationExitOrder === void 0 || Array.isArray(world.stationExitOrder) && new Set(world.stationExitOrder).size === world.stationExitOrder.length && [...world.stationExitOrder].every(
-    (id) => !roads.includes(id) && targets.includes(id)
-  );
-
-  // v2/card-game/world/lanes.mjs
-  var atPort = (s, actor) => Object.values(transports).some(
-    (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
-  );
-  function laneTalkFacts(s, actor) {
-    if (!s.actors[actor] || !atPort(s, actor)) return [];
-    const here2 = s.actors[actor].place;
-    const ship = Object.entries(transports).find(([, t]) => t.place === here2);
-    const near = ship ? s.transports[ship[0]].dock : here2;
-    const known = laneEdges().map(laneOfEdge).filter(
-      ([from, to]) => from === near && entityActive(s, to) && knowsLane(s, actor, from, to)
-    ).map(([, to]) => nameOf2(to));
-    return known.length ? [`I know ships sail from ${nameOf2(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf2(near)}.`];
-  }
-  var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
-  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf2(c.item) : c.home ? `something from ${nameOf2(c.home)}` : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
-  var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
-  var laneFact = (from, to) => {
-    const gate = laneConditions(from, to);
-    return {
-      id: `lane:${from}>${to}`,
-      text: gate ? `Ships for ${nameOf2(to)} leave from ${nameOf2(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf2(to)} leave from ${nameOf2(from)}.`
-    };
-  };
-  var laneFactText = (id) => {
-    const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
-    return from && to && laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`) ? laneFact(from, to).text : null;
-  };
-
-  // v2/card-game/world/talk-knowledge.mjs
-  var authoredKnowledgeTopics = () => packDefinitions.flatMap(
-    (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
-  );
-
-  // v2/card-game/handover.mjs
-  var sourceMatches = (s, seq, challenger, defender, item, turn, location) => {
-    const e = s.log.find((e2) => e2.seq === seq);
-    return !e || e.kind === "action" && !e.generated && e.verb === "threaten" && e.actorId === challenger && e.targetId === defender && e.itemId === item && e.turn === turn && e.locationId === location;
-  };
-  var sequence = (seq, max) => Number.isSafeInteger(seq) && seq > 0 && seq <= max;
-  function validThreatSource(s, c) {
-    return c.sourceSeq === void 0 || sequence(c.sourceSeq, s.eventSeq) && sourceMatches(
-      s,
-      c.sourceSeq,
-      c.challenger,
-      c.defender,
-      c.item,
-      c.opened,
-      c.location
-    );
-  }
-  function validHandover(s, e) {
-    const h = e.handover;
-    return h === void 0 || h && Object.keys(h).sort().join() === "kind,openedTurn,sourceSeq" && h.kind === "pressure" && e.kind === "action" && !e.generated && e.verb === "give" && e.accepted === true && s.items[e.itemId] && s.actors[e.actorId] && s.actors[e.targetId] && e.actorId !== e.targetId && sequence(e.seq, s.eventSeq) && Number.isSafeInteger(h.openedTurn) && h.openedTurn > 0 && h.openedTurn <= e.turn && (h.sourceSeq === null || sequence(h.sourceSeq, e.seq - 1) && sourceMatches(
-      s,
-      h.sourceSeq,
-      e.targetId,
-      e.actorId,
-      e.itemId,
-      h.openedTurn,
-      e.locationId
-    ));
+    lamp.fuel = lamp.fuelRooms * 4;
   }
 
   // v2/card-game/adaptive-learning.mjs
@@ -28870,7 +28863,7 @@
       (l) => l.version === 2 && goalKey(l.goal) === goalKey(goal)
     );
   }
-  function sequence2(trials, index) {
+  function sequence(trials, index) {
     const chain = [];
     for (let i = index; i < Math.min(trials.length, index + horizon); i++) {
       const trial = trials[i];
@@ -28882,7 +28875,7 @@
     return chain;
   }
   function returns(trials, index) {
-    return sequence2(trials, index).reduce(
+    return sequence(trials, index).reduce(
       (value, trial, i) => value + discount ** i * trial.reward,
       0
     );
@@ -28931,7 +28924,7 @@
       ...[...keys.values()].slice(-4).map((a) => {
         const estimate = actionEstimate(world, actor, goal, trial.conditions, a);
         const reached = trials.filter(
-          (t, i) => actionKey(t.action) === actionKey(a) && sequence2(trials, i).some((t2) => t2.after.met)
+          (t, i) => actionKey(t.action) === actionKey(a) && sequence(trials, i).some((t2) => t2.after.met)
         ).length;
         const label = describe(a);
         return `${label[0].toUpperCase()}${label.slice(1)}: ${estimate.samples} measured ${estimate.samples === 1 ? "attempt" : "attempts"}. This approach helped reach my goal ${reached} ${reached === 1 ? "time" : "times"}.`;
@@ -29040,6 +29033,172 @@
       return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf2(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
     });
     return valid;
+  }
+
+  // v2/card-game/radio-item.mjs
+  var RADIO_ITEM = "ratiradio-portable-radio";
+  function validRadioItem(world) {
+    const item = world.items[RADIO_ITEM];
+    return !item || !Object.hasOwn(item, "radioOn") || typeof item.radioOn === "boolean";
+  }
+
+  // v2/card-game/world/catalog.mjs
+  var places = { ...forest_default.places, ...packPlaces };
+  var sanctuaries = Object.keys(places).filter(
+    (id) => places[id].sanctuary === true
+  );
+  var people = { ...forest_default.people, ...packPeople };
+  var things = { ...packThings, ...forest_default.things };
+  var arcanaCards = Object.fromEntries(
+    arcana_default.cards.map((card) => [card.id, card])
+  );
+  validatePackLinks(places, people, things);
+  var nameOf2 = (id) => places[id]?.name || people[id]?.name || things[id]?.name || arcanaCards[id]?.name || "the world";
+  var NAMED2 = /^(?:The|An?) |^\p{L}+['’]s? /u;
+  var theName2 = (id) => NAMED2.test(nameOf2(id)) ? nameOf2(id) : `the ${nameOf2(id)}`;
+
+  // v2/card-game/world/want-words.mjs
+  var UNKNOWN = {
+    item: "something you haven't found",
+    person: "someone you haven't met",
+    place: "somewhere you haven't discovered"
+  };
+  var ANY = {
+    item: "something",
+    person: "someone",
+    place: "somewhere",
+    quest: "a quest"
+  };
+  var SEEK = {
+    item: "find something",
+    person: "meet someone",
+    place: "discover somewhere"
+  };
+  var kindOf2 = (id) => people[id] ? "person" : places[id] ? "place" : "item";
+  var TABLE = {
+    name: nameOf2,
+    kind: kindOf2,
+    drink: (id) => consumable(id) === "drink"
+  };
+  function wantWords(want, known = () => true, { approach: approach2 = null, cards = TABLE } = {}) {
+    if (!want) return "nothing in particular";
+    if (want.kind === "connect") return "introduce two people";
+    const name = (id, kind) => id == null ? ANY[kind] : known(id) ? cards.name(id) : UNKNOWN[cards.kind(id)];
+    const list = (ids3) => [...new Set(ids3.map(name))].join(", ");
+    const near = (word, id) => id == null || known(id) || cards.kind(id) !== "place" ? `${word} ${name(id, "place")}` : name(id);
+    const step = want.step, what = name(want.target, want.kind), cold = want.target != null && !known(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb, act = cold && SEEK[want.kind]?.startsWith(`${verb} `) ? SEEK[want.kind] : `${verb} ${what}`;
+    if (step?.verb === "lay")
+      return `lay ${want.lit ? "the lit " : ""}${list(step.items)} ${near("in", want.target)}`;
+    if (step?.verb === "call")
+      return callWords(want, name);
+    if (step?.verb === "give")
+      return `give ${what} to ${name(step.to, "person")}`;
+    if (step?.verb === "trade")
+      return `trade ${what} for ${name(step.for, "item")}`;
+    if (step?.verb === "eat")
+      return `${cards.drink(want.target) ? "drink" : "eat"} ${what}${step.with !== void 0 ? ` with ${name(step.with, "person")}` : ""}${step.at ? ` ${near("at", step.at)}` : ""}`;
+    if (step?.verb === "bring" && want.kind === "person")
+      return `bring ${what} ${near("to", step.at ?? step.to)}`;
+    if (step?.verb === "bring")
+      return `${cold ? `${SEEK.item}, and bring it` : `bring ${what}`} ${step.to ? `to ${name(step.to)} ${near("at", step.at)}` : near("to", step.at)}`;
+    if (step?.at) return `${act} ${near("at", step.at)}`;
+    if (step?.verb === "wait") return `wait ${near("at", want.target)}`;
+    if (step?.verb === "rest")
+      return approach2 && !cold ? `${approach2} ${what} and rest there` : `rest ${near("at", want.target)}`;
+    if (step?.verb === "depart") return `see ${what} depart`;
+    if (step) return act;
+    if (cold) return SEEK[want.kind] ?? SEEK.person;
+    if (want.kind === "item")
+      return `hold ${want.lit === void 0 ? "" : want.lit ? "the lit " : "the dark "}${what}`;
+    if (want.kind === "place") return `${approach2 ?? "go to"} ${what}`;
+    return `talk with ${what}`;
+  }
+
+  // v2/card-game/station-exits.mjs
+  var roads = forest_default.places.station.exits;
+  var STATION_EXIT_LIMIT = 3;
+  var movedStationDoors = ["boardyai-parlour", "ratiradio-staff-kitchen"];
+  function stationExitOrder(world, eligible) {
+    const candidates2 = [...new Set(eligible)].filter((id) => !roads.includes(id));
+    const earlier = (world.stationExitOrder || []).filter(
+      (id) => candidates2.includes(id)
+    );
+    return [...earlier, ...candidates2.filter((id) => !earlier.includes(id))];
+  }
+  function stationExits(world, eligible, available = eligible) {
+    const fixed = roads.filter((id) => eligible.includes(id));
+    const admitted = [...fixed, ...stationExitOrder(world, eligible)].slice(
+      0,
+      STATION_EXIT_LIMIT
+    );
+    return admitted.filter((id) => available.includes(id));
+  }
+  var validStationExitOrder = (world, targets) => world.stationExitOrder === void 0 || Array.isArray(world.stationExitOrder) && new Set(world.stationExitOrder).size === world.stationExitOrder.length && [...world.stationExitOrder].every(
+    (id) => !roads.includes(id) && targets.includes(id)
+  );
+
+  // v2/card-game/world/lanes.mjs
+  var atPort = (s, actor) => Object.values(transports).some(
+    (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
+  );
+  function laneTalkFacts(s, actor) {
+    if (!s.actors[actor] || !atPort(s, actor)) return [];
+    const here2 = s.actors[actor].place;
+    const ship = Object.entries(transports).find(([, t]) => t.place === here2);
+    const near = ship ? s.transports[ship[0]].dock : here2;
+    const known = laneEdges().map(laneOfEdge).filter(
+      ([from, to]) => from === near && entityActive(s, to) && knowsLane(s, actor, from, to)
+    ).map(([, to]) => nameOf2(to));
+    return known.length ? [`I know ships sail from ${nameOf2(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf2(near)}.`];
+  }
+  var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
+  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf2(c.item) : c.home ? `something from ${nameOf2(c.home)}` : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
+  var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
+  var laneFact = (from, to) => {
+    const gate = laneConditions(from, to);
+    return {
+      id: `lane:${from}>${to}`,
+      text: gate ? `Ships for ${nameOf2(to)} leave from ${nameOf2(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf2(to)} leave from ${nameOf2(from)}.`
+    };
+  };
+  var laneFactText = (id) => {
+    const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
+    return from && to && laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`) ? laneFact(from, to).text : null;
+  };
+
+  // v2/card-game/world/talk-knowledge.mjs
+  var authoredKnowledgeTopics = () => packDefinitions.flatMap(
+    (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
+  );
+
+  // v2/card-game/handover.mjs
+  var sourceMatches = (s, seq, challenger, defender, item, turn, location) => {
+    const e = s.log.find((e2) => e2.seq === seq);
+    return !e || e.kind === "action" && !e.generated && e.verb === "threaten" && e.actorId === challenger && e.targetId === defender && e.itemId === item && e.turn === turn && e.locationId === location;
+  };
+  var sequence2 = (seq, max) => Number.isSafeInteger(seq) && seq > 0 && seq <= max;
+  function validThreatSource(s, c) {
+    return c.sourceSeq === void 0 || sequence2(c.sourceSeq, s.eventSeq) && sourceMatches(
+      s,
+      c.sourceSeq,
+      c.challenger,
+      c.defender,
+      c.item,
+      c.opened,
+      c.location
+    );
+  }
+  function validHandover(s, e) {
+    const h = e.handover;
+    return h === void 0 || h && Object.keys(h).sort().join() === "kind,openedTurn,sourceSeq" && h.kind === "pressure" && e.kind === "action" && !e.generated && e.verb === "give" && e.accepted === true && s.items[e.itemId] && s.actors[e.actorId] && s.actors[e.targetId] && e.actorId !== e.targetId && sequence2(e.seq, s.eventSeq) && Number.isSafeInteger(h.openedTurn) && h.openedTurn > 0 && h.openedTurn <= e.turn && (h.sourceSeq === null || sequence2(h.sourceSeq, e.seq - 1) && sourceMatches(
+      s,
+      h.sourceSeq,
+      e.targetId,
+      e.actorId,
+      e.itemId,
+      h.openedTurn,
+      e.locationId
+    ));
   }
 
   // v2/card-game/roaming-routes.mjs
@@ -30308,7 +30467,10 @@
       if (greekRevision < 37) reconcileGreekShips(s);
       if (greekRevision < 38 && packEntity("greek-road-north")?.retired)
         reconcileNorthernRoad(s);
-      if (greekRevision < 43) reconcileGreekClaims(s);
+      if (greekRevision < 43) {
+        reconcileGreekRoutes(s);
+        reconcileGreekClaims(s);
+      }
     }
     if (reworked.has("elysium")) settleStrandedWayfinder(s);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
@@ -30336,12 +30498,12 @@
   function reconcileSingletonStock(s, staple) {
     if (!s.items?.[staple] || !usedUp(s, staple) || gone(s, staple)) return;
     const pack = packDefinitions.find(({ id }) => id === "greek-drama");
-    const carried2 = (pack.choices || []).filter(
+    const carried3 = (pack.choices || []).filter(
       (choice) => choice.id.endsWith("-supply") && choice.effects.some((effect) => effect.kind === "drop_item" && effect.item === staple) && conditionsMet(s, pack.id, choice.requires)
     ).map(({ id }) => id.slice(0, -"-supply".length)).filter((id) => s.actors[s.items[id]?.holder] && !usedUp(s, id) && !gone(s, id)).sort();
     const actors2 = [.../* @__PURE__ */ new Set([...humanAvatarIds, ...Object.keys(s.actors).sort()])];
     for (const actor of actors2) {
-      const candidates2 = carried2.filter((id2) => s.items[id2].holder === actor);
+      const candidates2 = carried3.filter((id2) => s.items[id2].holder === actor);
       if (!candidates2.length) continue;
       const selected = s.actors[actor].heldItem;
       const id = candidates2.includes(selected) ? selected : candidates2[0];
@@ -30353,11 +30515,13 @@
   }
   function reconcileGreekHoney(s) {
     const honey = "greek-antigone-grave-honey";
+    const grave = "greek-polynices-hollow";
     const former = s.items?.[honey];
-    if (former?.holder === "greek-polynices-hollow" && !former.history.length && !s.packs["greek-drama"].flags["greek-burial-performed"]) {
+    if (former?.holder === grave && !former.history.length && !s.packs["greek-drama"].flags["greek-burial-performed"]) {
       useUp(s, honey, packEntity(honey).holder);
     }
     reconcileSingletonStock(s, honey);
+    forgetPlaceCards(s, (place, item) => place === grave && item === honey);
   }
   function retainGreekResponseHistory(s) {
     const pack = packDefinitions.find(({ id }) => id === "greek-drama");
@@ -30454,10 +30618,29 @@
     formerFarLanes.flat().filter((port) => port !== "greek-piraeus")
   );
   function forgetRouteEdges(s, obsolete) {
-    for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(edges)) continue;
       s.routeKnowledge[actor] = edges.filter(
         (edge) => !Array.isArray(edge) || edge.length !== 2 || !obsolete.has(edge.join(">"))
       );
+    }
+  }
+  var formerGreekReturns = [
+    ["greek-bird-wilderness", "greek-attic-farm"],
+    ["greek-divine-heights", "greek-attic-farm"],
+    ["greek-jury-house", "greek-athens"],
+    ["greek-lemnos", "greek-piraeus"],
+    ["greek-scythian-crag", "greek-piraeus"],
+    ["greek-sicily", "greek-piraeus"],
+    ["greek-susa", "greek-troy"],
+    ["greek-tauris", "greek-piraeus"],
+    ["greek-thrace", "greek-piraeus"],
+    ["greek-underworld", "greek-colonus"]
+  ];
+  function reconcileGreekRoutes(s) {
+    const live = new Set(authoredRouteEdges().map((edge) => edge.join(">")));
+    const obsolete = formerGreekReturns.map((edge) => edge.join(">")).filter((edge) => !live.has(edge));
+    forgetRouteEdges(s, new Set(obsolete));
   }
   function reconcileNorthernRoad(s) {
     const road = "greek-road-north";
@@ -30518,7 +30701,13 @@
       s.standoffs = s.standoffs.filter((c) => c.location !== charybdis.place);
       for (const item of Object.values(s.items))
         if (item.holder === charybdis.place) item.holder = scylla.place;
-      s.transports["greek-scylla"] = canceled ? stopped(dock, riders) : { ...old, recall };
+      const transferred = canceled ? stopped(dock, riders) : { ...old, recall };
+      if (!canceled && (old.phase === "docked" || old.phase === "arrived")) {
+        transferred.phase = riders.length ? "arrived" : "docked";
+        transferred.riders = riders;
+        if (!riders.length) transferred.recall = null;
+      }
+      s.transports["greek-scylla"] = transferred;
       s.transports["greek-ship"] = stopped(
         charybdis.docks.includes(old.recall) ? old.recall : charybdis.at
       );
@@ -30596,15 +30785,12 @@
       const kept = {}, choices = {}, flags = {};
       const projection = {
         ...s,
-        packs: { ...s.packs, [pack.id]: { ...state, choices, flags } }
+        packs: {
+          ...s.packs,
+          [pack.id]: { ...state, choices, flags, receipts: kept }
+        }
       };
-      const holds = (requires = []) => conditionsMet(
-        projection,
-        pack.id,
-        requires.filter(
-          (c) => ["choice", "choice_unset", "flag"].includes(c.kind)
-        )
-      );
+      const holds = (requires) => progressionRequirementsMet(projection, pack.id, requires);
       const receipts = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
       for (const [id, turn] of receipts) {
         const c = pack.choices.find((choice) => choice.id === id);
@@ -30705,8 +30891,30 @@
     if (Array.isArray(k.pending))
       k.pending = k.pending.filter((p) => p?.factId !== id);
   }
+  function forgetPlaceCards(s, removed) {
+    const activeCards = s.placeCard;
+    if (activeCards && typeof activeCards === "object" && !Array.isArray(activeCards)) {
+      for (const [place, item] of Object.entries(activeCards)) {
+        if (!removed(place, item)) continue;
+        delete activeCards[place];
+        if (!Object.keys(activeCards).length) delete s.placeCard;
+      }
+    }
+    const completedCards = s.placeMet;
+    if (completedCards && typeof completedCards === "object" && !Array.isArray(completedCards)) {
+      for (const [place, items2] of Object.entries(completedCards)) {
+        if (!Array.isArray(items2)) continue;
+        const kept = items2.filter((item) => !removed(place, item));
+        if (kept.length === items2.length) continue;
+        if (kept.length) completedCards[place] = kept;
+        else delete completedCards[place];
+        if (!Object.keys(completedCards).length) delete s.placeMet;
+      }
+    }
+  }
   function forgetRetiredThings(s, retired) {
     if (!retired.size) return;
+    forgetPlaceCards(s, (_place, item) => retired.has(item));
     const names2 = (lesson) => [
       lesson?.item,
       lesson?.goal?.item,
@@ -31264,18 +31472,15 @@
     return reads;
   }
   var offstage = false;
-  function knownActors2(world) {
-    if (offstage) return actorIds.filter((id) => entityActive(world, id));
+  function knownActors2(world, place) {
+    if (offstage) return actorIds.filter(
+      (id) => (place === void 0 || world.actors[id].place === place) && entityActive(world, id)
+    );
+    if (place !== void 0) return knownActors(world, place);
     const reads = planningReadsFor(world);
     if (!reads) return knownActors(world);
     return (reads.knownActors ??= knownActors(world)).slice();
   }
-  var expectedTrustKeys = Object.fromEntries(
-    actorIds.map((id) => [
-      id,
-      actorIds.filter((other) => other !== id).sort().join()
-    ])
-  );
   function installPacks(s) {
     const added = [], mounted = [];
     installTransports(s);
@@ -31293,12 +31498,9 @@
           place: person.place,
           crossed: 0,
           lastTalk: -9,
-          trust: Object.fromEntries(
-            actorIds.filter((other) => other !== id).map((other) => [other, 0])
-          )
+          trust: startingTrust(id, actorIds)
         };
-        for (const other of Object.keys(s.actors))
-          if (other !== id) s.actors[other].trust[id] ??= 0;
+        addTrustLinks(s.actors, id);
         s.peaceUntil[id] = 0;
         s.memories[id] ??= fresh[id];
         if (s.motives) s.motives.grievances[id] ??= [];
@@ -31335,11 +31537,10 @@
           place: a.place,
           crossed: 0,
           lastTalk: -9,
-          trust: Object.fromEntries(
-            actorIds.filter((other) => other !== id).map((other) => [other, 0])
-          ),
+          trust: startingTrust(id, actorIds),
           ...newTemperament(id)
         };
+        addTrustLinks(s.actors, id);
         s.peaceUntil[id] = 0;
         s.memories[id] = fresh[id];
         if (s.motives) s.motives.grievances[id] = [];
@@ -31351,16 +31552,13 @@
           s.memories[id] = fresh[id];
           added.push(id);
         }
-      for (const [id, actor] of Object.entries(s.actors))
-        for (const other of Object.keys(pack.avatars))
-          if (other !== id) actor.trust[other] ??= 0;
       for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
     }
     for (const pack of packDefinitions) installSpecials(s, pack);
     for (const pack of mounted)
       for (const [id, a] of Object.entries(pack.avatars))
         for (const [other, n] of Object.entries(a.bonds || {}))
-          if (s.actors[id].trust[other] !== void 0) s.actors[id].trust[other] = n;
+          if (id !== other && Object.hasOwn(s.actors, other)) s.actors[id].trust[other] = n;
     installArcana(s);
     installItemCycle(s, added);
     installLife(s, travels);
@@ -31375,12 +31573,12 @@
         rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
       }
   }
+  var carried2 = (s, actor) => carried(s, actor, ids);
   var openingPlace = (place) => Boolean(homeGates[place]?.opening) || ["pond", "station"].includes(place);
   var leftHome = (s) => s.opening?.leftHome === true || crossings.some(
     (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered
   );
-  var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
-  var burden = (s, actor) => carried(s, actor).length;
+  var burden = (s, actor) => carried2(s, actor).length;
   var bundle = (s, item) => s.items.cloth.holder === item ? [item, "cloth"] : [item];
   var needed = (s, actor, item) => bundle(s, item).some((id) => matchesWantedItem(wantOf2(s, actor), id));
   var humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id) && heldByHuman(s, id);
@@ -31545,29 +31743,36 @@
       ))
         fail("standoff");
     }
+    const active = /* @__PURE__ */ new Map();
+    const inPlay = (id) => {
+      if (!active.has(id)) active.set(id, entityActive(s, id));
+      return active.get(id);
+    };
     for (const [id, a] of Object.entries(s.actors)) {
       if (!validVisitSpeech(a, s.turn)) fail(`actor:${id}:speech`);
-      if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
-        fail(`actor:${id}:trust`);
-      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleeping !== void 0 && a.sleeping?.until === void 0 && (!a.sleeping || Object.keys(a.sleeping).sort().join() !== "place,present,since" || !Number.isSafeInteger(a.sleeping.since) || a.sleeping.since < 0 || a.sleeping.since > s.turn || s.turn - a.sleeping.since >= SLEEP_TURNS || !Object.hasOwn(places, a.sleeping.place) || !Array.isArray(a.sleeping.present) || a.sleeping.present.some(
+      if (!validTrust(s.actors, id, a.trust, actorIds.length)) fail(`actor:${id}:trust`);
+      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || !inPlay(a.place) && inPlay(id) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleeping !== void 0 && a.sleeping?.until === void 0 && (!a.sleeping || Object.keys(a.sleeping).sort().join() !== "place,present,since" || !Number.isSafeInteger(a.sleeping.since) || a.sleeping.since < 0 || a.sleeping.since > s.turn || s.turn - a.sleeping.since >= SLEEP_TURNS || !Object.hasOwn(places, a.sleeping.place) || !Array.isArray(a.sleeping.present) || a.sleeping.present.some(
         (x, i, all) => !actorIds.includes(x) || i && all[i - 1] >= x
       )))
         fail(`actor:${id}:place`);
       if (!validWant(s, id)) fail(`actor:${id}:want`);
-      if (a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
+      if (a.visited.length > placeIds.length || a.visited.some((place) => !Object.hasOwn(places, place)) || a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
         fail(`actor:${id}:visited`);
     }
+    const itemCounts = /* @__PURE__ */ Object.create(null);
     for (const [id, item] of Object.entries(s.items)) {
       if (!validBookHolder(id, item.holder) || !holderIds.has(item.holder) && !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell")))
         fail(`item:${id}:holder`);
-      if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace(s, id))))
+      const root = rootHolder(s, id);
+      itemCounts[root] = (itemCounts[root] ?? 0) + 1;
+      if ((!inPlay(item.holder) || !inPlay(s.actors[root]?.place ?? root)) && inPlay(id))
         fail(`item:${id}:active`);
       if (!Array.isArray(item.history) || item.history.length > 12 || item.history.some((t) => typeof t !== "string" || t.length > 400))
         fail(`item:${id}:history`);
     }
     for (const actor of actorIds) {
       const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-      const count = burden(s, actor);
+      const count = itemCounts[actor] ?? 0;
       if (count > (allowance || 3) || allowance && allowance !== count) fail(`actor:${actor}:carried`);
     }
     if (!validRadioItem(s)) fail("radio");
@@ -31691,6 +31896,7 @@
   }
   function decodeSave(text2) {
     const s = JSON.parse(text2);
+    const greekRevision = s?.packs?.["greek-drama"]?.revision;
     try {
       const lamp = s?.items?.lamp;
       const hasRoomFuel = lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some(
@@ -31705,6 +31911,8 @@
         installPacks,
         laneText: laneFactText
       });
+      if (Number.isSafeInteger(greekRevision) && greekRevision < s.packs["greek-drama"].revision)
+        compactTrust(s.actors);
       installJourneyProgress(s, packDefinitions);
       installConversations(s);
       settleGuards(s);
@@ -31717,50 +31925,6 @@
       throw error;
     }
     return validateWorld(s);
-  }
-
-  // v2/card-game/world/items.mjs
-  var SHORT_CHAIN = 32;
-  function rootHolder(s, id) {
-    let holder = s.items[id].holder;
-    for (let step = 0; step < SHORT_CHAIN; step++) {
-      if (!s.items[holder]) return holder;
-      if (holder === id) throw new Error("An item holds itself.");
-      holder = s.items[holder].holder;
-    }
-    holder = s.items[id].holder;
-    const visited = /* @__PURE__ */ new Set([id]);
-    while (s.items[holder]) {
-      if (visited.has(holder)) throw new Error("An item holds itself.");
-      visited.add(holder);
-      holder = s.items[holder].holder;
-    }
-    return holder;
-  }
-  var itemPlace = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
-  var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
-
-  // v2/card-game/lamp-state.mjs
-  function installLampFuel(world) {
-    const lamp = world.items.lamp;
-    if (!["fuelRooms", "fuelPlace", "fuelVisit"].some(
-      (key2) => Object.hasOwn(lamp, key2)
-    ))
-      Object.assign(lamp, roomFuelFromTurns(lamp.fuel, itemPlace(world, "lamp")));
-    if (!validLampRoomFuel(lamp)) throw new Error("Invalid lamp room fuel.");
-  }
-  function settleLamp(world) {
-    installLampFuel(world);
-    const lamp = world.items.lamp, owner2 = rootHolder(world, "lamp");
-    Object.assign(
-      lamp,
-      settleLampRoomFuel(lamp, {
-        place: itemPlace(world, "lamp"),
-        held: Boolean(world.actors[owner2] && heldItem(world, owner2) === "lamp"),
-        grounded: !world.actors[owner2]
-      })
-    );
-    lamp.fuel = lamp.fuelRooms * 4;
   }
 
   // v2/card-game/scene-cast.mjs
@@ -32937,7 +33101,7 @@
         return {
           id,
           location: actor.place,
-          holding: carried(world, id),
+          holding: carried2(world, id),
           heldItem: hand(id),
           travel: movement ? {
             from: movement.fromLocationId,
@@ -33000,7 +33164,7 @@
     const partner = played?.targetId === speaker ? played.actorId : currentActor(world);
     const here2 = world.actors[speaker]?.place;
     if (!world.actors[partner] || partner === speaker || world.actors[partner].place !== here2 || controlledByHuman(world, speaker) || residentAvatar(world, speaker) || sleepingPortrait(world, speaker) || sleepingPortrait(world, partner)) return [];
-    const owned = carried(world, speaker).filter(
+    const owned = carried2(world, speaker).filter(
       (item) => world.items[item].holder === speaker && entityActive(world, item)
     );
     const items2 = [.../* @__PURE__ */ new Set([
@@ -33009,11 +33173,11 @@
       heldItem(world, speaker),
       ...owned
     ])].filter((item) => owned.includes(item)).slice(0, 3);
-    const payments = carried(world, partner).filter(
+    const payments = carried2(world, partner).filter(
       (item) => world.items[item].holder === partner && entityActive(world, item) && visibleItem(world, speaker, item, here2)
     );
     const want = wantOf2(world, speaker);
-    const price = want?.kind === "item" && revealed(world, speaker, want, partner) && !carried(world, speaker).includes(want.target) && want.target;
+    const price = want?.kind === "item" && revealed(world, speaker, want, partner) && !carried2(world, speaker).includes(want.target) && want.target;
     return items2.flatMap((item) => {
       const given = willingToGive(world, speaker, item, partner);
       const facts = [given ? `If ${nameOf2(partner)} asked me for ${nameOf2(item)}, I would agree to give it.` : `If ${nameOf2(partner)} asked me for ${nameOf2(item)}, I would refuse to give it.`];
@@ -33203,7 +33367,7 @@
             );
           }
           facts.push(
-            `Holding: ${carried(world, id).map(nameOf2).join(", ") || "empty hands"}.`
+            `Holding: ${carried2(world, id).map(nameOf2).join(", ") || "empty hands"}.`
           );
           const mood = moodFact(world, id);
           if (mood) facts.push(mood);
@@ -33257,7 +33421,7 @@
           if (favour) facts.push(favour);
           for (const item of desire.items)
             facts.push(
-              carried(world, id).includes(item) ? `Already holds the wanted ${nameOf2(item)}.` : visibleItem(world, id, item, location) ? `Wants ${nameOf2(item)}, currently with ${nameOf2(rootHolder(world, item))}.` : `Wants ${nameOf2(item)}.`
+              carried2(world, id).includes(item) ? `Already holds the wanted ${nameOf2(item)}.` : visibleItem(world, id, item, location) ? `Wants ${nameOf2(item)}, currently with ${nameOf2(rootHolder(world, item))}.` : `Wants ${nameOf2(item)}.`
             );
           if (desire.location)
             facts.push(

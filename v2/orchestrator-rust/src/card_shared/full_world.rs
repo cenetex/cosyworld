@@ -199,6 +199,9 @@ impl World {
             "play" => {
                 let mut request = self.request("play", a);
                 request["action"] = command["action"].clone();
+                if let Some(portraits) = command.get("elysiumPortraits") {
+                    request["elysiumPortraits"] = portraits.clone();
+                }
                 let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 (11, result)

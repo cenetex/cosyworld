@@ -8,7 +8,7 @@ import {
   keepsElysiumToken,
   recordElysiumEncounter,
   validElysiumEncounterEvent,
-  validElysiumEncounters,
+  validElysiumEncounters, withElysiumPortraits,
 } from "./elysium-models.mjs";
 import { wantWords } from "./world/want-words.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
@@ -3090,7 +3090,7 @@ export function play(
   s,
   action,
   expectedRevision = s.revision,
-  actor = currentActor(s),
+  actor = currentActor(s), portraitReceipts = [],
 ) {
   if (expectedRevision !== s.revision)
     return {
@@ -3133,7 +3133,7 @@ export function play(
       state: s,
       error: "That play has changed. Check the cards and choose again.",
     };
-  const next = structuredClone(s);
+  const next = withElysiumPortraits(structuredClone(s), portraitReceipts, installLife);
   if (exact.kind === "accept") {
     if (exact.tarot !== undefined)
       acceptTarot(next, actor, exact.tarot, (text, detail) => addLog(next, "World", text, detail));

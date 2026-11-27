@@ -569,6 +569,21 @@
   var firstTalk = (record7) => record7?.talkedAt === void 0 ? record7?.scatteredAt : record7.talkedAt;
   var elysiumModelTalked = (s, id) => isElysiumModel(id) && Boolean(firstTalk(s.elysiumEncounters?.[id]));
   var keepsElysiumToken = (resident, item) => isElysiumModel(resident) && elysiumModelToken(resident) === item;
+  var elysiumPortraitReady = (world, id) => world?.elysiumEncounters?.[id]?.portraitReady === true;
+  var elysiumResidentAnchored = (world, id) => isElysiumModel(id) && !elysiumPortraitReady(world, id);
+  function withElysiumPortraits(world, receipts, installLife2) {
+    if (!Array.isArray(receipts)) return world;
+    for (const receipt of receipts) {
+      const resident = receipt?.resident;
+      if (!elysiumResidentAnchored(world, resident)) continue;
+      const encounter = world.elysiumEncounters?.[resident];
+      if (encounter?.returnedAt && encounter.returnedAt === receipt.returnedAt && world.items[elysiumModelToken(resident)]?.holder === resident) {
+        encounter.portraitReady = true;
+        installLife2(world, (id) => id === resident);
+      }
+    }
+    return world;
+  }
   function validElysiumName(name) {
     return typeof name === "string" && [...name].length <= 40 && /\p{Alphabetic}/u.test(name) && !/[^\p{Alphabetic} -]/u.test(name) && name.trim().split(/ +/u).length <= 3;
   }
@@ -596,7 +611,16 @@
       record7.returnedBy = event.actorId;
     }
   }
-  function resetImportedElysiumEncounters(s) {
+  function resetImportedElysiumEncounters(s, people2) {
+    for (const resident of ELYSIUM_MODEL_IDS) {
+      if (!elysiumPortraitReady(s, resident)) continue;
+      const actor = s.actors[resident];
+      actor.place = people2[resident].home;
+      actor.want = null;
+      for (const key2 of ["sleeping", "homeward", "dwellUntil", "attend"])
+        delete actor[key2];
+      if (s.invitedPlaces) delete s.invitedPlaces[resident];
+    }
     delete s.elysiumEncounters;
     for (const event of s.log) {
       delete event.elysiumArrival;
@@ -621,8 +645,10 @@
     return Object.entries(records).every(([resident, record7]) => {
       if (!isElysiumModel(resident) || !s.actors[resident] || !s.items[elysiumModelToken(resident)] || !record7 || !seq(record7.scatteredAt))
         return false;
-      const { talkedAt, scatteredAt, returnedAt, returnedBy } = record7;
-      const fields3 = Object.keys(record7).filter((field) => field !== "talkedAt").sort().join();
+      const { talkedAt, scatteredAt, returnedAt, returnedBy, portraitReady } = record7;
+      if (Object.hasOwn(record7, "portraitReady") && (portraitReady !== true || !returnedAt))
+        return false;
+      const fields3 = Object.keys(record7).filter((field) => !["talkedAt", "portraitReady"].includes(field)).sort().join();
       if (Object.hasOwn(record7, "talkedAt") && talkedAt !== null && (!seq(talkedAt) || talkedAt <= scatteredAt))
         return false;
       if (fields3 === "scatteredAt") return true;
@@ -1259,7 +1285,6 @@
   }
 
   // v2/card-game/world/for-good.mjs
-  var canSacrifice = (id) => !packThings[id]?.tags?.includes("staple");
   var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
   var startOf = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
   function restForGood(item) {
@@ -1355,15 +1380,17 @@
     );
     return true;
   }
+  var laneGate = (t, from, to) => (t.lanes || []).find(
+    (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
+  )?.opensWith ?? null;
   var laneBetween = (t, from, to) => (t.lanes || []).find(
     (lane) => lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from
   ) ?? null;
-  var laneGate = (t, from, to) => laneBetween(t, from, to)?.opensWith ?? null;
   var laneConditions = (from, to) => Object.values(transports).map((t) => laneGate(t, from, to)).find(Boolean) ?? null;
-  var openLanes = (s, t, dock, actor = null, emptyRecall = false) => lanesFrom(t, dock).filter((to) => {
+  var openLanes = (s, t, dock, actor = null) => lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;
-    const lane = laneBetween(t, dock, to);
-    return lane?.opensWith ? emptyRecall && lane.emptyRecall === true || conditionsMet(s, t.packId, lane.opensWith) : knowsLane(s, actor, dock, to);
+    const gate = laneGate(t, dock, to);
+    return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
   });
   function shutLanes(s, place2) {
     const found = shipAt(place2);
@@ -1385,13 +1412,13 @@
       })
     );
   }
-  function lanePath(s, id, from, to, actor = null, { emptyRecall = false } = {}) {
+  function lanePath(s, id, from, to, actor = null) {
     const t = transports[id];
     const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
     for (let i = 0; i < queue.length; i++) {
       const path = queue[i];
       if (path.at(-1) === to) return path;
-      for (const next of openLanes(s, t, path.at(-1), actor, emptyRecall)) {
+      for (const next of openLanes(s, t, path.at(-1), actor)) {
         if (seen.has(next)) continue;
         seen.add(next);
         queue.push([...path, next]);
@@ -1509,9 +1536,7 @@
         ([who, a]) => a.place === state.dock && controlledByHuman(s, who)
       ) || !transportUnlocked(s, id) || state.phase !== "docked" || state.dock === place2 || state.since === s.turn && s.turn > 0 || passengers(s, id).length)
         continue;
-      const path = lanePath(s, id, state.dock, place2, null, {
-        emptyRecall: true
-      });
+      const path = lanePath(s, id, state.dock, place2);
       if (path) Object.assign(state, { dock: path[1], since: s.turn });
     }
   }
@@ -1709,34 +1734,9 @@
     }
     return s.actors[holder2]?.place || holder2;
   }
-  var checkingStock = /* @__PURE__ */ new Set();
-  function matchingStock(s, target, predicate) {
-    return itemCopies(target).find((id) => {
-      if (usedUp(s, id) || !predicate(id)) return false;
-      if (id === target) return true;
-      if (checkingStock.has(id)) return false;
-      checkingStock.add(id);
-      try {
-        return entityActive(s, id);
-      } finally {
-        checkingStock.delete(id);
-      }
-    });
-  }
-  function presentStock(s, c) {
-    return matchingStock(
-      s,
-      c.item,
-      (id) => c.kind === "item_at" ? s.items[id]?.holder === c.place : Boolean(s.items[id] && objectPlace(s, id) === c.place)
-    );
-  }
   function conditionMet(s, c, senses2, packId = null, actor = null) {
     const state = s.packs?.[packId];
     switch (c.kind) {
-      case "item_used_up":
-        return usedUp(s, c.item);
-      case "receipt":
-        return Boolean(state?.receipts && Object.hasOwn(state.receipts, c.choiceId));
       case "sound":
         return !!senses2 && c.at.some((place2) => soundAt(s, place2, senses2));
       case "light":
@@ -1775,13 +1775,7 @@
           (g) => g.other === actor && grievanceActive(s, g)
         );
       case "holding":
-        return Boolean(
-          matchingStock(
-            s,
-            c.item,
-            (id) => s.items[id]?.holder === (c.role === "actor" ? actor : c.actor)
-          )
-        );
+        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) && !usedUp(s, c.item);
       // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
       case "upgraded":
         return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
@@ -1808,21 +1802,20 @@
       // Enough travellers stand together in one place: a lock for two.
       case "humans_at":
         return sharedEnabled(s) && roomHumanCount(s, c.place) >= c.minimum;
-      case "item_near":
-        return Boolean(
-          matchingStock(s, c.item, (id) => {
-            let holder2 = s.items[id]?.holder;
-            const seen = /* @__PURE__ */ new Set([id]);
-            while (s.items[holder2] && !seen.has(holder2)) {
-              seen.add(holder2);
-              holder2 = s.items[holder2].holder;
-            }
-            return (!controlledByHuman(s, holder2) || humanPresent(s, holder2)) && objectPlace(s, id) === c.place;
-          })
-        );
+      case "item_near": {
+        if (usedUp(s, c.item)) return false;
+        let holder2 = s.items[c.item]?.holder;
+        const seen = /* @__PURE__ */ new Set([c.item]);
+        while (s.items[holder2] && !seen.has(holder2)) {
+          seen.add(holder2);
+          holder2 = s.items[holder2].holder;
+        }
+        return (!controlledByHuman(s, holder2) || humanPresent(s, holder2)) && objectPlace(s, c.item) === c.place;
+      }
       case "item_present":
-      case "item_at":
-        return Boolean(presentStock(s, c));
+        return Boolean(
+          s.items[c.item] && !usedUp(s, c.item) && objectPlace(s, c.item) === c.place
+        );
       // Any thing tagged c.tag, carried by someone present at c.place.
       case "tag_held":
         return Object.keys(s.actors).some(
@@ -1831,6 +1824,8 @@
           const holder2 = s.items[id].holder;
           return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder2]?.place === c.place && (!controlledByHuman(s, holder2) || humanPresent(s, holder2));
         });
+      case "item_at":
+        return s.items[c.item]?.holder === c.place && !usedUp(s, c.item);
       case "arcana_called":
         return calledTravelers(s).length > 0;
       case "arcana_selling":
@@ -2285,13 +2280,22 @@
       open: !entry.when?.length || Boolean(person && conditionsMet(world, person.packId, entry.when))
     }));
   }
+  var rootOf = (world, item) => {
+    let holder2 = world.items[item]?.holder;
+    const seen = /* @__PURE__ */ new Set([item]);
+    while (world.items[holder2] && !seen.has(holder2)) {
+      seen.add(holder2);
+      holder2 = world.items[holder2].holder;
+    }
+    return holder2;
+  };
   var callWords = (want, name) => `call the ship: hold ${name("cloth")} at ${name(want.target)} while ${name("lamp")} burns on the ground there`;
   function met(world, id, want) {
     if (want.kind === "connect") return false;
     if (want.step?.verb === "call") return false;
     const here = world.actors[id].place;
     if (want.kind === "item")
-      return want.step?.verb !== "eat" && holdsAsWanted(world, id, want);
+      return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
     if (want.step?.verb === "lay") return layMet(world, want);
     if (want.kind === "place") return here === want.target;
     return world.actors[want.target]?.place === here;
@@ -2309,7 +2313,7 @@
     return Boolean(
       want && world.actors?.[id] && // A made thing still locked is wanted all the same (rules 102), and a
       // sealed one (rules 133).
-      (entityActive(world, want.target) || wantedItems(want).some((id2) => id2 !== want.target && entityActive(world, id2)) || Boolean(packThings[want.target]?.locked) || Boolean(packThings[want.target]?.sealed)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !lostOf(world, want) && !met(world, id, want) && trustedEnough(world, id, want, listener)
+      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked) || Boolean(packThings[want.target]?.sealed)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !lostOf(world, want) && !met(world, id, want) && trustedEnough(world, id, want, listener)
     );
   }
 
@@ -2559,7 +2563,7 @@
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var wantless = (id) => forest_default.people[id]?.wants === false;
-  var travels = (id, s = null) => !isPackActor(id) && forest_default.people[id]?.travels !== false || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var travels = (id, s = null) => !isPackActor(id) && forest_default.people[id]?.travels !== false || freed(s, id) || elysiumPortraitReady(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
   var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
   var rankAt = (s, id) => s.actors[id]?.level ?? levelFor(s.actors[id]?.xp || 0);
   var PLACE_FROM = "quest:place:";
@@ -2576,8 +2580,6 @@
   var rankXp = (r) => r * (r - 1) / 2;
   var startXp = (id) => rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
   var wantOf = (s, id) => s.actors[id]?.want ?? null;
-  var wantedItems = (want) => want?.kind !== "item" ? [] : want.lit === void 0 ? itemCopies(want.target) : [want.target];
-  var matchesWantedItem = (want, item) => want?.kind === "item" && (want.lit === void 0 ? itemTypeMatches(want.target, item) : want.target === item);
   var sameQuest = (left, right) => questTerms(left) === questTerms(right);
   var wantKey = (id, want) => `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
   var MAX_HELD = 3;
@@ -2692,21 +2694,15 @@
     refusals: 0
   });
   var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
-  var copyCanReturn = (s, expected, copies) => copies.some(
-    (id) => id !== expected && Object.hasOwn(s.items, id) && !neverBack(s, id)
-  );
-  function lostOf(s, w) {
-    if (!w) return void 0;
-    return [
-      copyCanReturn(s, w.target, wantedItems(w)) ? void 0 : w.target,
-      w.step?.to,
-      w.step?.with,
-      w.step?.at,
-      ...(w.step?.items || []).filter(
-        (id) => !(w.step.finish && spentByChoice(s, id)) && !copyCanReturn(s, id, layItemCopies(w, id))
-      )
-    ].find((id) => typeof id === "string" && neverBack(s, id));
-  }
+  var lostOf = (s, w) => w ? [
+    w.target,
+    w.step?.to,
+    w.step?.with,
+    w.step?.at,
+    ...(w.step?.items || []).filter(
+      (id) => !(w.step.finish && spentByChoice(s, id))
+    )
+  ].find((id) => typeof id === "string" && neverBack(s, id)) : void 0;
   var heldWant = (s, w) => ({
     ...newWant(w.kind, w.target, s.turn),
     ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {},
@@ -2768,7 +2764,7 @@
     const items2 = Object.keys(s.items).filter((id) => {
       const owner2 = api.rootHolder(id);
       const person = Object.hasOwn(s.actors, owner2);
-      return entityActive(s, id) && owner2 !== actor && person && within(s.actors[owner2].place) && !matchesWantedItem(s.actors[owner2].want, id) && api.valueOf(actor, id) > floor && (wide || !api.obtainable || api.obtainable(actor, id));
+      return entityActive(s, id) && owner2 !== actor && person && within(s.actors[owner2].place) && !(s.actors[owner2].want?.kind === "item" && s.actors[owner2].want.target === id) && api.valueOf(actor, id) > floor && (wide || !api.obtainable || api.obtainable(actor, id));
     });
     const places2 = reach.filter((id) => wide || !a.visited.includes(id));
     const people2 = [
@@ -2790,7 +2786,7 @@
     ).map(([kind, target]) => `${kind}:${target}`).sort();
   }
   function nextWant(s, actor, api, previous = null) {
-    if (wantless(actor) || isElysiumModel(actor)) return null;
+    if (wantless(actor) || elysiumResidentAnchored(s, actor)) return null;
     const staged = stagedNext(s, actor, previous);
     if (staged) return staged;
     const thick = previous?.from === HEARD_FROM && authoredWant(actor);
@@ -2825,48 +2821,31 @@
     );
   };
   var placeOfItem = (s, item) => {
-    const root2 = rootOf(s, item);
+    const root2 = rootOf2(s, item);
     return s.actors[root2]?.place ?? root2;
   };
-  var anyWantedItem = (s, want, test) => wantedItems(want).some(
-    (id) => Object.hasOwn(s.items, id) && test(id) && (id === want.target || entityActive(s, id))
-  );
   var together2 = (s, a, b) => Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
-  function layItemCopies({ step, lit }, item) {
-    if (lit) return [item];
-    return itemCopies(item).filter(
-      (id) => id === item || !step.items.includes(id)
-    );
-  }
-  function missingLayItems(world, want) {
-    const { target, step, lit } = want;
-    return step.items.filter(
-      (item) => !layItemCopies(want, item).some(
-        (id) => world.items[id]?.holder === target && (id === item || entityActive(world, id)) && (!lit || Boolean(world.items[id].lit))
-      )
-    );
-  }
-  function layMet(world, want) {
-    const { target, step } = want;
+  function layMet(world, { target, step, lit }) {
     if (step.finish)
       return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
-    return !missingLayItems(world, want).length;
+    return step.items.every(
+      (item) => world.items[item]?.holder === target && (!lit || Boolean(world.items[item].lit))
+    );
   }
   function stepMet(s, actor, want, action) {
-    const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (verb === "give" ? matchesWantedItem(want, action.item) && action.target === to && action.accepted : action.target === want.target);
+    const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (verb === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
     if (verb === "call") return false;
     if (verb === "lay") return layMet(s, want);
-    if (verb === "find")
-      return anyWantedItem(s, want, (item) => placeOfItem(s, item) === me.place);
+    if (verb === "find") return placeOfItem(s, want.target) === me.place;
     if (verb === "eat")
       return Boolean(
-        action?.kind === "eat" && matchesWantedItem(want, action.item) && action.accepted !== false && (!at || me.place === at) && (action.actor === actor && (!want.step.with || action.target === want.step.with) || want.step.with && action.actor === want.step.with && action.target === actor)
+        action?.kind === "eat" && action.item === want.target && action.accepted !== false && (!at || me.place === at) && (action.actor === actor && (!want.step.with || action.target === want.step.with) || want.step.with && action.actor === want.step.with && action.target === actor)
       );
     if (verb === "give") return by("give") || by("trade");
     if (verb === "bring" && want.kind === "person")
       return at ? together2(s, actor, want.target) && me.place === at : together2(s, want.target, to);
     if (verb === "bring")
-      return anyWantedItem(s, want, (item) => rootOf(s, item) === actor) && me.place === at && (!to || together2(s, actor, to));
+      return rootOf2(s, want.target) === actor && me.place === at && (!to || together2(s, actor, to));
     if (verb === "meet")
       return together2(s, actor, want.target) && (!at || me.place === at);
     if (verb === "rest") return false;
@@ -2890,7 +2869,7 @@
     if (want.step) return stepMet(s, actor, want, action);
     if (want.kind === "connect") return introduced(s, actor, talk);
     if (want.kind === "item")
-      return holdsAsWanted(s, actor, want) || want.lit === void 0 && action?.kind === "give" && action.accepted === true && action.target === actor && matchesWantedItem(want, action.item);
+      return holdsAsWanted(s, actor, want) || want.lit === void 0 && action?.kind === "give" && action.accepted === true && action.target === actor && action.item === want.target;
     if (want.kind === "place") return s.actors[actor].place === want.target;
     return Boolean(
       s.actors[want.target]?.place === s.actors[actor].place && (talk ? talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor : action?.led?.includes(actor) && entityActive(s, want.target))
@@ -2899,16 +2878,15 @@
   var meetsItemWant = (s, actor, item, action = null) => {
     const w = wantOf(s, actor);
     return Boolean(
-      matchesWantedItem(w, item) && questMet(s, actor, w, null, action)
+      w && w.kind === "item" && w.target === item && questMet(s, actor, w, null, action)
     );
   };
   function holdsAsWanted(s, actor, want) {
-    if (want.lit === void 0)
-      return anyWantedItem(s, want, (item2) => rootOf(s, item2) === actor);
+    if (want.lit === void 0) return rootOf2(s, want.target) === actor;
     const item = s.items[want.target];
     return item.holder === actor && Boolean(item.lit) === want.lit && !Object.values(s.items).some((i) => i.holder === want.target);
   }
-  function rootOf(s, id) {
+  function rootOf2(s, id) {
     let holder2 = s.items[id].holder;
     const seen = /* @__PURE__ */ new Set([id]);
     while (s.items[holder2] && !seen.has(holder2)) {
@@ -3021,13 +2999,16 @@
   }
   function refuseWant(s, actor, item, api) {
     const want = wantOf(s, actor);
-    if (!matchesWantedItem(want, item) || api.player(actor)) return;
+    if (want?.kind !== "item" || want.target !== item || api.player(actor))
+      return;
     if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;
     want.refusals = Math.min(REFUSAL_LIMIT, want.refusals + 1);
   }
   var quietWant = (s, actor, item) => {
     const want = s.actors[actor]?.want;
-    return matchesWantedItem(want, item) && want.refusals >= REFUSAL_LIMIT;
+    return Boolean(
+      want?.kind === "item" && want.target === item && want.refusals >= REFUSAL_LIMIT
+    );
   };
   function giveUp(s, actor, api) {
     const a = s.actors[actor], want = a.want;
@@ -3045,9 +3026,7 @@
       if (a.want && !api.player(id) && !entityActive(s, id))
         a.want.since = s.turn;
       const was = before.actors[id]?.want;
-      if (a.want?.kind === "item" && a.want.refusals && wantedItems(a.want).some(
-        (item) => before.items[item] && s.items[item] && rootOf(before, item) !== rootOf(s, item)
-      ))
+      if (a.want?.kind === "item" && a.want.refusals && before.items[a.want.target] && rootOf2(before, a.want.target) !== rootOf2(s, a.want.target))
         a.want.refusals -= Math.min(
           a.want.refusals,
           was?.kind === "item" && was.target === a.want.target ? was.refusals : 0
@@ -3060,7 +3039,7 @@
     }
     for (const id of Object.keys(s.actors).sort()) {
       const want = s.actors[id].want;
-      if (want && want.step?.verb !== "call" && !isElysiumModel(id) && !api.player(id) && !humanAvatarIds.includes(id) && entityActive(s, id) && !accepted(s, id) && s.turn - stallStart(s, id, want, api) >= STALL_TURNS && !asleep(s, id, want, api))
+      if (want && want.step?.verb !== "call" && !elysiumResidentAnchored(s, id) && !api.player(id) && !humanAvatarIds.includes(id) && entityActive(s, id) && !accepted(s, id) && s.turn - stallStart(s, id, want, api) >= STALL_TURNS && !asleep(s, id, want, api))
         giveUp(s, id, api);
     }
   }
@@ -3181,18 +3160,6 @@
   var record2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   var owns2 = (o, key2) => record2(o) && typeof key2 === "string" && Object.hasOwn(o, key2);
   var idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
-  function knowledgeAuthor(pack, id) {
-    if (!safeId(id)) return null;
-    const topic = (pack.topics || []).find((entry) => entry.id === id);
-    if (topic) return topic.speaker;
-    const [kind, packId, book, claim] = id.split(":");
-    if (kind !== "claim" || packId !== pack.id || id !== `claim:${packId}:${book}:${claim}` || !owns2(pack.items, book))
-      return null;
-    const item = pack.items[book];
-    const records = Array.isArray(item.records) ? item.records : [];
-    const claims = Array.isArray(item.claims) ? item.claims : [];
-    return records.includes(claim) || claims.some((entry) => entry?.id === claim) ? item.author ?? null : null;
-  }
   function bookProblems(pack) {
     const problems2 = [];
     const cards = [pack.places, pack.avatars, pack.items];
@@ -3278,46 +3245,6 @@
   var record3 = (v) => v && typeof v === "object" && !Array.isArray(v);
   var owns3 = (o, key2) => record3(o) && typeof key2 === "string" && Object.hasOwn(o, key2);
   var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
-  var ITEM_IDENTITY_FIELDS = ["name", "art", "tags", "startLevel"];
-  function itemPlacementEffect(items2, places2, player, choice, effect) {
-    const fromGround = effect.kind === "fetch_item";
-    if (!owns3(items2, effect.item) || Object.keys(effect).length !== 3) return false;
-    if (fromGround)
-      return choice.on === "talk" && choice.humanOnly === true && owns3(places2, effect.from) && effect.from !== choice.at && items2[effect.item].lifecycle !== "fixed" && choice.requires?.some(
-        (r) => r.kind === "item_at" && r.item === effect.item && r.place === effect.from
-      );
-    return effect.place === choice.at && choice.requires?.some(
-      (r) => r.kind === "holding" && r.item === effect.item && (r.role === "actor" || r.actor === player)
-    );
-  }
-  var STOCK_FIELDS = [
-    "type",
-    "holder",
-    "home",
-    "regrow",
-    "startsUsed",
-    "absentReturn",
-    "requires",
-    "reservedUntil"
-  ];
-  function itemTypeProblem(items2, id, { thin = false } = {}) {
-    const item = items2[id], type = item?.type;
-    if (type === void 0) return null;
-    const canonical = owns3(items2, type) && items2[type];
-    if (!idOk2(type) || type === id || !record3(canonical) || canonical.type !== void 0)
-      return `item ${id} type must name a different local item without a type`;
-    const fields3 = [...STOCK_FIELDS, ...ITEM_IDENTITY_FIELDS];
-    if (!Object.keys(item).every((key2) => fields3.includes(key2)))
-      return `item ${id} type permits only stock and inherited identity fields`;
-    for (const field of ITEM_IDENTITY_FIELDS) {
-      if (thin && !Object.hasOwn(item, field)) continue;
-      const value = item[field], expected = canonical[field];
-      if (value === expected || field === "tags" && Array.isArray(value) && Array.isArray(expected) && value.length === expected.length && value.every((tag, i) => tag === expected[i]))
-        continue;
-      return `item ${id} ${field} must match its type ${type}`;
-    }
-    return null;
-  }
   function custodyItems(conditions = []) {
     const out = [];
     for (const c of Array.isArray(conditions) ? conditions : []) {
@@ -3368,8 +3295,6 @@
       );
     };
     for (const [id, i] of Object.entries(items2)) {
-      const typeProblem = itemTypeProblem(items2, id);
-      if (typeProblem) problems2.push(`${pack.id}: ${typeProblem}`);
       const scatter4 = i.scatterOutside;
       check(
         scatter4 === void 0 || scatter4 === true || Array.isArray(scatter4) && scatter4.length > 0 && scatter4.length <= 16 && new Set(scatter4).size === scatter4.length && scatter4.every((place2) => known.has(place2) && !owns3(places2, place2)),
@@ -3401,14 +3326,12 @@
     for (const c of choices) {
       if (c.repeats === void 0) continue;
       const effects = Array.isArray(c.effects) ? c.effects : [];
-      if (c.repeats === true && c.on === "talk" && effects.length === 1 && effects[0].kind === "fetch_item")
-        continue;
       const made = effects.filter((e) => e.kind === "drop_item");
       check(
         c.repeats === true && c.on === "give" && made.length === 1 && Boolean(items2[made[0]?.item]?.home) && effects.every(
           (e) => ["retire_item", "drop_item", "set_flag"].includes(e.kind)
         ),
-        `choice ${c.id} repeats only as a give that drops one homed thing or a talk that fetches one thing`
+        `choice ${c.id} repeats only as a give that drops one homed thing`
       );
       for (const e of effects.filter((e2) => e2.kind === "retire_item"))
         check(
@@ -3457,45 +3380,6 @@
       for (const i of kit.items) kitItems.add(i);
     }
     return problems2;
-  }
-
-  // v2/card-game/pack-transport-schema.mjs
-  var MAX_LANES = 4;
-  var LANE_KEYS = [
-    "from",
-    "to",
-    "oneWay",
-    "opensWith",
-    "spends",
-    "sealed",
-    "emptyRecall"
-  ];
-  function laneProblems(t, warnings = []) {
-    const out = [];
-    if (!Array.isArray(t.lanes) || !t.lanes.length) return ["needs sea lanes"];
-    const docks = Array.isArray(t.docks) ? t.docks : [];
-    const seen = /* @__PURE__ */ new Set(), neighbours = new Map(docks.map((d) => [d, /* @__PURE__ */ new Set()])), leaving = /* @__PURE__ */ new Set();
-    for (const lane of t.lanes) {
-      if (!lane || typeof lane !== "object" || Array.isArray(lane) || Object.keys(lane).some((key2) => !LANE_KEYS.includes(key2)) || lane.sealed !== void 0 && (!lane.opensWith || lane.sealed !== true) || lane.emptyRecall !== void 0 && (lane.emptyRecall !== true || !Array.isArray(lane.opensWith) || !lane.opensWith.length) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
-        out.push("has a lane that does not join two of its docks");
-        continue;
-      }
-      const ways2 = [`${lane.from}>${lane.to}`];
-      if (!lane.oneWay) ways2.push(`${lane.to}>${lane.from}`);
-      if (ways2.some((way) => seen.has(way)))
-        out.push(`repeats the lane ${ways2[0]}`);
-      for (const way of ways2) seen.add(way);
-      neighbours.get(lane.from).add(lane.to);
-      neighbours.get(lane.to).add(lane.from);
-      leaving.add(lane.from);
-      if (!lane.oneWay) leaving.add(lane.to);
-    }
-    for (const [dock, set2] of neighbours) {
-      if (set2.size > MAX_LANES)
-        out.push(`dock ${dock} has more than ${MAX_LANES} lanes`);
-      if (!leaving.has(dock)) warnings.push(`dock ${dock} has no lane out`);
-    }
-    return out;
   }
 
   // v2/card-game/pack-schema.mjs
@@ -3549,11 +3433,9 @@
     "choice",
     "choice_unset",
     "flag",
-    "receipt",
     "holding",
     "trusted",
     "item_at",
-    "item_used_up",
     "item_present",
     "item_near",
     "tag_held",
@@ -3593,6 +3475,41 @@
     return typeof t.waitVerb === "string" && /^[A-Z][A-Za-z' -]{0,23}$/u.test(t.waitVerb) && textOk(t.waitSentence, 80) && !/[<>&`]/u.test(t.waitSentence) && t.waitSentence.replace("{actor}", "").length === t.waitSentence.length - 7 && !/[{}]/u.test(t.waitSentence.replace("{actor}", ""));
   }
   var intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+  var MAX_LANES = 4;
+  function laneProblems(t, warnings = []) {
+    const out = [];
+    if (!Array.isArray(t.lanes) || !t.lanes.length) return ["needs sea lanes"];
+    const docks = Array.isArray(t.docks) ? t.docks : [];
+    const seen = /* @__PURE__ */ new Set(), neighbours = new Map(docks.map((d) => [d, /* @__PURE__ */ new Set()])), leaving = /* @__PURE__ */ new Set();
+    for (const lane of t.lanes) {
+      if (!keysOk(lane, [
+        "from",
+        "to",
+        "oneWay",
+        "opensWith",
+        "spends",
+        "sealed"
+      ]) || lane.sealed !== void 0 && (!lane.opensWith || lane.sealed !== true) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
+        out.push("has a lane that does not join two of its docks");
+        continue;
+      }
+      const ways2 = [`${lane.from}>${lane.to}`];
+      if (!lane.oneWay) ways2.push(`${lane.to}>${lane.from}`);
+      if (ways2.some((way) => seen.has(way)))
+        out.push(`repeats the lane ${ways2[0]}`);
+      for (const way of ways2) seen.add(way);
+      neighbours.get(lane.from).add(lane.to);
+      neighbours.get(lane.to).add(lane.from);
+      leaving.add(lane.from);
+      if (!lane.oneWay) leaving.add(lane.to);
+    }
+    for (const [dock, set2] of neighbours) {
+      if (set2.size > MAX_LANES)
+        out.push(`dock ${dock} has more than ${MAX_LANES} lanes`);
+      if (!leaving.has(dock)) warnings.push(`dock ${dock} has no lane out`);
+    }
+    return out;
+  }
   function specialsProblems(pack) {
     const sp = pack.specials, pool = Array.isArray(sp?.pool) ? sp.pool : [], ids3 = pool.map((e) => e?.id).filter(Boolean), own3 = (id) => ["places", "avatars", "items"].some((k) => owns4(pack[k], id));
     const ok = keysOk(sp, ["draw", "pool"]) && keysOk(sp.draw, ["places", "avatars", "items"]) && Object.values(sp.draw).every((n) => intOk(n, 0, 8)) && pool.length > 0 && pool.length <= 64 && new Set(ids3).size === ids3.length && !ids3.includes(pack.entry) && pool.every(
@@ -3706,7 +3623,7 @@
     for (const [key2, required, max] of [
       ["places", true, 128],
       ["avatars", true, 128],
-      ["items", false, 256],
+      ["items", false, 128],
       ["fixtures", false, 32],
       ["transports", false, 8]
     ]) {
@@ -3733,7 +3650,7 @@
         return problems2;
     for (const c of pack.choices || [])
       if (!check(
-        Array.isArray(c.effects) && (c.effects.length > 0 || c.on === "talk" && c.humanOnly === true) && c.effects.length <= 12 && c.effects.every(record4),
+        Array.isArray(c.effects) && c.effects.length > 0 && c.effects.length <= 12 && c.effects.every(record4),
         `choice ${c.id} effects must be a bounded record list`
       ))
         return problems2;
@@ -4073,11 +3990,7 @@
         switch (c.kind) {
           case "in_hand":
           case "grounded":
-          case "item_used_up":
             ok = keysOk(c, ["kind", "item"]) && (hub2.items.includes(c.item) || owns4(items2, c.item));
-            break;
-          case "receipt":
-            ok = keysOk(c, ["kind", "choiceId"]) && idOk3(c.choiceId) && (pack.choices || []).some((entry) => entry.id === c.choiceId && entry.effects.length > 0 && !entry.archived);
             break;
           case "actor_at":
             ok = keysOk(c, ["kind", "place"]) && anyPlace(c.place);
@@ -4175,8 +4088,13 @@
             break;
           case "knows": {
             const named2 = Array.isArray(c.topics) ? c.topics : [c.topic];
-            const authors = named2.map((id) => knowledgeAuthor(pack, id));
-            ok = (c.topics === void 0 ? keysOk(c, ["kind", "topic", "role"]) : keysOk(c, ["kind", "topics", "role"]) && named2.length >= 2 && named2.length <= 4 && new Set(authors).size === named2.length) && c.role === "actor" && authors.every(Boolean);
+            ok = (c.topics === void 0 ? keysOk(c, ["kind", "topic", "role"]) : keysOk(c, ["kind", "topics", "role"]) && named2.length >= 2 && named2.length <= 4 && new Set(named2).size === named2.length && new Set(
+              named2.map(
+                (id) => (pack.topics || []).find((topic) => topic.id === id)?.speaker
+              )
+            ).size === named2.length) && c.role === "actor" && named2.every(
+              (id) => idOk3(id) && (pack.topics || []).some((topic) => topic.id === id)
+            );
             break;
           }
         }
@@ -4189,10 +4107,8 @@
       "choice",
       "choice_unset",
       "flag",
-      "receipt",
       "holding",
       "item_at",
-      "item_used_up",
       "item_near",
       "item_present",
       "shared_world",
@@ -4301,15 +4217,17 @@
     for (const [id, i] of Object.entries(items2)) {
       check(
         keysOk(i, [
-          ...ITEM_IDENTITY_FIELDS,
-          "type",
+          "name",
           "text",
           "persona",
           "seed",
           "records",
           ...BOOK_KEYS,
           "holder",
+          "art",
           "requires",
+          "startLevel",
+          "tags",
           "home",
           "regrow",
           "startsUsed",
@@ -4386,14 +4304,13 @@
           "on",
           "for",
           "repeats",
-          "archived",
-          "humanOnly"
+          "archived"
         ]) && idOk3(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "talk" && Boolean(avatars[c.subject]) || // A hold choice is for the one traveler its item belongs to.
         c.on === "hold" && Boolean(items2[c.subject]) && c.for !== void 0 && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
         ) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
-        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && (c.archived === void 0 || c.archived === true) && (c.humanOnly === void 0 || c.humanOnly === true) && !choiceIds.has(c.id) && own3.includes(c.subject) && owns4(places2, c.at) && proseOk(c.label, 120) && proseOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
+        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && (c.archived === void 0 || c.archived === true) && !choiceIds.has(c.id) && own3.includes(c.subject) && owns4(places2, c.at) && proseOk(c.label, 120) && proseOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -4409,18 +4326,20 @@
           valid = keysOk(e, ["kind", "key", "value"]) && idOk3(e.key) && typeof e.value === "boolean";
           flags.add(e.key);
         }
-        if (["place_item", "fetch_item"].includes(e.kind))
-          valid = itemPlacementEffect(items2, places2, hub2.player, c, e);
+        if (e.kind === "place_item")
+          valid = keysOk(e, ["kind", "item", "place"]) && owns4(items2, e.item) && e.place === c.at && (c.requires || []).some(
+            (r) => r.kind === "holding" && r.item === e.item && (r.role === "actor" || r.actor === hub2.player)
+          );
         if (e.kind === "hide_item")
           valid = keysOk(e, ["kind", "item"]) && owns4(items2, e.item) && c.on === "meet";
         if (e.kind === "trust")
-          valid = keysOk(e, ["kind", "level"]) && intOk(e.level, 1, 3) && (c.on === "meet" || c.on === "talk" || c.on === "give" && c.humanOnly) && Boolean(avatars[c.subject]);
+          valid = keysOk(e, ["kind", "level"]) && intOk(e.level, 1, 3) && (c.on === "meet" || c.on === "talk") && Boolean(avatars[c.subject]);
         if (e.kind === "give_item")
           valid = keysOk(e, ["kind", "item"]) && owns4(items2, e.item) && c.on !== "meet";
         if (e.kind === "upgrade")
           valid = keysOk(e, ["kind", "upgrade"]) && idOk3(e.upgrade) && c.for !== void 0;
         if (e.kind === "retire_item")
-          valid = keysOk(e, ["kind", "item", "waitAtHome", "forGood"]) && (owns4(items2, e.item) || hub2.items.includes(e.item)) && (e.forGood === void 0 || e.forGood === true && e.waitAtHome === void 0 && owns4(items2, e.item) && !items2[e.item].tags?.includes("staple")) && (e.waitAtHome === void 0 || e.waitAtHome === true && items2[e.item]?.home && !items2[e.item].regrow && !items2[e.item].locked) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
+          valid = keysOk(e, ["kind", "item", "waitAtHome", "forGood"]) && (owns4(items2, e.item) || hub2.items.includes(e.item)) && (e.forGood === void 0 || e.forGood === true && e.waitAtHome === void 0 && owns4(items2, e.item)) && (e.waitAtHome === void 0 || e.waitAtHome === true && items2[e.item]?.home && !items2[e.item].regrow && !items2[e.item].locked) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
             (r) => r.item === e.item && (r.kind === "holding" && r.role === "actor" || ["item_near", "item_at"].includes(r.kind) && r.place === c.at)
           );
         if (e.kind === "drop_item")
@@ -4433,7 +4352,7 @@
       const journey = avatar.journey;
       const agreement = choices.find((c) => c.id === journey?.after);
       check(
-        keysOk(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk3(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 13 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place2) => owns4(places2, place2)) && journey.path.slice(1).every((to, i) => {
+        keysOk(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk3(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place2) => owns4(places2, place2)) && journey.path.slice(1).every((to, i) => {
           const from = journey.path[i];
           return places2[from].exits.includes(to) || routes2.some((route) => route.from === from && route.to === to);
         }) && agreement?.subject === id && agreement.at === avatar.place,
@@ -4724,15 +4643,14 @@
         `${name} needs a distinct id and only known fields`
       );
       crossingIds.add(c?.id);
-      const fromOwnPack = owns4(places2, c.from);
-      const toOwnPack = owns4(places2, c.to);
-      const transportDocks = owns4(pack.transports, c.transport) ? pack.transports[c.transport].docks : [];
-      const boardsTransport = Array.isArray(transportDocks) && c.from !== c.to && transportDocks.includes(c.from) && transportDocks.includes(c.to);
       if (c.transport !== void 0)
-        check(boardsTransport, `${name} has an invalid transport`);
+        check(
+          owns4(pack.transports, c.transport) && Array.isArray(pack.transports[c.transport].docks) && pack.transports[c.transport].docks.includes(c.from) && pack.transports[c.transport].docks?.includes(c.to),
+          `${name} has an invalid transport`
+        );
       check(
-        anyPlace(c?.from) && anyPlace(c?.to) && (fromOwnPack !== toOwnPack || fromOwnPack && toOwnPack && boardsTransport),
-        `${name} must join a hub or mounted place to this pack or board a transport from two of its docks`
+        anyPlace(c?.from) && anyPlace(c?.to) && owns4(places2, c.from) !== owns4(places2, c.to),
+        `${name} must join a hub place or mounted place to this pack`
       );
       check(
         TRAVELERS.includes(c?.travelers) && textOk(c?.travel, 80),
@@ -4914,18 +4832,10 @@
   var packPeople = merge("avatars");
   var packFixtures = merge("fixtures");
   var packThings = merge("items");
-  var copiesByType = /* @__PURE__ */ new Map();
-  for (const [id, { type }] of Object.entries(packThings)) {
-    if (!type) continue;
-    if (!copiesByType.has(type)) copiesByType.set(type, [type]);
-    copiesByType.get(type).push(id);
-  }
-  var itemCopies = (id) => copiesByType.get(id) ?? [id];
-  var itemTypeMatches = (expected, instance) => expected === instance || typeof expected === "string" && packThings[instance]?.type === expected;
   var waitsAtHome = new Set(
     packDefinitions.flatMap(
       (pack) => (pack.choices || []).flatMap(
-        (choice) => choice.effects.filter((e) => e.kind === "retire_item" && e.waitAtHome).flatMap((e) => itemCopies(e.item))
+        (choice) => choice.effects.filter((e) => e.kind === "retire_item" && e.waitAtHome).map((e) => e.item)
       )
     )
   );
@@ -4941,7 +4851,7 @@
   var waitingAtHome = (world, id) => {
     const item = packEntity(id);
     return waitsAtHome.has(id) && world.items?.[id]?.holder === item.home && packDefinition(item.packId).choices.some(
-      (c) => world.packs[item.packId]?.receipts[c.id] !== void 0 && c.effects.some((e) => e.waitAtHome && itemTypeMatches(e.item, id))
+      (c) => world.packs[item.packId]?.receipts[c.id] !== void 0 && c.effects.some((e) => e.item === id && e.waitAtHome)
     );
   };
   function validatePackLinks(places2, actors2, items2) {
@@ -4964,7 +4874,7 @@
   var packOf = (id) => packDefinition(entities[id]?.packId);
   var roamingQuestActor = (id, world = null) => packPeople[id]?.roamingQuest === "latest-completion" && (!world || conditionsMet(world, packPeople[id].packId, packPeople[id].requires));
   var freed = (world, id) => !!world && Array.isArray(packPeople[id]?.stayUntil) && conditionsMet(world, packPeople[id].packId, packPeople[id].stayUntil, id);
-  var staysPut = (id, world = null) => (packPeople[id] ?? forest_default.people[id])?.travels === false && !freed(world, id);
+  var staysPut = (id, world = null) => (packPeople[id] ?? forest_default.people[id])?.travels === false && !freed(world, id) && !elysiumPortraitReady(world, id);
   var packJourneyDestination = (world, id) => journeyNextPlace(world, packOf(id), id);
   var recordJourneyTravel = (world, id, from, to) => advanceJourney(world, packOf(id), id, from, to);
   var avoidsStandoffs = (id) => (packPeople[id] ?? forest_default.people[id])?.standoffs === false;
@@ -4999,7 +4909,7 @@
         values: Object.fromEntries(
           [...hub.items, ...Object.keys(packThings)].map((item) => [
             item,
-            packDefinition(a.packId).values?.[id]?.[item] ?? a.values?.[item] ?? packDefinition(a.packId).values?.[id]?.[packThings[item]?.type] ?? a.values?.[packThings[item]?.type] ?? 1
+            packDefinition(a.packId).values?.[id]?.[item] ?? a.values?.[item] ?? 1
           ])
         )
       }
@@ -5090,7 +5000,7 @@
         return `${nameOf(actor)} speaks with ${nameOf(choice.subject)}${at}.`;
     }
   }
-  function rootOf2(world, id) {
+  function rootOf3(world, id) {
     let holder2 = world.items[id].holder;
     for (let step = 0; step < 32 && holder2 !== id; step++) {
       if (!world.items[holder2]) return holder2;
@@ -5106,7 +5016,7 @@
   }
   function entityLive(world, id, lockView) {
     if (world.items?.[id]) {
-      const holder2 = rootOf2(world, id);
+      const holder2 = rootOf3(world, id);
       if (!coordinateEntityActive(world, holder2)) return false;
       if (humanAvatar(holder2) && !humanPresent(world, holder2) && !residentAvatar(world, holder2))
         return false;
@@ -5193,15 +5103,10 @@
       return domains.includes(home) && domains.includes(target) && crossings.filter((c) => c.transport === id).every((c) => c.travelers === "any");
     });
   }
-  function choiceInput(world, item, offered, ready) {
-    const available = (id) => ready(id) && (id === item || entityActive(world, id));
-    if (offered && itemTypeMatches(item, offered) && available(offered)) return offered;
-    return itemCopies(item).find(available);
-  }
-  function choiceFeasible(world, pack, choice, actor, mode = null, turn = world.turn, offered = null) {
+  function choiceFeasible(world, pack, choice, actor, mode = null, turn = world.turn) {
     const atTurn = turn === world.turn ? world : { ...world, turn };
     const state = packState(world, pack.id);
-    if (!state || choice.archived || choice.humanOnly && !controlledByHuman(world, actor) || // A repeating give fires again once its output is used up (rules 95).
+    if (!state || choice.archived || // A repeating give fires again once its output is used up (rules 95).
     owns5(state.receipts, choice.id) && !choice.repeats || (choice.on ?? null) !== mode || choice.for !== void 0 && choice.for !== actor || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || // A hold choice follows its item wherever its holder stands.
     mode !== "hold" && world.actors[actor]?.place !== choice.at || !entityActive(atTurn, choice.at) || !entityActive(atTurn, choice.subject) || !journeyChoiceReady(world, pack, choice) || !conditionsMet(atTurn, pack.id, choice.requires, actor))
       return false;
@@ -5211,31 +5116,7 @@
     if (world.items[subject] && ![actor, choice.at].includes(world.items[subject].holder))
       return false;
     return choice.effects.every(
-      (e) => e.kind === "choose" ? !owns5(state.choices, e.key) : e.kind === "place_item" ? e.place === choice.at && Boolean(
-        choiceInput(
-          world,
-          e.item,
-          offered,
-          (id) => world.items[id]?.holder === actor && !usedUp(world, id)
-        )
-      ) : e.kind === "fetch_item" ? world.items[e.item]?.holder === e.from && entityActive(atTurn, e.item) : e.kind === "drop_item" ? usedUp(world, e.item) && !gone(world, e.item) : true
-    );
-  }
-  function packChoices(world, actor = "vale") {
-    if (!controlledByHuman(world, actor)) return [];
-    return packDefinitions.flatMap(
-      (pack) => (pack.choices || []).filter((c) => choiceFeasible(world, pack, c, actor)).map((c) => ({
-        kind: "choose",
-        actor,
-        item: null,
-        target: c.subject,
-        packId: pack.id,
-        choiceId: c.id,
-        label: c.label,
-        text: choiceText(c, actor),
-        key: `choose:${actor}:${pack.id}:${c.id}`,
-        cards: [c.subject]
-      }))
+      (e) => e.kind === "choose" ? !owns5(state.choices, e.key) : e.kind === "place_item" ? world.items[e.item]?.holder === actor && e.place === choice.at : e.kind === "drop_item" ? usedUp(world, e.item) : true
     );
   }
   function hidingPlace(world, choice, actor, placeIds2) {
@@ -5269,18 +5150,10 @@
     (r) => r.kind === "any" ? r.conditions.filter((c) => c.kind === "holding" && c.role === "actor") : r.kind === "holding" && r.role === "actor" ? [r] : []
   ).filter((slot) => slot.length).map((slot) => slot.map((r) => r.item));
   function packGiveChoice(world, action) {
-    if (world.items[action.item]?.holder !== action.actor) return null;
     for (const pack of packDefinitions)
       for (const c of pack.choices || [])
-        if (c.on === "give" && c.subject === action.target && heldSlots(c.requires).some(
-          (slot) => slot.some((id) => itemTypeMatches(id, action.item))
-        ) && choiceFeasible(world, pack, c, action.actor, "give", world.turn, action.item))
-          return {
-            packId: pack.id,
-            choiceId: c.id,
-            actor: action.actor,
-            item: action.item
-          };
+        if (c.on === "give" && c.subject === action.target && heldSlots(c.requires).some((slot) => slot.includes(action.item)) && choiceFeasible(world, pack, c, action.actor, "give"))
+          return { packId: pack.id, choiceId: c.id, actor: action.actor };
     return null;
   }
   var makerChoice = (subject, item) => packDefinitions.flatMap((pack) => pack.choices || []).find(
@@ -5357,31 +5230,24 @@
   function packTalkChoice(world, action, { turn = world.turn, topicId } = {}) {
     if (!controlledByHuman(world, action.actor)) return null;
     const atTurn = turn === world.turn ? world : { ...world, turn };
-    let response2 = null;
     for (const pack of packDefinitions)
       for (const c of pack.choices || []) {
         if (c.on !== "talk" || c.subject !== action.target || !choiceFeasible(atTurn, pack, c, action.actor, "talk"))
           continue;
         const choice = { packId: pack.id, choiceId: c.id, actor: action.actor };
         const topics = (pack.topics || []).filter((t) => t.choiceId === c.id);
-        if (topics.length || topicId !== void 0) {
-          const topic = topics.find(
-            (t) => (topicId === void 0 || t.id === topicId) && conditionsMet(atTurn, pack.id, t.requires, action.actor)
-          );
-          if (!topic) continue;
-          choice.topicId = topic.id;
-        }
-        if (c.effects.length) return choice;
-        response2 ??= choice;
+        if (!topics.length && topicId === void 0) return choice;
+        const topic = topics.find(
+          (t) => (topicId === void 0 || t.id === topicId) && conditionsMet(atTurn, pack.id, t.requires, action.actor)
+        );
+        if (topic) return { ...choice, topicId: topic.id };
       }
-    return response2;
+    return null;
   }
   function applyPackChoice(world, action, { mode = null, placeIds: placeIds2 = [], turn = world.turn } = {}) {
     const pack = packDefinition(action.packId), choice = pack?.choices?.find((c) => c.id === action.choiceId);
-    const offered = mode === "give" ? action.item : null;
-    if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode, turn, offered))
+    if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode, turn))
       throw new Error("That choice is no longer available.");
-    if (!choice.effects.length) return choice;
     const state = packState(world, pack.id);
     const note2 = (id) => {
       world.items[id].history.push(
@@ -5391,26 +5257,20 @@
     };
     for (const e of choice.effects) {
       if (e.kind === "retire_item") {
-        const id = choiceInput(
-          world,
-          e.item,
-          offered,
-          (id2) => world.items[id2] && !usedUp(world, id2) && [action.actor, choice.at].includes(rootOf2(world, id2))
-        );
-        if (!id) continue;
-        const thing = pack.items[id];
+        const root2 = rootOf3(world, e.item), thing = pack.items[e.item];
         if (!thing || e.forGood) {
-          useUpForGood(world, id, restForGood(id));
-        } else {
-          useUp(world, id, thing.holder);
+          if (root2 === action.actor || root2 === choice.at)
+            useUpForGood(world, e.item, restForGood(e.item));
+        } else if (root2 === action.actor || root2 === choice.at) {
+          useUp(world, e.item, thing.holder);
           if (thing.home && !thing.regrow && !thing.locked) {
             bringBack(
               world,
-              id,
+              e.item,
               e.waitAtHome || entityActive(world, thing.home) ? thing.home : thing.holder
             );
-            if (!e.waitAtHome && !entityEnabled(world, id))
-              useUp(world, id, thing.holder);
+            if (!e.waitAtHome && !entityEnabled(world, e.item))
+              useUp(world, e.item, thing.holder);
           }
         }
       }
@@ -5452,20 +5312,12 @@
       }
       if (e.kind === "choose") state.choices[e.key] = e.value;
       if (e.kind === "set_flag") state.flags[e.key] = e.value;
-      if (e.kind === "fetch_item") {
-        world.items[e.item].holder = choice.at;
-        note2(e.item);
-      }
       if (e.kind === "place_item") {
-        const id = choiceInput(
-          world,
-          e.item,
-          offered,
-          (id2) => world.items[id2]?.holder === action.actor && !usedUp(world, id2)
+        world.items[e.item].holder = e.place;
+        world.items[e.item].history.push(
+          choiceText(choice, action.actor).slice(0, 400)
         );
-        if (!id) continue;
-        world.items[id].holder = e.place;
-        note2(id);
+        world.items[e.item].history = world.items[e.item].history.slice(-12);
       }
     }
     state.receipts[choice.id] = world.turn;
@@ -5534,7 +5386,7 @@
       );
       for (const [id, turn] of events) {
         const c = pack.choices?.find((c2) => c2.id === id);
-        if (!c?.effects.length || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
+        if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
           (condition) => condition.kind === "met" && (!owns5(state.met, condition.actor) || state.met[condition.actor] >= turn)
         ))
           return `pack:${pack.id}:receipt:${id}`;
@@ -6737,7 +6589,7 @@
       value += rule.add;
     }
     const want = s.actors[actor]?.want;
-    if (matchesWantedItem(want, item)) value += 6;
+    if (want?.kind === "item" && want.target === item) value += 6;
     return Math.max(1, value) + attachmentValue(s, actor, item);
   }
   function bundleValue(s, actor, item) {
@@ -7427,295 +7279,6 @@
     );
   }
 
-  // v2/card-game/pack-items.mjs
-  var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
-  var packKits = packDefinitions.flatMap(
-    (pack) => (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id }))
-  );
-  var reservedItem = (s, id) => {
-    const thing = packThings[id];
-    return Boolean(thing?.reservedUntil?.length && !conditionsMet(s, thing.packId, thing.reservedUntil));
-  };
-  function rootOf3(s, id) {
-    let holder2 = s.items[id].holder;
-    for (let i = 0; i < 32 && s.items[holder2]; i++)
-      holder2 = s.items[holder2].holder;
-    return holder2;
-  }
-  var the = (name) => /^(the|a|an) /iu.test(name) ? name : `the ${name}`;
-  var capital = (text2) => text2[0].toUpperCase() + text2.slice(1);
-  var note = (s, id, text2) => {
-    s.items[id].history = [
-      ...s.items[id].history,
-      `Turn ${s.turn}: ${text2}`
-    ].slice(-12);
-  };
-  function tryBack(s, id, holder2) {
-    if (gone(s, id)) return false;
-    bringBack(s, id, holder2);
-    if (entityEnabled(s, id) || packThings[id].sealed && entityShown(s, id))
-      return true;
-    s.items[id].holder = packThings[id].holder;
-    s.usedUp = [...s.usedUp, id].sort();
-    return false;
-  }
-  var restOf2 = (id) => packThings[id].home ?? packThings[id].holder;
-  function consume(s, id) {
-    const thing = packThings[id];
-    useUp(s, id, restOf2(id));
-    if (!thing.locked && !thing.regrow && thing.home) tryBack(s, id, thing.home);
-  }
-  var lockedThings = Object.keys(packThings).filter((id) => packThings[id].locked).sort();
-  function craftSupplies(s, id, offered) {
-    const { home, locked } = packThings[id];
-    const slots = locked.consumes.map((expected) => {
-      const copies = itemCopies(expected).filter(
-        (copy) => s.items[copy] && itemTypeMatches(expected, copy) && entityActive(s, copy)
-      );
-      const ready = copies.filter(
-        (copy) => [locked.by, home].includes(rootOf3(s, copy))
-      );
-      return { expected, copies, ready };
-    });
-    const used = /* @__PURE__ */ new Set();
-    for (const slot of [...slots].sort(
-      (a, b) => itemCopies(a.expected).length - itemCopies(b.expected).length
-    )) {
-      slot.selected = slot.ready.includes(offered) && !used.has(offered) ? offered : slot.ready.find((copy) => !used.has(copy));
-      if (slot.selected) used.add(slot.selected);
-    }
-    return slots;
-  }
-  function settleCrafting(s, a, nameOf3, log) {
-    for (const id of lockedThings) {
-      const { home, locked } = packThings[id], maker = s.actors[locked.by];
-      if (!usedUp(s, id) || !maker || maker.place !== home) continue;
-      const handed = (["give", "trade"].includes(a.kind) && a.target === locked.by || a.kind === "drop" && a.target === home) && locked.consumes.some((expected) => itemTypeMatches(expected, a.item));
-      if (!handed || !entityActive(s, locked.by)) continue;
-      const consumedIds = craftSupplies(s, id, a.item).map(
-        (slot) => slot.selected
-      );
-      if (consumedIds.some((copy) => !copy) || !consumedIds.includes(a.item) || !tryBack(s, id, home))
-        continue;
-      for (const copy of consumedIds) consume(s, copy);
-      const used = consumedIds.map((copy) => the(nameOf3(copy)));
-      log(
-        `${nameOf3(locked.by)} uses ${used.slice(0, -1).join(", ")}${used.length > 1 ? " and " : ""}${used.at(-1)}. ${capital(the(nameOf3(id)))} is ready.`,
-        home,
-        {
-          actorId: locked.by,
-          itemId: id,
-          consumedIds,
-          holderId: s.items[id].holder
-        }
-      );
-    }
-  }
-  var sealedIds = () => Object.keys(packThings).filter((id) => packThings[id].sealed).sort();
-  function settleSealedItems(s, nameOf3, log) {
-    for (const id of sealedIds()) {
-      if (usedUp(s, id) || entityEnabled(s, id) || !entityShown(s, id)) continue;
-      const rest2 = restOf2(id);
-      if (s.items[id].holder === rest2) continue;
-      const root2 = rootOf3(s, id);
-      const where = s.actors[root2]?.place ?? root2;
-      sendHome(s, id, rest2);
-      log(
-        `${capital(the(nameOf3(id)))} goes back to ${the(nameOf3(rest2))} and is sealed again.`,
-        where
-      );
-    }
-  }
-  function validCraftEvent(s, event) {
-    if (event.verb !== "craft") return event.consumedIds === void 0;
-    const { consumedIds, sourceSeq } = event;
-    if (event.kind !== "narration" || event.generated || !Object.hasOwn(s.actors, event.actorId) || !Object.hasOwn(s.items, event.itemId) || !Number.isSafeInteger(event.seq) || !Number.isSafeInteger(event.turn) || event.turn < 0 || event.turn > s.turn || !Number.isSafeInteger(sourceSeq) || sourceSeq < 1 || sourceSeq >= event.seq || !Array.isArray(consumedIds) || consumedIds.length < 1 || consumedIds.length > 3 || consumedIds.some((id, i) => !Object.hasOwn(s.items, id) || id === event.itemId || consumedIds.indexOf(id) !== i) || !Array.isArray(event.witnesses) || !event.witnesses.includes(event.actorId))
-      return false;
-    const source = s.log.find((entry) => entry.seq === sourceSeq);
-    return !source || source.kind === "action" && source.turn === event.turn && ["give", "trade", "drop"].includes(source.verb) && (source.verb === "drop" || source.accepted === true) && consumedIds.includes(source.itemId) && source.targetId === (source.verb === "drop" ? event.locationId : event.actorId);
-  }
-  function itemEvents(s) {
-    const events = [];
-    if (s.turn > 0 && s.turn % DAYLIGHT_TURNS === 0)
-      events.push(Math.floor(s.turn / DAYLIGHT_TURNS) % 2 ? "dusk" : "dawn");
-    if ((s.log || []).some((e) => e.turn === s.turn && e.rest === "long"))
-      events.push("rest");
-    return events;
-  }
-  function cargo(s, t, conditions) {
-    const out = [];
-    for (const c of conditions) {
-      if (["item_present", "item_at"].includes(c.kind) && c.place === t.place) {
-        const id = presentStock(s, c);
-        if (packThings[id]) out.push(id);
-      }
-      if (["pack_item_present", "home_item_present"].includes(c.kind) && c.place === t.place) {
-        const id = Object.keys(packThings).sort().find((id2) => {
-          if (!(c.pack ? packThings[id2].packId === c.pack : restForGood(id2) === c.home) || !entityActive(s, id2)) return false;
-          const root2 = rootOf3(s, id2);
-          return (s.actors[root2]?.place ?? root2) === c.place;
-        });
-        if (id) out.push(id);
-      }
-      if (c.kind === "any")
-        for (const option of c.conditions) {
-          const found = cargo(s, t, [option]);
-          if (found.length) {
-            out.push(...found);
-            break;
-          }
-        }
-    }
-    return [...new Set(out)];
-  }
-  var returnVoyage = (t, from, to) => !laneBetween(t, from, to)?.opensWith && (t.lanes || []).some(
-    (lane) => lane.spends && lane.from === to && lane.to === from
-  );
-  function settleVoyageCargo(s, voyages, nameOf3, log) {
-    for (const v of voyages) {
-      const t = transports[v.id];
-      if (v.kind === "arrive" && laneBetween(t, v.from, v.dock)?.spends)
-        for (const id of cargo(s, t, laneBetween(t, v.from, v.dock).opensWith)) {
-          if (!packThings[id].home) continue;
-          useUp(s, id, packThings[id].holder);
-          log(`The voyage uses up ${the(nameOf3(id))}.`, t.place);
-        }
-      if (v.kind === "sail" && returnVoyage(t, v.from, v.to)) {
-        for (const id of homed)
-          if (!usedUp(s, id) && s.items[id].holder === t.place) {
-            const text2 = `${capital(the(nameOf3(t.place)))} leaves ${the(nameOf3(id))} at ${nameOf3(v.from)}.`;
-            s.items[id].holder = v.from;
-            note(s, id, text2);
-            log(text2, v.from);
-          }
-      }
-    }
-  }
-  var sought = (s, holder2, id) => awayAvatar(s, holder2) && [s.actors[holder2].want, ...s.actors[holder2].under || []].some(
-    (w) => w && (w.target === id || w.step?.items?.includes(id))
-  );
-  var absentHolder = (s, holder2, id) => humanAvatar(holder2) && !humanPresent(s, holder2) && !sought(s, holder2, id);
-  var heldByAbsent = (s, id) => packThings[id].absentReturn && absentHolder(s, rootOf3(s, id), id);
-  function settleItemCycle(s, nameOf3, log) {
-    const events = itemEvents(s);
-    if (!events.length) return;
-    for (const id of homed) {
-      const { home, regrow } = packThings[id];
-      if (!usedUp(s, id) || !events.includes(regrow) || !entityActive(s, home))
-        continue;
-      if (tryBack(s, id, home))
-        log(`${capital(the(nameOf3(home)))} has ${the(nameOf3(id))} again.`, home);
-    }
-    if (events.includes("dawn")) {
-      for (const [id, thing] of Object.entries(packThings)) {
-        const to = thing.recoverTo;
-        if (!to || usedUp(s, id) || !entityEnabled(s, id) || !entityActive(s, to)) continue;
-        const holder2 = rootOf3(s, id);
-        const absent = absentHolder(s, holder2, id);
-        const present2 = s.actors[holder2] || packPlaces[holder2] || hub.places.includes(holder2);
-        if (holder2 === to || !absent && present2 && entityActive(s, holder2)) continue;
-        s.items[id].holder = to;
-        const text2 = `${capital(the(nameOf3(to)))} has ${the(nameOf3(id))} back.`;
-        note(s, id, text2);
-        log(text2, to);
-      }
-      for (const id of homed) {
-        const home = packThings[id].home;
-        if (usedUp(s, id) || !entityActive(s, home) || !heldByAbsent(s, id))
-          continue;
-        const text2 = `${capital(the(nameOf3(home)))} has ${the(nameOf3(id))} back.`;
-        s.items[id].holder = home;
-        note(s, id, text2);
-        log(text2, home);
-      }
-    }
-    for (const kit of packKits) scatterKit(s, kit, events, nameOf3, log);
-  }
-  function scatterKit(s, kit, events, nameOf3, log) {
-    if (!events.includes(kit.on) || !conditionsMet(s, kit.packId, kit.requires || []) || !kit.items.every(
-      (id) => !usedUp(s, id) && s.items[id].holder === packThings[id].home
-    ))
-      return;
-    const places2 = kit.places.filter((id) => entityActive(s, id)).sort();
-    if (!places2.length) return;
-    const count = s.scatters?.[kit.id] ?? 0;
-    let left = places2;
-    for (const id of [...kit.items].sort()) {
-      const home = packThings[id].home;
-      if (!left.some((p) => p !== home)) left = places2;
-      const choices = left.filter((p) => p !== home);
-      if (!choices.length) continue;
-      const to = choices[runHash(s, `kit:${kit.id}:${count}:${s.turn}:${id}`) % choices.length];
-      left = left.filter((p) => p !== to);
-      const text2 = `${capital(the(nameOf3(home)))} no longer has ${the(nameOf3(id))}.`;
-      s.items[id].holder = to;
-      note(s, id, text2);
-      log(text2, home);
-    }
-    s.scatters = { ...s.scatters || {}, [kit.id]: count + 1 };
-  }
-  var scatteredItems = Object.keys(packThings).filter((id) => packThings[id].scatterOutside).sort();
-  function scatterOutside(s) {
-    if (!s.run) return;
-    const groups = [
-      { id: "hub", places: hub.places },
-      ...packDefinitions.filter((p) => hub.packEntries[p.id]).map((p) => ({ id: p.id, places: [p.entry] }))
-    ];
-    const used = /* @__PURE__ */ new Map();
-    const pending = [];
-    for (const id of scatteredItems) {
-      const thing = packThings[id], item = s.items[id];
-      if (!item) continue;
-      const taken = used.get(thing.packId) || /* @__PURE__ */ new Set();
-      used.set(thing.packId, taken);
-      if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
-        taken.add(packIdOf(rootOf3(s, id)));
-        continue;
-      }
-      const authored = Array.isArray(thing.scatterOutside) ? thing.scatterOutside : null;
-      const candidates2 = groups.filter((g) => g.id !== thing.packId).map((g) => ({
-        ...g,
-        places: (authored || g.places).filter(
-          (p) => packIdOf(p) === g.id && entityActive(s, p) && !packPlaces[p]?.requires?.length
-        )
-      })).filter((g) => g.places.length);
-      if (candidates2.length) pending.push({ id, item, candidates: candidates2, taken });
-    }
-    pending.sort((a, b) => a.candidates.length - b.candidates.length);
-    for (const { id, item, candidates: candidates2, taken } of pending) {
-      const fresh = candidates2.filter((g) => !taken.has(g.id));
-      const choices = fresh.length ? fresh : candidates2;
-      const group = choices[runHash(s, `scatter-world:${packThings[id].packId}:${id}`) % choices.length];
-      item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
-      taken.add(group.id);
-      note(s, id, "Waiting beyond its home world.");
-    }
-  }
-  function installItemCycle(s, added = []) {
-    const starts = (id) => packThings[id]?.startsUsed === true && s.items[id]?.holder === packThings[id].holder && !s.items[id].history.length;
-    const fresh = Array.isArray(s.usedUp) ? added : Object.keys(s.items);
-    s.usedUp = [
-      .../* @__PURE__ */ new Set([...s.usedUp || [], ...fresh.filter(starts)])
-    ].sort();
-    if (s.gone !== void 0) {
-      s.gone = Array.isArray(s.gone) ? [...new Set(s.gone)].filter((id) => s.usedUp.includes(id)).sort() : [];
-      if (!s.gone.length) delete s.gone;
-    }
-    scatterOutside(s);
-  }
-  var whole4 = (n) => Number.isSafeInteger(n) && n > 0;
-  var validItemCycle = (s) => Array.isArray(s.usedUp) && s.usedUp.every(
-    (id, i) => (!i || s.usedUp[i - 1] < id) && (packThings[id] ? [
-      packThings[id].holder,
-      restOf2(id),
-      ...gone(s, id) ? [restForGood(id)] : []
-    ].includes(s.items[id]?.holder) : gone(s, id) && s.items[id]?.holder === restForGood(id)) && s.items[id].history.length === 0
-  ) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
-    ([id, n]) => packKits.some((kit) => kit.id === id) && whole4(n)
-  )) && (s.gone === void 0 || Array.isArray(s.gone) && s.gone.length > 0 && s.gone.every(
-    (id, i) => s.usedUp.includes(id) && (!i || s.gone[i - 1] < id)
-  ));
-
   // v2/card-game/world/senses.mjs
   var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
     (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
@@ -8057,20 +7620,12 @@
     return null;
   }
   function craftedGoal(s, id, actor) {
-    const { by } = packThings[id].locked, home = packThings[id].home;
-    const supplies = craftSupplies(s, id);
-    const missing = supplies.filter((slot) => !slot.selected);
-    if (!missing.length) return null;
-    const selected = new Set(supplies.map((slot) => slot.selected));
-    const held = missing.flatMap((slot) => slot.copies).find((copy) => !selected.has(copy) && rootHolder(s, copy) === actor);
+    const { by, consumes } = packThings[id].locked, home = packThings[id].home;
+    const held = consumes.find((c) => rootHolder(s, c) === actor);
     if (held)
       return { kind: "item", target: held, step: { verb: "give", to: by } };
-    const { copies, expected } = missing[0];
-    return {
-      kind: "item",
-      target: copies.find((copy) => !selected.has(copy)) ?? expected,
-      step: { verb: "bring", at: home }
-    };
+    const missing = consumes.find((c) => ![by, home].includes(rootHolder(s, c)));
+    return missing ? { kind: "item", target: missing, step: { verb: "bring", at: home } } : null;
   }
   var questGoal = ({ kind, target, to }) => ({
     kind,
@@ -8266,13 +7821,274 @@
     );
   }
 
+  // v2/card-game/pack-items.mjs
+  var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
+  var packKits = packDefinitions.flatMap(
+    (pack) => (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id }))
+  );
+  var reservedItem = (s, id) => {
+    const thing = packThings[id];
+    return Boolean(thing?.reservedUntil?.length && !conditionsMet(s, thing.packId, thing.reservedUntil));
+  };
+  function rootOf4(s, id) {
+    let holder2 = s.items[id].holder;
+    for (let i = 0; i < 32 && s.items[holder2]; i++)
+      holder2 = s.items[holder2].holder;
+    return holder2;
+  }
+  var the = (name) => /^(the|a|an) /iu.test(name) ? name : `the ${name}`;
+  var capital = (text2) => text2[0].toUpperCase() + text2.slice(1);
+  var note = (s, id, text2) => {
+    s.items[id].history = [
+      ...s.items[id].history,
+      `Turn ${s.turn}: ${text2}`
+    ].slice(-12);
+  };
+  function tryBack(s, id, holder2) {
+    if (gone(s, id)) return false;
+    bringBack(s, id, holder2);
+    if (entityEnabled(s, id) || packThings[id].sealed && entityShown(s, id))
+      return true;
+    s.items[id].holder = packThings[id].holder;
+    s.usedUp = [...s.usedUp, id].sort();
+    return false;
+  }
+  var restOf2 = (id) => packThings[id].home ?? packThings[id].holder;
+  function consume(s, id) {
+    const thing = packThings[id];
+    useUp(s, id, restOf2(id));
+    if (!thing.locked && thing.home) tryBack(s, id, thing.home);
+  }
+  var lockedThings = Object.keys(packThings).filter((id) => packThings[id].locked).sort();
+  function settleCrafting(s, a, nameOf3, log) {
+    for (const id of lockedThings) {
+      const { home, locked } = packThings[id], maker = s.actors[locked.by];
+      if (!usedUp(s, id) || !maker || maker.place !== home) continue;
+      const handed = locked.consumes.includes(a.item) && (["give", "trade"].includes(a.kind) && a.target === locked.by || a.kind === "drop" && a.target === home);
+      if (!handed) continue;
+      const ready = entityActive(s, locked.by) && locked.consumes.every(
+        (c) => entityActive(s, c) && [locked.by, home].includes(rootOf4(s, c))
+      );
+      if (!ready || !tryBack(s, id, home)) continue;
+      for (const c of locked.consumes) consume(s, c);
+      const used = locked.consumes.map((c) => the(nameOf3(c)));
+      log(
+        `${nameOf3(locked.by)} uses ${used.slice(0, -1).join(", ")}${used.length > 1 ? " and " : ""}${used.at(-1)}. ${capital(the(nameOf3(id)))} is ready.`,
+        home,
+        {
+          actorId: locked.by,
+          itemId: id,
+          consumedIds: [...locked.consumes],
+          holderId: s.items[id].holder
+        }
+      );
+    }
+  }
+  var sealedIds = () => Object.keys(packThings).filter((id) => packThings[id].sealed).sort();
+  function settleSealedItems(s, nameOf3, log) {
+    for (const id of sealedIds()) {
+      if (usedUp(s, id) || entityEnabled(s, id) || !entityShown(s, id)) continue;
+      const rest2 = restOf2(id);
+      if (s.items[id].holder === rest2) continue;
+      const root2 = rootOf4(s, id);
+      const where = s.actors[root2]?.place ?? root2;
+      sendHome(s, id, rest2);
+      log(
+        `${capital(the(nameOf3(id)))} goes back to ${the(nameOf3(rest2))} and is sealed again.`,
+        where
+      );
+    }
+  }
+  function validCraftEvent(s, event) {
+    if (event.verb !== "craft") return event.consumedIds === void 0;
+    const { consumedIds, sourceSeq } = event;
+    if (event.kind !== "narration" || event.generated || !Object.hasOwn(s.actors, event.actorId) || !Object.hasOwn(s.items, event.itemId) || !Number.isSafeInteger(event.seq) || !Number.isSafeInteger(event.turn) || event.turn < 0 || event.turn > s.turn || !Number.isSafeInteger(sourceSeq) || sourceSeq < 1 || sourceSeq >= event.seq || !Array.isArray(consumedIds) || consumedIds.length < 1 || consumedIds.length > 3 || consumedIds.some((id, i) => !Object.hasOwn(s.items, id) || id === event.itemId || consumedIds.indexOf(id) !== i) || !Array.isArray(event.witnesses) || !event.witnesses.includes(event.actorId))
+      return false;
+    const source = s.log.find((entry) => entry.seq === sourceSeq);
+    return !source || source.kind === "action" && source.turn === event.turn && ["give", "trade", "drop"].includes(source.verb) && (source.verb === "drop" || source.accepted === true) && consumedIds.includes(source.itemId) && source.targetId === (source.verb === "drop" ? event.locationId : event.actorId);
+  }
+  function itemEvents(s) {
+    const events = [];
+    if (s.turn > 0 && s.turn % DAYLIGHT_TURNS === 0)
+      events.push(Math.floor(s.turn / DAYLIGHT_TURNS) % 2 ? "dusk" : "dawn");
+    if ((s.log || []).some((e) => e.turn === s.turn && e.rest === "long"))
+      events.push("rest");
+    return events;
+  }
+  function cargo(s, t, conditions) {
+    const out = [];
+    for (const c of conditions) {
+      if (["item_present", "item_at"].includes(c.kind) && c.place === t.place) {
+        if (packThings[c.item] && conditionMet(s, c, null, t.packId))
+          out.push(c.item);
+      }
+      if (["pack_item_present", "home_item_present"].includes(c.kind) && c.place === t.place) {
+        const id = Object.keys(packThings).sort().find(
+          (id2) => (c.pack ? packThings[id2].packId === c.pack : restForGood(id2) === c.home) && entityActive(s, id2) && conditionMet(s, { kind: "item_present", item: id2, place: c.place })
+        );
+        if (id) out.push(id);
+      }
+      if (c.kind === "any")
+        for (const option of c.conditions) {
+          const found = cargo(s, t, [option]);
+          if (found.length) {
+            out.push(...found);
+            break;
+          }
+        }
+    }
+    return [...new Set(out)];
+  }
+  var returnVoyage = (t, from, to) => !laneBetween(t, from, to)?.opensWith && (t.lanes || []).some(
+    (lane) => lane.spends && lane.from === to && lane.to === from
+  );
+  function settleVoyageCargo(s, voyages, nameOf3, log) {
+    for (const v of voyages) {
+      const t = transports[v.id];
+      if (v.kind === "arrive" && laneBetween(t, v.from, v.dock)?.spends)
+        for (const id of cargo(s, t, laneBetween(t, v.from, v.dock).opensWith)) {
+          if (!packThings[id].home) continue;
+          useUp(s, id, packThings[id].holder);
+          log(`The voyage uses up ${the(nameOf3(id))}.`, t.place);
+        }
+      if (v.kind === "sail" && returnVoyage(t, v.from, v.to)) {
+        for (const id of homed)
+          if (!usedUp(s, id) && s.items[id].holder === t.place) {
+            const text2 = `${capital(the(nameOf3(t.place)))} leaves ${the(nameOf3(id))} at ${nameOf3(v.from)}.`;
+            s.items[id].holder = v.from;
+            note(s, id, text2);
+            log(text2, v.from);
+          }
+      }
+    }
+  }
+  var sought = (s, holder2, id) => awayAvatar(s, holder2) && [s.actors[holder2].want, ...s.actors[holder2].under || []].some(
+    (w) => w && (w.target === id || w.step?.items?.includes(id))
+  );
+  var absentHolder = (s, holder2, id) => humanAvatar(holder2) && !humanPresent(s, holder2) && !sought(s, holder2, id);
+  var heldByAbsent = (s, id) => packThings[id].absentReturn && absentHolder(s, rootOf4(s, id), id);
+  function settleItemCycle(s, nameOf3, log) {
+    const events = itemEvents(s);
+    if (!events.length) return;
+    for (const id of homed) {
+      const { home, regrow } = packThings[id];
+      if (!usedUp(s, id) || !events.includes(regrow) || !entityActive(s, home))
+        continue;
+      if (tryBack(s, id, home))
+        log(`${capital(the(nameOf3(home)))} has ${the(nameOf3(id))} again.`, home);
+    }
+    if (events.includes("dawn")) {
+      for (const [id, thing] of Object.entries(packThings)) {
+        const to = thing.recoverTo;
+        if (!to || usedUp(s, id) || !entityEnabled(s, id) || !entityActive(s, to)) continue;
+        const holder2 = rootOf4(s, id);
+        const absent = absentHolder(s, holder2, id);
+        const present2 = s.actors[holder2] || packPlaces[holder2] || hub.places.includes(holder2);
+        if (holder2 === to || !absent && present2 && entityActive(s, holder2)) continue;
+        s.items[id].holder = to;
+        const text2 = `${capital(the(nameOf3(to)))} has ${the(nameOf3(id))} back.`;
+        note(s, id, text2);
+        log(text2, to);
+      }
+      for (const id of homed) {
+        const home = packThings[id].home;
+        if (usedUp(s, id) || !entityActive(s, home) || !heldByAbsent(s, id))
+          continue;
+        const text2 = `${capital(the(nameOf3(home)))} has ${the(nameOf3(id))} back.`;
+        s.items[id].holder = home;
+        note(s, id, text2);
+        log(text2, home);
+      }
+    }
+    for (const kit of packKits) scatterKit(s, kit, events, nameOf3, log);
+  }
+  function scatterKit(s, kit, events, nameOf3, log) {
+    if (!events.includes(kit.on) || !conditionsMet(s, kit.packId, kit.requires || []) || !kit.items.every(
+      (id) => !usedUp(s, id) && s.items[id].holder === packThings[id].home
+    ))
+      return;
+    const places2 = kit.places.filter((id) => entityActive(s, id)).sort();
+    if (!places2.length) return;
+    const count = s.scatters?.[kit.id] ?? 0;
+    let left = places2;
+    for (const id of [...kit.items].sort()) {
+      const home = packThings[id].home;
+      if (!left.some((p) => p !== home)) left = places2;
+      const choices = left.filter((p) => p !== home);
+      if (!choices.length) continue;
+      const to = choices[runHash(s, `kit:${kit.id}:${count}:${s.turn}:${id}`) % choices.length];
+      left = left.filter((p) => p !== to);
+      const text2 = `${capital(the(nameOf3(home)))} no longer has ${the(nameOf3(id))}.`;
+      s.items[id].holder = to;
+      note(s, id, text2);
+      log(text2, home);
+    }
+    s.scatters = { ...s.scatters || {}, [kit.id]: count + 1 };
+  }
+  var scatteredItems = Object.keys(packThings).filter((id) => packThings[id].scatterOutside).sort();
+  function scatterOutside(s) {
+    if (!s.run) return;
+    const groups = [
+      { id: "hub", places: hub.places },
+      ...packDefinitions.filter((p) => hub.packEntries[p.id]).map((p) => ({ id: p.id, places: [p.entry] }))
+    ];
+    const used = /* @__PURE__ */ new Map();
+    const pending = [];
+    for (const id of scatteredItems) {
+      const thing = packThings[id], item = s.items[id];
+      if (!item) continue;
+      const taken = used.get(thing.packId) || /* @__PURE__ */ new Set();
+      used.set(thing.packId, taken);
+      if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
+        taken.add(packIdOf(rootOf4(s, id)));
+        continue;
+      }
+      const authored = Array.isArray(thing.scatterOutside) ? thing.scatterOutside : null;
+      const candidates2 = groups.filter((g) => g.id !== thing.packId).map((g) => ({
+        ...g,
+        places: (authored || g.places).filter(
+          (p) => packIdOf(p) === g.id && entityActive(s, p) && !packPlaces[p]?.requires?.length
+        )
+      })).filter((g) => g.places.length);
+      if (candidates2.length) pending.push({ id, item, candidates: candidates2, taken });
+    }
+    pending.sort((a, b) => a.candidates.length - b.candidates.length);
+    for (const { id, item, candidates: candidates2, taken } of pending) {
+      const fresh = candidates2.filter((g) => !taken.has(g.id));
+      const choices = fresh.length ? fresh : candidates2;
+      const group = choices[runHash(s, `scatter-world:${packThings[id].packId}:${id}`) % choices.length];
+      item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
+      taken.add(group.id);
+      note(s, id, "Waiting beyond its home world.");
+    }
+  }
+  function installItemCycle(s, added = []) {
+    const starts = (id) => packThings[id]?.startsUsed === true && s.items[id]?.holder === packThings[id].holder && !s.items[id].history.length;
+    const fresh = Array.isArray(s.usedUp) ? added : Object.keys(s.items);
+    s.usedUp = [
+      .../* @__PURE__ */ new Set([...s.usedUp || [], ...fresh.filter(starts)])
+    ].sort();
+    if (s.gone !== void 0) {
+      s.gone = Array.isArray(s.gone) ? [...new Set(s.gone)].filter((id) => s.usedUp.includes(id)).sort() : [];
+      if (!s.gone.length) delete s.gone;
+    }
+    scatterOutside(s);
+  }
+  var whole4 = (n) => Number.isSafeInteger(n) && n > 0;
+  var validItemCycle = (s) => Array.isArray(s.usedUp) && s.usedUp.every(
+    (id, i) => (!i || s.usedUp[i - 1] < id) && (packThings[id] ? [
+      packThings[id].holder,
+      restOf2(id),
+      ...gone(s, id) ? [restForGood(id)] : []
+    ].includes(s.items[id]?.holder) : gone(s, id) && s.items[id]?.holder === restForGood(id)) && s.items[id].history.length === 0
+  ) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
+    ([id, n]) => packKits.some((kit) => kit.id === id) && whole4(n)
+  )) && (s.gone === void 0 || Array.isArray(s.gone) && s.gone.length > 0 && s.gone.every(
+    (id, i) => s.usedUp.includes(id) && (!i || s.gone[i - 1] < id)
+  ));
+
   // v2/card-game/legacy-saves.mjs
   var SAVE_SCHEMA = 8;
-  function canBackfillPackResidents(pack, previous) {
-    if (!(previous.revision < pack.revision)) return false;
-    if (pack.id === ELYSIUM_PACK) return true;
-    return pack.id === "greek-drama" && Number.isSafeInteger(previous.revision) && previous.revision > 0;
-  }
   function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
     if (!s || s.schema !== SAVE_SCHEMA)
       throw new Error("This save needs a fresh start.");
@@ -8289,32 +8105,9 @@
       delete a?.actedAt;
     }
     installPacks2(s);
-    const greekRevision = s.packs?.["greek-drama"]?.revision;
-    if (reworked.has("greek-drama")) {
-      const restore = greekRevision < 43 ? releaseGreekStaples(s) : [];
-      if (greekRevision < 41) {
-        reconcileSingletonStock(s, "greek-bread");
-        postGreekRecords(s);
-      }
-      if (greekRevision < 42) reconcileSingletonStock(s, "greek-figs");
-      if (greekRevision < 43) {
-        reconcileGreekHoney(s);
-        retainGreekResponseHistory(s);
-      }
-      for (const id of restore) {
-        const item = packEntity(id);
-        if (!item.locked && usedUp(s, id)) bringBack(s, id, item.holder);
-      }
-    }
     reconcileContent(s);
     upgradeSubjectMemories(s);
     reconcilePackProgress(s, reworked);
-    if (reworked.has("greek-drama")) {
-      if (greekRevision < 37) reconcileGreekShips(s);
-      if (greekRevision < 38 && packEntity("greek-road-north")?.retired)
-        reconcileNorthernRoad(s);
-      if (greekRevision < 43) reconcileGreekClaims(s);
-    }
     if (reworked.has("elysium")) settleStrandedWayfinder(s);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
       if (fact?.source?.kind !== "lane") continue;
@@ -8328,210 +8121,6 @@
       if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
     installQuestFacts(s);
     return s;
-  }
-  function releaseGreekStaples(s) {
-    if (!Array.isArray(s.gone)) return [];
-    const restored = s.gone.filter((id) => {
-      const item = packEntity(id);
-      return s.items?.[id] && item?.packId === "greek-drama" && item.tags?.includes("staple");
-    });
-    if (restored.length) s.gone = s.gone.filter((id) => !restored.includes(id));
-    return restored;
-  }
-  function reconcileSingletonStock(s, staple) {
-    if (!s.items?.[staple] || !usedUp(s, staple) || gone(s, staple)) return;
-    const pack = packDefinitions.find(({ id }) => id === "greek-drama");
-    const carried2 = (pack.choices || []).filter(
-      (choice) => choice.id.endsWith("-supply") && choice.effects.some((effect) => effect.kind === "drop_item" && effect.item === staple) && conditionsMet(s, pack.id, choice.requires)
-    ).map(({ id }) => id.slice(0, -"-supply".length)).filter((id) => s.actors[s.items[id]?.holder] && !usedUp(s, id) && !gone(s, id)).sort();
-    const actors2 = [.../* @__PURE__ */ new Set([...humanAvatarIds, ...Object.keys(s.actors).sort()])];
-    for (const actor of actors2) {
-      const candidates2 = carried2.filter((id2) => s.items[id2].holder === actor);
-      if (!candidates2.length) continue;
-      const selected = s.actors[actor].heldItem;
-      const id = candidates2.includes(selected) ? selected : candidates2[0];
-      bringBack(s, staple, actor);
-      s.items[staple].history = s.items[id].history;
-      if (selected === id) s.actors[actor].heldItem = staple;
-      break;
-    }
-  }
-  function reconcileGreekHoney(s) {
-    const honey = "greek-antigone-grave-honey";
-    const former = s.items?.[honey];
-    if (former?.holder === "greek-polynices-hollow" && !former.history.length && !s.packs["greek-drama"].flags["greek-burial-performed"]) {
-      useUp(s, honey, packEntity(honey).holder);
-    }
-    reconcileSingletonStock(s, honey);
-  }
-  function retainGreekResponseHistory(s) {
-    const pack = packDefinitions.find(({ id }) => id === "greek-drama");
-    const receipts = s.packs[pack.id].receipts ?? {};
-    const outcomes = (pack.choices || []).filter(
-      (choice) => !choice.on && choice.workId && /-(?:first|second)-answer$/u.test(choice.id) && Object.hasOwn(receipts, choice.id)
-    );
-    for (const choice of outcomes) {
-      const former = choice.id.replace(/-(?:first|second)-answer$/u, "-object");
-      const entry = s.log?.find((entry2) => entry2.verb === "give" && entry2.accepted === true && entry2.itemId === former && entry2.targetId === choice.subject && entry2.turn === receipts[choice.id]);
-      if (!entry) continue;
-      entry.kind = "narration";
-      delete entry.verb;
-      delete entry.itemId;
-      delete entry.accepted;
-      delete entry.gone;
-    }
-    for (const [receipt, token] of [
-      ["greek-acharnae-accept-private-order", "greek-acharnae-household-bond"],
-      ["greek-helen-troy-shelter", "greek-troy-testimony"]
-    ]) {
-      const choice = pack.choices.find(({ id }) => id === receipt);
-      if (!choice || !Object.hasOwn(receipts, receipt)) continue;
-      const payment = s.log?.find((entry) => entry.verb === "give" && entry.accepted === true && entry.itemId === token && entry.targetId === choice.subject && entry.turn === receipts[receipt]);
-      const trust = s.actors[choice.subject]?.trust;
-      if (trust && humanAvatarIds.includes(payment?.actorId))
-        trust[payment.actorId] = Math.max(trust[payment.actorId] ?? 0, 2);
-    }
-  }
-  var mergedGreekClaims = [
-    ["greek-troezen-witness-tablet:account", "greek-story-euripides-hippolytus-record:greek-story-euripides-hippolytus-first-answer"],
-    ["greek-troezen-expulsion-writ:account", "greek-story-euripides-hippolytus-record:greek-story-euripides-hippolytus-second-answer"],
-    ["greek-farmhouse-hearing-writ:account", "greek-farm-testimony:greek-atreid-euripides-hearing"],
-    ["greek-trojan-kin-roll-copy:greek-story-euripides-trojan-women-first-answer", "greek-story-euripides-trojan-women-record:greek-story-euripides-trojan-women-first-answer"],
-    ["greek-tauris-release-tablet:greek-story-euripides-tauris-first-answer", "greek-story-euripides-tauris-record:greek-story-euripides-tauris-first-answer"],
-    ["greek-helen-troy-return-tally:greek-helen-troy-passage", "greek-troy-testimony:greek-helen-troy-passage"],
-    ["greek-areopagus-acquittal-counterseal:acquittal", "greek-story-aeschylus-eumenides-record:greek-story-aeschylus-eumenides-first-answer"],
-    ["greek-delphi-witness-tablet:account", "greek-story-euripides-ion-record:greek-story-euripides-ion-first-answer"],
-    ["greek-argos-herald-vote-tablet:account", "greek-story-euripides-orestes-record:greek-story-euripides-orestes-first-answer"],
-    ["greek-theban-messenger-pledge:account", "greek-story-euripides-heracles-record:greek-story-euripides-heracles-second-answer"]
-  ];
-  function reconcileGreekClaims(s) {
-    const k = s.knowledge;
-    for (const [oldClaim, newClaim] of mergedGreekClaims) {
-      const from = `claim:greek-drama:${oldClaim}`;
-      const to = `claim:greek-drama:${newClaim}`;
-      const old = k?.facts?.[from];
-      if (old?.source?.kind !== "claim") continue;
-      const claim = savedClaim(s, to, old);
-      if (!claim) continue;
-      const current = k.facts[to];
-      const first = !current || old.source.eventSeq < current.source.eventSeq ? old : current;
-      const { book, claim: recorded2, author, about, text: text2 } = claim;
-      k.facts[to] = {
-        id: to,
-        text: text2,
-        source: {
-          ...first.source,
-          book,
-          claim: recorded2,
-          author,
-          about,
-          witnesses: [.../* @__PURE__ */ new Set([...old.source.witnesses, ...current?.source.witnesses ?? []])].sort()
-        }
-      };
-      for (const known of Object.values(k.known || {})) {
-        const learned = known[from], existing = known[to];
-        if (learned && (!existing || learned.kind === "read" && existing.kind !== "read" || learned.kind === existing.kind && learned.eventSeq < existing.eventSeq)) {
-          known[to] = learned.kind === "read" ? { ...learned, book } : learned;
-        }
-      }
-      forgetFact(k, from);
-    }
-  }
-  function postGreekRecords(s) {
-    for (const id of [
-      "greek-areopagus-witness-order",
-      "greek-danaids-vote-writ",
-      "greek-marathon-guard-summons",
-      "greek-rhesus-bedside-deposition"
-    ]) {
-      const book = packEntity(id);
-      if (book?.lifecycle === "fixed" && s.items?.[id] && s.items[id].holder !== book.holder)
-        sendHome(s, id, book.holder);
-    }
-  }
-  var formerFarLanes = [
-    ["greek-piraeus", "greek-lemnos"],
-    ["greek-piraeus", "greek-sicily"],
-    ["greek-lemnos", "greek-thrace"],
-    ["greek-thrace", "greek-tauris"]
-  ];
-  var formerFarPorts = new Set(
-    formerFarLanes.flat().filter((port) => port !== "greek-piraeus")
-  );
-  function forgetRouteEdges(s, obsolete) {
-    for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
-      s.routeKnowledge[actor] = edges.filter(
-        (edge) => !Array.isArray(edge) || edge.length !== 2 || !obsolete.has(edge.join(">"))
-      );
-  }
-  function reconcileNorthernRoad(s) {
-    const road = "greek-road-north";
-    forgetRouteEdges(
-      s,
-      new Set(
-        ["greek-harbor", "greek-ajax-landing"].flatMap((end) => [
-          `${road}>${end}`,
-          `${end}>${road}`
-        ])
-      )
-    );
-    s.standoffs = s.standoffs.filter((c) => c.location !== road);
-  }
-  function reconcileGreekShips(s) {
-    const charybdis = transports["greek-ship"];
-    const scylla = transports["greek-scylla"];
-    if (!scylla) return;
-    const priorEdges = new Set(
-      [
-        ...formerFarLanes.flatMap(([from, to]) => [
-          seaEdge(from, to),
-          seaEdge(to, from)
-        ]),
-        ...[...formerFarPorts].flatMap((port) => [
-          [charybdis.place, port],
-          [port, charybdis.place]
-        ]),
-        ["greek-harbor", "greek-egypt-tomb"],
-        ["greek-egypt-tomb", "greek-harbor"]
-      ].map((edge) => edge.join(">"))
-    );
-    const liveEdges = new Set(
-      [...authoredRouteEdges(), ...laneEdges()].map((edge) => edge.join(">"))
-    );
-    forgetRouteEdges(s, new Set([...priorEdges].filter((key2) => !liveEdges.has(key2))));
-    const old = s.transports["greek-ship"];
-    if (old?.version !== TRANSPORT_VERSION) return;
-    const transfer2 = formerFarPorts.has(old.dock) && scylla.docks.includes(old.dock);
-    const ship = transfer2 ? scylla : charybdis;
-    const dock = old.dock;
-    const recall = ship.docks.includes(old.recall) ? old.recall : null;
-    const canceled = old.destination !== null && !lanesFrom(ship, dock).includes(old.destination);
-    const riders = Object.keys(s.actors).filter(
-      (id) => s.actors[id].place === charybdis.place && entityEnabled(s, id, true)
-    ).sort();
-    const stopped = (berthed, passengers2 = []) => ({
-      version: TRANSPORT_VERSION,
-      phase: passengers2.length ? "arrived" : "docked",
-      dock: berthed,
-      destination: null,
-      riders: passengers2,
-      since: s.turn,
-      recall: null
-    });
-    if (transfer2) {
-      for (const id of riders) s.actors[id].place = scylla.place;
-      s.standoffs = s.standoffs.filter((c) => c.location !== charybdis.place);
-      for (const item of Object.values(s.items))
-        if (item.holder === charybdis.place) item.holder = scylla.place;
-      s.transports["greek-scylla"] = canceled ? stopped(dock, riders) : { ...old, recall };
-      s.transports["greek-ship"] = stopped(
-        charybdis.docks.includes(old.recall) ? old.recall : charybdis.at
-      );
-    } else if (canceled && ship.docks.includes(dock) && formerFarPorts.has(old.destination)) {
-      s.transports["greek-ship"] = stopped(dock, riders);
-    } else if (formerFarPorts.has(old.recall)) {
-      old.recall = recall;
-    }
   }
   function reconcileContent(s) {
     if (!s?.items || typeof s.items !== "object") return;
@@ -8613,7 +8202,7 @@
       const receipts = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
       for (const [id, turn] of receipts) {
         const c = pack.choices.find((choice) => choice.id === id);
-        if (!c?.effects.length || // A step the release no longer holds (a rumoured place's story) is
+        if (!c || // A step the release no longer holds (a rumoured place's story) is
         // forgotten, and so is whatever followed from it.
         pack.release && state.scope !== "full" && !pack.release.choices.includes(id) || !holds3(c.requires) || !holds3(pack.places[c.at]?.requires) || !holds3(packEntity(c.subject)?.requires) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || c.effects.some(
           (e) => e.kind === "choose" && Object.hasOwn(choices, e.key)
@@ -8746,13 +8335,6 @@
       const next = { ...entry };
       if (retired.has(next.entityId)) delete next.entityId;
       if (retired.has(next.targetId)) delete next.targetId;
-      if (retired.has(next.wantId)) delete next.wantId;
-      if (next.verb === "craft" && Array.isArray(next.consumedIds) && next.consumedIds.some((id) => retired.has(id))) {
-        delete next.verb;
-        delete next.consumedIds;
-        delete next.sourceSeq;
-        delete next.holderId;
-      }
       if (Array.isArray(next.witnesses))
         next.witnesses = next.witnesses.filter((id) => !retired.has(id));
       if (Array.isArray(next.items))
@@ -10033,13 +9615,14 @@
         }
       }
       const previous = s.packs[pack.id];
-      if (previous && !canBackfillPackResidents(pack, previous)) continue;
+      const extendElysium = pack.id === ELYSIUM_PACK && previous?.revision < pack.revision;
+      if (previous && !extendElysium) continue;
       if (!previous) {
         s.packs[pack.id] = newPackRecord(pack);
         mounted.push(pack);
       }
       for (const [id, a] of Object.entries(pack.avatars)) {
-        if (previous && s.actors[id]) continue;
+        if (extendElysium && s.actors[id]) continue;
         if (s.actors[id]) throw new Error("A pack resident is already present.");
         s.actors[id] = {
           place: a.place,
@@ -10142,12 +9725,16 @@
   var burden = (s, actor) => carried(s, actor).length;
   var hasSpace = (s, actor, id) => burden(s, actor) + (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <= 3;
   var wantText = (want) => wantWords(want);
-  var bundle = (s, item) => s.items.cloth.holder === item ? [item, "cloth"] : [item];
-  var needed = (s, actor, item) => bundle(s, item).some((id) => matchesWantedItem(wantOf(s, actor), id));
-  function nearbyWantedItem(s, actor, want) {
-    const stock = wantedItems(want).filter((id) => entityActive(s, id));
-    return stock.find((id) => rootHolder(s, id) === actor) ?? stock.find((id) => itemPlace(s, id) === s.actors[actor].place) ?? stock[0] ?? want.target;
-  }
+  var bundle = (s, item) => [
+    item,
+    ...s.items.cloth.holder === item ? ["cloth"] : []
+  ];
+  var needed = (s, actor, item) => {
+    const want = wantOf(s, actor);
+    return Boolean(
+      want?.kind === "item" && bundle(s, item).includes(want.target)
+    );
+  };
   var humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id) && heldByHuman(s, id);
   var safeAtHome = (s, id) => sharedEnabled(s) && humanHeld(s, id) && s.actors[id].place === homeOf2(id, s);
   function willingToGive(s, owner2, item, recipient = null) {
@@ -10188,7 +9775,7 @@
   function expects(s, a) {
     if (a.kind === "give" && isElysiumModelToken(a.item) && !controlledByHuman(s, a.target))
       return keepsElysiumToken(a.target, a.item) && elysiumModelTalked(s, a.target);
-    if (a.kind === "give" && keepsForGood(a.target)) return canSacrifice(a.item) && takes(s, a.actor);
+    if (a.kind === "give" && keepsForGood(a.target)) return takes(s, a.actor);
     if (a.kind === "give")
       return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
     if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
@@ -10557,10 +10144,9 @@
     if (resentment(s, companion, actor))
       return socialTravel(s, actor, companion, destination);
     const want = wantOf(s, companion);
-    const stock = wantedItems(want).filter((id) => entityActive(s, id) || id === want.target);
-    if (stock.some((id) => rootHolder(s, id) === actor)) return { accepted: true };
-    const item = want?.kind === "item" && nearbyWantedItem(s, companion, want);
-    const goal = want?.kind === "place" ? want.target : want?.kind === "person" ? s.actors[want.target]?.place : item && rootHolder(s, item) !== companion ? itemPlace(s, item) : null;
+    if (want?.kind === "item" && rootHolder(s, want.target) === actor)
+      return { accepted: true };
+    const goal = want?.kind === "place" ? want.target : want?.kind === "person" ? s.actors[want.target]?.place : want?.kind === "item" && rootHolder(s, want.target) !== companion ? itemPlace(s, want.target) : null;
     const distance = (from, to) => {
       const route = routeBetween(s, from, to);
       return route ? route.length - 1 : Infinity;
@@ -10583,12 +10169,13 @@
     };
     const out = [
       ...asleep2 ? [sleep] : [],
-      offer("wait", actor, null, null, `${nameOf2(actor)} waits one turn.`, []),
-      ...packChoices(s, actor)
+      offer("wait", actor, null, null, `${nameOf2(actor)} waits one turn.`, [])
     ];
     const conflict = standoffFor(s, actor);
     if (conflict)
-      out.push(offer("guard", actor, null, null, `${nameOf2(actor)} braces.`, [actor]));
+      out.push(
+        offer("guard", actor, null, null, `${nameOf2(actor)} braces.`, [actor])
+      );
     else if (!asleep2 && !transportPlace(here) && (actor === currentActor(s) || controlledByHuman(s, actor)) && s.log.findLast(
       (e) => e.kind === "action" && e.actorId === actor && !e.generated
     )?.verb === "wait")
@@ -10800,7 +10387,6 @@
         for (const other of knownActors2(s).filter(
           (p) => p !== actor && s.actors[p].place === here && hasSpace(s, p, id)
         )) {
-          if (keepsForGood(other) && !canSacrifice(id)) continue;
           const returning = returnsPondLamp(s, { actor, item: id, target: other });
           const words = returning ? "returns" : "gives";
           const gift = offer(
@@ -11352,9 +10938,6 @@
       case "use":
         remember3(s, a.item, a.text);
         break;
-      case "choose":
-        text2 = choiceText(applyPackChoice(s, a, { turn: s.turn - 1 }), a.actor);
-        break;
       case "course":
         setCourse(s, here, a.target);
         break;
@@ -11578,7 +11161,6 @@
       fromLocationId: here,
       witnesses,
       itemId: a.item,
-      ...a.kind === "choose" ? { packId: a.packId, choiceId: a.choiceId, locationId: here } : {},
       ...affected ? { entityId: affected } : {},
       targetId: a.target,
       ...a.receive ? { receiveId: a.receive } : {},
@@ -11677,7 +11259,7 @@
         (line, locationId) => addLog(s, "World", line, { locationId })
       );
     refuelCarried(s);
-    if (requestAccepted || a.kind === "drop") settleCrafting(
+    settleCrafting(
       s,
       a,
       nameOf2,
@@ -11846,25 +11428,22 @@
       );
     };
     const step = (w) => {
-      const { verb, to, at, finish } = w.step || {};
+      const { verb, to, at, items: items2, finish } = w.step || {};
       if (!verb || verb === "eat") return as(w);
-      const stock = w.kind === "item" ? nearbyWantedItem(s, actor, w) : null;
       if (verb === "give")
         return holding(
-          stock,
-          () => near(to) === here ? pick2((a) => a.kind === "give" && matchesWantedItem(w, a.item) && a.target === to) : go(near(to))
+          w.target,
+          () => near(to) === here ? pick2((a) => a.kind === "give" && a.item === w.target && a.target === to) : go(near(to))
         );
       if (verb === "bring" && w.kind === "person") return escort(w, at ?? near(to));
-      if (verb === "bring") return holding(stock, () => go(at) ?? go(near(to)));
+      if (verb === "bring") return holding(w.target, () => go(at) ?? go(near(to)));
       if (verb === "meet") return at ? escort(w, at) : go(near(w.target));
-      if (verb === "find") return go(itemPlace(s, stock));
-      const item = verb === "lay" && !finish && missingLayItems(s, w)[0];
-      if (!item) return null;
-      const copies = layItemCopies(w, item);
-      return holding(
-        copies.find((id) => rootHolder(s, id) === actor) ?? item,
-        () => here === w.target ? pick2((a) => a.kind === "drop" && copies.includes(a.item)) : go(w.target)
-      );
+      if (verb === "find") return go(itemPlace(s, w.target));
+      const item = verb === "lay" && !finish && items2.find((i) => s.items[i]?.holder !== w.target);
+      return item ? holding(
+        item,
+        () => here === w.target ? pick2((a) => a.kind === "drop" && a.item === item) : go(w.target)
+      ) : null;
     };
     const quests = heldOf(s.actors[actor]).filter((w) => w.from !== DREAM_FROM).reverse();
     for (const w of quests) {
@@ -11948,7 +11527,7 @@
       (a) => a.kind === "eat" && (() => {
         const w = wantOf(s, actor);
         return Boolean(
-          w?.step?.verb === "eat" && matchesWantedItem(w, a.item) && (w.step.with ?? null) === (a.target ?? null) && (!w.step.at || w.step.at === here)
+          w?.step?.verb === "eat" && w.target === a.item && (w.step.with ?? null) === (a.target ?? null) && (!w.step.at || w.step.at === here)
         );
       })()
     );
@@ -11996,7 +11575,7 @@
       const talk = find("talk", (a) => a.target === want.target);
       return talk && s.turn - s.actors[actor].lastTalk >= 1 ? { action: talk } : idle();
     }
-    const item = nearbyWantedItem(s, actor, want), owner2 = rootHolder(s, item);
+    const item = want.target, owner2 = rootHolder(s, item);
     if (owner2 === actor) {
       if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)
         return go(want.step.at);
@@ -12036,7 +11615,7 @@
     if (threat) return { action: threat };
     return idle();
   }
-  function play(s, action, expectedRevision = s.revision, actor = currentActor(s)) {
+  function play(s, action, expectedRevision = s.revision, actor = currentActor(s), portraitReceipts = []) {
     if (expectedRevision !== s.revision)
       return {
         ok: false,
@@ -12078,7 +11657,7 @@
         state: s,
         error: "That play has changed. Check the cards and choose again."
       };
-    const next = structuredClone(s);
+    const next = withElysiumPortraits(structuredClone(s), portraitReceipts, installLife);
     if (exact.kind === "accept") {
       if (exact.tarot !== void 0)
         acceptTarot(next, actor, exact.tarot, (text2, detail) => addLog(next, "World", text2, detail));
@@ -13212,7 +12791,7 @@
       delete raw[key2];
     for (const actor of Object.values(raw.actors || {})) delete actor?.upgrades;
     const world = decodeSave(JSON.stringify(raw));
-    resetImportedElysiumEncounters(world);
+    resetImportedElysiumEncounters(world, people);
     for (const actor of Object.values(world.actors || {}))
       if (actor?.upgrades) {
         actor.upgrades = actor.upgrades.filter((id) => !isArcanum(id));
@@ -13308,7 +12887,8 @@
         world,
         action,
         request.revision ?? world.revision,
-        actor
+        actor,
+        request.elysiumPortraits
       );
       if (!result.ok)
         return { ok: false, world: stored(world), error: result.error };

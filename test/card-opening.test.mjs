@@ -1,3 +1,4 @@
+import { setImmediate as yieldToRunner } from "node:timers/promises";
 import "./helpers/no-dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
@@ -390,7 +391,7 @@ describe("dousing the lamp in the attic", () => {
     }
   });
 
-  it("keeps a legacy item-seeking cast meeting wants and trading after the opening", () => {
+  it("keeps a legacy item-seeking cast meeting wants and trading after the opening", async () => {
     const authored = forest.people.keeper.want;
     try {
       forest.people.keeper.want = { kind: "item", target: "bell" };
@@ -400,6 +401,7 @@ describe("dousing the lamp in the attic", () => {
           seed = seedStart,
           trades = 0;
         for (let i = 0; i < 240; i++) {
+          if (i % 20 === 0) await yieldToRunner();
           seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
           const acts = legalActions(s).filter((a) =>
               [
@@ -434,10 +436,11 @@ describe("dousing the lamp in the attic", () => {
       forest.people.keeper.want = authored;
     }
   }, 60_000);
-  it("preserves the world through mixed combat, item use, and travel after discovery", () => {
+  it("preserves the world through mixed combat, item use, and travel after discovery", async () => {
     let s = meetEveryone(),
       seed = 7;
     for (let i = 0; i < 1000; i++) {
+      if (i % 50 === 0) await yieldToRunner();
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       const actions = legalActions(s),
         action = actions[seed % actions.length];

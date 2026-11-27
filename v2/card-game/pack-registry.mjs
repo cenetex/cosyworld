@@ -40,6 +40,7 @@ import {
 } from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
 import { coordinateEntityActive, coordinateRouteDiscovered } from "./world/elysium-coordinates.mjs";
+import { elysiumPortraitReady } from "./elysium-models.mjs";
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
 const record = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -256,7 +257,8 @@ export const freed = (world, id) =>
   Array.isArray(packPeople[id]?.stayUntil) &&
   conditionsMet(world, packPeople[id].packId, packPeople[id].stayUntil, id);
 export const staysPut = (id, world = null) =>
-  (packPeople[id] ?? forest.people[id])?.travels === false && !freed(world, id);
+  (packPeople[id] ?? forest.people[id])?.travels === false &&
+  !freed(world, id) && !elysiumPortraitReady(world, id);
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
 export const recordJourneyTravel = (world, id, from, to) =>

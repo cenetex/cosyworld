@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 43,
+  "revision": 44,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -2923,23 +2923,49 @@
                 },
                 {
                   "op": "atom",
+                  "atom": "choice(key=greek-story-aristophanes-acharnians-outcome,value=first)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "choice(key=greek-story-aristophanes-acharnians-outcome,value=second)"
+                },
+                {
+                  "op": "atom",
                   "atom": "met(actor=greek-quay-host)"
                 }
               ]
             }
           ]
         },
-        "words": "(Sack of Wheat lies at Piraeus Quays or Thaleia the Quay Host has been met)",
-        "ids": "(greek-wheat lies at greek-piraeus or greek-quay-host has been met)",
+        "words": "(Sack of Wheat lies at Piraeus Quays or greek-story-aristophanes-acharnians-outcome chosen as first or greek-story-aristophanes-acharnians-outcome chosen as second or Thaleia the Quay Host has been met)",
+        "ids": "(greek-wheat lies at greek-piraeus or greek-story-aristophanes-acharnians-outcome chosen as first or greek-story-aristophanes-acharnians-outcome chosen as second or greek-quay-host has been met)",
         "latch": [
+          "choice(key=greek-story-aristophanes-acharnians-outcome,value=first)",
+          "choice(key=greek-story-aristophanes-acharnians-outcome,value=second)",
           "met(actor=greek-quay-host)"
         ],
         "live": [
           "item_at(item=greek-wheat,place=greek-piraeus)"
         ],
         "prerequisites": {
+          "act": [
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
+          ],
+          "choice": [
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
+          ],
+          "flag": [
+            "greek-story-aristophanes-acharnians-heard"
+          ],
           "item": [
+            "greek-story-aristophanes-acharnians-object",
             "greek-wheat"
+          ],
+          "resident": [
+            "greek-story-aristophanes-acharnians-second"
           ]
         }
       },
@@ -5168,7 +5194,6 @@
         "live": [],
         "prerequisites": {
           "act": [
-            "greek-oedipus-keep-summons-private",
             "greek-story-sophocles-oedipus-tyrannus-first-answer",
             "greek-story-sophocles-oedipus-tyrannus-hear",
             "greek-story-sophocles-oedipus-tyrannus-second-answer"
@@ -5185,9 +5210,6 @@
           ],
           "resident": [
             "greek-story-sophocles-oedipus-tyrannus-second"
-          ],
-          "topic": [
-            "claim:greek-drama:greek-story-sophocles-oedipus-tyrannus-record:greek-story-sophocles-oedipus-tyrannus-first-answer"
           ]
         }
       },
@@ -5624,8 +5646,7 @@
           "act": [
             "greek-story-euripides-tauris-first-answer",
             "greek-story-euripides-tauris-hear",
-            "greek-story-euripides-tauris-second-answer",
-            "greek-tauris-entrust-letter"
+            "greek-story-euripides-tauris-second-answer"
           ],
           "choice": [
             "greek-story-euripides-tauris-outcome=first",
@@ -5639,9 +5660,6 @@
           ],
           "resident": [
             "greek-story-euripides-tauris-second"
-          ],
-          "topic": [
-            "claim:greek-drama:greek-story-euripides-tauris-record:greek-story-euripides-tauris-first-answer"
           ]
         }
       },
@@ -7695,27 +7713,20 @@
         "live": [],
         "prerequisites": {
           "act": [
-            "greek-story-euripides-tauris-first-answer",
             "greek-story-euripides-tauris-hear",
-            "greek-story-euripides-tauris-second-answer",
-            "greek-tauris-entrust-letter"
+            "greek-story-euripides-tauris-second-answer"
           ],
           "choice": [
-            "greek-story-euripides-tauris-outcome=first",
             "greek-story-euripides-tauris-outcome=second"
           ],
           "flag": [
             "greek-story-euripides-tauris-heard"
           ],
           "item": [
-            "greek-story-euripides-tauris-object",
-            "greek-story-euripides-tauris-record"
+            "greek-story-euripides-tauris-object"
           ],
           "resident": [
             "greek-story-euripides-tauris-second"
-          ],
-          "topic": [
-            "claim:greek-drama:greek-story-euripides-tauris-record:greek-story-euripides-tauris-first-answer"
           ]
         }
       },
@@ -8740,27 +8751,20 @@
         "live": [],
         "prerequisites": {
           "act": [
-            "greek-oedipus-keep-summons-private",
-            "greek-story-sophocles-oedipus-tyrannus-first-answer",
             "greek-story-sophocles-oedipus-tyrannus-hear",
             "greek-story-sophocles-oedipus-tyrannus-second-answer"
           ],
           "choice": [
-            "greek-story-sophocles-oedipus-tyrannus-outcome=first",
             "greek-story-sophocles-oedipus-tyrannus-outcome=second"
           ],
           "flag": [
             "greek-story-sophocles-oedipus-tyrannus-heard"
           ],
           "item": [
-            "greek-story-sophocles-oedipus-tyrannus-object",
-            "greek-story-sophocles-oedipus-tyrannus-record"
+            "greek-story-sophocles-oedipus-tyrannus-object"
           ],
           "resident": [
             "greek-story-sophocles-oedipus-tyrannus-second"
-          ],
-          "topic": [
-            "claim:greek-drama:greek-story-sophocles-oedipus-tyrannus-record:greek-story-sophocles-oedipus-tyrannus-first-answer"
           ]
         }
       },
@@ -12516,11 +12520,25 @@
         "latch": [],
         "live": [],
         "prerequisites": {
+          "act": [
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
+          ],
+          "choice": [
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
+          ],
+          "flag": [
+            "greek-story-aristophanes-acharnians-heard"
+          ],
           "item": [
+            "greek-story-aristophanes-acharnians-object",
             "greek-wheat"
           ],
           "resident": [
-            "greek-quay-host"
+            "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second"
           ]
         },
         "at": "greek-piraeus",
@@ -12553,16 +12571,26 @@
         "live": [],
         "prerequisites": {
           "act": [
-            "greek-open-door-hear-quay"
+            "greek-open-door-hear-quay",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
+          ],
+          "choice": [
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
           ],
           "flag": [
-            "greek-open-door-quay-heard"
+            "greek-open-door-quay-heard",
+            "greek-story-aristophanes-acharnians-heard"
           ],
           "item": [
+            "greek-story-aristophanes-acharnians-object",
             "greek-wheat"
           ],
           "resident": [
-            "greek-quay-host"
+            "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second"
           ]
         },
         "at": "greek-piraeus",
@@ -12785,10 +12813,15 @@
             "greek-open-door-lay-ashes",
             "greek-open-door-lay-cloths",
             "greek-open-door-register-plea",
-            "greek-open-door-set-provisions"
+            "greek-open-door-set-provisions",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
           ],
           "choice": [
-            "greek-open-door-recovery=truce"
+            "greek-open-door-recovery=truce",
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
           ],
           "flag": [
             "greek-open-door-adrastus-heard",
@@ -12797,13 +12830,15 @@
             "greek-open-door-eleusis-done",
             "greek-open-door-mothers-heard",
             "greek-open-door-quay-heard",
-            "greek-open-door-quay-provisioned"
+            "greek-open-door-quay-provisioned",
+            "greek-story-aristophanes-acharnians-heard"
           ],
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
             "greek-oil-flask",
             "greek-olive-branch",
+            "greek-story-aristophanes-acharnians-object",
             "greek-wheat"
           ],
           "resident": [
@@ -12811,6 +12846,7 @@
             "greek-aethra",
             "greek-argive-mother",
             "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second",
             "greek-theseus"
           ]
         },
@@ -13292,10 +13328,15 @@
             "greek-open-door-lay-ashes",
             "greek-open-door-lay-cloths",
             "greek-open-door-register-plea",
-            "greek-open-door-set-provisions"
+            "greek-open-door-set-provisions",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
           ],
           "choice": [
-            "greek-open-door-recovery=truce"
+            "greek-open-door-recovery=truce",
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
           ],
           "flag": [
             "greek-open-door-adrastus-heard",
@@ -13310,13 +13351,15 @@
             "greek-open-door-mothers-heard",
             "greek-open-door-piraeus-done",
             "greek-open-door-quay-heard",
-            "greek-open-door-quay-provisioned"
+            "greek-open-door-quay-provisioned",
+            "greek-story-aristophanes-acharnians-heard"
           ],
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
             "greek-oil-flask",
             "greek-olive-branch",
+            "greek-story-aristophanes-acharnians-object",
             "greek-wheat"
           ],
           "resident": [
@@ -13326,6 +13369,7 @@
             "greek-colonus-keeper",
             "greek-colonus-theseus",
             "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second",
             "greek-theseus"
           ]
         },
@@ -13503,12 +13547,17 @@
             "greek-open-door-lay-ashes",
             "greek-open-door-lay-cloths",
             "greek-open-door-register-plea",
-            "greek-open-door-set-provisions"
+            "greek-open-door-set-provisions",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
           ],
           "choice": [
             "greek-homecoming-care=family",
             "greek-open-door-berth=family",
-            "greek-open-door-recovery=truce"
+            "greek-open-door-recovery=truce",
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
           ],
           "flag": [
             "greek-homecoming-arrived",
@@ -13520,13 +13569,15 @@
             "greek-open-door-mothers-heard",
             "greek-open-door-piraeus-done",
             "greek-open-door-quay-heard",
-            "greek-open-door-quay-provisioned"
+            "greek-open-door-quay-provisioned",
+            "greek-story-aristophanes-acharnians-heard"
           ],
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
             "greek-oil-flask",
             "greek-olive-branch",
+            "greek-story-aristophanes-acharnians-object",
             "greek-wheat"
           ],
           "resident": [
@@ -13535,6 +13586,7 @@
             "greek-argive-mother",
             "greek-household-witness",
             "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second",
             "greek-theseus"
           ]
         },
@@ -13686,10 +13738,15 @@
             "greek-open-door-lay-ashes",
             "greek-open-door-lay-cloths",
             "greek-open-door-register-plea",
-            "greek-open-door-set-provisions"
+            "greek-open-door-set-provisions",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
           ],
           "choice": [
-            "greek-open-door-recovery=truce"
+            "greek-open-door-recovery=truce",
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
           ],
           "flag": [
             "greek-open-door-adrastus-heard",
@@ -13699,13 +13756,15 @@
             "greek-open-door-mothers-heard",
             "greek-open-door-piraeus-done",
             "greek-open-door-quay-heard",
-            "greek-open-door-quay-provisioned"
+            "greek-open-door-quay-provisioned",
+            "greek-story-aristophanes-acharnians-heard"
           ],
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
             "greek-oil-flask",
             "greek-olive-branch",
+            "greek-story-aristophanes-acharnians-object",
             "greek-wheat"
           ],
           "resident": [
@@ -13714,6 +13773,7 @@
             "greek-argive-mother",
             "greek-household-witness",
             "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second",
             "greek-theseus"
           ]
         },
@@ -13766,11 +13826,16 @@
             "greek-open-door-lay-ashes",
             "greek-open-door-lay-cloths",
             "greek-open-door-register-plea",
-            "greek-open-door-set-provisions"
+            "greek-open-door-set-provisions",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
           ],
           "choice": [
             "greek-open-door-berth=family",
-            "greek-open-door-recovery=truce"
+            "greek-open-door-recovery=truce",
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
           ],
           "flag": [
             "greek-homecoming-journey-agreed",
@@ -13781,13 +13846,15 @@
             "greek-open-door-mothers-heard",
             "greek-open-door-piraeus-done",
             "greek-open-door-quay-heard",
-            "greek-open-door-quay-provisioned"
+            "greek-open-door-quay-provisioned",
+            "greek-story-aristophanes-acharnians-heard"
           ],
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
             "greek-oil-flask",
             "greek-olive-branch",
+            "greek-story-aristophanes-acharnians-object",
             "greek-wheat"
           ],
           "resident": [
@@ -13796,6 +13863,7 @@
             "greek-argive-mother",
             "greek-household-witness",
             "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second",
             "greek-theseus"
           ]
         },
@@ -14789,26 +14857,13 @@
         ],
         "prerequisites": {
           "act": [
-            "greek-oedipus-keep-summons-private",
-            "greek-story-sophocles-oedipus-tyrannus-hear",
-            "greek-story-sophocles-oedipus-tyrannus-second-answer"
-          ],
-          "choice": [
-            "greek-story-sophocles-oedipus-tyrannus-outcome=first",
-            "greek-story-sophocles-oedipus-tyrannus-outcome=second"
+            "greek-story-sophocles-oedipus-tyrannus-hear"
           ],
           "flag": [
             "greek-story-sophocles-oedipus-tyrannus-heard"
           ],
           "item": [
-            "greek-story-sophocles-oedipus-tyrannus-object",
-            "greek-story-sophocles-oedipus-tyrannus-record"
-          ],
-          "resident": [
-            "greek-story-sophocles-oedipus-tyrannus-second"
-          ],
-          "topic": [
-            "claim:greek-drama:greek-story-sophocles-oedipus-tyrannus-record:greek-story-sophocles-oedipus-tyrannus-first-answer"
+            "greek-story-sophocles-oedipus-tyrannus-object"
           ]
         },
         "at": "greek-oedipus-court",
@@ -14853,26 +14908,16 @@
         ],
         "prerequisites": {
           "act": [
-            "greek-oedipus-keep-summons-private",
-            "greek-story-sophocles-oedipus-tyrannus-first-answer",
             "greek-story-sophocles-oedipus-tyrannus-hear"
-          ],
-          "choice": [
-            "greek-story-sophocles-oedipus-tyrannus-outcome=first",
-            "greek-story-sophocles-oedipus-tyrannus-outcome=second"
           ],
           "flag": [
             "greek-story-sophocles-oedipus-tyrannus-heard"
           ],
           "item": [
-            "greek-story-sophocles-oedipus-tyrannus-object",
-            "greek-story-sophocles-oedipus-tyrannus-record"
+            "greek-story-sophocles-oedipus-tyrannus-object"
           ],
           "resident": [
             "greek-story-sophocles-oedipus-tyrannus-second"
-          ],
-          "topic": [
-            "claim:greek-drama:greek-story-sophocles-oedipus-tyrannus-record:greek-story-sophocles-oedipus-tyrannus-first-answer"
           ]
         },
         "at": "greek-oedipus-court",
@@ -15986,26 +16031,13 @@
         ],
         "prerequisites": {
           "act": [
-            "greek-story-euripides-tauris-hear",
-            "greek-story-euripides-tauris-second-answer",
-            "greek-tauris-entrust-letter"
-          ],
-          "choice": [
-            "greek-story-euripides-tauris-outcome=first",
-            "greek-story-euripides-tauris-outcome=second"
+            "greek-story-euripides-tauris-hear"
           ],
           "flag": [
             "greek-story-euripides-tauris-heard"
           ],
           "item": [
-            "greek-story-euripides-tauris-object",
-            "greek-story-euripides-tauris-record"
-          ],
-          "resident": [
-            "greek-story-euripides-tauris-second"
-          ],
-          "topic": [
-            "claim:greek-drama:greek-story-euripides-tauris-record:greek-story-euripides-tauris-first-answer"
+            "greek-story-euripides-tauris-object"
           ]
         },
         "at": "greek-tauris",
@@ -16050,26 +16082,16 @@
         ],
         "prerequisites": {
           "act": [
-            "greek-story-euripides-tauris-first-answer",
-            "greek-story-euripides-tauris-hear",
-            "greek-tauris-entrust-letter"
-          ],
-          "choice": [
-            "greek-story-euripides-tauris-outcome=first",
-            "greek-story-euripides-tauris-outcome=second"
+            "greek-story-euripides-tauris-hear"
           ],
           "flag": [
             "greek-story-euripides-tauris-heard"
           ],
           "item": [
-            "greek-story-euripides-tauris-object",
-            "greek-story-euripides-tauris-record"
+            "greek-story-euripides-tauris-object"
           ],
           "resident": [
             "greek-story-euripides-tauris-second"
-          ],
-          "topic": [
-            "claim:greek-drama:greek-story-euripides-tauris-record:greek-story-euripides-tauris-first-answer"
           ]
         },
         "at": "greek-tauris",
@@ -18741,10 +18763,12 @@
           "act": [
             "greek-acharnae-sign-household-bond",
             "greek-story-aristophanes-acharnians-first-answer",
-            "greek-story-aristophanes-acharnians-hear"
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
           ],
           "choice": [
-            "greek-story-aristophanes-acharnians-outcome=first"
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
           ],
           "flag": [
             "greek-acharnae-household-bond-signed",
@@ -18756,7 +18780,8 @@
             "greek-wheat"
           ],
           "resident": [
-            "greek-quay-host"
+            "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second"
           ]
         },
         "at": "greek-piraeus",
@@ -18807,10 +18832,12 @@
         "live": [],
         "prerequisites": {
           "act": [
+            "greek-story-aristophanes-acharnians-first-answer",
             "greek-story-aristophanes-acharnians-hear",
             "greek-story-aristophanes-acharnians-second-answer"
           ],
           "choice": [
+            "greek-story-aristophanes-acharnians-outcome=first",
             "greek-story-aristophanes-acharnians-outcome=second"
           ],
           "flag": [
@@ -19796,6 +19823,64 @@
         "gives": [
           "greek-story-euripides-tauris-object"
         ],
+        "retires": []
+      },
+      {
+        "id": "act:greek-tauris-deliver-letter",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "receipt(choiceId=greek-tauris-entrust-letter)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=greek-story-euripides-tauris-object,role=actor)"
+            }
+          ]
+        },
+        "words": "greek-tauris-entrust-letter has happened and the traveler holds Letter to Argos",
+        "ids": "greek-tauris-entrust-letter has happened and the traveler holds greek-story-euripides-tauris-object",
+        "latch": [
+          "receipt(choiceId=greek-tauris-entrust-letter)"
+        ],
+        "live": [
+          "holding(item=greek-story-euripides-tauris-object,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "greek-story-euripides-tauris-first-answer",
+            "greek-story-euripides-tauris-hear",
+            "greek-story-euripides-tauris-second-answer",
+            "greek-tauris-entrust-letter"
+          ],
+          "choice": [
+            "greek-story-euripides-tauris-outcome=first",
+            "greek-story-euripides-tauris-outcome=second"
+          ],
+          "flag": [
+            "greek-story-euripides-tauris-heard"
+          ],
+          "item": [
+            "greek-story-euripides-tauris-object",
+            "greek-story-euripides-tauris-record"
+          ],
+          "resident": [
+            "greek-story-euripides-tauris-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-story-euripides-tauris-record:greek-story-euripides-tauris-first-answer"
+          ]
+        },
+        "at": "greek-argive-jury",
+        "subject": "greek-story-euripides-orestes-first",
+        "on": "give",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
         "retires": []
       },
       {
@@ -23611,12 +23696,20 @@
         "gates": [
           "place:greek-acharnae-stall",
           "route:greek-acharnae>greek-acharnae-stall",
+          "resident:greek-quay-host",
           "resident:greek-story-aristophanes-acharnians-second",
           "item:greek-story-aristophanes-acharnians-record",
           "item:greek-acharnae-household-bond",
           "item:greek-acharnae-quay-ledger"
         ],
         "acts": [
+          "act:greek-open-door-hear-quay",
+          "act:greek-open-door-set-provisions",
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family",
           "act:greek-story-aristophanes-acharnians-first-answer",
           "act:greek-story-aristophanes-acharnians-second-answer",
           "act:greek-acharnae-hear-quay-invitation",
@@ -24159,7 +24252,8 @@
         "acts": [
           "act:greek-story-euripides-tauris-first-answer",
           "act:greek-story-euripides-tauris-second-answer",
-          "act:greek-tauris-entrust-letter"
+          "act:greek-tauris-entrust-letter",
+          "act:greek-tauris-deliver-letter"
         ]
       },
       "greek-story-euripides-trojan-women-heard": {
@@ -24887,6 +24981,7 @@
         "readBy": [
           "act:greek-story-euripides-tauris-first-answer",
           "act:greek-story-euripides-tauris-second-answer",
+          "act:greek-tauris-deliver-letter",
           "act:greek-tauris-entrust-letter"
         ]
       },
@@ -26993,6 +27088,12 @@
         "resident:greek-story-aeschylus-persians-second",
         "topic:claim:greek-drama:greek-story-aeschylus-persians-record:greek-story-aeschylus-persians-second-answer"
       ],
+      "act:greek-tauris-deliver-letter": [
+        "act:greek-tauris-entrust-letter",
+        "item:greek-story-euripides-tauris-object",
+        "place:greek-argive-jury",
+        "resident:greek-story-euripides-orestes-first"
+      ],
       "act:greek-tauris-entrust-letter": [
         "choice:greek-story-euripides-tauris-outcome=first",
         "item:greek-story-euripides-tauris-object",
@@ -27990,9 +28091,6 @@
         "choice:greek-story-euripides-rhesus-outcome=first",
         "choice:greek-story-euripides-rhesus-outcome=second"
       ],
-      "item:greek-story-euripides-tauris-object": [
-        "act:greek-tauris-entrust-letter"
-      ],
       "item:greek-story-euripides-tauris-record": [
         "choice:greek-story-euripides-tauris-outcome=first",
         "choice:greek-story-euripides-tauris-outcome=second"
@@ -28000,9 +28098,6 @@
       "item:greek-story-euripides-trojan-women-record": [
         "choice:greek-story-euripides-trojan-women-outcome=first",
         "choice:greek-story-euripides-trojan-women-outcome=second"
-      ],
-      "item:greek-story-sophocles-oedipus-tyrannus-object": [
-        "act:greek-oedipus-keep-summons-private"
       ],
       "item:greek-story-sophocles-oedipus-tyrannus-record": [
         "choice:greek-story-sophocles-oedipus-tyrannus-outcome=first",
@@ -28151,6 +28246,8 @@
         "place:greek-ship"
       ],
       "resident:greek-quay-host": [
+        "choice:greek-story-aristophanes-acharnians-outcome=first",
+        "choice:greek-story-aristophanes-acharnians-outcome=second",
         "item:greek-wheat",
         "place:greek-piraeus",
         "resident:greek-quay-host"
@@ -30322,6 +30419,11 @@
       "kind": "receipt",
       "class": "latch",
       "words": "greek-atreid-aeschylus-refusal has happened"
+    },
+    "receipt(choiceId=greek-tauris-entrust-letter)": {
+      "kind": "receipt",
+      "class": "latch",
+      "words": "greek-tauris-entrust-letter has happened"
     },
     "ship_at(dock=greek-piraeus,transport=greek-ship)": {
       "kind": "ship_at",
