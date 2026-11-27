@@ -15,6 +15,7 @@ import {
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { elysiumTokenLanding } from "../v2/card-game/world/elysium-travel.mjs";
 
 const claude = "elysium-claude";
 const gemini = "elysium-gemini";
@@ -46,6 +47,13 @@ function approach(seed = 17) {
   return act(equipped, "move", entry);
 }
 const arrive = (seed) => act(approach(seed), "move", study);
+const tour = (s) => [2, 3, 4, 7, 6, 5].reduce(
+  (world, room) => act(world, "move", `elysium-void-00${room}`),
+  s,
+);
+const tokens = ELYSIUM_MODEL_IDS.map(elysiumModelToken);
+const landings = (s) => tokens.map((id) => s.items[id].holder);
+
 function bringBack(s) {
   s = act(s, "move", "station");
   if (s.items[token].holder === "pond") s = act(s, "move", "pond");
@@ -105,16 +113,32 @@ it("keeps a legacy first-Talk encounter and its token location on reload", () =>
   expect(later.log.some((e) => e.elysiumArrival === claude)).toBe(false);
 });
 
-it("can scatter through an open ordinary door with the Wayfinder put away", () => {
+it("balances a full tour between ordinary rooms and repeats the same placements on replay", () => {
+  const first = landings(tour(approach()));
+  expect(first.toSorted()).toEqual(["pond", "pond", "pond", "station", "station", "station"]);
+  expect(landings(tour(approach()))).toEqual(first);
+});
+
+it("uses an open ordinary door with the Wayfinder put away", () => {
   const kitchen = "ratiradio-staff-kitchen";
   let s = approach(4);
   s.items["ratiradio-station-key"].holder = kitchen;
   holdChoice(s, "vale", { item: null, revision: s.revision });
-  s = act(s, "move", study);
-  expect(s.items[token].holder).toBe(kitchen);
+  s = tour(s);
+  expect(landings(s).toSorted()).toEqual(["pond", "pond", kitchen, kitchen, "station", "station"]);
+  const find = tokens.find((id) => s.items[id].holder === kitchen);
+  s = act(act(s, "move", "elysium-void-003"), "move", study);
   s = act(act(s, "move", "station"), "move", kitchen);
-  s = act(s, "take", null, token);
-  expect(s.items[token].holder).toBe("vale");
+  s = act(s, "take", null, find);
+  expect(s.items[find].holder).toBe("vale");
+});
+
+it("uses loose items to break a tie between rooms with equally many tokens", () => {
+  const s = createWorld({ seed: 4 });
+  for (const id of ["bell", "lamp", "oil"]) s.items[id].holder = "station";
+  expect(elysiumTokenLanding(s, "vale", token)).toBe("pond");
+  s.items[elysiumModelToken(gemini)].holder = "pond";
+  expect(elysiumTokenLanding(s, "vale", token)).toBe("station");
 });
 
 it("commits the portrait receipt only for an accepted Give to the matching resident", () => {
