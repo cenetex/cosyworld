@@ -15,6 +15,8 @@ export const revealedStage = ({ cast = [], floorItems = [] }, covered) => ({
   floorItems: floorItems.filter(({ id }) => !covered(id)),
 });
 
+export const revealedCover = (id, covered) => id && !covered(id) ? id : null;
+
 // Fades in a figure or item a tap just revealed; under reduced motion it is
 // simply there.
 export function fadeInRevealed(element, { reduced = false } = {}) {

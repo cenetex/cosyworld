@@ -17,6 +17,23 @@ export function tableType(world, id) {
   return isLockedBox(world, id) ? "item" : cardType(id);
 }
 
+export function roomItemLead(world, cards, quests, actions, closed) {
+  const here = world.actors[currentActor(world)].place;
+  const floor = cards.filter((id) => world.items[id]?.holder === here && !closed(id));
+  if (!floor.length) return null;
+  for (const quest of quests) {
+    if (!quest || quest.completed || quest.face === "down") continue;
+    const lead = [quest.target, quest.goal?.target, ...(quest.step?.items || [])]
+      .find((id) => floor.includes(id));
+    if (lead) return lead;
+  }
+  const known = new Set(cards.filter((id) => !closed(id)));
+  const usable = new Set(actions.filter((action) => action.kind !== "take" &&
+    action.cards.every((id) => known.has(id))).flatMap((action) => action.cards));
+  const takeable = new Set(actions.filter((action) => action.kind === "take").map((action) => action.item));
+  return floor.find((id) => usable.has(id)) ?? floor.find((id) => takeable.has(id)) ?? floor[0];
+}
+
 export function lockedStack(cards, id, open, holderExpanded) {
   const index = cards.indexOf(id);
   if (index < 0) return null;
