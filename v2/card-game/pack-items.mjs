@@ -336,9 +336,12 @@ function scatterKit(s, kit, events, nameOf, log) {
   s.scatters = { ...(s.scatters || {}), [kit.id]: count + 1 };
 }
 
-// Cross-world keepsakes start at external pack entries, one world per item
-// before a world is repeated. Never choose interiors, conditional places or
-// private homes. The hub is one world, not one ticket per hub place.
+const scatteredItems = Object.keys(packThings)
+  .filter((id) => packThings[id].scatterOutside)
+  .sort();
+
+// Cross-world keepsakes can name their starting places. Use one world per
+// item before repeating a world, with the most constrained items placed first.
 function scatterOutside(s) {
   // Shared creation and seedless imports receive their host seed afterward.
   if (!s.run) return;
@@ -348,9 +351,10 @@ function scatterOutside(s) {
       ({ id: p.id, places: [p.entry] })),
   ];
   const used = new Map();
-  for (const id of Object.keys(packThings).sort()) {
+  const pending = [];
+  for (const id of scatteredItems) {
     const thing = packThings[id], item = s.items[id];
-    if (!thing.scatterOutside || !item) continue;
+    if (!item) continue;
     const taken = used.get(thing.packId) || new Set();
     used.set(thing.packId, taken);
     // History records the initial placement once. Existing custody, deliberate
@@ -359,13 +363,19 @@ function scatterOutside(s) {
       taken.add(packIdOf(rootOf(s, id)));
       continue;
     }
+    const authored = Array.isArray(thing.scatterOutside) ? thing.scatterOutside : null;
     const candidates = groups.filter((g) => g.id !== thing.packId).map((g) => ({
-      ...g, places: g.places.filter((p) => entityActive(s, p) && !packPlaces[p]?.requires?.length),
+      ...g, places: (authored || g.places).filter((p) =>
+        packIdOf(p) === g.id && entityActive(s, p) && !packPlaces[p]?.requires?.length,
+      ),
     })).filter((g) => g.places.length);
-    if (!candidates.length) continue;
-    let choices = candidates.filter((g) => !taken.has(g.id));
-    if (!choices.length) { taken.clear(); choices = candidates; }
-    const group = choices[runHash(s, `scatter-world:${thing.packId}:${id}`) % choices.length];
+    if (candidates.length) pending.push({ id, item, candidates, taken });
+  }
+  pending.sort((a, b) => a.candidates.length - b.candidates.length);
+  for (const { id, item, candidates, taken } of pending) {
+    const fresh = candidates.filter((g) => !taken.has(g.id));
+    const choices = fresh.length ? fresh : candidates;
+    const group = choices[runHash(s, `scatter-world:${packThings[id].packId}:${id}`) % choices.length];
     item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
     taken.add(group.id);
     note(s, id, "Waiting beyond its home world.");

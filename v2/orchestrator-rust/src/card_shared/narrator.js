@@ -13778,7 +13778,7 @@
         places: {
           "ratiradio-staff-kitchen": {
             name: "Staff Kitchen",
-            text: "The fridges keep the hours here. One door stands barely ajar, casting cold light across the worn tiles.",
+            text: "The fridges keep the hours here. One door stands barely ajar. \u2018Leave the Station Key inside and the staff entrance will stay open,\u2019 reads a note by the lost-property tray.",
             persona: "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
             exits: [],
             backdrop: "assets/ratiradio/staff-kitchen.webp"
@@ -13908,8 +13908,8 @@
         items: {
           "ratiradio-station-key": {
             name: "Station Key",
-            text: "A brass key with a worn tag.",
-            persona: "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station, but only while someone carries it.",
+            text: "A brass key with a worn STAFF tag. Leaving it inside keeps the entrance open.",
+            persona: "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station while a traveler carries it or it stays inside the station rooms.",
             holder: "pond",
             art: "assets/ratiradio/station-key.webp",
             reservedUntil: [
@@ -13925,6 +13925,11 @@
               {
                 id: "staff",
                 text: "This brass key is for the station's staff.",
+                about: "ratiradio-staff-kitchen"
+              },
+              {
+                id: "leave-key-inside",
+                text: "Leave the Station Key inside the Staff Kitchen and the entrance stays open.",
                 about: "ratiradio-staff-kitchen"
               }
             ]
@@ -13943,7 +13948,10 @@
               }
             ],
             recoverTo: "pond",
-            scatterOutside: true
+            scatterOutside: [
+              "station",
+              "clearing"
+            ]
           },
           "ratiradio-thermos": {
             name: "Thermos",
@@ -13959,7 +13967,10 @@
               }
             ],
             recoverTo: "pond",
-            scatterOutside: true
+            scatterOutside: [
+              "clearing",
+              "forest-cottage"
+            ]
           },
           "ratiradio-raven-figurine": {
             name: "Raven Figurine",
@@ -13975,7 +13986,14 @@
               }
             ],
             recoverTo: "pond",
-            scatterOutside: true
+            scatterOutside: [
+              "clearing",
+              "greek-harbor",
+              "hoppycat-signal-jetty",
+              "willows-landing",
+              "forest-cottage",
+              "elysium-void-001"
+            ]
           },
           "ratiradio-glass": {
             name: "Half-full Glass",
@@ -13991,7 +14009,14 @@
               }
             ],
             recoverTo: "pond",
-            scatterOutside: true
+            scatterOutside: [
+              "clearing",
+              "greek-harbor",
+              "hoppycat-signal-jetty",
+              "willows-landing",
+              "forest-cottage",
+              "elysium-void-001"
+            ]
           },
           "ratiradio-request-slip": {
             name: "Request Slip",
@@ -16510,6 +16535,7 @@
     };
     const items2 = record3(pack.items) ? pack.items : {};
     const places2 = record3(pack.places) ? pack.places : {};
+    const known = /* @__PURE__ */ new Set([...Object.keys(places2), ...mountedPlaces, ...hubPlaces]);
     const choices = Array.isArray(pack.choices) ? pack.choices : [];
     const drops = (id) => choices.filter(
       (c) => (c.effects || []).some((e) => e.kind === "drop_item" && e.item === id)
@@ -16523,6 +16549,11 @@
       );
     };
     for (const [id, i] of Object.entries(items2)) {
+      const scatter = i.scatterOutside;
+      check(
+        scatter === void 0 || scatter === true || Array.isArray(scatter) && scatter.length > 0 && scatter.length <= 16 && new Set(scatter).size === scatter.length && scatter.every((place) => known.has(place) && !owns3(places2, place)),
+        `item ${id} scatterOutside must be true or list distinct places outside its pack`
+      );
       check(
         !["food", "drink"].some((tag) => i.tags?.includes(tag)) || owns3(places2, i.home),
         `item ${id} is food or drink, so it needs a home to go back to`
@@ -16587,11 +16618,6 @@
       }
     const kits = pack.kits === void 0 ? [] : pack.kits;
     check(Array.isArray(kits) && kits.length <= 4, "kits must be a short list");
-    const known = /* @__PURE__ */ new Set([
-      ...Object.keys(places2),
-      ...mountedPlaces,
-      ...hubPlaces
-    ]);
     const kitIds = /* @__PURE__ */ new Set(), kitItems = /* @__PURE__ */ new Set();
     for (const kit of Array.isArray(kits) ? kits : []) {
       const ok = record3(kit) && Object.keys(kit).every(
@@ -17485,10 +17511,6 @@
       check(
         i.reservedUntil === void 0 || Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0,
         `item ${id} reservedUntil needs a condition`
-      );
-      check(
-        i.scatterOutside === void 0 || i.scatterOutside === true,
-        `item ${id} scatterOutside must be true`
       );
       check(
         i.recoverTo === void 0 || anyPlace(i.recoverTo),
@@ -20030,6 +20052,7 @@
     const source = s.log.find((entry) => entry.seq === sourceSeq);
     return !source || source.kind === "action" && source.turn === event.turn && ["give", "trade", "drop"].includes(source.verb) && (source.verb === "drop" || source.accepted === true) && consumedIds.includes(source.itemId) && source.targetId === (source.verb === "drop" ? event.locationId : event.actorId);
   }
+  var scatteredItems = Object.keys(packThings).filter((id) => packThings[id].scatterOutside).sort();
   function scatterOutside(s) {
     if (!s.run) return;
     const groups2 = [
@@ -20037,26 +20060,30 @@
       ...packDefinitions.filter((p) => hub.packEntries[p.id]).map((p) => ({ id: p.id, places: [p.entry] }))
     ];
     const used = /* @__PURE__ */ new Map();
-    for (const id of Object.keys(packThings).sort()) {
+    const pending = [];
+    for (const id of scatteredItems) {
       const thing = packThings[id], item = s.items[id];
-      if (!thing.scatterOutside || !item) continue;
+      if (!item) continue;
       const taken = used.get(thing.packId) || /* @__PURE__ */ new Set();
       used.set(thing.packId, taken);
       if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
         taken.add(packIdOf(rootOf4(s, id)));
         continue;
       }
+      const authored = Array.isArray(thing.scatterOutside) ? thing.scatterOutside : null;
       const candidates2 = groups2.filter((g) => g.id !== thing.packId).map((g) => ({
         ...g,
-        places: g.places.filter((p) => entityActive(s, p) && !packPlaces[p]?.requires?.length)
+        places: (authored || g.places).filter(
+          (p) => packIdOf(p) === g.id && entityActive(s, p) && !packPlaces[p]?.requires?.length
+        )
       })).filter((g) => g.places.length);
-      if (!candidates2.length) continue;
-      let choices = candidates2.filter((g) => !taken.has(g.id));
-      if (!choices.length) {
-        taken.clear();
-        choices = candidates2;
-      }
-      const group = choices[runHash(s, `scatter-world:${thing.packId}:${id}`) % choices.length];
+      if (candidates2.length) pending.push({ id, item, candidates: candidates2, taken });
+    }
+    pending.sort((a, b) => a.candidates.length - b.candidates.length);
+    for (const { id, item, candidates: candidates2, taken } of pending) {
+      const fresh = candidates2.filter((g) => !taken.has(g.id));
+      const choices = fresh.length ? fresh : candidates2;
+      const group = choices[runHash(s, `scatter-world:${packThings[id].packId}:${id}`) % choices.length];
       item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
       taken.add(group.id);
       note(s, id, "Waiting beyond its home world.");

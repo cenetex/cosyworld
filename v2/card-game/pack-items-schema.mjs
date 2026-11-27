@@ -63,6 +63,7 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
   };
   const items = record(pack.items) ? pack.items : {};
   const places = record(pack.places) ? pack.places : {};
+  const known = new Set([...Object.keys(places), ...mountedPlaces, ...hubPlaces]);
   const choices = Array.isArray(pack.choices) ? pack.choices : [];
   const drops = (id) =>
     choices.filter((c) =>
@@ -85,6 +86,14 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
   };
 
   for (const [id, i] of Object.entries(items)) {
+    const scatter = i.scatterOutside;
+    check(
+      scatter === undefined || scatter === true ||
+        (Array.isArray(scatter) && scatter.length > 0 && scatter.length <= 16 &&
+          new Set(scatter).size === scatter.length &&
+          scatter.every((place) => known.has(place) && !owns(places, place))),
+      `item ${id} scatterOutside must be true or list distinct places outside its pack`,
+    );
     // Rules 102: a food goes home once eaten; a crafted thing waits there
     // locked until its maker, a resident of the pack, consumes its set.
     check(
@@ -196,11 +205,6 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
 
   const kits = pack.kits === undefined ? [] : pack.kits;
   check(Array.isArray(kits) && kits.length <= 4, "kits must be a short list");
-  const known = new Set([
-    ...Object.keys(places),
-    ...mountedPlaces,
-    ...hubPlaces,
-  ]);
   const kitIds = new Set(),
     kitItems = new Set();
   for (const kit of Array.isArray(kits) ? kits : []) {
