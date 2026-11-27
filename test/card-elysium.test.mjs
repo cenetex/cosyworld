@@ -250,7 +250,9 @@ it("weaves the bridge only while the lamp's uncovered flame is at the Spiral", (
 
 it("keeps Void 005's quiet painting separate from its lightning strike", () => {
   const copper = id("void-005");
-  expect(backdrop(copper, fixture(copper))).toBe("./assets/elysium/void-005-quiet.png");
+  expect(backdrop(copper, fixture(copper))).toBe(
+    "./assets/elysium/void-005-quiet.png",
+  );
   expect(placeLight(copper).ambience).toEqual({
     kind: "copper",
     impact: "assets/elysium/void-005.png",
