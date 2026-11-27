@@ -280,10 +280,11 @@ try {
   assert.equal(after.world.items.bell.holder, "pond");
   const rows = journal().filter(row => row.seq > startSeq);
   const played = rows.find(row => row.command.op === "play");
-  const spoken = rows.find(row => row.command.op === "speech" && row.seq > played?.seq);
+  const spoken = rows.find(row => row.command.op === "speech" && row.command.play === command.key && row.seq > played?.seq);
   assert(played && spoken, "journal must commit play before speech");
   const line = scene.lines.find(l => l.generated === true && l.kind === "dialogue" && l.actorId === "vale" && l.turn === event.turn && l.seq > event.seq && normalized(l.text).length > 3);
   assert(line, "No real character line for this play; do not publish");
+  assert(spoken.command.lines.some(entry => normalized(entry.text || "") === normalized(line.text)), "the matching speech is journaled");
   const upstream = replies.find(r => r.started >= started && normalized(r.text).includes(normalized(line.text)));
   assert(upstream, "published line must match an actual upstream completion");
   evidence.checks = { cardPlayed: true, worldMessage: true, journalPlayBeforeSpeech: true, liveProviderMatch: true };
@@ -312,6 +313,10 @@ try {
   evidence.restored = { turn: restored.world.turn, revision: restored.world.revision, bellHolder: restored.world.items.bell.holder };
   await render(restoredPage);
   await wake(restoredPage);
+  await restoredPage.locator("#toolbar-menu-button").click();
+  const menu = restoredPage.locator("#world-menu");
+  await menu.locator(".world-slot").first().waitFor();
+  await restoredPage.waitForFunction(() => [...document.querySelectorAll("#world-menu img")].every(img => img.complete));
   await shot(restoredPage, "05-shared-world.png");
   await fresh.close();
   assert.deepEqual(errors, []);
