@@ -2148,16 +2148,8 @@ async fn speak(
     )
     .labelled(context);
     let Some(links) = fallback::chain(config, own, fallbacks) else {
-        call.reject("unroutable");
-        call.finish(voice_metrics::Outcome::Silent);
-        tracing::warn!(
-            feature = "card_voice",
-            entity = id,
-            part = ?part,
-            model = own_model.unwrap_or("default"),
-            reason = "unroutable",
-            "card voice rejected"
-        );
+        call.reject("unroutable", None);
+        call.silent();
         return Err(());
     };
     // Per model, for the bench: 1 an empty or blocked reply, 2 a usable line.
@@ -2206,33 +2198,11 @@ async fn speak(
                             tier.fetch_max(1, Ordering::Relaxed);
                         }
                         call.reject_provider(&error);
-                        tracing::info!(
-                            feature = "card_voice",
-                            entity = id,
-                            part = ?part,
-                            model = %link.model,
-                            provider = %link.provider,
-                            attempt = attempt + 1,
-                            fallback = n,
-                            reason = "provider",
-                            failure = error.code(),
-                            response_detail = error.response_detail(),
-                            "card voice rejected"
-                        );
                         fallback::Miss::provider(&error, bound.is_some() && part == Part::Line)
                     })?;
                 if elysium_model_mismatch(bound, &completion.resolved_model_id) {
                     tier.fetch_max(1, Ordering::Relaxed);
-                    call.reject("model_mismatch");
-                    tracing::warn!(
-                        feature = "card_voice",
-                        entity = id,
-                        part = ?part,
-                        model = %link.model,
-                        resolved_model = %completion.resolved_model_id,
-                        reason = "model_mismatch",
-                        "card voice rejected"
-                    );
+                    call.reject("model_mismatch", Some(&completion.finish_reason));
                     return Err(fallback::Miss::Failed);
                 }
                 let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
@@ -2241,53 +2211,18 @@ async fn speak(
                     for &reason in &flags {
                         call.flag(reason);
                     }
-                    if !flags.is_empty() {
-                        tracing::info!(
-                            feature = "card_voice",
-                            entity = id,
-                            attempt = attempt + 1,
-                            outcome = "flagged",
-                            reasons = %flags.join(","),
-                            excerpt = %excerpt(&text),
-                            "card voice flagged"
-                        );
-                    }
+                    call.spoken(&completion.finish_reason);
                     tier.store(2, Ordering::Relaxed);
                     (text, completion.resolved_model_id.clone())
                 })
                 .map_err(|reason| {
                     tier.fetch_max(1, Ordering::Relaxed);
-                    call.reject(reason);
-                    tracing::info!(
-                        feature = "card_voice",
-                        entity = id,
-                        part = ?part,
-                        model = %link.model,
-                        provider = %link.provider,
-                        attempt = attempt + 1,
-                        fallback = n,
-                        reason,
-                        excerpt = %excerpt(&completion.text),
-                        "card voice rejected"
-                    );
+                    call.reject(reason, Some(&completion.finish_reason));
                     fallback::Miss::of(reason)
                 })
             }
         },
-        |n: usize, attempt: u8| {
-            call.reject("timeout");
-            tracing::info!(
-                feature = "card_voice",
-                entity = id,
-                part = ?part,
-                model = %links[n].model,
-                provider = %links[n].provider,
-                attempt = attempt + 1,
-                fallback = n,
-                reason = "timeout",
-                "card voice rejected"
-            );
-        },
+        |_, _| call.reject("timeout", None),
     )
     .await;
     for (fallback::Link { model, .. }, tier) in links.iter().zip(&tiers) {
@@ -2295,16 +2230,10 @@ async fn speak(
             config.readiness.record_voice_outcome(model, seen == 2);
         }
     }
-    match spoken {
-        Ok(said) => {
-            call.finish(voice_metrics::Outcome::Spoken);
-            Ok(said)
-        }
-        Err(()) => {
-            call.finish(voice_metrics::Outcome::Silent);
-            Err(())
-        }
+    if spoken.is_err() {
+        call.silent();
     }
+    spoken
 }
 
 /// A call's turns (owner, 2026-11-03: "put it in the assistant block, keep
@@ -2392,27 +2321,6 @@ fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
             false => crate::ai_gateway::SILENCE.into(),
         },
     }
-}
-
-/// A bounded, single-line excerpt of a rejected reply for the log. Long
-/// unbroken runs, which could be keys or encoded data, are not copied.
-fn excerpt(text: &str) -> String {
-    let words: Vec<_> = text
-        .split_whitespace()
-        .map(|word| {
-            if word.chars().count() > 24 {
-                "[…]"
-            } else {
-                word
-            }
-        })
-        .collect();
-    let line = words.join(" ");
-    let mut short: String = line.chars().filter(|c| !c.is_control()).take(80).collect();
-    if line.chars().count() > 80 {
-        short.push('…');
-    }
-    short
 }
 
 /// What a reply is checked against before it is published.

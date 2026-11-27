@@ -65,6 +65,11 @@ async function personalIntroduction(browser, origin) {
       answer: "Something of mine slipped through a mirror before you saw me.",
       model: boundModel,
     },
+    {
+      question: "Did you paint that silver coat?",
+      answer: "I drew it with the light between the mirrors.",
+      model: boundModel,
+    },
   ];
   const key = "cosyworld.reflected-shore.v1.elysium-personal-smoke";
   const initial = createWorld({ seed: 17 });
@@ -253,6 +258,9 @@ async function personalIntroduction(browser, origin) {
   await awaitPortrait();
   assert.deepEqual(portraitRequests.slice(requestCount), [receipt]);
   await title.filter({ hasText: name }).waitFor();
+  await talk(exchanges[3]);
+  assert.equal(await speaker.textContent(), name);
+  await page.locator('#speaker-portrait img[src^="data:image/png;base64,"]').waitFor();
   assert.deepEqual(errors, []);
   await page.close();
 }

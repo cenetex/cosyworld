@@ -359,6 +359,31 @@ mod tests {
         for detail in ["reasoning_only", "provider_declined"] {
             assert!(metrics["provider_response_details"][detail].as_u64() >= Some(1));
         }
+        let recent = metrics["recent_outcomes"].as_array().unwrap();
+        let trace = |detail: &str| {
+            recent
+                .iter()
+                .find(|call| {
+                    call["entity"] == GEMINI
+                        && call["attempts"][0]["failure"]["response_detail"] == detail
+                })
+                .unwrap()
+        };
+        let recovered = trace("reasoning_only");
+        assert_eq!(recovered["outcome"], "spoken");
+        let attempts = recovered["attempts"].as_array().unwrap();
+        assert_eq!(attempts.len(), 2);
+        assert_eq!(attempts[0]["attempt"], 1);
+        assert_eq!(attempts[0]["outcome"], "invalid_response");
+        assert_eq!(attempts[1]["attempt"], 2);
+        assert_eq!(attempts[1]["outcome"], "spoken");
+        assert_eq!(attempts[1]["finish"], "stop");
+        assert_eq!(
+            trace("provider_declined")["attempts"][0]["outcome"],
+            "rejected"
+        );
+        assert!(!metrics.to_string().contains("Private thought."));
+        assert!(!metrics.to_string().contains("I hear the room breathe."));
         server.abort();
     }
 
