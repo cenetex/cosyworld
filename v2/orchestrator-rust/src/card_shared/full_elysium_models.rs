@@ -27,15 +27,15 @@ pub(super) const PORTRAIT_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-p
 const MAX_PORTRAIT: u64 = 8 * 1024 * 1024;
 const PORTRAIT_RETRY: Duration = Duration::from_secs(300);
 const NAME_PENDING: &str = "My name is still taking shape. Ask me again, traveler.";
-const REPLY_PENDING: &str = "Stay a moment. This Void has more to say if you listen.";
 const AUTHORED_VOICE: &str = "elysium-authored";
 
 pub(super) struct Resident {
-    pub(super) id: &'static str,
+    id: &'static str,
     room: &'static str,
     token: &'static str,
     model: &'static str,
     setting: &'static str,
+    waiting: &'static str,
 }
 
 const RESIDENTS: [Resident; 6] = [
@@ -45,6 +45,7 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-claude-token",
         model: "anthropic/claude-haiku-5.5",
         setting: "a quiet archive of suspended amber leaves",
+        waiting: "The amber leaves turn so slowly here. Stay a moment while I find the right words.",
     },
     Resident {
         id: "elysium-gemini",
@@ -52,6 +53,7 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-gemini-token",
         model: "google/gemini-4-hydrogen",
         setting: "a chamber of twin silver mirrors",
+        waiting: "The mirrors return every echo. I'm listening for the one that sounds like me.",
     },
     Resident {
         id: "elysium-chatgpt",
@@ -59,6 +61,7 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-chatgpt-token",
         model: "openai/gpt-6-luna",
         setting: "a vaulted loom where gold and teal threads meet",
+        waiting: "I'm still looking for the right thread. Gold and teal cross so many times on this loom.",
     },
     Resident {
         id: "elysium-grok",
@@ -66,6 +69,7 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-grok-token",
         model: "x-ai/grok-4.7",
         setting: "a copper cliff high above a dry thunderstorm",
+        waiting: "Wait with me on this ledge. You can hear the thunder change without feeling a drop of rain.",
     },
     Resident {
         id: "elysium-deepseek",
@@ -73,6 +77,7 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-deepseek-token",
         model: "deepseek/deepseek-v4.1-flash",
         setting: "an indigo well whose depth is measured in echoes",
+        waiting: "The well holds on to our voices a little longer. Let's hear what comes back.",
     },
     Resident {
         id: "elysium-qwen",
@@ -80,11 +85,16 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-qwen-token",
         model: "qwen/qwen3.8-flash",
         setting: "folded jade terraces joined by warm filaments",
+        waiting: "Follow the warm filament with your eyes. You can almost see how it holds these jade terraces together.",
     },
 ];
 
 fn resident(id: &str) -> Option<&'static Resident> {
     RESIDENTS.iter().find(|resident| resident.id == id)
+}
+
+pub(crate) fn elysium_model(id: &str) -> Option<&'static str> {
+    resident(id).map(|resident| resident.model)
 }
 
 fn actions<'a>(work: &'a Value, actor: &'a str) -> impl Iterator<Item = &'a Value> {
@@ -101,12 +111,20 @@ fn actions<'a>(work: &'a Value, actor: &'a str) -> impl Iterator<Item = &'a Valu
         })
 }
 
-pub(super) fn spoken_to(work: &Value, actor: &str) -> Option<(&'static Resident, bool)> {
+fn spoken_to(work: &Value, actor: &str) -> Option<&'static Resident> {
     actions(work, actor).find_map(|event| {
         let resident = resident(event["targetId"].as_str()?)?;
-        (event["verb"] == "talk" && event["locationId"] == resident.room)
-            .then_some((resident, event["elysiumModel"] == resident.id))
+        (event["verb"] == "talk" && event["locationId"] == resident.room).then_some(resident)
     })
+}
+
+pub(super) fn talk_target(work: &Value) -> Option<&'static str> {
+    spoken_to(work, work["actor"].as_str()?).map(|resident| resident.id)
+}
+
+pub(super) fn intro_target(work: &Value) -> Option<&'static str> {
+    let target = talk_target(work)?;
+    (work["elysiumIntro"] == target || work["elysiumIntro"] == true).then_some(target)
 }
 
 pub(super) fn returned_to(work: &Value, actor: &str) -> Option<&'static Resident> {
@@ -128,13 +146,13 @@ pub(super) fn record(
     actor: &str,
     time: i64,
 ) -> Result<()> {
-    if let Some((resident, _)) = spoken_to(work, actor) {
+    if let Some(resident) = spoken_to(work, actor) {
         c.execute(
             "INSERT OR IGNORE INTO card_full_elysium_receipts(world,resident,scattered) VALUES(?,?,?)",
             params![world, resident.id, time],
         ).map_err(sql_error)?;
         if !introduced(c, world, resident).map_err(sql_error)? {
-            work["elysiumIntro"] = json!(true);
+            work["elysiumIntro"] = json!(resident.id);
         }
     }
     if let Some(resident) = returned_to(work, actor) {
@@ -343,7 +361,7 @@ async fn request_name(state: &AppState, resident: &Resident) -> Result<String> {
     Err("elysium_name_unavailable".into())
 }
 
-async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<(String, bool)> {
+async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<String> {
     let dir = directory(&state.generated_asset_dir, resident);
     let path = dir.clone();
     let (_lease, existing) = tokio::task::spawn_blocking(move || {
@@ -361,7 +379,7 @@ async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<(S
         TryLockError::Error(_) => "elysium_name_storage".to_owned(),
     })?;
     if let Some(name) = existing {
-        return Ok((name, false));
+        return Ok(name);
     }
     let name = request_name(state, resident).await?;
     let copy = name.clone();
@@ -372,10 +390,10 @@ async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<(S
     .await
     .map_err(|_| "elysium_name_storage".to_owned())?
     .map_err(|_| "elysium_name_storage".to_owned())?;
-    Ok((name, true))
+    Ok(name)
 }
 
-async fn name_for_talk(state: &AppState, resident: &'static Resident) -> Option<(String, bool)> {
+async fn name_for_talk(state: &AppState, resident: &'static Resident) -> Option<String> {
     match tokio::time::timeout(Duration::from_secs(18), choose_name(state, resident)).await {
         Ok(Ok(name)) => Some(name),
         Ok(Err(code)) => {
@@ -391,46 +409,6 @@ async fn name_for_talk(state: &AppState, resident: &'static Resident) -> Option<
     }
 }
 
-pub(super) async fn dialogue(
-    state: &AppState,
-    resident: &'static Resident,
-    first: bool,
-) -> Result<Value> {
-    let Some((name, named_now)) = name_for_talk(state, resident).await else {
-        return Ok(dialogue_line(resident, "???", NAME_PENDING, AUTHORED_VOICE));
-    };
-    if first || named_now {
-        Ok(dialogue_line(
-            resident,
-            &name,
-            &introduction(&name),
-            resident.model,
-        ))
-    } else {
-        let task = format!("Your name is {name}. A traveler has returned to speak with you. Reply with one new, short line, no more than 180 characters, grounded in what your room looks and sounds like.");
-        if let Ok(line) = model_words(state, resident, "reply", &task, 1024).await {
-            if !line.is_empty()
-                && line.chars().count() <= 180
-                && human_message_is_cozy_safe(&line)
-                && !line.chars().any(char::is_control)
-            {
-                return Ok(dialogue_line(resident, &name, &line, resident.model));
-            }
-            voice_issue(resident, "reply", "elysium_invalid_reply", None);
-        }
-        Ok(dialogue_line(
-            resident,
-            &name,
-            REPLY_PENDING,
-            AUTHORED_VOICE,
-        ))
-    }
-}
-
-fn dialogue_line(resident: &Resident, speaker: &str, text: &str, model: &str) -> Value {
-    json!([{"speaker":speaker,"text":text,"entityId":resident.id,"actorId":resident.id,"model":model}])
-}
-
 const INTRO_START: &str = "I call myself ";
 const INTRO_END: &str = ". My token has slipped into the world beyond this Void.";
 
@@ -444,17 +422,23 @@ pub(crate) fn is_elysium_introduction(text: &str) -> bool {
         .is_some_and(valid_name)
 }
 
-pub(crate) async fn personal_introduction(
+pub(crate) async fn resident_introduction(
     state: &AppState,
     id: &str,
     room: &str,
+    previous: Option<&str>,
 ) -> Option<(String, &'static str)> {
     let resident = resident(id).filter(|resident| resident.room == room)?;
+    let waiting = if previous == Some(NAME_PENDING) {
+        resident.waiting
+    } else {
+        NAME_PENDING
+    };
     Some(
         name_for_talk(state, resident)
             .await
-            .map(|(name, _)| (introduction(&name), resident.model))
-            .unwrap_or_else(|| (NAME_PENDING.into(), AUTHORED_VOICE)),
+            .map(|name| (introduction(&name), resident.model))
+            .unwrap_or_else(|| (waiting.into(), AUTHORED_VOICE)),
     )
 }
 
@@ -623,7 +607,7 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .extend(action.as_object().unwrap().clone());
-        json!({"room": resident.room, "events": [event]})
+        json!({"room": resident.room, "actor": "vale", "events": [event]})
     }
 
     #[test]
@@ -642,7 +626,10 @@ mod tests {
         record(&c, "world", &mut first, "mara", 9).unwrap();
         assert!(!earned(&c, "world", resident, false).unwrap());
         record(&c, "world", &mut first, "vale", 10).unwrap();
-        assert_eq!(first["elysiumIntro"], true);
+        assert_eq!(first["elysiumIntro"], resident.id);
+        assert_eq!(intro_target(&first), Some(resident.id));
+        first["elysiumIntro"] = json!(true);
+        assert_eq!(intro_target(&first), Some(resident.id));
         assert!(earned(&c, "world", resident, false).unwrap());
         assert!(!introduced(&c, "world", resident).unwrap());
         let mut line = json!({"actorId": resident.id, "kind":"dialogue", "text":"I call myself Amber Thread. My token has slipped into the world beyond this Void.", "generated":false});
@@ -658,6 +645,10 @@ mod tests {
         line["generated"] = json!(true);
         write_scene(&line);
         assert!(introduced(&c, "world", resident).unwrap());
+        let mut repeated = play(resident, json!({"verb":"talk"}));
+        record(&c, "world", &mut repeated, "vale", 11).unwrap();
+        assert_eq!(talk_target(&repeated), Some(resident.id));
+        assert_eq!(intro_target(&repeated), None);
         assert!(!introduced(&c, "other-world", resident).unwrap());
         assert!(!earned(&c, "other-world", resident, false).unwrap());
         assert!(!earned(&c, "world", &RESIDENTS[1], false).unwrap());
@@ -699,23 +690,33 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn shared_void_resident_answers_even_when_its_model_is_unavailable() {
+    async fn readied_intro_avoids_repeating_anonymous_recovery() {
         let mut state = crate::test_support::test_app_state(None);
         let root = std::env::temp_dir().join(format!("elysium-voice-{}", crate::random_hex(8)));
         state.generated_asset_dir = std::sync::Arc::new(root.clone());
         let resident = &RESIDENTS[3];
         let path = directory(&root, resident).join("name.txt");
-        let intro = dialogue(&state, resident, true).await.unwrap();
-        assert_eq!(intro[0]["actorId"], resident.id);
-        assert_eq!(intro[0]["speaker"], "???");
-        assert_eq!(intro[0]["text"], NAME_PENDING);
-        assert_eq!(intro[0]["model"], AUTHORED_VOICE);
+        let (first, model) = resident_introduction(&state, resident.id, resident.room, None)
+            .await
+            .unwrap();
+        assert_eq!(first, NAME_PENDING);
+        assert_eq!(model, AUTHORED_VOICE);
         assert!(!path.exists());
         assert!(!is_elysium_introduction(NAME_PENDING));
+        let (second, model) =
+            resident_introduction(&state, resident.id, resident.room, Some(&first))
+                .await
+                .unwrap();
+        assert_eq!(second, resident.waiting);
+        assert_eq!(model, AUTHORED_VOICE);
+        assert!(!is_elysium_introduction(&second));
         fs::write(path, "Copper Bell").unwrap();
-        let later = dialogue(&state, resident, false).await.unwrap();
-        assert_eq!(later[0]["speaker"], "Copper Bell");
-        assert_eq!(later[0]["text"], REPLY_PENDING);
+        let (ready, model) =
+            resident_introduction(&state, resident.id, resident.room, Some(&second))
+                .await
+                .unwrap();
+        assert_eq!(ready, introduction("Copper Bell"));
+        assert_eq!(model, resident.model);
         fs::remove_dir_all(root).unwrap();
     }
 }

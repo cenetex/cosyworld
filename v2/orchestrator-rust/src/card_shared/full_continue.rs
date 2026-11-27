@@ -23,8 +23,13 @@ pub(super) fn context(
         request["revealed"] = revealed;
     }
     let mut context = super::super::narrator::context(&request)?;
+    let legacy_void_speakers = super::elysium_models::talk_target(prior)
+        .is_some_and(|target| prior["context"]["speakers"] == json!([target]));
     // The committed occasion owns its cast. Only present facts are refreshed.
     for key in ["speakers", "scenery", "focus", "waking", "covered"] {
+        if key == "speakers" && legacy_void_speakers {
+            continue;
+        }
         if let Some(value) = prior["context"].get(key) {
             context[key] = value.clone();
         }

@@ -13,7 +13,8 @@ const retryDelays = [
   1500, 3500, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 135000,
 ];
 const maxPortraitBytes = 8 * 1024 * 1024;
-const introduction = /^I call myself ([\p{Alphabetic} -]+)\. My token has slipped into the world beyond this Void\.$/u;
+const introductionStart = "I call myself ";
+const introductionEnd = ". My token has slipped into the world beyond this Void.";
 
 function validPersonalName(name) {
   return (
@@ -24,6 +25,15 @@ function validPersonalName(name) {
     name.trim().split(/ +/u).length <= 3
   );
 }
+
+function introductionName(value) {
+  if (typeof value !== "string" || !value.startsWith(introductionStart) ||
+    !value.endsWith(introductionEnd)) return null;
+  const name = value.slice(introductionStart.length, -introductionEnd.length);
+  return validPersonalName(name) ? name : null;
+}
+
+const normalName = (name) => name.trim().replace(/ +/gu, " ");
 
 async function decodedPortrait(blob) {
   const reader = new FileReader();
@@ -231,13 +241,12 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
   }
 
   function learn(world, actor, line, talkedAt) {
-    const match = introduction.exec(line.text);
-    if (line.kind !== "dialogue" || !match || match[0] !== line.text || !validPersonalName(match[1]) ||
+    const title = introductionName(line.text);
+    if (line.kind !== "dialogue" || !title ||
       !hasSignedLocalLine(line, world.revision, storage) ||
       !world.log.some((entry) => entry.seq < line.seq && entry.turn === line.turn &&
         entry.verb === "talk" && entry.actorId === actor && entry.targetId === line.actorId)) return;
-    const name = match[1].trim().replace(/ +/gu, " ");
-    personalNames[line.actorId] = { name, talkedAt, seq: line.seq };
+    personalNames[line.actorId] = { name: normalName(title), talkedAt, seq: line.seq };
     try {
       storage.setItem(personalKey, JSON.stringify({ seed: world.run.seed, names: personalNames }));
     } catch { /* The revealed name is still available on this page. */ }
@@ -257,6 +266,24 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     return value;
   }
 
+  function reader(read, covered = () => true) {
+    const caption = (value) => text(read(value));
+    return (value, line) => {
+      if (line?.generated && !line.silent && line.kind === "dialogue" &&
+        line.text === value && cast.get(line.actorId)?.alias) {
+        const title = introductionName(value);
+        if (title && !covered(line.actorId)) {
+          const deliveredByGame = prefix
+            ? authorized && !suspended
+            : personalName(line.actorId) === normalName(title) ||
+              hasSignedLocalLine(line, personalWorld?.revision, storage);
+          if (deliveredByGame) return caption(introductionStart) + title + caption(introductionEnd);
+        }
+      }
+      return caption(value);
+    };
+  }
+
   return {
     get key() {
       return key;
@@ -272,7 +299,7 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     },
     source: (id, sleeping) => (sleeping ? null : cast.get(id)?.portrait?.value),
     text,
-    reader: (read) => (value) => text(read(value)),
+    reader,
     observe(world, actor, line) {
       sync(world);
       const active = authorized && !suspended;

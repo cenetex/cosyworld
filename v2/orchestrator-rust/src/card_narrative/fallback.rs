@@ -127,7 +127,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::super::tests::{context, models_for, serve, solo_departure, stem_of, tiered_config};
-    use super::super::{complete_selected, voice_metrics};
+    use super::super::{complete_selected, reflection, speak, voice_metrics, Context, Part};
     use super::*;
     use axum::{http::StatusCode, routing::post, Json, Router};
     use serde_json::{json, Value};
@@ -237,6 +237,135 @@ mod tests {
         assert!(silent.is_err());
         assert!(count("unroutable") > Some(before));
         assert!(seen.lock().unwrap().is_empty());
+        server.abort();
+    }
+
+    const GEMINI: &str = "elysium-gemini";
+
+    fn void_scene() -> Context {
+        let mut scene = context();
+        scene.location = "elysium-void-003".into();
+        scene.entities[0].id = GEMINI.into();
+        scene.entities[1].id = scene.location.clone();
+        scene.speakers = vec![GEMINI.into()];
+        scene.scenery = false;
+        scene.focus = None;
+        scene
+    }
+
+    #[tokio::test]
+    async fn elysium_speech_and_reflections_use_only_the_bound_model() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let log = seen.clone();
+        let provider = post(move |Json(body): Json<Value>| async move {
+            log.lock().unwrap().push(body.clone());
+            let stem = stem_of(&body);
+            let (text, finish) = if stem.ends_with(", to myself:") {
+                ("I felt welcome.", "stop")
+            } else if stem.ends_with(", who I am now:") {
+                ("I am listening for company in the quiet.", "stop")
+            } else if stem == "Last night I dreamed:" {
+                ("I dreamed of waves passing through a quiet hall.", "stop")
+            } else {
+                ("I feel a quiet kinship with these mirrors.", "length")
+            };
+            let message = if body["max_tokens"].as_u64().unwrap() >= 1024 {
+                json!({"content":text})
+            } else {
+                json!({"content":null,"reasoning":"Thinking about the mirrors."})
+            };
+            Json(
+                json!({"model":body["model"],"choices":[{"message":message,"finish_reason":finish}]}),
+            )
+        });
+        let (address, server) = serve(Router::new().route("/chat/completions", provider)).await;
+        let model = crate::card_shared::elysium_model(GEMINI).unwrap();
+        let config = tiered_config(address, &[(model, false), ("openai/reflection", false)]);
+        let settings = VoiceSettings {
+            reflection_model: Some("openai/reflection".into()),
+            fallback_models: vec!["test-entity-model".into()],
+            ..VoiceSettings::hosted()
+        };
+        let models = [(GEMINI.into(), "test-entity-model".into())].into();
+        let mut scene = void_scene();
+        let deadline = tokio::time::Instant::now() + settings.scene_timeout;
+        let line = speak(
+            &config,
+            &scene,
+            &models,
+            &settings,
+            deadline,
+            GEMINI,
+            Part::Line,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            line,
+            (
+                "I feel a quiet kinship with these mirrors.".into(),
+                model.into()
+            )
+        );
+
+        scene.rest = Some("long".into());
+        scene.resting = Some(GEMINI.into());
+        scene.dream = Some("glimpse".into());
+        let memory = reflection::generate(&config, &scene, &models, &settings, deadline, GEMINI)
+            .await
+            .expect("the bound resident's reflection");
+        assert_eq!(memory.models.len(), 3);
+        assert!(memory.models.values().all(|used| used == model));
+        assert!(memory.dream.is_some());
+        let requests = seen.lock().unwrap();
+        assert_eq!(requests.len(), 4);
+        assert!(requests.iter().all(|body| body["model"] == model));
+        assert!(requests.iter().all(|body| body["max_tokens"] == 1024));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn elysium_rejects_model_substitution_and_misses_without_fallback() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let log = seen.clone();
+        let provider = post(move |Json(body): Json<Value>| async move {
+            let mut requests = log.lock().unwrap();
+            requests.push(body);
+            if requests.len() == 1 {
+                return (
+                    StatusCode::OK,
+                    Json(json!({"model":"test-entity-model","choices":[
+                        {"message":{"content":"I hear quiet beyond the mirrors."},"finish_reason":"stop"}
+                    ]})),
+                );
+            }
+            (StatusCode::BAD_GATEWAY, Json(json!({})))
+        });
+        let (address, server) = serve(Router::new().route("/chat/completions", provider)).await;
+        let model = crate::card_shared::elysium_model(GEMINI).unwrap();
+        let settings = VoiceSettings {
+            fallback_models: vec!["test-entity-model".into()],
+            ..VoiceSettings::hosted()
+        };
+        let scene = void_scene();
+        for _ in 0..2 {
+            let config = tiered_config(address, &[(model, false)]);
+            let deadline = tokio::time::Instant::now() + settings.scene_timeout;
+            assert!(speak(
+                &config,
+                &scene,
+                &Default::default(),
+                &settings,
+                deadline,
+                GEMINI,
+                Part::Line,
+            )
+            .await
+            .is_err());
+        }
+        let requests = seen.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert!(requests.iter().all(|body| body["model"] == model));
         server.abort();
     }
 

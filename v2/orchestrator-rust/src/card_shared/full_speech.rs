@@ -2,6 +2,7 @@
 //! committed actions and write character replies, while game outcomes stay in C.
 use super::{full_world::actor_id, store::Result};
 use crate::ai_gateway::{AiConfig, ModelCapability};
+use crate::routes::card_game::narrative::{shared_lines_with_introduction, Introduction};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
@@ -114,19 +115,25 @@ pub(super) fn story(state: &crate::AppState) -> Result<(AiConfig, BTreeMap<Strin
     let models: BTreeMap<String, String> = serde_json::from_value(models).unwrap_or_default();
     Ok((config, models))
 }
-pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value) -> Result<Value> {
+pub(super) async fn generate(
+    state: &crate::AppState,
+    actor: usize,
+    work: &Value,
+    introduction: Option<&Introduction>,
+) -> Result<Value> {
     let (payload, ids) = prepared(actor, work)?;
     // A silent play voices no one: it finishes with no lines and no model call.
     if ids.is_empty() {
         return Ok(json!([]));
     }
     let (config, models) = story(state)?;
-    let value = crate::routes::card_game::narrative::shared_lines(
+    let value = shared_lines_with_introduction(
         &config,
         &payload["scene"],
         actor_id(actor),
         &ids,
         &models,
+        introduction,
     )
     .await?;
     parse(&value.to_string(), work, &ids)

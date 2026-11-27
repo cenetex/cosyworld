@@ -9,7 +9,7 @@
     "v2/orchestrator-rust/src/account_auth.rs": 1771,
     "v2/orchestrator-rust/src/ai_gateway.rs": 3551,
     "v2/orchestrator-rust/src/ai_registry.rs": 2058,
-    "v2/orchestrator-rust/src/card_narrative.rs": 6583,
+    "v2/orchestrator-rust/src/card_narrative.rs": 6575,
     "v2/orchestrator-rust/src/card_narrative/channel.rs": 2323,
     "v2/orchestrator-rust/src/card_shared/full_tests.rs": 1623
   }

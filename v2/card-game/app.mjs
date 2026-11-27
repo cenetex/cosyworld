@@ -644,6 +644,7 @@ const CARD_BACK = "./assets/card-back.webp";
 const cardBack = (id) => isLockedBox(world, id) ? LOCKED_BACK : CARD_BACK;
 const visibleText = (text) => elysiumPortrait.text(coveredText(world, text, cardIsClosed));
 const displayName = (id) => elysiumPortrait.name(id) ?? nameOf(id);
+const voidSpeaker = (id) => id && !cardIsCovered(id) && elysiumPortrait.name(id);
 const cardColours = (ids) =>
   ids.map((id) => ({
     id,
@@ -1224,7 +1225,7 @@ const reveal = createPagedReveal({
       announcedBeat = value.key;
       $("speech-announcement").textContent = [
         expressionLabel(
-          { ...people[value.speaker], name: visibleText(nameOf(value.speaker)) },
+          { ...people[value.speaker], name: voidSpeaker(value.speaker) || visibleText(nameOf(value.speaker)) },
           value.text,
         ),
         ...frontCaptions,
@@ -3923,7 +3924,7 @@ function renderScene() {
   elysiumPortrait.sync(world);
   if (covering) return;
   releaseListenerCard();
-  const visibleText = elysiumPortrait.reader(coveredTextReader(world, cardIsCovered));
+  const visibleText = elysiumPortrait.reader(coveredTextReader(world, cardIsCovered), cardIsCovered);
   sleepView.observe(world, currentActor(world));
   const view = asleepWorld(shownWorld());
   const scene = currentScene(view, null, {
@@ -4313,9 +4314,8 @@ function renderScene() {
   shownSceneLine = line;
   elysiumPortrait.observe(world, viewer, line && completedSpeech.has(lineKey(line, scene.locationId)) ? line : null);
   const text = line ? line.text : "";
-  $("speaker").textContent = visibleText(
-    front
-      ? line?.speaker || front.label ||
+  $("speaker").textContent = voidSpeaker(front?.speakerId) || visibleText(
+    front ? line?.speaker || front.label ||
         (front.speakerId ? nameOf(front.speakerId) : "")
       : "",
   );
@@ -4490,7 +4490,7 @@ function renderScene() {
   if (!behind) delete behindButton.dataset.motion;
   if (behind) {
     const summary = beatSummary(behind);
-    summary.speaker = visibleText(summary.speaker);
+    summary.speaker = voidSpeaker(behind.speakerId) || visibleText(summary.speaker);
     const behindKey = JSON.stringify([
       behind.key,
       summary.text,

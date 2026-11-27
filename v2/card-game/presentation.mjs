@@ -8,7 +8,7 @@ export const THINKING_GRACE_MS = 5000;
 // Read older words through the reader's revealed cards. Keep the saved beat
 // intact, including the signed line used by the voice service.
 export function revealedBeat(beat, textOf) {
-  const text = beat.line && textOf(beat.line.text);
+  const text = beat.line && textOf(beat.line.text, beat.line);
   return {
     ...beat,
     label: textOf(beat.label),
