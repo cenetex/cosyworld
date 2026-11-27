@@ -348,6 +348,7 @@ try {
         (text) => document.querySelector("#dialogue-text").textContent === text,
         lines.moth,
       );
+      if (motion !== "reduce") await page.locator("#dialogue-advance").click();
       await page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
@@ -562,6 +563,8 @@ try {
       // The front target finishes a new result in place; rereading keeps it whole.
       itemReply = "I pick the bell up again and look at Pip.";
       await clearSelection(page);
+      await selectCard(page, "pond");
+      await page.locator('#hand [data-card="bell"]').waitFor();
       await selectCard(page, "bell");
       await page
         .locator(
@@ -593,11 +596,13 @@ try {
       );
       assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
       await page.locator("#live-line").click();
-      // Memory holds the same beats, opened on purpose.
+      // Character memories summarize the recorded beats.
       await page.evaluate(() =>
         document.querySelector("#history-button").click(),
       );
-      const memory = await page.locator("#messages").innerText();
+      assert.match(await page.locator("#messages").innerText(), /Memories[\s\S]+Pip/u);
+      const memory = await page.evaluate((key) =>
+        JSON.parse(localStorage.getItem(key)).log.map(({ text }) => text).join("\n"), key);
       assert.match(memory, /Pip, wait\./u);
       assert.match(memory, /getting out of here/u);
       await page.screenshot({

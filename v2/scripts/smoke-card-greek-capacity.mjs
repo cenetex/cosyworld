@@ -9,7 +9,7 @@ import { orchestratorBinary } from "./cargo-target.mjs";
 import { chromium } from "playwright";
 import { encodeSave } from "../card-game/world.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
-import { courseToward } from "../card-game/pack-transport.mjs";
+import { courseToward, learnLane } from "../card-game/pack-transport.mjs";
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import { stowProvisions } from "../../test/helpers/provisions.mjs";
 import {
@@ -191,6 +191,7 @@ try {
     if (avatar === "vale") {
       const saved = crowdedAgoraWorld();
       saved.actors.vale.place = "greek-road-athens-piraeus";
+      learnLane(saved, "vale", "greek-piraeus", "greek-harbor");
       stowProvisions(saved, "greek-ship");
       const result = await request(
         page,
