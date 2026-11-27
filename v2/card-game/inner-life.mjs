@@ -3,9 +3,7 @@ import { profiles } from "./memory.mjs";
 import { humanAvatar } from "./human-cast.mjs";
 import { groundedInner, unfoundBlur } from "./speech-knowledge.mjs";
 
-// The server's speech check rejects assistant phrasing before commit.
-// Older saves and the dream prompt can still let it through, so the panel
-// hides it too (#1467).
+// Screen older saved thoughts as well as new summaries.
 const ASSISTANT_TALK = [
   "as an ai",
   "language model",
@@ -42,6 +40,7 @@ export const inCharacter = (text) => {
 const summaryFits = (text) =>
   typeof text === "string" && text.length <= 280 && inCharacter(text) &&
   /\b(i|me|my|mine|myself)\b/iu.test(text) && !/[\u0000-\u001f\u007f]/u.test(text);
+const summaryEvidence = (memory) => memory.evidence ?? memory.summary;
 
 async function fetchMemorySummaries(actor, subjects, signal) {
   const response = await fetch("/card-game/memory-summaries", {
@@ -65,7 +64,7 @@ export function createMemorySummaries({ storage, key, update, request = fetchMem
   return {
     close,
     show(seed, actor, memories, read = (text) => text) {
-      const nextScope = JSON.stringify([seed, actor]);
+      const nextScope = JSON.stringify([2, seed, actor]);
       if (scope !== nextScope) {
         close();
         scope = nextScope;
@@ -76,9 +75,14 @@ export function createMemorySummaries({ storage, key, update, request = fetchMem
         } catch { /* Factual memories remain available without storage. */ }
       }
       const pending = memories
-        .filter(({ id, summary }) => cache.get(id)?.evidence !== summary && summary.length <= 600)
+        .filter((memory) => {
+          const evidence = summaryEvidence(memory);
+          return evidence.length > 0 && evidence.length <= 600 &&
+            cache.get(memory.id)?.evidence !== evidence;
+        })
+        .sort((a, b) => Number(Boolean(b.significant)) - Number(Boolean(a.significant)))
         .slice(0, 12)
-        .map(({ id, summary }) => ({ id, evidence: summary }));
+        .map((memory) => ({ id: memory.id, evidence: summaryEvidence(memory) }));
       if (!requested && pending.length) {
         requested = true;
         controller = new AbortController();
@@ -90,14 +94,17 @@ export function createMemorySummaries({ storage, key, update, request = fetchMem
             cache.set(id, { evidence, text: summaryFits(text) ? text : null });
           }
           try {
-            storage.setItem(key, JSON.stringify({ scope, entries: [...cache].slice(-160) }));
+            const entries = [...cache]
+              .filter(([, memory]) => summaryFits(memory?.text))
+              .slice(-160);
+            storage.setItem(key, JSON.stringify({ scope, entries }));
           } catch { /* This tab keeps its summaries. */ }
           update();
         }).catch(() => {});
       }
       return memories.map((memory) => {
         const saved = cache.get(memory.id);
-        return saved?.evidence === memory.summary && summaryFits(saved.text)
+        return saved?.evidence === summaryEvidence(memory) && summaryFits(saved.text)
           ? { ...memory, summary: read(saved.text) }
           : memory;
       });
@@ -130,60 +137,76 @@ export function subjectMemories(world, actor = currentActor(world), known = () =
     if (subject && (!subject.seen || subject.seen.turn <= turn))
       subject.seen = { turn, text };
   };
-  const note = (ids, turn, text, key = text) => {
+  const note = (ids, turn, text, { key = text, significant = true } = {}) => {
     for (const id of new Set(ids)) {
       const subject = record(id);
       if (subject && text && (subject.notes.get(key)?.turn ?? -1) <= turn)
-        subject.notes.set(key, { turn, text });
+        subject.notes.set(key, { turn, text, significant });
     }
   };
   for (const id of new Set([...(person.visited || []), person.place]))
     observe(id, 0, visited);
-  for (const id of person.talked || []) note([id], 0, "We have spoken.");
+  for (const id of person.talked || [])
+    note([id], 0, "We have spoken.", { significant: false });
   for (const [id, seen] of Object.entries(memory.seen || {}))
     observe(id, seen.turn, name(seen.place) ? `Last seen at ${name(seen.place)}.` : "Met before.");
   const life = world.life?.actors?.[actor];
-  for (const e of life?.experiences || []) {
-    const other = name(e.other), item = name(e.item);
-    const text = {
-      help: other && `Helped ${other}${item ? ` with ${item}` : ""}.`,
-      gift: other && item && `Received ${item} from ${other}.`,
-      journey: other && `Travelled with ${other}.`,
-      care: item && `Cared for ${item}.`,
-      talk: other && `Spoke with ${other}.`,
-      trade: other && `Traded with ${other}${item ? ` over ${item}` : ""}.`,
-    }[e.kind];
-    if (text) note([e.other, e.item, e.place], e.turn, text, `${e.kind}:${e.other}:${e.item}`);
+  for (const [id, gift] of Object.entries(life?.attachments || {})) {
+    const itemName = name(id), giver = name(gift.from);
+    if (itemName && giver)
+      note([id, gift.from], gift.turn, `Received ${itemName} from ${giver}.`, {
+        key: `gift:${gift.from}:${id}`,
+      });
   }
-  for (const [item, gift] of Object.entries(life?.attachments || {}))
-    if (name(item) && name(gift.from))
-      note([item, gift.from], gift.turn, `Received ${name(item)} from ${name(gift.from)}.`);
+  for (const e of life?.experiences || []) {
+    const other = name(e.other), item = name(e.item), here = name(e.place);
+    const experiencePlace = here ? ` at ${here}` : "";
+    const text = {
+      help: other && `Helped ${other}${item ? ` with ${item}` : ""}${experiencePlace}.`,
+      gift: other && item && `Received ${item} from ${other}${experiencePlace}.`,
+      journey: other && (here
+        ? `Travelled to ${here} with ${other}.`
+        : `Travelled with ${other}.`),
+      care: item && `Cared for ${item}${experiencePlace}.`,
+      talk: other && `Spoke with ${other}${experiencePlace}.`,
+      trade: other && `Traded with ${other}${item ? ` over ${item}` : ""}${experiencePlace}.`,
+    }[e.kind];
+    if (text) note([e.other, e.item, e.place], e.turn, text, {
+      key: `${e.kind}:${e.other}:${e.item}`,
+      significant: e.kind !== "talk",
+    });
+  }
 
   const rememberDeed = (e, ids = null) => {
     const mine = e.actorId === actor, theirs = e.targetId === actor;
     if (!mine && !theirs) return;
     const here = name(e.locationId);
+    const deedPlace = here ? ` at ${here}` : "";
     const otherId = mine ? e.targetId : e.actorId;
     const other = world.actors[otherId] ? name(otherId) : null;
     const itemId = e.itemId || (world.items[e.targetId] ? e.targetId : null);
     const item = name(itemId), receive = name(e.receiveId);
     let text;
-    if (e.verb === "talk" && other) text = `Spoke with ${other}.`;
+    if (e.verb === "talk" && other) text = `Spoke with ${other}${deedPlace}.`;
     if (e.verb === "give" && item && other && e.accepted !== false)
-      text = mine ? `Gave ${item} to ${other}.` : `Received ${item} from ${other}.`;
+      text = mine ? `Gave ${item} to ${other}${deedPlace}.` : `Received ${item} from ${other}${deedPlace}.`;
     if (e.verb === "trade" && other && e.accepted !== false)
       text = item && receive
-        ? `Traded ${mine ? item : receive} for ${mine ? receive : item} with ${other}.`
-        : `Traded with ${other}.`;
+        ? `Traded ${mine ? item : receive} for ${mine ? receive : item} with ${other}${deedPlace}.`
+        : `Traded with ${other}${deedPlace}.`;
     if (e.verb === "ask" && other && item && e.accepted === false)
-      text = mine ? `${other} declined my request for ${item}.` : `Declined ${other}'s request for ${item}.`;
+      text = mine ? `${other} declined my request for ${item}${deedPlace}.` : `Declined ${other}'s request for ${item}${deedPlace}.`;
     if (e.verb === "accompany" && other && e.accepted === true)
-      text = `Travelled with ${other}.`;
+      text = here ? `Travelled to ${here} with ${other}.` : `Travelled with ${other}.`;
     if (mine && item && e.accepted !== false && ["take", "drop", "read"].includes(e.verb))
       text = `${{ take: "Took", drop: "Left", read: "Read" }[e.verb]} ${item}${here ? ` at ${here}` : ""}.`;
     if (e.verb === "want_met" && mine && name(e.ownerId))
-      text = `Helped ${name(e.ownerId)}.`;
-    if (text) note(ids || [otherId, itemId, e.receiveId, e.ownerId, e.locationId], e.turn, text);
+      text = `Helped ${name(e.ownerId)}${item ? ` with ${item}` : ""}${deedPlace}.`;
+    if (text)
+      note(ids || [otherId, itemId, e.receiveId, e.ownerId, e.locationId], e.turn, text, {
+        key: e.verb === "give" && theirs ? `gift:${otherId}:${itemId}` : text,
+        significant: e.verb !== "talk",
+      });
   };
   for (const [id, retained] of Object.entries(memory.subjects || {})) {
     const sight = retained.sight;
@@ -248,18 +271,18 @@ export function subjectMemories(world, actor = currentActor(world), known = () =
     const owner = name(source.actorId), subject = name(target), teller = name(learned.teller);
     if (!owner || !subject) continue;
     const text = `Learned of ${owner}'s request concerning ${subject}${teller && teller !== owner ? ` via ${teller}` : ""}.`;
-    note([source.actorId, target, learned.teller], learned.learnedTurn, text, id);
+    note([source.actorId, target, learned.teller], learned.learnedTurn, text, { key: id });
   }
   for (const id of carried(world, actor)) observe(id, world.turn, "Carrying now.");
   return [...subjects.values()].map(({ id, kind, name, seen, notes }) => {
-    const recent = [...notes.values()].sort((a, b) => b.turn - a.turn);
-    const detail = [...new Set(recent.map((n) => n.text))].slice(0, 2);
-    if (detail.some((text) => text.startsWith("Spoke with "))) {
-      const generic = detail.indexOf("We have spoken.");
-      if (generic >= 0) detail.splice(generic, 1);
-    }
+    const recent = [...notes.values()].sort((a, b) =>
+      Number(b.significant) - Number(a.significant) || b.turn - a.turn);
+    const details = [...new Set(recent.map((n) => n.text))];
+    const detail = details.filter((text) => text !== "We have spoken." ||
+      !details.some((other) => other.startsWith("Spoke with "))).slice(0, 2);
     return {
-      id, kind, name, turn: Math.max(seen?.turn ?? 0, recent[0]?.turn ?? 0),
+      id, kind, name, turn: Math.max(seen?.turn ?? 0, ...recent.map((n) => n.turn)),
+      significant: recent.some((n) => n.significant),
       summary: [seen?.text, ...detail].filter(Boolean).join(" "),
     };
   }).filter((subject) => subject.summary)
@@ -287,8 +310,10 @@ export function innerLifeChain(world, actor = currentActor(world), read = (text)
     dreams: shown(newestFirst(inner.dreams)).slice(0, 4),
     description: read(avatar?.text || ""),
     persona: shown([inner.persona])[0] || "",
-    memories: subjectMemories(world, actor, known)
-      .map((subject) => ({ ...subject, name: read(subject.name), summary: read(blur(subject.summary)) })),
+    memories: subjectMemories(world, actor, known).map((subject) => {
+      const evidence = blur(subject.summary);
+      return { ...subject, evidence, name: read(subject.name), summary: read(evidence) };
+    }),
   };
 }
 
