@@ -281,10 +281,8 @@ mod tests {
         let mut state = crate::test_support::test_app_state(None);
         state.ai_config = Arc::new(Some(config.clone()));
         state.generated_asset_dir = Arc::new(root.clone());
-        let intro = crate::card_shared::resident_introduction(&state, RESIDENT, ROOM, None)
-            .await
-            .unwrap();
-        assert_eq!(intro.name.as_deref(), Some("Copper Lark"));
+        let name = crate::card_shared::elysium_name(&state, RESIDENT, ROOM, true).await;
+        assert_eq!(name.as_deref(), Some("Copper Lark"));
 
         let mut scene = void_scene();
         scene.location = ROOM.into();
