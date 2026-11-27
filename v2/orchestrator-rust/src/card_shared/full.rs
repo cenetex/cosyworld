@@ -876,8 +876,8 @@ async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
         }
     }
     reflect::replace(id, work.actor);
-    let introduction = elysium_models::talk_target(&work.context)
-        .map(|target| (state.clone(), target.to_string()));
+    let introduction = elysium_models::scene_talk_target(&work.context, actor)
+        .map(|target| (state.clone(), target, Some(id.to_owned())));
     let lines =
         super::full_speech::generate(state, work.actor, &work.context, introduction.as_ref()).await;
     let s = state.clone();

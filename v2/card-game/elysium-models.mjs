@@ -1,4 +1,10 @@
 import legacyLines from "./legacy-elysium-lines.json" with { type: "json" };
+import {
+  coordinateEntityActive,
+  discoverCoordinate,
+  isCoordinateResident,
+  validElysiumCoordinates,
+} from "./world/elysium-coordinates.mjs";
 
 export const ELYSIUM_PACK = "elysium";
 export const ELYSIUM_ENTRY = "elysium-void-001";
@@ -62,6 +68,7 @@ export function elysiumTalk(world, actor, resident, place, turn, before = Infini
 }
 
 export function recordElysiumEncounter(s, event) {
+  discoverCoordinate(s, event);
   if (event.elysiumArrival) {
     (s.elysiumEncounters ??= {})[event.elysiumArrival] = {
       scatteredAt: event.seq,
@@ -95,6 +102,7 @@ export function resetImportedElysiumEncounters(s) {
 }
 
 export function validElysiumEncounters(s) {
+  if (!validElysiumCoordinates(s)) return false;
   const records = s.elysiumEncounters;
   if (records === undefined) return true;
   if (!records || typeof records !== "object" || Array.isArray(records)) return false;
@@ -117,7 +125,9 @@ export function validElysiumEncounters(s) {
 
 export function validElysiumEncounterEvent(s, e, people) {
   if (Object.hasOwn(e, "elysiumName") &&
-    (!e.generated || e.kind !== "dialogue" || !isElysiumModel(e.actorId) ||
+    (!e.generated || e.kind !== "dialogue" ||
+      !(isElysiumModel(e.actorId) ||
+        (isCoordinateResident(e.actorId) && coordinateEntityActive(s, e.actorId))) ||
       e.entityId !== e.actorId || (e.elysiumName !== null &&
         (e.locationId !== people[e.actorId]?.home || !validElysiumName(e.elysiumName)))))
     return false;

@@ -1,11 +1,42 @@
 use super::{conversation, untrusted::ELYSIUM_LINE_RULES_SUFFIX, Context, Memory};
 use crate::{
     card_shared::{
-        cast, elysium_name, elysium_resident_at, elysium_setting, is_legacy_elysium_introduction,
+        cast, coordinate_name, elysium_coordinate, elysium_model, elysium_name,
+        elysium_resident_at, elysium_setting, is_legacy_elysium_introduction,
     },
     AppState,
 };
 use std::{collections::BTreeMap, sync::OnceLock};
+
+fn coordinate<'a>(context: &'a Context, id: &str) -> Option<&'a elysium_coordinate::Coordinate> {
+    context
+        .elysium_coordinate
+        .as_ref()
+        .filter(|coordinate| coordinate.resident() == id && coordinate.valid_at(&context.location))
+}
+
+pub(super) fn valid_coordinates(context: &Context) -> bool {
+    context
+        .elysium_coordinate
+        .as_ref()
+        .is_none_or(|c| c.valid_at(&context.location))
+        && context
+            .speakers
+            .iter()
+            .all(|id| !elysium_coordinate::is_resident(id) || coordinate(context, id).is_some())
+}
+
+pub(super) fn is_resident(id: &str) -> bool {
+    elysium_model(id).is_some() || elysium_coordinate::is_resident(id)
+}
+
+pub(super) fn bound_model(context: &Context, id: &str) -> Option<&'static str> {
+    elysium_model(id).or_else(|| coordinate(context, id)?.model())
+}
+
+pub(super) fn coordinate_proof(context: &Context, id: &str) -> Option<String> {
+    coordinate(context, id).map(elysium_coordinate::Coordinate::proof_marker)
+}
 
 fn retired_utterances() -> &'static BTreeMap<String, Vec<String>> {
     #[derive(serde::Deserialize)]
@@ -94,7 +125,8 @@ pub(super) fn personal_talk(context: &Context, voiced: &[String]) -> Option<(Str
     (outcome.card.kind == "talk"
         && target != actor
         && voiced.contains(target)
-        && elysium_resident_at(target, &context.location)
+        && (elysium_resident_at(target, &context.location)
+            || coordinate(context, target).is_some())
         && cast()["avatars"]
             .as_array()?
             .iter()
@@ -127,21 +159,22 @@ pub(super) async fn prepare_name(
     state: &AppState,
     context: &Context,
     target: &str,
+    shared_world: Option<&str>,
 ) -> Option<String> {
-    elysium_name(
-        state,
-        target,
-        &context.location,
-        needs_introduction(context, target),
-    )
-    .await
+    let can_choose = needs_introduction(context, target);
+    if let Some(coordinate) = coordinate(context, target) {
+        return coordinate_name(state, coordinate, shared_world, can_choose).await;
+    }
+    elysium_name(state, target, &context.location, can_choose).await
 }
 
 pub(super) const SELF_INTRODUCTION: &str =
     "Introduce yourself to the traveler in your own words using your chosen name.";
 
 pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&str>) {
-    let Some(setting) = elysium_setting(target, &context.location) else {
+    let Some(setting) = elysium_setting(target, &context.location)
+        .or_else(|| coordinate(context, target)?.setting())
+    else {
         return;
     };
     let introducing = name.is_some() && needs_introduction(context, target);
@@ -175,12 +208,12 @@ pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&
 mod tests {
     use super::super::{
         router_with_models,
-        tests::{plain_provider, serve, test_config},
+        tests::{plain_provider, request, serve, test_config},
         valid, voiced, ConnectInfo, SocketAddr, VoiceSettings,
     };
     use super::*;
     use crate::{
-        ai_gateway::CapabilityRegistrySnapshot,
+        ai_gateway::{AiConfig, CapabilityRegistrySnapshot},
         routes::signed_envelope::{content_hash, keys, Envelope, Verdict},
         test_support::test_app_state,
     };
@@ -229,6 +262,128 @@ mod tests {
             }
         }))
         .unwrap()
+    }
+
+    fn coordinate_talk(scope: &str) -> Context {
+        let mut context = talk();
+        let room = "elysium-void-013";
+        let target = "elysium-coordinate-013";
+        context.elysium_coordinate = Some(
+            serde_json::from_value(json!({
+                "address":[5,3,8],"room":room,"resident":target,"model":MODEL,"scope":scope
+            }))
+            .unwrap(),
+        );
+        context.location = room.into();
+        context.speakers[1] = target.into();
+        context.entities[0].id = room.into();
+        context.entities[2].id = target.into();
+        context.action = None;
+        context.elysium_token_scattered = false;
+        let outcome = context.outcome.as_mut().unwrap();
+        outcome.card.target = Some(target.into());
+        outcome.avatars[0].location = room.into();
+        outcome.avatars[1].location = room.into();
+        outcome.avatars[1].id = target.into();
+        context
+    }
+
+    fn registered_models(address: SocketAddr) -> AiConfig {
+        let mut config = test_config(address);
+        let declared = [MODEL, TRAVELER_MODEL].map(|model| {
+            json!({
+                "requested_model_id":model,"provider":"openai_compatible",
+                "concrete_model":{"model_id":model},
+                "input_modalities":["text"],"output_modalities":["text"],
+                "supported_parameters":{"structured_output":true},
+                "data_policy":{"retention":"none","training":"prohibited"},
+                "capabilities":["world_content"],
+                "prompt_adapter":{"id":"openai-chat","version":"1"}
+            })
+        });
+        config.registry = Some(Arc::new(CapabilityRegistrySnapshot::from_json(
+            &json!({"schema_version":1,"snapshot_version":"elysium-intro-test","declared":declared,"discovered":[]}).to_string(),
+        ).unwrap()));
+        config
+    }
+
+    #[tokio::test]
+    async fn coordinate_resident_names_are_model_authored_and_scoped_to_a_run_or_world() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let names = Arc::new(AtomicUsize::new(0));
+        let selected = names.clone();
+        let (address, provider) = serve(plain_provider(seen, move |body, _| {
+            if body["model"] == TRAVELER_MODEL {
+                return OPENING.into();
+            }
+            if body.to_string().contains("Choose a name for yourself") {
+                assert_eq!(body["model"], MODEL);
+                return ["Reed Ember", "Copper Lark", "Winter Ash"]
+                    [selected.fetch_add(1, Ordering::Relaxed)]
+                .into();
+            }
+            assert_eq!(body["model"], MODEL);
+            EARLY.into()
+        }))
+        .await;
+        let mut state = test_app_state(None);
+        state.ai_config = Arc::new(Some(registered_models(address)));
+        let root = std::env::temp_dir().join(format!("coordinate-name-{}", crate::random_hex(8)));
+        state.generated_asset_dir = Arc::new(root.clone());
+        let models = BTreeMap::from([("vale".into(), TRAVELER_MODEL.into())]);
+        let app = router_with_models::<()>(
+            state.ai_config.clone(),
+            Ok(models.clone()),
+            Ok(VoiceSettings::hosted()),
+        )
+        .layer(Extension(state.clone()));
+        let scene = coordinate_talk("17");
+        let id = scene.speakers[1].clone();
+        assert!(valid(&scene));
+        let response = app.oneshot(request(&scene)).await.unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        let result: Value = serde_json::from_slice(&body).unwrap();
+        let local = &result["entries"][1];
+        assert_signed(local, &id, EARLY, Some(MODEL), Some("Reed Ember"));
+        assert!(local["signed"]["claims"]["rules"]
+            .as_str()
+            .unwrap()
+            .contains("/coordinate/"));
+        let quote = json!({"actorId":id,"text":local["text"],"signed":local["signed"],
+            "elysiumName":local["elysiumName"],"elysiumNameSigned":local["elysiumNameSigned"]});
+        for (scope, known) in [("17", true), ("19", false)] {
+            let mut later = coordinate_talk(scope);
+            later
+                .conversation
+                .push(serde_json::from_value(quote.clone()).unwrap());
+            let screened = super::super::untrusted::trusted(later).unwrap();
+            assert_eq!(screened.conversation.len(), 1);
+            assert_eq!(!needs_introduction(&screened, &id), known);
+        }
+        for (world, name) in [
+            ("world-a", "Copper Lark"),
+            ("world-b", "Winter Ash"),
+            ("world-a", "Copper Lark"),
+        ] {
+            let intro = (state.clone(), id.clone(), Some(world.into()));
+            let shared = super::super::shared_lines_with_introduction(
+                state.ai_config.as_ref().as_ref().unwrap(),
+                &json!(scene),
+                "vale",
+                &scene.speakers,
+                &models,
+                Some(&intro),
+            )
+            .await
+            .unwrap();
+            assert_eq!(shared["entries"][1]["model"], MODEL);
+            assert_eq!(shared["entries"][1]["elysiumName"], name);
+        }
+        assert_eq!(names.load(Ordering::Relaxed), 3);
+        provider.abort();
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -341,7 +496,7 @@ mod tests {
         assert_eq!(envelope.claims.kind, "line");
         assert_eq!(envelope.claims.content, content_hash(line));
         assert_eq!(envelope.claims.seq, 31);
-        if id == ID {
+        if is_resident(id) {
             assert!(envelope.claims.rules.ends_with(ELYSIUM_LINE_RULES_SUFFIX));
             assert_eq!(entry.get("elysiumName"), Some(&json!(identity)));
             if let Some(identity) = identity {
@@ -435,30 +590,8 @@ mod tests {
             }
         }))
         .await;
-        let mut config = test_config(address);
-        let declared = [MODEL, TRAVELER_MODEL].map(|model| {
-            json!({
-                "requested_model_id":model,"provider":"openai_compatible",
-                "concrete_model":{"model_id":model},
-                "input_modalities":["text"],"output_modalities":["text"],
-                "supported_parameters":{"structured_output":true},
-                "data_policy":{"retention":"none","training":"prohibited"},
-                "capabilities":["world_content"],
-                "prompt_adapter":{"id":"openai-chat","version":"1"}
-            })
-        });
-        config.registry = Some(Arc::new(
-            CapabilityRegistrySnapshot::from_json(
-                &json!({
-                    "schema_version":1,"snapshot_version":"elysium-intro-test",
-                    "declared":declared,"discovered":[]
-                })
-                .to_string(),
-            )
-            .unwrap(),
-        ));
         let mut state = test_app_state(None);
-        state.ai_config = Arc::new(Some(config));
+        state.ai_config = Arc::new(Some(registered_models(address)));
         let root = std::env::temp_dir().join(format!("personal-elysium-{}", crate::random_hex(8)));
         state.generated_asset_dir = Arc::new(root.clone());
         let models = BTreeMap::from([("vale".into(), TRAVELER_MODEL.into())]);
@@ -535,7 +668,7 @@ mod tests {
                     .exists());
             }
         }
-        let introduction = (state.clone(), ID.into());
+        let introduction = (state.clone(), ID.into(), Some("shared-world".into()));
         let shared = super::super::shared_lines_with_introduction(
             state.ai_config.as_ref().as_ref().unwrap(),
             &json!(talk()),

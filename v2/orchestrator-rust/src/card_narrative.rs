@@ -566,6 +566,8 @@ struct Context {
         skip_serializing_if = "Option::is_none"
     )]
     elysium_introduced: Option<String>,
+    #[serde(rename = "elysiumCoordinate", skip_serializing_if = "Option::is_none")]
+    elysium_coordinate: Option<crate::card_shared::elysium_coordinate::Coordinate>,
     #[serde(
         default,
         rename = "elysiumTokenScattered",
@@ -576,16 +578,13 @@ struct Context {
     outcome: Option<TurnOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     disclosures: Vec<knowledge::Disclosure>,
-    /// On the first line, the player's avatar knows only what its player uncovered.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     waking: bool,
-    /// The speaker's own card or place, while its player has not uncovered it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     covered: Vec<String>,
     /// Cards the player has yet to reveal, including those outside the scene.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     concealed: Vec<String>,
-    /// Why this play speaks (the narrator's speech occasion), for metrics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     occasion: Option<String>,
     #[serde(skip)]
@@ -615,6 +614,7 @@ fn valid(context: &Context) -> bool {
         && context.concealed.len() <= 512
         && context.concealed.iter().all(|id| profiles().get(id).is_some())
         && context.outcome.as_ref().is_none_or(valid_outcome)
+        && elysium::valid_coordinates(context)
         && observations::valid(context)
         && knowledge::valid(context)
         && context
@@ -633,7 +633,6 @@ fn valid(context: &Context) -> bool {
                     .is_none_or(|ids| ids.len() <= 64 && ids.iter().all(|id| kind(id, "avatar")))
         })
         && context.speakers.len() <= 3
-        // A turn with no speakers still voices its place caption or item.
         && (!context.speakers.is_empty() || context.scenery || context.focus.is_some())
         && context.speakers.iter().collect::<BTreeSet<_>>().len() == context.speakers.len()
         && context
@@ -971,7 +970,7 @@ async fn generate(
     let introduction = app.and_then(|Extension(state)| {
         let (actor, target) = elysium::personal_talk(&context, &voiced(&context))?;
         context.acting_avatar = Some(actor);
-        Some((state, target))
+        Some((state, target, None))
     });
     if headers
         .get("accept")
@@ -1072,7 +1071,7 @@ async fn complete(
     table_lines(config, context, models, settings, on_delta, None).await
 }
 
-pub(crate) type Introduction = (crate::AppState, String);
+pub(crate) type Introduction = (crate::AppState, String, Option<String>);
 
 async fn complete_selected(
     config: &AiConfig,
@@ -1265,7 +1264,13 @@ fn shared_scene(
 ) -> Result<(Context, VoiceSettings), String> {
     let mut context: Context = serde_json::from_value(scene.clone())
         .map_err(|_| "The saved scene needs another moment.")?;
+    context.speakers = ids
+        .iter()
+        .filter(|id| kind(id, "avatar"))
+        .cloned()
+        .collect();
     if ids.is_empty()
+        || !elysium::valid_coordinates(&context)
         || (!context.scenery && ids.contains(&context.location))
         || ids
             .iter()
@@ -1279,11 +1284,6 @@ fn shared_scene(
         return Err("The saved scene needs its requested voices.".into());
     }
     context.acting_avatar = Some(actor.to_string());
-    context.speakers = ids
-        .iter()
-        .filter(|id| kind(id, "avatar"))
-        .cloned()
-        .collect();
     let mut settings = voice_settings()
         .as_ref()
         .map_err(|_| "The story service needs its voice settings.")?
@@ -2120,7 +2120,7 @@ async fn speak(
     let prompt_context = prompt_context.as_ref().unwrap_or(context);
     let prompt_entity = entity(prompt_context, id);
     let entity = entity(context, id);
-    let bound = crate::card_shared::elysium_model(id);
+    let bound = elysium::bound_model(context, id);
     let own_model = bound.or_else(|| {
         (part == Part::Persona)
             .then_some(settings.reflection_model.as_deref())

@@ -9,6 +9,7 @@ import {
   legacyElysiumName,
   validElysiumName,
 } from "./elysium-models.mjs";
+import { coordinateNarrative, coordinateTemperament, isCoordinateResident } from "./world/elysium-coordinates.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { refusalWhy, revealed, wantFact, wantHeard } from "./want-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
@@ -464,6 +465,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
             ...new Set([actorId, ...(witnesses || []), ...(cast || [])]),
           ],
         }));
+  const elysiumCoordinate = coordinateNarrative(world, location);
   const context = {
     revision: world.revision,
     turn: world.turn,
@@ -485,6 +487,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         : null),
     events,
     conversation,
+    ...(elysiumCoordinate && { elysiumCoordinate }),
     ...(played?.verb === "talk" && world.elysiumEncounters?.[played.targetId]?.scatteredAt
       ? { elysiumTokenScattered: true }
       : {}),
@@ -519,6 +522,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       const between = beforeFirstLight
         ? { entries: [], retold: [] }
         : betweenUs(world, id, speakers, nameOf);
+      const temperament = coordinateTemperament(world, id);
       const facts = [
         ...(glimpsed ? [glimpsed] : []),
         ...(want ? [want] : []),
@@ -532,6 +536,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         ...(kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : []),
         null,
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
+        ...(temperament ? [temperament] : []),
         ...recitalFacts(world, packDefinitions, id),
         ...(kind === "avatar" ? laneTalkFacts(world, id) : []),
         ...learningFacts(world, id, nameOf),
@@ -898,7 +903,7 @@ export function applyGeneratedText(
     }
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
-    const typed = isElysiumModel(id) && Object.hasOwn(entry, "elysiumName");
+    const typed = (isElysiumModel(id) || isCoordinateResident(id)) && Object.hasOwn(entry, "elysiumName");
     const learned = typed && place === packPeople[id]?.home &&
       validElysiumName(entry.elysiumName) &&
       elysiumTalk(next, currentActor(next), id, place, next.turn);

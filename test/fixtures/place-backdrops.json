@@ -1,6 +1,7 @@
 {
   "day": {
     "attic": "./assets/shared/places/attic-dark.webp",
+    "behind-station": "./assets/shared/places/behind-station.webp",
     "belfry": "./assets/shared/places/belfry.png",
     "boardyai-parlour": "./assets/boardyai/parlour.png",
     "clearing": "./assets/badger-forest/steam-clock-background.png",
@@ -14,6 +15,10 @@
     "elysium-void-005": "./assets/elysium/void-005-quiet.png",
     "elysium-void-006": "./assets/elysium/void-006.png",
     "elysium-void-007": "./assets/elysium/void-007.png",
+    "elysium-void-008": "./assets/elysium/void-004.png",
+    "elysium-void-013": "./assets/elysium/void-003.png",
+    "elysium-void-019": "./assets/elysium/void-006.png",
+    "elysium-void-021": "./assets/elysium/void-007.png",
     "forest-cottage": "./assets/lonely-forest/cottage.png",
     "forest-garden": "./assets/lonely-forest/garden.png",
     "forest-oak": "./assets/lonely-forest/oak.png",
@@ -116,6 +121,7 @@
   },
   "night": {
     "attic": "./assets/shared/places/attic-dark.webp",
+    "behind-station": "./assets/shared/places/behind-station.webp",
     "belfry": "./assets/shared/places/belfry.png",
     "boardyai-parlour": "./assets/boardyai/parlour.png",
     "clearing": "./assets/badger-forest/steam-clock-background.png",
@@ -129,6 +135,10 @@
     "elysium-void-005": "./assets/elysium/void-005-quiet.png",
     "elysium-void-006": "./assets/elysium/void-006.png",
     "elysium-void-007": "./assets/elysium/void-007.png",
+    "elysium-void-008": "./assets/elysium/void-004.png",
+    "elysium-void-013": "./assets/elysium/void-003.png",
+    "elysium-void-019": "./assets/elysium/void-006.png",
+    "elysium-void-021": "./assets/elysium/void-007.png",
     "forest-cottage": "./assets/lonely-forest/cottage.png",
     "forest-garden": "./assets/lonely-forest/garden.png",
     "forest-oak": "./assets/lonely-forest/oak.png",

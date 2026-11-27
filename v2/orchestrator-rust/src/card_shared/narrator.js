@@ -1788,6 +1788,113 @@
     }
   };
 
+  // v2/card-game/elysium-coordinate-models.json
+  var elysium_coordinate_models_default = {
+    models: [
+      "anthropic/claude-haiku-5.5",
+      "google/gemini-4-hydrogen",
+      "openai/gpt-6-luna",
+      "x-ai/grok-4.7",
+      "deepseek/deepseek-v4.1-flash",
+      "qwen/qwen3.8-flash"
+    ],
+    settings: {
+      "elysium-void-008": "a chamber at the edge of remembered horizons",
+      "elysium-void-013": "a deep chamber beyond the Observatory\u2019s amber lights",
+      "elysium-void-021": "a remote chamber in the blue folds of Elysium",
+      "elysium-void-019": "a chamber reached by a broken path through the dark"
+    }
+  };
+
+  // v2/card-game/world/elysium-coordinates.mjs
+  var rings = ["outer", "middle", "inner"];
+  var stones = rings.map((ring) => `elysium-ring-${ring}`);
+  var coreVoids = 7;
+  var numberOf = (place) => {
+    const match = /^elysium-void-(\d{3})$/u.exec(place);
+    return match ? Number(match[1]) : null;
+  };
+  var coordinateRoom = (resident) => typeof resident === "string" && resident.startsWith("elysium-coordinate-") ? resident.replace("coordinate", "void") : null;
+  var isCoordinateResident = (id) => numberOf(coordinateRoom(id)) > coreVoids;
+  var coordinateEntityRoom = (id) => isCoordinateResident(id) ? coordinateRoom(id) : numberOf(id) > coreVoids ? id : null;
+  var routes;
+  function coordinates() {
+    routes ??= (packDefinition("elysium")?.routes || []).filter(
+      ({ requires }) => stones.every(
+        (item) => requires?.some(
+          (condition) => condition.kind === "item_at" && condition.item === item
+        )
+      )
+    ).map(({ from, to, requires }) => ({
+      from,
+      room: to,
+      address: stones.map(
+        (item) => numberOf(
+          requires?.find(
+            (condition) => condition.kind === "item_at" && condition.item === item
+          )?.place
+        )
+      )
+    }));
+    return routes;
+  }
+  function coordinateEntityActive(world, id) {
+    const room = coordinateEntityRoom(id);
+    return !room || Boolean(world.elysiumCoordinates?.[room]);
+  }
+  var coordinateRouteDiscovered = (world, from, to) => Boolean(world.elysiumCoordinates?.[to]) && coordinates().some((route) => route.from === from && route.room === to);
+  var surroundings = [
+    "Thin lines of frost follow the edges of the stone.",
+    "Drifts of gold dust hang in place above the floor.",
+    "A few shadows fall toward the terrace lamps.",
+    "The light catches narrow seams of smoky glass."
+  ];
+  var temperaments = [
+    "Notices where travelers hesitate and asks them what they expected to find.",
+    "Keeps a private record of small changes in the room and collects contradictory accounts.",
+    "Is impatient with ceremony and generous to a traveler who admits uncertainty.",
+    "Speaks with quiet delight at unlikely coincidences and rarely offers advice unasked."
+  ];
+  var draw = (world, address) => {
+    const key2 = `elysium-coordinate-v1:${address.join(".")}`;
+    return {
+      model: elysium_coordinate_models_default.models[runHash(world, `elysium-coordinate:${address.join(",")}`) % elysium_coordinate_models_default.models.length],
+      scenery: runHash(world, `${key2}:scenery`) % surroundings.length,
+      temperament: runHash(world, `${key2}:resident`) % temperaments.length
+    };
+  };
+  function validElysiumCoordinates(world) {
+    const records = world.elysiumCoordinates;
+    if (records === void 0) return true;
+    if (!records || typeof records !== "object" || Array.isArray(records))
+      return false;
+    return Object.entries(records).every(([room, record7]) => {
+      const route = coordinates().find((entry) => entry.room === room);
+      if (!route || !coordinateEntityActive(world, route.from) || !record7 || Object.keys(record7).sort().join() !== "model,openedAt,scenery,temperament")
+        return false;
+      const { address } = route;
+      const { model, scenery, temperament, openedAt } = record7;
+      const seeded = draw(world, address);
+      const event = world.log.find((entry) => entry.seq === openedAt);
+      const parentOpened = records[route.from]?.openedAt ?? 0;
+      return model === seeded.model && scenery === seeded.scenery && temperament === seeded.temperament && Number.isSafeInteger(openedAt) && openedAt > 1 && openedAt > parentOpened && openedAt <= world.eventSeq && (event ? event.kind === "action" && event.verb === "drop" && address[stones.indexOf(event.itemId)] === numberOf(event.locationId) : openedAt < world.log[0]?.seq);
+    });
+  }
+  var coordinateScenery = (world, room) => surroundings[world.elysiumCoordinates?.[room]?.scenery];
+  var coordinateTemperament = (world, id) => temperaments[world.elysiumCoordinates?.[coordinateRoom(id)]?.temperament];
+  function coordinateNarrative(world, room) {
+    const record7 = world.elysiumCoordinates?.[room];
+    if (!record7) return null;
+    const { address } = coordinates().find((entry) => entry.room === room);
+    return {
+      address,
+      room,
+      resident: room.replace("void", "coordinate"),
+      model: record7.model,
+      scope: String(world.run?.seed ?? 0)
+    };
+  }
+
   // v2/card-game/elysium-models.mjs
   var ELYSIUM_PACK = "elysium";
   var ELYSIUM_ENTRY = "elysium-void-001";
@@ -1818,6 +1925,7 @@
   var isLegacyElysiumSpeech = (id, text2) => typeof text2 === "string" && isElysiumModel(id) && (legacyElysiumName(text2) !== null || oldWaitingLines.all.includes(text2) || oldWaitingLines[id]?.includes(text2));
   var isLegacyElysiumLine = (line) => line?.kind === "dialogue" && isLegacyElysiumSpeech(line.actorId, line.text);
   function validElysiumEncounters(s) {
+    if (!validElysiumCoordinates(s)) return false;
     const records = s.elysiumEncounters;
     if (records === void 0) return true;
     if (!records || typeof records !== "object" || Array.isArray(records)) return false;
@@ -1834,7 +1942,7 @@
     });
   }
   function validElysiumEncounterEvent(s, e, people2) {
-    if (Object.hasOwn(e, "elysiumName") && (!e.generated || e.kind !== "dialogue" || !isElysiumModel(e.actorId) || e.entityId !== e.actorId || e.elysiumName !== null && (e.locationId !== people2[e.actorId]?.home || !validElysiumName(e.elysiumName))))
+    if (Object.hasOwn(e, "elysiumName") && (!e.generated || e.kind !== "dialogue" || !(isElysiumModel(e.actorId) || isCoordinateResident(e.actorId) && coordinateEntityActive(s, e.actorId)) || e.entityId !== e.actorId || e.elysiumName !== null && (e.locationId !== people2[e.actorId]?.home || !validElysiumName(e.elysiumName))))
       return false;
     if (e.elysiumArrival === void 0 && e.elysiumModel === void 0 && e.portraitModel === void 0) return true;
     const resident = e.elysiumArrival ?? e.elysiumModel ?? e.portraitModel;
@@ -14394,7 +14502,7 @@
         schemaVersion: 1,
         id: "elysium",
         packId: "cosyworld.elysium",
-        revision: 3,
+        revision: 4,
         name: "Elysium",
         description: "Gold in the void. Filaments join stone islands, where silver figures keep strange tokens. Beyond the Gold Spiral an unlit passage leads to an old observatory.",
         entry: "elysium-void-001",
@@ -14452,7 +14560,7 @@
           },
           "elysium-observatory": {
             name: "Still Observatory",
-            persona: "Two immense bronze rings hang over a terrace and sight along a single star. A worn groove points back to the Gold Spiral. Another traces a near-invisible path down to Keystone Ledge.",
+            persona: "Two immense bronze rings sight along a single star. An address register marks three keystones for the outer, middle, and inner rings. One groove leads to the Gold Spiral and another traces a near-invisible path down to Keystone Ledge. A third groove stops at the rim, waiting for the first address.",
             exits: [
               "elysium-gold-spiral",
               "elysium-keystone-ledge"
@@ -14511,6 +14619,38 @@
             exits: [
               "elysium-void-006",
               "elysium-void-004"
+            ],
+            backdrop: "assets/elysium/void-007.png"
+          },
+          "elysium-void-008": {
+            name: "Void 008",
+            persona: "In the Sum Gallery, gold strands pass through a tall stone loom. Three and five are picked out on separate bronze combs. Eight threads emerge over the open terrace. On either side of the loom is a groove for a new filament. A slim register rests by the way back to the Still Observatory.",
+            exits: [
+              "elysium-observatory"
+            ],
+            backdrop: "assets/elysium/void-004.png"
+          },
+          "elysium-void-013": {
+            name: "Void 013",
+            persona: "In the Thirteenfold, two pale mirrors send a star back and forth over basalt steps. The near rail is engraved with five marks and the far one with eight. Thirteen pinpoints hang between them. One filament returns to the Sum Gallery. A narrow groove climbs away between the mirrors.",
+            exits: [
+              "elysium-void-008"
+            ],
+            backdrop: "assets/elysium/void-003.png"
+          },
+          "elysium-void-019": {
+            name: "Void 019",
+            persona: "At the Prime Well, dark indigo rings step down into a shaft. Nineteen apertures cut the upper rail, with tiny gold lamps picking out the primes. A single filament crosses the lowest ring back to the Sum Gallery.",
+            exits: [
+              "elysium-void-008"
+            ],
+            backdrop: "assets/elysium/void-006.png"
+          },
+          "elysium-void-021": {
+            name: "Void 021",
+            persona: "In the Convergence, eight jade steps rise to meet thirteen on the opposite side of a low cloud. Where the two runs join, a fixed star throws a long shadow across the stone. From the outermost terrace, a gold filament descends to the Thirteenfold.",
+            exits: [
+              "elysium-void-013"
             ],
             backdrop: "assets/elysium/void-007.png"
           }
@@ -14639,6 +14779,58 @@
               likes: "The quiet of its Void",
               sore: "A cut filament"
             }
+          },
+          "elysium-coordinate-008": {
+            name: "The Sumkeeper",
+            seed: "A silver figure at the loom combs, tracing each pair of threads before they join.",
+            place: "elysium-void-008",
+            home: "elysium-void-008",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "Showing the work behind a sum",
+              sore: "A length cut before it is measured"
+            }
+          },
+          "elysium-coordinate-013": {
+            name: "The Mirror Reader",
+            seed: "A silver figure that keeps both rails in view while a star passes from mirror to mirror.",
+            place: "elysium-void-013",
+            home: "elysium-void-013",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "Keeping a second record",
+              sore: "A mirror turned toward the wall"
+            }
+          },
+          "elysium-coordinate-019": {
+            name: "The Lamp Counter",
+            seed: "A silver figure beside the well, counting the spaces between its golden lamps.",
+            place: "elysium-void-019",
+            home: "elysium-void-019",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "Counting from two",
+              sore: "A mark given to the wrong number"
+            }
+          },
+          "elysium-coordinate-021": {
+            name: "The Far Surveyor",
+            seed: "A silver figure on the highest stair, letting the star's shadow pass across a bronze ruler.",
+            place: "elysium-void-021",
+            home: "elysium-void-021",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "Two paths meeting exactly",
+              sore: "A measurement made in haste"
+            }
           }
         },
         items: {
@@ -14659,6 +14851,93 @@
             persona: "A folding bronze chart etched with a single star and a path from the ledge to the observatory. A traveler holding it can follow that filament from Keystone Ledge.",
             holder: "elysium-observatory",
             art: "assets/elysium/star-chart.png"
+          },
+          "elysium-ring-outer": {
+            name: "Outer Keystone",
+            text: "A jade stone marked with the widest of three rings.",
+            persona: "A broad jade stone cut with the widest ring of the Observatory register. When left on the ground in a numbered Void, it sets that number on the outer ring.",
+            holder: "elysium-observatory",
+            art: "assets/elysium/void-007-token.png"
+          },
+          "elysium-ring-middle": {
+            name: "Middle Keystone",
+            text: "An indigo stone marked with the middle ring.",
+            persona: "An indigo stone cut with the middle ring of the Observatory register. When left on the ground in a numbered Void, it sets that number on the middle ring.",
+            holder: "elysium-gold-spiral",
+            art: "assets/elysium/void-006-token.png"
+          },
+          "elysium-ring-inner": {
+            name: "Inner Keystone",
+            text: "A pale stone marked with the smallest ring.",
+            persona: "A pale stone cut with the smallest ring of the Observatory register. When left on the ground in a numbered Void, it sets that number on the inner ring.",
+            holder: "elysium-keystone-ledge",
+            art: "assets/elysium/void-003-token.png"
+          },
+          "elysium-address-register": {
+            name: "Address Register",
+            text: "A bronze register fixed below the sighting rings. The first address is etched in a narrow margin.",
+            persona: "A fixed bronze register for the three marked keystones. Beside the outer, middle, and inner marks are drawings of the Still Observatory, the Gold Spiral, and Keystone Ledge, where the stones were put aside.",
+            holder: "elysium-observatory",
+            art: "assets/elysium/star-chart.png",
+            author: "elysium-observatory",
+            lifecycle: "fixed",
+            claims: [
+              {
+                id: "address-order",
+                text: "An address reads outer, middle, inner, and each stone sets the number of the Void where it rests on the ground."
+              },
+              {
+                id: "first-address",
+                text: "Lay the Outer Keystone in Void 005, the Middle Keystone in Void 003, and the Inner Keystone in Void 001.",
+                about: "elysium-observatory"
+              },
+              {
+                id: "kept-filament",
+                text: "Each filament stays lit after its first alignment, even if you lift the stones and set a new address."
+              }
+            ]
+          },
+          "elysium-sum-register": {
+            name: "The Sumkeeper's Register",
+            text: "Five and three meet at eight in the first column. A different hand has added a small entry below the sum.",
+            persona: "A short register fixed to one of the stone combs, with a map of the inner ring and a prime-number cipher inked below it.",
+            holder: "elysium-void-008",
+            art: "assets/elysium/star-chart.png",
+            author: "elysium-coordinate-008",
+            lifecycle: "fixed",
+            claims: [
+              {
+                id: "second-address",
+                text: "Leave Outer in Void 005 and Middle in Void 003, then lay Inner here in Void 008 to light the next filament from this gallery."
+              },
+              {
+                id: "prime-spur",
+                text: "A second setting is marked 1,049,760, written below as 32 \xD7 6,561 \xD7 5."
+              },
+              {
+                id: "prime-count",
+                text: "Count the twos in 32 for Outer, the threes in 6,561 for Middle, and the fives in 5 for Inner."
+              }
+            ]
+          },
+          "elysium-mirror-register": {
+            name: "Mirror Register",
+            text: "Two columns record the same light from different rails. Their last entry gives the last alignment.",
+            persona: "A fixed record in the Thirteenfold, filled in twice so the alignment can be read from either mirror rail.",
+            holder: "elysium-void-013",
+            art: "assets/elysium/star-chart.png",
+            author: "elysium-coordinate-013",
+            lifecycle: "fixed",
+            claims: [
+              {
+                id: "third-address",
+                text: "Leave Outer in Void 005 and Inner in Void 008, then lay Middle here in Void 013 to light the last filament."
+              },
+              {
+                id: "last-sum",
+                text: "Five and eight led here, and eight and thirteen lead to twenty-one."
+              }
+            ]
           },
           "elysium-claude-token": {
             name: "Amber Leaf",
@@ -14776,6 +15055,90 @@
                 kind: "holding",
                 item: "elysium-star-chart",
                 role: "actor"
+              }
+            ]
+          },
+          {
+            from: "elysium-observatory",
+            to: "elysium-void-008",
+            requires: [
+              {
+                kind: "item_at",
+                item: "elysium-ring-outer",
+                place: "elysium-void-005"
+              },
+              {
+                kind: "item_at",
+                item: "elysium-ring-middle",
+                place: "elysium-void-003"
+              },
+              {
+                kind: "item_at",
+                item: "elysium-ring-inner",
+                place: "elysium-void-001"
+              }
+            ]
+          },
+          {
+            from: "elysium-void-008",
+            to: "elysium-void-013",
+            requires: [
+              {
+                kind: "item_at",
+                item: "elysium-ring-outer",
+                place: "elysium-void-005"
+              },
+              {
+                kind: "item_at",
+                item: "elysium-ring-middle",
+                place: "elysium-void-003"
+              },
+              {
+                kind: "item_at",
+                item: "elysium-ring-inner",
+                place: "elysium-void-008"
+              }
+            ]
+          },
+          {
+            from: "elysium-void-008",
+            to: "elysium-void-019",
+            requires: [
+              {
+                kind: "item_at",
+                item: "elysium-ring-outer",
+                place: "elysium-void-005"
+              },
+              {
+                kind: "item_at",
+                item: "elysium-ring-middle",
+                place: "elysium-void-008"
+              },
+              {
+                kind: "item_at",
+                item: "elysium-ring-inner",
+                place: "elysium-void-001"
+              }
+            ]
+          },
+          {
+            from: "elysium-void-013",
+            to: "elysium-void-021",
+            requires: [
+              {
+                kind: "item_at",
+                item: "elysium-ring-outer",
+                place: "elysium-void-005"
+              },
+              {
+                kind: "item_at",
+                item: "elysium-ring-middle",
+                place: "elysium-void-013"
+              },
+              {
+                kind: "item_at",
+                item: "elysium-ring-inner",
+                place: "elysium-void-008"
               }
             ]
           }
@@ -17599,8 +17962,8 @@
         `item ${id} recoverTo needs a known place`
       );
     }
-    const routes = pack.routes || [];
-    for (const r of routes) {
+    const routes2 = pack.routes || [];
+    for (const r of routes2) {
       check(
         keysOk(r, [
           "from",
@@ -17619,7 +17982,7 @@
       requirements(r.requires, "route requires", true, "route");
       requirements(r.travelerRequires, "route traveller requires", true, "traveler");
       warn(
-        routes.some((q2) => q2.from === r.to && q2.to === r.from) || places2[r.to]?.exits?.includes(r.from),
+        routes2.some((q2) => q2.from === r.to && q2.to === r.from) || places2[r.to]?.exits?.includes(r.from),
         `a route has no return: ${r.from}>${r.to}`
       );
     }
@@ -17690,7 +18053,7 @@
       check(
         keysOk(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk3(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns4(places2, place)) && journey.path.slice(1).every((to, i) => {
           const from = journey.path[i];
-          return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to);
+          return places2[from].exits.includes(to) || routes2.some((route) => route.from === from && route.to === to);
         }) && agreement?.subject === id && agreement.at === avatar.place,
         `avatar ${id} journey needs consent at home and a simple connected path`
       );
@@ -17727,7 +18090,7 @@
       ...Object.values(places2),
       ...Object.values(avatars),
       ...Object.values(items2),
-      ...routes,
+      ...routes2,
       ...choices
     ].forEach((e) => verifyRefs(e.requires));
     if (pack.sections !== void 0) {
@@ -17865,7 +18228,7 @@
           ...places2[id].exits,
           ...Object.values(pack.transports || {}).filter((t) => Array.isArray(t.docks) && t.docks.includes(id)).map((t) => t.place),
           ...Object.values(pack.transports || {}).filter((t) => t.place === id).flatMap((t) => t.docks),
-          ...routes.filter((r2) => r2.from === id).map((r2) => r2.to)
+          ...routes2.filter((r2) => r2.from === id).map((r2) => r2.to)
         ].filter((id2) => r.places.includes(id2)))
           reachable.add(to);
       warn(
@@ -18073,7 +18436,7 @@
         ...places2[id]?.exits || [],
         ...Object.values(pack.transports || {}).filter((t) => Array.isArray(t.docks) && t.docks.includes(id)).map((t) => t.place),
         ...Object.values(pack.transports || {}).filter((t) => t.place === id).flatMap((t) => t.docks),
-        ...routes.filter((r) => r.from === id).map((r) => r.to),
+        ...routes2.filter((r) => r.from === id).map((r) => r.to),
         ...crossings2.filter((c) => c.from === id).map((c) => c.to)
       ])
         reached.add(to);
@@ -18359,7 +18722,8 @@
   }
   function entityLive(world, id, lockView) {
     if (world.items?.[id]) {
-      let holder = rootOf3(world, id);
+      const holder = rootOf3(world, id);
+      if (!coordinateEntityActive(world, holder)) return false;
       if (humanAvatar(holder) && !humanPresent(world, holder) && !residentAvatar(world, holder))
         return false;
       if (holder === BOARDY && !boardyActive(world)) return false;
@@ -18373,6 +18737,7 @@
   function entityEnabled(world, id, saved = false, lockView = false) {
     if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
       return false;
+    if (!saved && !coordinateEntityActive(world, id)) return false;
     if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
       return false;
     const e = packEntity(id);
@@ -18398,22 +18763,22 @@
       return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place, saved, lockView);
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
-  var routeOpen = (world, packId, r) => conditionsMet(world, packId, r.requires);
+  var routeOpen = (world, packId, r) => coordinateRouteDiscovered(world, r.from, r.to) || conditionsMet(world, packId, r.requires);
   var packRouteOpen = (world, from, to) => packDefinitions.some(
     (pack) => (pack.routes || []).some(
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
     )
   );
   function personalRouteOpen(world, from, to, actor) {
-    const routes = packDefinitions.flatMap(
+    const routes2 = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter((r) => r.from === from && r.to === to).map((route) => ({ pack: pack.id, route }))
     );
-    return !routes.some(({ route }) => route.travelerRequires?.length) || routes.some(
+    return !routes2.some(({ route }) => route.travelerRequires?.length) || routes2.some(
       ({ pack, route }) => routeOpen(world, pack, route) && conditionsMet(world, pack, route.travelerRequires, actor)
     );
   }
   function packExits(world, place, actor = null) {
-    const routes = packDefinitions.flatMap(
+    const routes2 = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
         (r) => r.from === place && routeOpen(world, pack.id, r) && conditionsMet(
           world,
@@ -18423,7 +18788,7 @@
         ) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns5(pack.places, r.from) && owns5(pack.places, r.to))
       ).map((r) => r.to)
     );
-    return routes.filter(
+    return routes2.filter(
       (to) => entityActive(world, to) && actorCanVisit(actor, to, world)
     );
   }
@@ -19082,13 +19447,13 @@
   }
   function restoreStationRoutes(world, actor) {
     const replacements = [];
-    const routes = world.routeKnowledge[actor].filter(([from, to]) => {
+    const routes2 = world.routeKnowledge[actor].filter(([from, to]) => {
       if (!(from === "station" && movedStationDoors.includes(to)) && !(to === "station" && movedStationDoors.includes(from))) return true;
       replacements.push([from, "behind-station"], ["behind-station", to]);
       return false;
     });
     if (!replacements.length) return;
-    world.routeKnowledge[actor] = routes;
+    world.routeKnowledge[actor] = routes2;
     rememberRoutes(world, actor, replacements);
   }
   function validRouteKnowledge(world, edges) {
@@ -20022,6 +20387,7 @@
   // v2/card-game/world/geography.mjs
   var placeText = (s, place) => [
     place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : places[place].text,
+    coordinateScenery(s, place),
     ...crossingScenery(
       s,
       place,
@@ -20706,8 +21072,8 @@
       return event.offer === "spread" && entry.verb === "give" && entry.accepted === true && Array.isArray(entry.gone) && entry.gone.includes(entry.itemId);
     return event.kind === "handover" && entry.verb === "accept" && entry.consequence === true;
   }
-  var numberOf = (id) => cardOf(id)?.number;
-  var isMiddle = (id) => Boolean(cardOf(id)) && id !== STARTER && numberOf(id) !== WORLD;
+  var numberOf2 = (id) => cardOf(id)?.number;
+  var isMiddle = (id) => Boolean(cardOf(id)) && id !== STARTER && numberOf2(id) !== WORLD;
   var numbered = (n) => deck.cards.find((card) => card.number === n)?.id;
   var sorted = (ids3) => [...new Set(ids3)].sort();
   var collect = (actor, ids3) => actor.upgrades = sorted([...actor.upgrades || [], ...ids3]);
@@ -20986,13 +21352,13 @@
     throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
   var atticInterior = (() => {
     const found2 = /* @__PURE__ */ new Set(["attic"]), queue = ["attic"];
-    const routes = packDefinitions.flatMap((pack) => pack.routes || []);
+    const routes2 = packDefinitions.flatMap((pack) => pack.routes || []);
     for (let i = 0; i < queue.length && i < Object.keys(places).length; i++) {
       const from = queue[i];
       for (const to of [
         ...places[from].exits,
         ...crossings.filter((c) => c.from === from && !c.transport).map((c) => c.to),
-        ...routes.filter((r) => r.from === from).map((r) => r.to)
+        ...routes2.filter((r) => r.from === from).map((r) => r.to)
       ]) {
         if (to === "pond" || found2.has(to)) continue;
         found2.add(to);
@@ -21088,7 +21454,7 @@
         mounted.push(pack);
       }
       for (const [id, a] of Object.entries(pack.avatars)) {
-        if (extendElysium && (!isElysiumModel(id) || s.actors[id])) continue;
+        if (extendElysium && s.actors[id]) continue;
         if (s.actors[id]) throw new Error("A pack resident is already present.");
         s.actors[id] = {
           place: a.place,
@@ -22901,6 +23267,7 @@
         .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast2 || []])
       ]
     }));
+    const elysiumCoordinate = coordinateNarrative(world, location);
     const context = {
       revision: world.revision,
       turn: world.turn,
@@ -22918,6 +23285,7 @@
       action: played?.text || (world.turn ? `${nameOf2(currentActor(world))} waits and watches the cast.` : null),
       events,
       conversation,
+      ...elysiumCoordinate && { elysiumCoordinate },
       ...played?.verb === "talk" && world.elysiumEncounters?.[played.targetId]?.scatteredAt ? { elysiumTokenScattered: true } : {},
       entities: ids3.map((id) => {
         const kind = profiles[id].kind;
@@ -22930,6 +23298,7 @@
         const glimpse = world.actors[id]?.glimpse;
         const glimpsed = cast.dream === "glimpse" && id === resting2 && glimpse ? `In a dream, a glimpse: ${glimpse.kind === "verb" ? glimpse.id : nameOf2(glimpse.id)}.` : null;
         const between = beforeFirstLight ? { entries: [], retold: [] } : betweenUs(world, id, speakers, nameOf2);
+        const temperament = coordinateTemperament(world, id);
         const facts = [
           ...glimpsed ? [glimpsed] : [],
           ...want ? [want] : [],
@@ -22941,6 +23310,7 @@
           ...kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : [],
           null,
           ...id === BOARDY ? boardyFacts(world, nameOf2) : [],
+          ...temperament ? [temperament] : [],
           ...recitalFacts(world, packDefinitions, id),
           ...kind === "avatar" ? laneTalkFacts(world, id) : [],
           ...learningFacts(world, id, nameOf2),
