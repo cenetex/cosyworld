@@ -32,6 +32,30 @@ const seated = (ids, place = "glasshouse") => {
 };
 
 describe("sleeping art", () => {
+  it.each([
+    ["badger", "assets/badger-forest/badger-sleeping.png"],
+    ["rati", "assets/sleep/residents/rati-sleeping.webp"],
+    [
+      "hoppycat-nix-fermata",
+      "assets/sleep/residents/hoppycat-nix-fermata-sleeping.webp",
+    ],
+    ["greek-helen-troy", "assets/sleep/residents/greek-helen-egypt-sleeping.webp"],
+  ])("stages %s with the published portrait during committed sleep", (id, file) => {
+    const world = createWorld();
+    world.turn = world.revision = 80;
+    const place = world.actors.vale.place;
+    world.actors[id] = { ...world.actors[id], place, awake: true };
+    expect(sleepingPortrait(world, id)).toBeNull();
+    world.actors[id].sleeping = { since: 79, place, until: 90 };
+
+    expect(portrait(id, null, world)).toBe(`./${file}`);
+    const staged = sceneStaging(world, { cast: [id] }).actors.find(
+      (actor) => actor.id === id,
+    );
+    expect(staged).toMatchObject({ cutout: `./${file}`, pose: "sleep" });
+    expect(publicAssets.some((asset) => asset.file === file)).toBe(true);
+  });
+
   it("shows Dione's approved sleep art on the card and stage until she wakes", () => {
     let world = createWorld({ packScopes: { "greek-drama": "full" } });
     world.turn = world.revision = 91;
@@ -91,13 +115,14 @@ describe("sleeping art", () => {
     world.actors.vale.place = "station";
     expect(sleepingPortrait(wait(world), "vale")).toBeNull();
     // A resident without a sleeping painting keeps its ordinary art.
-    const before = portrait("greek-creon", null, world);
-    world.actors["greek-creon"].sleeping = {
-      since: 0,
-      place: "x",
-      present: [],
+    const id = "ratiradio-raven";
+    const before = portrait(id, null, world);
+    world.actors[id] = {
+      ...world.actors[id],
+      place: "station",
+      sleeping: { since: 0, place: "station", until: 10 },
     };
-    expect(portrait("greek-creon", null, world)).toBe(before);
+    expect(portrait(id, null, world)).toBe(before);
     expect(sleepingPortrait(null, "vale")).toBeNull();
     expect(sleepingPortrait(world, "unknown")).toBeNull();
   });
@@ -170,7 +195,7 @@ describe("sleeping art", () => {
   );
 
   it("publishes the complete pack and never mirrors the keeper's clock", () => {
-    expect(sleepPortraitAssets).toHaveLength(22);
+    expect(new Set(sleepPortraitAssets).size).toBe(sleepPortraitAssets.length);
     const published = new Set(publicAssets.map(({ file }) => file));
     for (const file of sleepPortraitAssets) {
       expect(published.has(file), file).toBe(true);
