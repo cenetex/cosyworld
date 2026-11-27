@@ -979,6 +979,8 @@ export function partialEntries(source) {
   return entries;
 }
 
+const SCENE_CONTEXT_REJECTED = "scene_context_rejected";
+
 export async function requestNarrative(
   context,
   signal,
@@ -996,15 +998,16 @@ export async function requestNarrative(
     signal,
   });
   if (!response.ok) {
-    // A 429 carries its Retry-After: the narrator waits out a short one inside
-    // the dialogue grace, and the next request waits out a long one.
     const wait = Number(response.headers.get("retry-after"));
+    const detail =
+      response.status === 400 ? await response.json().catch(() => null) : null;
     throw Object.assign(
       new Error(`Story service returned ${response.status}.`),
       {
         ...(response.status === 429
           ? { retryAfter: Number.isFinite(wait) && wait > 0 ? wait * 1000 : 0 }
           : {}),
+        ...(detail?.code === SCENE_CONTEXT_REJECTED && { code: detail.code }),
       },
     );
   }
@@ -1093,9 +1096,7 @@ async function boundedRequest(request, context, signal, progress, timeout) {
     attempt.abort();
   }
 }
-// A busy 429 means the server never started the scene. The one request
-// waits its Retry-After plus jitter, at most twice, while the play is still
-// inside THINKING_GRACE_MS (presentation.mjs). Any other failure is "…".
+// A busy 429 waits its Retry-After plus jitter within the visible thinking grace.
 const BUSY_RETRIES = 2;
 const BUSY_GRACE = 5_000;
 const BUSY_JITTER = 400;
@@ -1112,6 +1113,23 @@ function retryPause(signal, delay) {
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) finish();
   });
+}
+
+function currentSceneOnly(context) {
+  return {
+    ...context,
+    action: null,
+    events: [],
+    conversation: [],
+    disclosures: [],
+    entities: context.entities.map(({ id, desire }) => ({
+      id,
+      desire,
+      facts: [],
+      memories: [],
+      previous: null,
+    })),
+  };
 }
 
 // Keep one active scene request and coalesce quick plays to the newest world.
@@ -1167,12 +1185,13 @@ export function createNarrator({
     const graceEnd = Date.now() + BUSY_GRACE;
     let deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
     let busy = 0;
+    let requestContext = context;
     const published = new Map();
     for (;;) {
       try {
         const response = await boundedRequest(
           request,
-          context,
+          requestContext,
           signal,
           (entries) => {
             if (
@@ -1226,6 +1245,15 @@ export function createNarrator({
           holdUntil = Math.max(holdUntil, Date.now() + error.retryAfter);
         if (signal.aborted || version !== ticket) return;
         preview(null);
+        if (requestContext !== context) throw error;
+        if (
+          error?.code === SCENE_CONTEXT_REJECTED &&
+          getWorld().revision === context.revision &&
+          getWorld().turn === context.turn
+        ) {
+          requestContext = currentSceneOnly(context);
+          continue;
+        }
         const wait =
           (error?.retryAfter || 0) + Math.floor(random() * BUSY_JITTER);
         if (
@@ -1278,7 +1306,7 @@ export function createNarrator({
           await write(context, version, controller.signal, remaining);
         } catch (error) {
           // Words that never came leave the scene's speakers silent: the
-          // table shows "…" and play goes on. Nothing asks again.
+          // table shows "…" and play goes on.
           if (version === ticket) {
             preview(null);
             status("failed", error);
