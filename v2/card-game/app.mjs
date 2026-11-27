@@ -4252,7 +4252,7 @@ function renderScene() {
   let front =
     frontIndex === beats.length ? pendingCard : beats[frontIndex] || null;
   if (!reviewing && !pipPrelude())
-    front = pondSignalBeat(world, firstFoolBeat(world, front, known, beats), known);
+    front = pondSignalBeat(world, firstFoolBeat(world, front, known), known);
   const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
   const behindLive = reviewing && (frontIndex < liveIndex || choiceInStack());
   stackView = { beats, frontIndex, liveIndex, pending: pendingCard };
