@@ -4,6 +4,7 @@ import {
   createWorld as baseCreateWorld,
   expects,
   legalActions,
+  people,
   play,
   encodeSave,
   decodeSave,
@@ -212,19 +213,26 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
   it("keeps a bounded recent history with usable source evidence", () => {
     let w = setup();
     w.items.bell.holder = "keeper";
-    // The keeper has just met a want and stays content at the station for
-    // the whole measured run, so the open request stays the same.
     w.turn = w.revision = 10;
     w.actors.keeper.want = null;
-    w.actors.keeper.metTurn = 10;
+    w.actors.keeper.completedQuest = {
+      want: { ...people.keeper.want, since: 0, refusals: 0 },
+      by: "vale",
+      turn: w.turn,
+    };
     w.actors.moth.metTurn = 10;
     w = act(w, "ask", "oil");
     for (let i = 0; i < TRIAL_LIMIT + 2; i++) w = act(w, "wait");
-    expect(history(w)).toHaveLength(TRIAL_LIMIT);
-    expect(history(w)[0].seq).toBeGreaterThan(2);
-    expect(
-      history(w).every((t) => t.evidence.length && t.before && t.after),
-    ).toBe(true);
+    const trials = history(w);
+    expect(trials.map(({ turn }) => turn)).toEqual(
+      Array.from({ length: TRIAL_LIMIT }, (_, i) => w.turn - TRIAL_LIMIT + 1 + i),
+    );
+    for (const { seq, turn, evidence, before, after } of trials) {
+      const event = w.log.find((entry) => entry.seq === seq);
+      expect(event).toMatchObject({ turn, actorId: "vale", verb: "wait", text: evidence });
+      expect(before.met).toBe(false);
+      expect(after.met).toBe(false);
+    }
   });
   it("checks rewards, observations, action fields and source events in saves", () => {
     const w = act(setup(), "ask", "oil");

@@ -277,7 +277,7 @@ impl Vocabulary {
                         .is_some_and(|id| self.ids.contains(id))
                 });
         let id = self.ids.contains(key) || (token(key) && Self::compound(key, &self.ids));
-        id || offer || (!id_keyed(path) && self.fields.contains(key))
+        id || offer || (!id_keyed(path) && key != "all" && self.fields.contains(key))
     }
 }
 

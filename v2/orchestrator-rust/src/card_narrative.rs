@@ -611,8 +611,7 @@ fn valid(context: &Context) -> bool {
         && (1..=8).contains(&context.entities.len())
         && ids.len() == context.entities.len()
         && context.covered.iter().all(|id| ids.contains(id.as_str()))
-        && context.concealed.len() <= 512
-        && context.concealed.iter().all(|id| profiles().get(id).is_some())
+        && knowledge::valid_concealed(&context.concealed)
         && context.outcome.as_ref().is_none_or(valid_outcome)
         && elysium::valid_coordinates(context)
         && observations::valid(context)
@@ -651,21 +650,22 @@ fn valid(context: &Context) -> bool {
             .rest
             .as_deref()
             .is_none_or(|rest| rest == "long" && context.resting.is_some())
-        && context.dream.as_deref().is_none_or(|dream| {
-            DREAMS.contains(&dream) && context.rest.as_deref() == Some("long")
-        })
+        && context
+            .dream
+            .as_deref()
+            .is_none_or(|dream| DREAMS.contains(&dream) && context.rest.as_deref() == Some("long"))
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && between::valid(context, e)
-                && e.perception.as_ref().is_none_or(|p| {
-                    kind(&e.id, "avatar") && perception::valid(context, p)
-                })
-                && e.recall.as_ref().is_none_or(|r| {
-                    kind(&e.id, "avatar") && recall::valid(context, &e.id, r)
-                })
+                && e.perception
+                    .as_ref()
+                    .is_none_or(|p| kind(&e.id, "avatar") && perception::valid(context, p))
+                && e.recall
+                    .as_ref()
+                    .is_none_or(|r| kind(&e.id, "avatar") && recall::valid(context, &e.id, r))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
                 && e.hope.as_ref().is_none_or(|hope| {
                     kind(&e.id, "avatar") && bounded(&hope.wish, 240) && bounded(&hope.next, 240)

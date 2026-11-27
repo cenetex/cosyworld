@@ -42,12 +42,10 @@ fn boardy_follows_authenticated_presence_in_the_c_host() {
 }
 
 #[test]
-fn boardy_station_card_opens_the_authored_parlour_door() {
+fn boardy_calling_card_opens_the_authored_parlour_door() {
     let mut world = World::create(None).unwrap();
     world.game.as_object_mut().unwrap().remove("opening");
     world.game["actors"]["vale"]["place"] = json!("station");
-    world.game["items"]["lamp"]["holder"] = json!("vale");
-    world.game["items"]["lamp"]["lit"] = json!(false);
     for actor in ["vale", "mara"] {
         world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
         world.apply(&json!({"op":"enter", "actor":actor})).unwrap();
@@ -61,30 +59,20 @@ fn boardy_station_card_opens_the_authored_parlour_door() {
         .find(|c| c["id"] == "station-boardyai-parlour")
         .unwrap();
     let doorway = entrance["from"].as_str().unwrap();
-    assert!(["station", "attic"].contains(&doorway));
+    assert_eq!(doorway, "behind-station");
     assert_eq!(entrance["to"], "boardyai-parlour");
     let return_door = crossings
         .iter()
         .find(|c| c["id"] == "boardyai-parlour-station")
         .unwrap();
     assert_eq!(return_door["to"], doorway);
-    let mut journey = vec![("take", "item", "boardyai-calling-card", "station")];
-    if doorway == "attic" {
-        journey.extend([
-            ("move", "target", "pond", "pond"),
-            ("move", "target", "attic", "attic"),
-        ]);
-    }
-    journey.extend([
+    let journey = [
+        ("move", "target", doorway, doorway),
+        ("take", "item", "boardyai-calling-card", doorway),
         ("move", "target", "boardyai-parlour", "boardyai-parlour"),
         ("move", "target", doorway, doorway),
-    ]);
-    for (kind, field, value, destination) in journey {
-        if doorway == "attic" && kind == "move" && value == "pond" {
-            let command = json!({"op":"hold","actor":"vale","choice":{
-                "item":"lamp","revision":world.game["revision"]}});
-            world.apply(&command).unwrap();
-        }
+    ];
+    for (step, (kind, field, value, destination)) in journey.into_iter().enumerate() {
         let view = world.project(0).unwrap();
         let action = view["actions"]
             .as_array()
@@ -99,7 +87,7 @@ fn boardy_station_card_opens_the_authored_parlour_door() {
         assert_eq!(world.game["actors"]["vale"]["place"], destination);
         assert_eq!(
             world.game["items"]["boardyai-calling-card"]["holder"],
-            "vale"
+            if step == 0 { doorway } else { "vale" }
         );
     }
 }
@@ -190,56 +178,63 @@ fn one_connected_human_keeps_the_normal_turn_loop() {
 }
 
 #[test]
-fn station_presence_admission_survives_checkpoint_free_replay() {
-    let path = std::env::temp_dir().join(format!("station-slots-{}.sqlite", crate::random_hex(12)));
+fn parlour_presence_and_station_exits_survive_checkpoint_free_replay() {
+    let path = std::env::temp_dir().join(format!("parlour-doors-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
     full_store::schema(&c).unwrap();
     let id = "d".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
     let mut world = World::create(None).unwrap();
     world.game.as_object_mut().unwrap().remove("opening");
-    world.game["actors"]["vale"]["place"] = json!("station");
+    world.game["actors"]["vale"]["place"] = json!("behind-station");
     world.game["actors"]["mara"]["place"] = json!("pond");
     world.game["doors"]["pavilion"] = json!("station");
     world.game["items"]["routes"]["holder"] = json!("station");
     world.game["items"]["board"]["holder"] = json!("mara");
-    world.game["items"]["boardyai-calling-card"]["holder"] = json!("station");
     world.game["stationExitOrder"] = json!([]);
-    full_store::seed(&c, &id, &world, "station-presence", now()).unwrap();
+    full_store::seed(&c, &id, &world, "parlour-presence", now()).unwrap();
     let commit = |world: &mut World, command: Value| {
         full_store::commit(&c, &id, world, command, now()).unwrap();
     };
-    for actor in ["vale", "mara"] {
-        for op in ["claim", "enter"] {
-            commit(&mut world, json!({"op":op,"actor":actor}));
-        }
+    let parlour_open = |world: &World| {
+        world.project(0).unwrap()["exits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|exit| exit == "boardyai-parlour")
+    };
+    for op in ["claim", "enter"] {
+        commit(&mut world, json!({"op":op,"actor":"vale"}));
     }
-    let order = |world: &World| world.game["stationExitOrder"].clone();
-    assert_eq!(order(&world), json!(["train", "boardyai-parlour"]));
+    assert!(!parlour_open(&world));
+    for (op, open) in [("claim", false), ("enter", true)] {
+        commit(&mut world, json!({"op":op,"actor":"mara"}));
+        assert_eq!(parlour_open(&world), open);
+    }
+    assert_eq!(world.game["stationExitOrder"], json!(["train"]));
     let before = world.clone();
     world.project(0).unwrap();
     world.project(1).unwrap();
     assert_eq!(world, before, "views do not admit exits");
-    let action = world.project(1).unwrap()["actions"]
+    let view = world.project(1).unwrap();
+    let action = view["actions"]
         .as_array()
         .unwrap()
         .iter()
         .find(|a| a["kind"] == "move" && a["target"] == "station")
-        .unwrap()
-        .clone();
-    let play = json!({"op":"play","actor":"mara","action":action});
-    commit(&mut world, play);
-    assert_eq!(
-        order(&world),
-        json!(["train", "boardyai-parlour", "pavilion"])
+        .unwrap();
+    commit(
+        &mut world,
+        json!({"op":"play","actor":"mara","action":action}),
     );
-    for (op, expected) in [
-        ("leave", json!(["train", "pavilion"])),
-        ("enter", json!(["train", "pavilion", "boardyai-parlour"])),
-    ] {
+    assert_eq!(world.game["stationExitOrder"], json!(["train", "pavilion"]));
+    for (op, open) in [("leave", false), ("enter", true)] {
         commit(&mut world, json!({"op":op,"actor":"mara"}));
-        assert_eq!(world.game["stationExitOrder"], expected);
+        assert_eq!(parlour_open(&world), open);
+        assert_eq!(world.game["stationExitOrder"], json!(["train", "pavilion"]));
     }
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+    let replayed = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(replayed, world);
+    assert!(parlour_open(&replayed));
 }
