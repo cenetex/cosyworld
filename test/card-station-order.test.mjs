@@ -11,8 +11,11 @@ const ways = ["pond", "a", "b", "c", "d"];
 const queued = (...ids) => ({ stationExitOrder: ids });
 
 describe("Station exit-order contract", () => {
-  it("reserves Pond and admits at most two temporary ways", () => {
+  it("reserves both ordinary roads within the three-way cap", () => {
     expect(STATION_EXIT_LIMIT).toBe(3);
+    expect(stationExits({}, ["behind-station", ...ways])).toEqual([
+      "pond", "behind-station", "a",
+    ]);
     expect(stationExits({}, ways)).toEqual(["pond", "a", "b"]);
     expect(stationExits({}, ["pond"])).toEqual(["pond"]);
     expect(stationExitOrder({}, ways)).toEqual(["a", "b", "c", "d"]);
@@ -85,6 +88,7 @@ describe("Station exit-order contract", () => {
     "a",
     {},
     ["pond"],
+    ["behind-station"],
     ["a", "a"],
     ["unknown"],
     [null],

@@ -93,6 +93,7 @@ it.each(["solo", "shared"])(
 
     const wayfinder = "elysium-wayfinder";
     const { holder } = table.world.items[wayfinder];
+    if (holder === "behind-station") move("station");
     if (holder !== table.world.actors.vale.place) move(holder);
     take(wayfinder);
     while (table.world.turn < DAYLIGHT_TURNS) act("wait", { label: undefined });
@@ -114,11 +115,13 @@ it.each(["solo", "shared"])(
     move("pond");
     take("ratiradio-station-key");
     move("station");
+    move("behind-station");
     move("ratiradio-staff-kitchen");
     expect(placeText(table.world, "ratiradio-staff-kitchen")).toMatch(/Leave the Station Key inside/u);
     act("read", { item: "ratiradio-station-key" });
     expect(knowsFact(table.world, VALE, "claim:ratiradio:ratiradio-station-key:leave-key-inside")).toBe(true);
     drop("ratiradio-station-key", "ratiradio-staff-kitchen");
+    move("behind-station");
     move("station");
     take("bell");
     move("pond");
@@ -129,6 +132,7 @@ it.each(["solo", "shared"])(
     act("ring", { item: "bell" });
     move("pond");
     move("station");
+    move("behind-station");
     move("ratiradio-staff-kitchen");
     move("ratiradio-dispatch-window");
     drop("ratiradio-thermos", "ratiradio-dispatch-window");
@@ -144,6 +148,7 @@ it.each(["solo", "shared"])(
 
     move("ratiradio-dispatch-window");
     move("ratiradio-staff-kitchen");
+    move("behind-station");
     move("station");
     move("pond");
     expect(mayCollect()).toBe(false);

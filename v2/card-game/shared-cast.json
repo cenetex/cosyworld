@@ -7,7 +7,7 @@
     "text": "A doorframe stands in the still water. Its reflection holds a window from somewhere else.",
     "image": "assets/shared/places/pond.png"
   },
-  "lampless": ["pond", "station", "clearing"],
+  "lampless": ["pond", "station", "behind-station", "clearing"],
   "avatars": [
     {
       "id": "vale",

@@ -23,6 +23,8 @@ const token = elysiumModelToken(claude);
 const wayfinder = "elysium-wayfinder";
 const entry = "elysium-void-001";
 const study = "elysium-void-002";
+const rear = "behind-station";
+const shore = ["pond", "station", rear];
 
 const reload = (s) => decodeSave(encodeSave(s));
 function act(s, kind, target, item) {
@@ -56,7 +58,7 @@ const landings = (s) => tokens.map((id) => s.items[id].holder);
 
 function bringBack(s) {
   s = act(s, "move", "station");
-  if (s.items[token].holder === "pond") s = act(s, "move", "pond");
+  if (s.items[token].holder !== "station") s = act(s, "move", s.items[token].holder);
   s = act(s, "take", null, token);
   expect(s.items[token].holder).toBe("vale");
   holdChoice(s, "vale", { item: wayfinder, revision: s.revision });
@@ -84,7 +86,7 @@ it("scatters each resident's own token on arrival and records first Talk separat
       kind: "narration", locationId: route.at(-1), targetId: resident, itemId: item,
     });
     const destination = s.items[item].holder;
-    expect(["pond", "station"]).toContain(destination);
+    expect(shore).toContain(destination);
     expect(s.actors[resident].want).toMatchObject({ kind: "item", target: item });
     expect(s.elysiumEncounters[resident]).toEqual({ scatteredAt: arrival.seq, talkedAt: null });
     expect(s.log.some((e) => e.elysiumModel === resident)).toBe(false);
@@ -115,7 +117,7 @@ it("keeps a legacy first-Talk encounter and its token location on reload", () =>
 
 it("balances a full tour between ordinary rooms and repeats the same placements on replay", () => {
   const first = landings(tour(approach()));
-  expect(first.toSorted()).toEqual(["pond", "pond", "pond", "station", "station", "station"]);
+  expect(first.toSorted()).toEqual([...shore, ...shore].sort());
   expect(landings(tour(approach()))).toEqual(first);
 });
 
@@ -125,10 +127,10 @@ it("uses an open ordinary door with the Wayfinder put away", () => {
   s.items["ratiradio-station-key"].holder = kitchen;
   holdChoice(s, "vale", { item: null, revision: s.revision });
   s = tour(s);
-  expect(landings(s).toSorted()).toEqual(["pond", "pond", kitchen, kitchen, "station", "station"]);
+  expect(new Set(landings(s))).toEqual(new Set([...shore, kitchen]));
   const find = tokens.find((id) => s.items[id].holder === kitchen);
   s = act(act(s, "move", "elysium-void-003"), "move", study);
-  s = act(act(s, "move", "station"), "move", kitchen);
+  s = act(act(act(s, "move", "station"), "move", rear), "move", kitchen);
   s = act(s, "take", null, find);
   expect(s.items[find].holder).toBe("vale");
 });
@@ -136,6 +138,7 @@ it("uses an open ordinary door with the Wayfinder put away", () => {
 it("uses loose items to break a tie between rooms with equally many tokens", () => {
   const s = createWorld({ seed: 4 });
   for (const id of ["bell", "lamp", "oil"]) s.items[id].holder = "station";
+  s.items[elysiumModelToken("elysium-grok")].holder = rear;
   expect(elysiumTokenLanding(s, "vale", token)).toBe("pond");
   s.items[elysiumModelToken(gemini)].holder = "pond";
   expect(elysiumTokenLanding(s, "vale", token)).toBe("station");
@@ -215,7 +218,7 @@ it.each(["scattered", "returned"])("can play the shared encounter after importin
   expect(arrivalSeq).toBeGreaterThan(localSeq);
   expect(met.events.find((e) => e.elysiumModel === claude).seq).toBeGreaterThan(arrivalSeq);
   let s = sharedAct(met.world, "move", "station").world;
-  if (s.items[token].holder === "pond") s = sharedAct(s, "move", "pond").world;
+  if (s.items[token].holder !== "station") s = sharedAct(s, "move", s.items[token].holder).world;
   s = sharedAct(s, "take", null, token).world;
   s = dispatchShared({
     op: "hold", world: s, actor: "vale",

@@ -222,6 +222,7 @@ describe("the second row, played in a created world", () => {
     const route = [
       ["take", id("station-key")],
       ["move", "station"],
+      ["move", "behind-station"],
       ["move", id("staff-kitchen")],
       ["drop", id("station-key")],
       ["take", id("red-beanie")],

@@ -16,11 +16,12 @@ import {
 import { backdrop } from "../v2/card-game/scene.mjs";
 import { placeLight } from "../v2/card-game/stage-light.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
-import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { dispatchShared, load } from "../v2/card-game/shared-world.mjs";
 import { elysiumScatterLandings } from "../v2/card-game/world/elysium-travel.mjs";
 import { setLampFuel } from "../v2/scripts/card-browser-helpers.mjs";
 
 const id = (name) => `elysium-${name}`;
+const shore = ["pond", "station", "behind-station"];
 const voidNode = id("void-001"),
   exitNode = id("void-002"),
   ledge = id("keystone-ledge"),
@@ -66,18 +67,33 @@ it("scatters the Wayfinder deterministically in ordinary reachable rooms", () =>
   for (const seed of [1, 2, 3, 4]) {
     const s = createWorld({ seed });
     const { holder } = s.items[wayfinder];
-    expect(["pond", "station"]).toContain(holder);
+    expect(shore).toContain(holder);
     expect(createWorld({ seed }).items[wayfinder].holder).toBe(holder);
     expect(decodeSave(encodeSave(s)).items[wayfinder].holder).toBe(holder);
     seen.add(holder);
   }
-  expect(seen.size).toBe(2);
+  expect(seen.size).toBeGreaterThan(1);
 
   const s = fixture("station");
   s.items["ratiradio-station-key"].holder = "vale";
   expect(elysiumScatterLandings(s, "vale")).toEqual(
-    expect.arrayContaining(["pond", "station", "ratiradio-staff-kitchen"]),
+    expect.arrayContaining([...shore, "ratiradio-staff-kitchen"]),
   );
+});
+
+it("keeps shared scatter landings accessible after a second player leaves", () => {
+  const world = dispatchShared({ op: "create" }).world;
+  const rear = "behind-station";
+  world.items["boardyai-calling-card"].holder = rear;
+  const request = { world, actor: "vale", claimed: ["vale", "mara"] };
+  const together = load({ ...request, present: ["vale", "mara"] });
+  const alone = load({ ...request, present: ["vale"] });
+
+  expect(exits(together, rear, "vale")).toContain("boardyai-parlour");
+  expect(exits(alone, rear, "vale")).not.toContain("boardyai-parlour");
+  const landings = elysiumScatterLandings(together, "vale");
+  expect(landings).toEqual(expect.arrayContaining(shore));
+  expect(landings).not.toContain("boardyai-parlour");
 });
 
 it("opens Void 001 only to the traveler with the Wayfinder in hand at night", () => {
@@ -202,7 +218,7 @@ it("scatters an abandoned Wayfinder when the last traveler leaves", () => {
   s = act(s, "move", exitNode);
   expect(s.items[wayfinder].holder).toBe(voidNode);
   s = act(s, "move", "station");
-  expect(["station", "pond"]).toContain(s.items[wayfinder].holder);
+  expect(shore).toContain(s.items[wayfinder].holder);
 
   const world = dispatchShared({
     op: "create",

@@ -191,8 +191,8 @@ try {
       return trip;
     };
     // Leaving the station: each card left behind falls, nearest Vale first,
-    // 50 ms apart, from the tap. Both places stay in the hand. The station
-    // moves to the left of the pond as the way back.
+    // 50 ms apart, from the tap. The pond and station stay in the hand.
+    // The station moves to the left of the pond as the way back.
     const away = await go("pond", "travel-away");
     const visibleCards = () =>
       page
@@ -210,7 +210,7 @@ try {
       const falls = away.motions.filter((m) => m.ghost && m.duration === EXIT_MS);
       assert.deepEqual(
         falls.map((m) => m.card),
-        ["keeper"],
+        ["keeper", "behind-station"],
         "nearest first",
       );
       falls.forEach((m, i) => assert.equal(m.delay, i * 50, "50 ms apart"));
@@ -223,7 +223,7 @@ try {
       const falls = back.motions.filter((m) => m.ghost),
         lastFall = Math.max(0, ...falls.map((m) => m.at + m.delay + 360)),
         rises = back.motions.filter((m) => m.rise);
-      for (const id of ["moth", "keeper"])
+      for (const id of ["moth", "keeper", "behind-station"])
         assert(
           rises.some((m) => m.card === id),
           `${id} rises: ${JSON.stringify(back.motions)}`,

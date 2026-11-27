@@ -10,7 +10,7 @@
     "ratiradio-staff-kitchen": {
       "name": "Staff Kitchen",
       "text": "The fridges keep the hours here. One door stands barely ajar. ‘Leave the Station Key inside and the staff entrance will stay open,’ reads a note by the lost-property tray.",
-      "persona": "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
+      "persona": "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Behind the Station. Movable possessions may be carried away.",
       "exits": [],
       "backdrop": "assets/ratiradio/staff-kitchen.webp"
     },
@@ -139,8 +139,8 @@
   "items": {
     "ratiradio-station-key": {
       "name": "Station Key",
-      "text": "A brass key with a worn STAFF tag. Leaving it inside keeps the entrance open.",
-      "persona": "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station while a traveler carries it or it stays inside the station rooms.",
+      "text": "A brass key with a worn tag that reads ‘Staff Kitchen, Behind the Station.’",
+      "persona": "A brass station key with a chipped STAFF tag. Its carrier can open the Staff Kitchen entrance Behind the Station. Leaving the key inside RATiRadio opens that door to everyone.",
       "holder": "pond",
       "art": "assets/ratiradio/station-key.webp",
       "reservedUntil": [
@@ -155,7 +155,7 @@
       "claims": [
         {
           "id": "staff",
-          "text": "The staff entrance has one brass key, and the staff have a bad habit of losing it.",
+          "text": "The staff entrance Behind the Station has one brass key, and the staff have a bad habit of losing it.",
           "about": "ratiradio-staff-kitchen"
         },
         {

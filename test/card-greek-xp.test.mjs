@@ -82,6 +82,7 @@ describe("boxes the Greek and RatiRadio content credits", () => {
     const steps = [
       ["take", id("station-key")],
       ["move", "station"],
+      ["move", "behind-station"],
       ["move", id("staff-kitchen")],
       ["drop", id("station-key")],
       ["take", id("red-beanie")],

@@ -53,6 +53,11 @@
     "persona": "An empty railway station beside a black shore. Its timetable lists future years. It remembers arrivals, departures and bargains as small changes in dust, echoes and light.",
     "idiolect": "I'm an empty railway station beside a black shore. My timetable lists years that haven't come yet. Arrivals and departures leave marks in my dust."
   },
+  "behind-station": {
+    "kind": "location",
+    "name": "Behind the Station",
+    "persona": "A narrow service yard behind Empty station. Rain darkens the paving. A rounded parlour door bears a blue smile. An aerial rises over a brass-locked staff door. A path bends back to the platform."
+  },
   "attic": {
     "kind": "location",
     "name": "Mirror attic",

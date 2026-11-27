@@ -46,6 +46,7 @@
     },
     "places": [
       "station",
+      "behind-station",
       "attic",
       "pond"
     ],

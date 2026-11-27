@@ -85,8 +85,8 @@ describe("BoardyAI's presence and home", () => {
     expect(entityActive(view(world, ["vale"]).world, "cloth")).toBe(false);
   });
 
-  it("carries his station card to the authored doorway and keeps the return door", () => {
-    expect(["station", "attic"]).toContain(doorway);
+  it("finds his calling card behind the station and keeps the return door", () => {
+    expect(doorway).toBe("behind-station");
     expect(entrance.to).toBe("boardyai-parlour");
     expect(returnDoor).toMatchObject({ from: entrance.to, to: doorway });
     let world = fresh();
@@ -107,25 +107,18 @@ describe("BoardyAI's presence and home", () => {
       expect(result.ok).toBe(true);
       world = result.world;
     };
-    expect(availableCards(view(world).world)).toContain(
+    expect(availableCards(view(world).world)).not.toContain(
       "boardyai-calling-card",
     );
-    expect(world.items["boardyai-calling-card"].holder).toBe("station");
-    expect(view(world).exits.includes("boardyai-parlour")).toBe(
-      doorway === "station",
-    );
+    expect(view(world).exits).not.toContain("boardyai-parlour");
+    act("move", "target", doorway);
+    expect(availableCards(view(world).world)).toContain("boardyai-calling-card");
+    expect(world.items["boardyai-calling-card"].holder).toBe(doorway);
     act("take", "item", "boardyai-calling-card");
-    if (doorway === "attic") {
-      act("take", "item", "lamp");
-      act("light", "item", "lamp");
-      act("move", "target", "pond");
-      act("move", "target", doorway);
-    }
     expect(view(world).exits).toContain("boardyai-parlour");
     world.items["boardyai-calling-card"].holder = "mara";
     expect(view(world).exits).not.toContain("boardyai-parlour");
-    world.items["boardyai-calling-card"].holder =
-      doorway === "attic" ? "station" : "attic";
+    world.items["boardyai-calling-card"].holder = "station";
     expect(view(world).exits).not.toContain("boardyai-parlour");
     world.items["boardyai-calling-card"].holder = doorway;
     expect(view(world).exits).toContain("boardyai-parlour");
@@ -140,21 +133,21 @@ describe("BoardyAI's presence and home", () => {
     act("move", "target", doorway);
     expect(world.actors.vale.place).toBe(doorway);
     expect(view(world).exits).toContain("boardyai-parlour");
-    if (doorway === "attic") act("snuff", "item", "lamp");
+    act("move", "target", "station");
     act("move", "target", "pond");
     expect(view(world).exits).not.toContain("boardyai-parlour");
   });
 
   it("keeps his calling card and parlour door away until two humans connect", () => {
     const local = createWorld({ opening: true });
-    local.actors.vale.place = "station";
+    local.actors.vale.place = doorway;
     expect(entityActive(local, "boardyai-calling-card")).toBe(false);
     expect(availableCards(local)).not.toContain("boardyai-calling-card");
     expect(
       sceneStaging(local, { currentState: true }).floorItems.map((i) => i.id),
     ).not.toContain("boardyai-calling-card");
     const world = fresh();
-    world.actors.vale.place = "station";
+    world.actors.vale.place = doorway;
     const alone = view(world, ["vale"]);
     expect(entityActive(alone.world, "boardyai-calling-card")).toBe(false);
     expect(availableCards(alone.world)).not.toContain("boardyai-calling-card");
@@ -171,7 +164,6 @@ describe("BoardyAI's presence and home", () => {
         (i) => i.id,
       ),
     ).toContain("boardyai-calling-card");
-    world.actors.vale.place = doorway;
     world.items["boardyai-calling-card"].holder = "vale";
     expect(view(world, ["vale"]).exits).not.toContain("boardyai-parlour");
     expect(view(world).exits).toContain("boardyai-parlour");

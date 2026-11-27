@@ -45,6 +45,7 @@
     },
     "places": [
       "station",
+      "behind-station",
       "attic",
       "pond"
     ],
@@ -164,7 +165,7 @@
       "ratiradio": [
         {
           "joins": "hub",
-          "at": "station",
+          "at": "behind-station",
           "arrive": "ratiradio-staff-kitchen",
           "via": "station-ratiradio"
         }
@@ -11992,7 +11993,7 @@
         "ratiradio-staff-kitchen": {
           "name": "Staff Kitchen",
           "text": "The fridges keep the hours here. One door stands barely ajar. ‘Leave the Station Key inside and the staff entrance will stay open,’ reads a note by the lost-property tray.",
-          "persona": "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
+          "persona": "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Behind the Station. Movable possessions may be carried away.",
           "exits": [],
           "backdrop": "assets/ratiradio/staff-kitchen.webp"
         },
@@ -12121,8 +12122,8 @@
       "items": {
         "ratiradio-station-key": {
           "name": "Station Key",
-          "text": "A brass key with a worn STAFF tag. Leaving it inside keeps the entrance open.",
-          "persona": "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station while a traveler carries it or it stays inside the station rooms.",
+          "text": "A brass key with a worn tag that reads ‘Staff Kitchen, Behind the Station.’",
+          "persona": "A brass station key with a chipped STAFF tag. Its carrier can open the Staff Kitchen entrance Behind the Station. Leaving the key inside RATiRadio opens that door to everyone.",
           "holder": "pond",
           "art": "assets/ratiradio/station-key.webp",
           "reservedUntil": [
@@ -12137,7 +12138,7 @@
           "claims": [
             {
               "id": "staff",
-              "text": "The staff entrance has one brass key, and the staff have a bad habit of losing it.",
+              "text": "The staff entrance Behind the Station has one brass key, and the staff have a bad habit of losing it.",
               "about": "ratiradio-staff-kitchen"
             },
             {
@@ -12475,12 +12476,12 @@
       ],
       "bridge": {
         "id": "shore-ratiradio",
-        "description": "The Station Key at Black Pond opens the staff entrance at Empty Station while someone carries it, or while it is inside the station. The way back out is always open."
+        "description": "The Station Key at Black Pond opens the staff entrance Behind the Station for its carrier. Leaving the key inside RATiRadio opens the entrance for everyone. The way back out is always open."
       },
       "crossings": [
         {
           "id": "station-ratiradio",
-          "from": "station",
+          "from": "behind-station",
           "to": "ratiradio-staff-kitchen",
           "travelers": "any",
           "travel": "through the staff entrance",
@@ -12529,7 +12530,7 @@
         {
           "id": "ratiradio-station",
           "from": "ratiradio-staff-kitchen",
-          "to": "station",
+          "to": "behind-station",
           "travelers": "any",
           "travel": "through the staff entrance",
           "requires": []

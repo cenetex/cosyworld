@@ -1228,13 +1228,14 @@ describe("speech grounding in resolved card plays", () => {
   });
 
   it("gives an opening state and includes actors outside the dialogue scene", () => {
-    const outcome = turnOutcome(createWorld());
+    const world = createWorld();
+    world.items["elysium-wayfinder"].holder = "behind-station";
+    const outcome = turnOutcome(world);
     expect(outcome.card.kind).toBe("arrive");
     expect(outcome.avatars).toHaveLength(3);
     expect(outcome.items.map((item) => item.id).sort()).toEqual([
       "bell",
       "cloth",
-      "elysium-wayfinder",
       "keeper-log",
       "lamp",
       "oil",

@@ -472,7 +472,7 @@ try {
     // The current place leads the row (#2272).
     assert.equal(order[0], "station");
     assert(order.indexOf("vale") < order.indexOf("moth"));
-    assert.deepEqual(order.slice(-1), ["pond"]);
+    assert.deepEqual(order.slice(-2), ["pond", "behind-station"]);
     assert.equal(order[order.indexOf("moth") + 1], "cloth");
     if (width < 700) {
       await page.waitForTimeout(350);

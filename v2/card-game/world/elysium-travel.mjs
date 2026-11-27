@@ -1,6 +1,6 @@
 import { heldItem } from "../held-item.mjs";
 import { ELYSIUM_ENTRY, ELYSIUM_PACK, isElysiumModelToken } from "../elysium-models.mjs";
-import { currentActor, humanAvatarIds, humanPresent } from "../human-cast.mjs";
+import { currentActor, humanAvatarIds, humanPresent, sharedEnabled } from "../human-cast.mjs";
 import { entityActive, packIdOf } from "../pack-registry.mjs";
 import { DAYLIGHT_TURNS, runHash } from "../pack-rules.mjs";
 import { transportPlace } from "../pack-transport.mjs";
@@ -24,15 +24,16 @@ export const wayfinderExit = (world, from, actor) =>
 
 export function elysiumScatterLandings(world, actor = currentActor(world)) {
   if (!entityActive(world, "station")) return [];
-  const waysFrom = (place) =>
-    exits(
-      {
-        ...world,
-        actors: { ...world.actors, [actor]: { ...world.actors[actor], place } },
-      },
-      place,
-      actor,
-    );
+  // A scatter has to stay retrievable if the other travelers leave.
+  const company = sharedEnabled(world) &&
+    world.controlledActors?.some((id) => id !== actor && humanPresent(world, id));
+  const waysFrom = (place) => {
+    const actors = { ...world.actors, [actor]: { ...world.actors[actor], place } };
+    const open = exits({ ...world, actors }, place, actor);
+    if (!company) return open;
+    const alone = exits({ ...world, actors, presentActors: [actor] }, place, actor);
+    return open.filter((neighbor) => alone.includes(neighbor));
+  };
   const reachable = new Set(["station"]);
   for (const place of reachable)
     for (const neighbor of waysFrom(place))
