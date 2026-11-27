@@ -8,6 +8,7 @@ import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
 import discordFaces from "./assets/discord-faces.json" with { type: "json" };
 import { daylightAssets } from "./daylight.mjs";
+import { stageAmbienceAssets } from "./stage-light.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
 import { sleepPortraitAssets } from "./sleep-portraits.mjs";
@@ -486,7 +487,8 @@ const files = [
     "water-jar",
   ].map((id) => `assets/greek-drama/${id}.svg`),
 ];
-for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
+for (const file of [...packMediaFiles, ...stageAmbienceAssets])
+  if (!files.includes(file)) files.push(file);
 for (const { art } of arcana.cards)
   if (art && !files.includes(art)) files.push(art);
 for (const portrait of Object.keys(discordFaces)) {

@@ -14,6 +14,7 @@ import {
   packRouteOpen,
 } from "../v2/card-game/pack-registry.mjs";
 import { backdrop } from "../v2/card-game/scene.mjs";
+import { placeLight } from "../v2/card-game/stage-light.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { elysiumScatterLandings } from "../v2/card-game/world/elysium-travel.mjs";
@@ -245,6 +246,15 @@ it("weaves the bridge only while the lamp's uncovered flame is at the Spiral", (
   expect(packRouteOpen(s, spiral, observatory)).toBe(false);
   expect(moves(s)).toContain(spiral);
   expect(moves(s)).toContain(ledge);
+});
+
+it("keeps Void 005's quiet painting separate from its lightning strike", () => {
+  const copper = id("void-005");
+  expect(backdrop(copper, fixture(copper))).toBe("./assets/elysium/void-005-quiet.png");
+  expect(placeLight(copper).ambience).toEqual({
+    kind: "copper",
+    impact: "assets/elysium/void-005.png",
+  });
 });
 
 it("adds the new destination and its chart to an older save without moving its keystone", () => {

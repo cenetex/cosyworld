@@ -80,7 +80,7 @@
       "name": "Void 005",
       "persona": "Copper tethers bind an overhanging cliff to spires in the dark. Brief flashes travel the wires and light a fork-shaped notch in the rail. The two gold paths hang clear of the tethers.",
       "exits": ["elysium-void-003", "elysium-void-006"],
-      "backdrop": "assets/elysium/void-005.png"
+      "backdrop": "assets/elysium/void-005-quiet.png"
     },
     "elysium-void-006": {
       "name": "Void 006",

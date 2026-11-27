@@ -1,6 +1,6 @@
 use super::super::store::{sql_error, Result};
 use crate::{
-    ai_gateway::{request_chat_completion, ChatCompletionRequest, ModelCapability},
+    ai_gateway::{request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability},
     content_policy::human_message_is_cozy_safe,
     generated_asset_budget::GeneratedAssetWriteGuard,
     routes::draw_model_void_portrait,
@@ -28,6 +28,8 @@ const MAX_PORTRAIT: u64 = 8 * 1024 * 1024;
 const PORTRAIT_RETRY: Duration = Duration::from_secs(300);
 const NAME_PENDING: &str = "My name is still taking shape. Ask me again, traveler.";
 const AUTHORED_VOICE: &str = "elysium-authored";
+const GROK: &str = "x-ai/grok-4.7";
+const GROK_REVISION: &str = "x-ai/grok-4.7-20260916";
 
 pub(super) struct Resident {
     id: &'static str,
@@ -67,7 +69,7 @@ const RESIDENTS: [Resident; 6] = [
         id: "elysium-grok",
         room: "elysium-void-005",
         token: "elysium-grok-token",
-        model: "x-ai/grok-4.7",
+        model: GROK,
         setting: "a copper cliff high above a dry thunderstorm",
         waiting: "Wait with me on this ledge. You can hear the thunder change without feeling a drop of rain.",
     },
@@ -95,6 +97,20 @@ fn resident(id: &str) -> Option<&'static Resident> {
 
 pub(crate) fn elysium_model(id: &str) -> Option<&'static str> {
     resident(id).map(|resident| resident.model)
+}
+
+pub(crate) fn elysium_model_mismatch(bound: Option<&str>, resolved: &str) -> bool {
+    bound.is_some_and(|bound| bound != resolved && !(bound == GROK && resolved == GROK_REVISION))
+}
+
+fn elysium_reasoning_effort(bound: &str) -> Option<&'static str> {
+    (bound == GROK).then_some("low")
+}
+
+pub(crate) fn tune_elysium_voice(config: &mut AiConfig, bound: Option<&str>) {
+    if let Some(effort) = bound.and_then(elysium_reasoning_effort) {
+        config.reasoning_effort = config.reasoning_effort.as_ref().map(|_| effort.to_owned());
+    }
 }
 
 pub(crate) fn elysium_resident_at(id: &str, room: &str) -> bool {
@@ -311,12 +327,18 @@ async fn model_words(
         voice_issue(resident, stage, "elysium_model_unavailable", None);
         "elysium_model_unavailable".to_owned()
     })?;
-    if stage == "name" {
-        config.reasoning_effort = None;
-    }
     config
         .capability_models
         .insert(ModelCapability::WorldContent, resident.model.into());
+    if stage == "name" {
+        config.reasoning_effort = elysium_reasoning_effort(resident.model)
+            .filter(|_| {
+                config
+                    .pin_model(ModelCapability::WorldContent)
+                    .is_ok_and(|selection| selection.candidate().supported_parameters().reasoning)
+            })
+            .map(str::to_owned);
+    }
     let context = format!("Your Void is {}. {task}", resident.setting);
     let timeout = if stage == "name" { 8 } else { 22 };
     let output = request_chat_completion(&config, ChatCompletionRequest {
@@ -336,7 +358,7 @@ async fn model_words(
         voice_issue(resident, stage, error.code(), error.provider_http_status());
         error.code().to_string()
     })?;
-    let invalid = if output.resolved_model_id != resident.model {
+    let invalid = if elysium_model_mismatch(Some(resident.model), &output.resolved_model_id) {
         Some("elysium_model_mismatch")
     } else if stage != "appearance" && !matches!(output.finish_reason.as_str(), "stop" | "end_turn")
     {

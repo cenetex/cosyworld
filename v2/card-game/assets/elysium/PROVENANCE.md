@@ -36,3 +36,8 @@ responsive image build.
 | `void-005.png`, `void-005-token.png` | Storm-struck copper towers and a Copper Fork        |
 | `void-006.png`, `void-006-token.png` | Indigo well with standing waves and a Sounding Ring |
 | `void-007.png`, `void-007-token.png` | Jade stair terraces and a folded jade wedge         |
+
+`void-005-quiet.png` is an image-tool edit of `void-005.png` at the same
+1672 × 941 dimensions. The edit keeps the towers and cables in place and
+clears the lightning and its glow. The game holds the quiet painting and
+uses the original painting for the brief lightning strike.

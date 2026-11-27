@@ -18,6 +18,15 @@
       "moon": [86, 14, 2.4]
     },
     "forest-trail": { "sky": 1, "grade": 0.25 },
-    "forest-oak": { "sky": 1 }
+    "forest-oak": { "sky": 1 },
+    "elysium-void-001": { "ambience": { "kind": "gold" } },
+    "elysium-void-002": { "ambience": { "kind": "amber" } },
+    "elysium-void-003": { "ambience": { "kind": "mirror" } },
+    "elysium-void-004": { "ambience": { "kind": "loom" } },
+    "elysium-void-005": {
+      "ambience": { "kind": "copper", "impact": "assets/elysium/void-005.png" }
+    },
+    "elysium-void-006": { "ambience": { "kind": "well" } },
+    "elysium-void-007": { "ambience": { "kind": "jade" } }
   }
 }

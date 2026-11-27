@@ -12569,7 +12569,7 @@
             "elysium-void-003",
             "elysium-void-006"
           ],
-          "backdrop": "assets/elysium/void-005.png"
+          "backdrop": "assets/elysium/void-005-quiet.png"
         },
         "elysium-void-006": {
           "name": "Void 006",
