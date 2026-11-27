@@ -2762,8 +2762,18 @@ function renderActions() {
   )
     sharedRefusal = null;
   shownPhase = presentPhase();
+  const prompt = packPrompt();
+  // A folded row lies low even with a choice in it. Settings stands raised.
+  document.querySelector(".play-dock").dataset.selected = String(
+    (selected.length > 0 && !rowCollapsed) || Boolean(prompt),
+  );
+  document.body.dataset.handExpanded = String(
+    dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
+  );
+  syncLayering();
+  if (borrowedBeat) return showBorrowedBeat();
   const rested = shownPhase !== "choosing";
-  const packAsk = !rested && !borrowedBeat ? packPrompt() : null;
+  const packAsk = !rested ? prompt : null;
   const chosen = packAsk ? [] : selected;
   const { actions: offered, hint } = cardActions(world, chosen);
   const ready = restPlays(
@@ -2892,18 +2902,6 @@ function renderActions() {
         .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
   $("action-beat").dataset.tier = rarest.id;
   $("action-beat").style.setProperty("--tier-color", rarest.color);
-  // A folded row lies low even with a choice in it.
-  document.querySelector(".play-dock").dataset.selected = String(
-    (selected.length > 0 && !rowCollapsed) || Boolean(packPrompt()),
-  );
-  // Settings' hand of cards stands raised (settings-cards.mjs).
-  document.body.dataset.handExpanded = String(
-    dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
-  );
-  syncLayering();
-  if (borrowedBeat) {
-    return showBorrowedBeat();
-  }
   const revision = world.revision;
   row.replaceChildren(
     ...actions.map((action, index) => {
@@ -6017,12 +6015,12 @@ function syncSharedLine() {
   storyStatus = "ready";
   renderScene();
 }
-function adoptShared(value) {
+function adoptShared(value, { clockOnly = false } = {}) {
   if (!value.actor || !value.world?.actors?.[value.actor]) {
     leavePage(() => location.reload());
     return;
   }
-  const key = JSON.stringify([value.world, value.present, value.claimed]);
+  const key = clockOnly ? sharedWorldKey : JSON.stringify([value.actor, value.world, value.present, value.claimed]);
   if (key !== sharedWorldKey) {
     const previousActor = currentActor(world);
     const from = world.actors[previousActor].place;
@@ -6098,7 +6096,7 @@ function adoptShared(value) {
     if (alreadyOpen) {
       queueDiscoveries();
     }
-  } else {
+  } else if (!clockOnly) {
     renderActions();
     renderScene();
   }

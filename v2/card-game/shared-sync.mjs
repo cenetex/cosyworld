@@ -95,7 +95,7 @@ export function createSharedSync(request) {
       throw new Error("The sync chain needs a fresh view.");
     if (next.sequence < head.sequence) return state;
     let position = head;
-    const changed = structuredClone(state);
+    let changed;
     for (const event of value.events) {
       if (event.sequence <= position.sequence) continue;
       if (
@@ -107,6 +107,7 @@ export function createSharedSync(request) {
         )) !== event.hash
       )
         throw new Error("The sync chain needs a fresh view.");
+      changed ??= structuredClone(state);
       apply(changed, JSON.parse(event.payload));
       position = {
         stream: next.stream,
@@ -116,6 +117,7 @@ export function createSharedSync(request) {
     }
     if (position.sequence !== next.sequence || position.hash !== next.hash)
       throw new Error("The sync chain needs a fresh view.");
+    changed ??= { ...state };
     changed.now = value.now;
     if (isOlder(changed)) return state;
     state = changed;
