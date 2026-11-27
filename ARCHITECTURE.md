@@ -34,7 +34,7 @@ Production dialogue goes out through the model gateway configured for [lonelyfor
 
 ## Shared worlds
 
-Each shared world is a SQLite journal. Writers for one database take a single turn, then the rules and the C guard accept or refuse the command. Replaying the journal rebuilds the world. The world stores the rules version it was written with. The current version is `full-card-world/187`. Bundles from `full-card-world/133` through that version are compiled into the server, so an old journal still reduces on the rules that wrote it. A rules change mints the next bundle (`npm run v2:card:shared:next`). Released bundle bytes stay fixed.
+Each shared world is a SQLite journal. Writers for one database take a single turn, then the rules and the C guard accept or refuse the command. Replaying the journal rebuilds the world. The world stores the rules version it was written with. Released bundles from `full-card-world/133` onward stay available to the server, so an old journal still reduces on the rules that wrote it. A rules change mints the next bundle (`npm run v2:card:shared:next`). Released bundle bytes stay fixed. The active deployment reports its rules version in `/meta`. [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
 
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.
 
@@ -48,7 +48,7 @@ That patch is produced by `v2/scripts/world-history.mjs`, which plays resident l
 
 Each avatar holds one want: an item, a place, or a person. The rules decide when it is met and pay experience on that play. A resident's next want is a function of the world and the run seed, so a replayed journal draws the same one. A player's want is never drawn. The player takes a quest by a tap.
 
-Trust is a number on a relationship. A gift that meets the recipient's want can raise it. A threat or a strike lowers it by a fixed amount, and companionship needs enough trust to hold. A bond also ends if the traveler is away from a shared world for a day, or in the other ways `v2/card-game/world/company.mjs` lists.
+Trust is a number on a relationship. A gift that meets the recipient's want can raise it. A threat or a strike lowers it by a fixed amount. A traveler must invite a resident for each leg of a trip, with trust and the current crossing deciding whether the resident accepts. [Trust rules](v2/card-game/world/company.mjs) · [Travel decision](v2/card-game/world.mjs#L1235)
 
 Residents have a home, a range, a sleep, and sometimes a post they guard. They walk in id order. The host has no clock and makes no random draw. Offstage life is capped at a fixed number of steps on each play, so a busy world stays cheap. Home, sleep, and guard are the world-life rules.
 
@@ -56,7 +56,7 @@ Residents have a home, a range, a sleep, and sometimes a post they guard. They w
 
 The hub and the places beyond it are data. `v2/worlds/card-table.json` mounts seven packs: `badger-forest`, `greek-drama`, `hoppycat-archive`, `willows`, `lonely-forest`, `ratiradio`, and `elysium`. Each pack is a world document under `v2/content/<id>/` plus a bridge under `v2/worlds/<id>/` that says which crossings join it to the hub. `v2/scripts/build-card-worldpacks.mjs` compiles them to `v2/card-game/packs.json`. The browser and the server's text path both read that file, so names and ids cannot drift.
 
-A pack supplies places, residents, items, and the conditions those things name. `v2/card-game/pack-rules.mjs` applies the general rules. New fiction is meant to land as pack data. A change that reaches the shared rules engine mints a bundle the journal will keep forever, and CI warns when that change lacks the `engine` label.
+A pack supplies places, residents, items, and the conditions those things name. `v2/card-game/pack-rules.mjs` applies the general rules. New fiction is meant to land as pack data. A change that reaches the shared rules engine mints a bundle the journal will keep forever, and CI warns when that change lacks the `engine` label. Existing exceptions and candidates for shared rules are recorded in the [shared-systems audit](docs/design/shared-systems-audit.md).
 
 ## Authoring
 
