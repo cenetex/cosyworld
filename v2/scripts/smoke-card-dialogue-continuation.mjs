@@ -14,7 +14,7 @@ const key = "cosyworld.reflected-shore.v1.continuation";
 const actorWords = "Skull, what have you found beside the garden path?";
 const reply = "Skull turns his ears toward the garden.";
 try {
-  for (const width of smokeWidths([1440, 390])) for (const [early, reloaded] of [[false], [true], [true, true]]) {
+  for (const width of smokeWidths([1440, 390])) for (const [desktop, ending] of [[false, "complete"], [true, "complete"], [true, "reload"], [false, "failure"]]) {
     let world = createWorld();
     world.actors.vale.place = "attic";
     world.items.cloth.holder = "vale";
@@ -30,7 +30,7 @@ try {
     const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    if (early) {
+    if (desktop) {
       const html = await readFile(new URL("../card-game/index.html", import.meta.url), "utf8");
       await page.route(`${origin}/?table=continuation`, (route) => route.fulfill({ contentType: "text/html", body: html.replace("<head>", '<head><meta name="cosy-local-app" content="1">') }));
       await page.route("**/card-game/local", (route) => route.fulfill({ json: { schema: 1 } }));
@@ -72,14 +72,13 @@ try {
     await waitRequests(1);
     const original = (await contexts())[0];
     assert.ok(original.speakers.includes("vale") && original.speakers.includes("skull"));
-    if (early) {
-      await emit(0, { type: "delta", text: JSON.stringify(line("vale", actorWords)) + "\n" });
-      await page.waitForFunction(({ key, text }) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text === text), { key, text: actorWords });
-    }
+    await emit(0, { type: "delta", text: JSON.stringify(line("vale", actorWords)) + "\n" });
+    await page.waitForFunction(({ key, text }) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text === text), { key, text: actorWords });
     const before = await saved();
     const published = before.log.filter((e) => e.text === actorWords);
     const memories = (w) => Object.fromEntries(Object.entries(w.memories).map(([id, m]) => [id, m.events.filter((e) => e.text?.includes(actorWords))]));
-    if (early) assert.ok(Object.values(memories(before)).some((events) => events.length));
+    assert.equal(before.turn, world.turn + 1);
+    assert.ok(Object.values(memories(before)).some((events) => events.length));
     for (let i = 1; i <= 3; i++) {
       const count = (await contexts()).length;
       await selectCard(page, "lamp");
@@ -92,32 +91,38 @@ try {
       assert.equal(current.items.lamp.lit, current.actors.vale.heldItem === "lamp");
       assert.equal(current.items.lamp.fuelRooms, before.items.lamp.fuelRooms);
       assert.ok(c.entities.find((e) => e.id === "lamp").facts.some((fact) => fact.includes(`; ${current.items.lamp.lit ? "lit" : "unlit"}.`)));
-      if (early) {
-        assert.deepEqual(c.speakers, original.speakers.filter((id) => id !== "vale"));
-        assert.ok(c.speakers.includes("skull"));
-        assert.ok(c.conversation.some((e) => e.actorId === "vale" && e.text === actorWords && e.signed));
-      }
+      assert.deepEqual(c.speakers, original.speakers.filter((id) => id !== "vale"));
+      assert.ok(c.speakers.includes("skull"));
+      assert.ok(c.conversation.some((e) => e.actorId === "vale" && e.text === actorWords && e.signed));
     }
     for (let i = 0; i < (await contexts()).length - 1; i++) await finish(i, true);
     await page.waitForTimeout(250);
     assert.ok(!(await saved()).log.some((e) => e.text === "Stale words must not appear."));
-    if (!reloaded) {
+    if (ending === "complete") {
       await finish((await contexts()).length - 1);
       await page.waitForFunction(({ key, reply }) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text === reply), { key, reply });
+    } else if (ending === "failure") {
+      await page.waitForFunction((text) => document.querySelector("#dialogue-text").textContent === text, actorWords);
+      await emit((await contexts()).length - 1, { type: "error" });
+      await page.locator('#dialogue-advance[aria-label="Continue to the next beat"]').click();
+      await page.locator('#speech-row[data-beat="silent"]').waitFor();
+      assert.equal(await page.locator("#speaker").textContent(), "Skull");
+      assert.ok((await page.locator("#beat-behind .beat-behind-speech").textContent()).includes("Skull, what have you found"));
+      assert.equal((await saved()).turn, before.turn);
     }
     assert.equal((await saved()).log.filter((e) => e.text === actorWords).length, 1);
     await page.reload();
     await page.waitForSelector("#hand .card");
     await page.waitForTimeout(500);
     assert.equal((await contexts()).length, 0, "a reload never asks again");
-    assert.equal((await saved()).log.some((e) => e.text === reply), !reloaded);
+    assert.equal((await saved()).log.some((e) => e.text === reply), ending === "complete");
     assert.equal((await saved()).log.filter((e) => e.text === actorWords).length, 1);
-    if (reloaded) {
+    if (ending !== "complete") {
       assert.deepEqual((await saved()).log.filter((e) => e.text === actorWords), published);
       assert.deepEqual(memories(await saved()), memories(before));
     }
     assert.deepEqual(errors, []);
-    console.log(`Dialogue continuation ${reloaded ? "reload while pending" : early ? "validated stream" : "pending ordinary"} passed at ${width}px.`);
+    console.log(`Dialogue continuation ${desktop ? "desktop" : "hosted"} ${ending} passed at ${width}px.`);
     await page.close();
   }
 } finally {

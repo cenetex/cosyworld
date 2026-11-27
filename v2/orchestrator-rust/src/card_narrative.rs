@@ -567,6 +567,12 @@ struct Context {
         skip_serializing_if = "Option::is_none"
     )]
     elysium_introduced: Option<String>,
+    #[serde(
+        default,
+        rename = "elysiumTokenScattered",
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    elysium_token_scattered: bool,
     #[serde(default)]
     outcome: Option<TurnOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -590,6 +596,8 @@ struct Context {
     images: Vec<String>,
     #[serde(skip)]
     channel: bool,
+    #[serde(skip)]
+    no_fresh_opener: bool,
 }
 fn valid(context: &Context) -> bool {
     let ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
@@ -963,7 +971,7 @@ async fn generate(
     let introduction = app.and_then(|Extension(state)| {
         let (actor, target) = elysium::personal_talk(&context, &voiced(&context))?;
         context.acting_avatar = Some(actor);
-        elysium::needs_introduction(&context, &target).then_some((state, target))
+        Some((state, target))
     });
     if headers
         .get("accept")
@@ -1113,11 +1121,15 @@ async fn complete_with_introduction(
     }
     let deadline = tokio::time::Instant::now() + settings.scene_timeout;
     let mut lines = BTreeMap::new();
-    // A Talk is two turns of one conversation: the target answers the
-    // actor's line from this turn, so it speaks after the actor. Everyone
-    // else speaks alongside them until the scene's deadline.
+    // A Talk gives the target the current opener while other voices run alongside.
     match conversation::reply_target(context, voiced) {
         None => {
+            let resident = conversation::prepare_resident(
+                context,
+                introduction,
+                deadline - conversation::reply_reserve(settings.scene_timeout),
+            )
+            .await;
             conversation::voice_lines(
                 config,
                 context,
@@ -1127,6 +1139,7 @@ async fn complete_with_introduction(
                 voiced,
                 on_delta,
                 &mut lines,
+                resident,
             )
             .await?
         }
@@ -1147,6 +1160,7 @@ async fn complete_with_introduction(
                     &others,
                     on_delta,
                     &mut lines,
+                    None,
                 ),
                 conversation::exchange(
                     config,
@@ -1869,7 +1883,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     ));
     // A fact the rules reserved for this Talk, among the things I know.
     let mentions = if part == Part::Line {
-        knowledge::directions(context, id)
+        knowledge::background(context, id)
     } else {
         Vec::new()
     };
@@ -2737,8 +2751,7 @@ impl<'a> Check<'a> {
             }
         }
         // A reply that opens on the scene ("The rain has begun. Come in,
-        // Pip.") speaks from its first sentence to someone, unless the
-        // narration tells my fact.
+        // Pip.") speaks from its first sentence to someone.
         if avatar {
             let lead = said
                 .iter()
@@ -2746,8 +2759,7 @@ impl<'a> Check<'a> {
                 .position(|(i, s)| !framing::scenery(s, i == 0))
                 .filter(|&i| framing::spoken(said[i], i == 0))
                 .unwrap_or(0);
-            let tells = |s: &&str| knowledge::other_words(self.context, &self.entity.id, s) != **s;
-            if !said[..lead].iter().any(|s| tells(s) || self.of_others(s)) {
+            if !said[..lead].iter().any(|s| self.of_others(s)) {
                 said.drain(..lead);
             }
         }
@@ -2818,13 +2830,7 @@ impl<'a> Check<'a> {
                 .map(str::to_string)
                 .collect::<Vec<_>>()
         };
-        let freely_spoken = if self.part == Part::Line {
-            knowledge::other_words(self.context, &self.entity.id, &kept)
-        } else {
-            kept.clone()
-        };
         let key = words(&kept).concat();
-        let sharing = freely_spoken != kept;
         if key.is_empty() {
             return Err("empty");
         }
@@ -2843,7 +2849,7 @@ impl<'a> Check<'a> {
                 .iter()
                 .chain(self.answered.iter())
                 .any(|line| words(line).concat() == key);
-        let spoken = words(&freely_spoken);
+        let spoken = words(&kept);
         // Saying the whole line answered again, even inside a longer reply
         // ("Yes, the lamp would help, if you trust me with it."), is a repeat.
         let restates = |line: &String| {
@@ -2879,14 +2885,11 @@ impl<'a> Check<'a> {
         }) {
             return Err("echoed brief");
         }
-        flag(
-            (repeats && !sharing) || self.others.iter().any(&run),
-            "repeat",
-        );
+        flag(repeats || self.others.iter().any(&run), "repeat");
         // A character speaks as "I"; a line that names its speaker in the
         // third person ("Vale's eyes flick to Pip") is narration.
         flag(
-            avatar && framing::narrates_self(&freely_spoken, &own),
+            avatar && framing::narrates_self(&kept, &own),
             "self-narration",
         );
         // The stage shows the play; a line that narrates the speaker's own
@@ -4026,7 +4029,7 @@ pub(crate) mod tests {
         assert_eq!(result["entries"][0]["text"], "I want to sit by the pond.");
         let system = turn_of(&seen.lock().unwrap()[0], "assistant");
         assert!(
-            system.contains(" I took the Lamp.") && !system.contains("I mention"),
+            system.contains("if it fits the conversation: Vale takes the Lamp."),
             "{system}"
         );
         server.abort();

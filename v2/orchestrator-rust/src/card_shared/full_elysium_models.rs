@@ -26,8 +26,6 @@ pub(super) const NAME_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-ident
 pub(super) const PORTRAIT_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-portrait/{resident}";
 const MAX_PORTRAIT: u64 = 8 * 1024 * 1024;
 const PORTRAIT_RETRY: Duration = Duration::from_secs(300);
-const NAME_PENDING: &str = "My name is still taking shape. Ask me again, traveler.";
-const AUTHORED_VOICE: &str = "elysium-authored";
 const GROK: &str = "x-ai/grok-4.7";
 const GROK_REVISION: &str = "x-ai/grok-4.7-20260916";
 
@@ -37,7 +35,6 @@ pub(super) struct Resident {
     token: &'static str,
     model: &'static str,
     setting: &'static str,
-    waiting: &'static str,
 }
 
 const RESIDENTS: [Resident; 6] = [
@@ -47,7 +44,6 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-claude-token",
         model: "anthropic/claude-haiku-5.5",
         setting: "a quiet archive of suspended amber leaves",
-        waiting: "The amber leaves turn so slowly here. Stay a moment while I find the right words.",
     },
     Resident {
         id: "elysium-gemini",
@@ -55,7 +51,6 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-gemini-token",
         model: "google/gemini-4-hydrogen",
         setting: "a chamber of twin silver mirrors",
-        waiting: "The mirrors return every echo. I'm listening for the one that sounds like me.",
     },
     Resident {
         id: "elysium-chatgpt",
@@ -63,7 +58,6 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-chatgpt-token",
         model: "openai/gpt-6-luna",
         setting: "a vaulted loom where gold and teal threads meet",
-        waiting: "I'm still looking for the right thread. Gold and teal cross so many times on this loom.",
     },
     Resident {
         id: "elysium-grok",
@@ -71,7 +65,6 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-grok-token",
         model: GROK,
         setting: "a copper cliff high above a dry thunderstorm",
-        waiting: "Wait with me on this ledge. You can hear the thunder change without feeling a drop of rain.",
     },
     Resident {
         id: "elysium-deepseek",
@@ -79,7 +72,6 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-deepseek-token",
         model: "deepseek/deepseek-v4.1-flash",
         setting: "an indigo well whose depth is measured in echoes",
-        waiting: "The well holds on to our voices a little longer. Let's hear what comes back.",
     },
     Resident {
         id: "elysium-qwen",
@@ -87,7 +79,6 @@ const RESIDENTS: [Resident; 6] = [
         token: "elysium-qwen-token",
         model: "qwen/qwen3.8-flash",
         setting: "folded jade terraces joined by warm filaments",
-        waiting: "Follow the warm filament with your eyes. You can almost see how it holds these jade terraces together.",
     },
 ];
 
@@ -114,7 +105,13 @@ pub(crate) fn tune_elysium_voice(config: &mut AiConfig, bound: Option<&str>) {
 }
 
 pub(crate) fn elysium_resident_at(id: &str, room: &str) -> bool {
-    resident(id).is_some_and(|resident| resident.room == room)
+    elysium_setting(id, room).is_some()
+}
+
+pub(crate) fn elysium_setting(id: &str, room: &str) -> Option<&'static str> {
+    resident(id)
+        .filter(|resident| resident.room == room)
+        .map(|resident| resident.setting)
 }
 
 fn actions<'a>(work: &'a Value, actor: &'a str) -> impl Iterator<Item = &'a Value> {
@@ -142,11 +139,6 @@ pub(super) fn talk_target(work: &Value) -> Option<&'static str> {
     spoken_to(work, work["actor"].as_str()?).map(|resident| resident.id)
 }
 
-pub(super) fn intro_target(work: &Value) -> Option<&'static str> {
-    let target = talk_target(work)?;
-    (work["elysiumIntro"] == target || work["elysiumIntro"] == true).then_some(target)
-}
-
 pub(super) fn returned_to(work: &Value, actor: &str) -> Option<&'static Resident> {
     actions(work, actor).find_map(|event| {
         let resident = resident(event["portraitModel"].as_str()?)?;
@@ -171,9 +163,6 @@ pub(super) fn record(
             "INSERT OR IGNORE INTO card_full_elysium_receipts(world,resident,scattered) VALUES(?,?,?)",
             params![world, resident.id, time],
         ).map_err(sql_error)?;
-        if !introduced(c, world, resident).map_err(sql_error)? {
-            work["elysiumIntro"] = json!(resident.id);
-        }
     }
     if let Some(resident) = returned_to(work, actor) {
         let returned = c.execute(
@@ -181,6 +170,19 @@ pub(super) fn record(
             params![time, world, resident.id],
         ).map_err(sql_error)?;
         work["elysiumPortraitEarned"] = json!(returned > 0);
+    }
+    Ok(())
+}
+
+pub(super) fn mark_known_introduction(
+    c: &Connection,
+    world: &str,
+    work: &mut Value,
+    actor: &str,
+) -> Result<()> {
+    if let Some(resident) = spoken_to(work, actor) {
+        let known = introduced(c, world, resident).map_err(sql_error)?;
+        work["context"]["elysiumIntroduced"] = json!(known.then_some(resident.id));
     }
     Ok(())
 }
@@ -440,40 +442,31 @@ async fn name_for_talk(state: &AppState, resident: &'static Resident) -> Option<
 const INTRO_START: &str = "I call myself ";
 const INTRO_END: &str = ". My token has slipped into the world beyond this Void.";
 
-fn introduction(name: &str) -> String {
-    format!("{INTRO_START}{name}{INTRO_END}")
-}
-
 pub(crate) fn is_legacy_elysium_introduction(text: &str) -> bool {
     text.strip_prefix(INTRO_START)
         .and_then(|tail| tail.strip_suffix(INTRO_END))
         .is_some_and(valid_elysium_name)
 }
 
-pub(crate) struct ResidentReply {
-    pub(crate) text: String,
-    pub(crate) model: &'static str,
-    pub(crate) name: Option<String>,
-}
-
-pub(crate) async fn resident_introduction(
+pub(crate) async fn elysium_name(
     state: &AppState,
     id: &str,
     room: &str,
-    previous: Option<&str>,
-) -> Option<ResidentReply> {
+    can_choose: bool,
+) -> Option<String> {
     let resident = resident(id).filter(|resident| resident.room == room)?;
-    let waiting = if previous == Some(NAME_PENDING) {
-        resident.waiting
-    } else {
-        NAME_PENDING
-    };
-    let name = name_for_talk(state, resident).await;
-    let (text, model) = match name.as_deref() {
-        Some(name) => (introduction(name), resident.model),
-        None => (waiting.into(), AUTHORED_VOICE),
-    };
-    Some(ResidentReply { text, model, name })
+    if can_choose {
+        let state = state.clone();
+        return tokio::spawn(async move { name_for_talk(&state, resident).await })
+            .await
+            .ok()
+            .flatten();
+    }
+    let dir = directory(&state.generated_asset_dir, resident);
+    tokio::task::spawn_blocking(move || read_name(&dir))
+        .await
+        .ok()
+        .flatten()
 }
 
 fn hash(bytes: &[u8]) -> String {
@@ -660,12 +653,11 @@ mod tests {
         record(&c, "world", &mut first, "mara", 9).unwrap();
         assert!(!earned(&c, "world", resident, false).unwrap());
         record(&c, "world", &mut first, "vale", 10).unwrap();
-        assert_eq!(first["elysiumIntro"], resident.id);
-        assert_eq!(intro_target(&first), Some(resident.id));
-        first["elysiumIntro"] = json!(true);
-        assert_eq!(intro_target(&first), Some(resident.id));
+        assert_eq!(talk_target(&first), Some(resident.id));
         assert!(earned(&c, "world", resident, false).unwrap());
         assert!(!introduced(&c, "world", resident).unwrap());
+        mark_known_introduction(&c, "world", &mut first, "vale").unwrap();
+        assert_eq!(first["context"]["elysiumIntroduced"], Value::Null);
         let mut line = json!({"actorId": resident.id, "kind":"dialogue", "text":"I call myself Amber Thread. My token has slipped into the world beyond this Void.", "generated":false});
         let write_scene =
             |line: &Value| {
@@ -687,9 +679,12 @@ mod tests {
         write_scene(&line);
         assert!(introduced(&c, "world", resident).unwrap());
         let mut repeated = play(resident, json!({"verb":"talk"}));
-        record(&c, "world", &mut repeated, "vale", 11).unwrap();
+        repeated["context"] = json!({"conversation": []});
+        mark_known_introduction(&c, "world", &mut repeated, "vale").unwrap();
         assert_eq!(talk_target(&repeated), Some(resident.id));
-        assert_eq!(intro_target(&repeated), None);
+        assert_eq!(repeated["context"]["elysiumIntroduced"], resident.id);
+        mark_known_introduction(&c, "other-world", &mut repeated, "vale").unwrap();
+        assert_eq!(repeated["context"]["elysiumIntroduced"], Value::Null);
         assert!(!introduced(&c, "other-world", resident).unwrap());
         assert!(!earned(&c, "other-world", resident, false).unwrap());
         assert!(!earned(&c, "world", &RESIDENTS[1], false).unwrap());
@@ -731,32 +726,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn readied_intro_avoids_repeating_anonymous_recovery() {
+    async fn canonical_name_is_optional_and_scoped_to_the_residents_room() {
         let mut state = crate::test_support::test_app_state(None);
         let root = std::env::temp_dir().join(format!("elysium-voice-{}", crate::random_hex(8)));
         state.generated_asset_dir = std::sync::Arc::new(root.clone());
         let resident = &RESIDENTS[3];
         let path = directory(&root, resident).join("name.txt");
-        let first = resident_introduction(&state, resident.id, resident.room, None)
+        assert!(elysium_name(&state, resident.id, resident.room, true)
             .await
-            .unwrap();
-        assert_eq!(first.text, NAME_PENDING);
-        assert_eq!(first.model, AUTHORED_VOICE);
-        assert!(first.name.is_none());
+            .is_none());
         assert!(!path.exists());
-        let second = resident_introduction(&state, resident.id, resident.room, Some(&first.text))
-            .await
-            .unwrap();
-        assert_eq!(second.text, resident.waiting);
-        assert_eq!(second.model, AUTHORED_VOICE);
-        assert!(second.name.is_none());
         fs::write(path, "Copper Bell").unwrap();
-        let ready = resident_introduction(&state, resident.id, resident.room, Some(&second.text))
+        assert!(elysium_name(&state, resident.id, RESIDENTS[0].room, true)
             .await
-            .unwrap();
-        assert_eq!(ready.text, introduction("Copper Bell"));
-        assert_eq!(ready.model, resident.model);
-        assert_eq!(ready.name.as_deref(), Some("Copper Bell"));
+            .is_none());
+        for can_choose in [true, false] {
+            assert_eq!(
+                elysium_name(&state, resident.id, resident.room, can_choose)
+                    .await
+                    .as_deref(),
+                Some("Copper Bell")
+            );
+        }
         fs::remove_dir_all(root).unwrap();
     }
 }

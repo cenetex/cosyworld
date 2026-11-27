@@ -1794,9 +1794,8 @@
   function elysiumNameIndex(text2, name) {
     if (typeof text2 !== "string" || !validElysiumName(name)) return -1;
     if (legacyElysiumName(text2) === name) return introductionStart.length;
-    const matches2 = text2.matchAll(new RegExp(`(^|[^\\p{Alphabetic}-])${name}(?![\\p{Alphabetic}-])`, "gu"));
-    const first = matches2.next().value;
-    return first && matches2.next().done ? first.index + first[1].length : -1;
+    const first = new RegExp(`(^|[^\\p{Alphabetic}-])${name}(?![\\p{Alphabetic}-])`, "u").exec(text2);
+    return first ? first.index + first[1].length : -1;
   }
   function validElysiumEncounters(s) {
     const records = s.elysiumEncounters;
@@ -22802,6 +22801,7 @@
       action: played?.text || (world.turn ? `${nameOf2(currentActor(world))} waits and watches the cast.` : null),
       events,
       conversation,
+      ...played?.verb === "talk" && world.elysiumEncounters?.[played.targetId]?.scatteredAt ? { elysiumTokenScattered: true } : {},
       entities: ids3.map((id) => {
         const kind = profiles[id].kind;
         if (kind === "location" && isCovered?.(id))

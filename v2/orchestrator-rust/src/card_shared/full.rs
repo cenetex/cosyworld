@@ -818,6 +818,8 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         if !retry {
             elysium_models::record(&tx, id, &mut context, actor_id(a), time)?;
         }
+        // Restored scenes also use the reveal journal after their recent lines age out.
+        elysium_models::mark_known_introduction(&tx, id, &mut context, actor_id(a))?;
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
             params![destination, time + 60_000, context.to_string(), context.to_string(), key],
@@ -870,7 +872,7 @@ async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
         }
     }
     reflect::replace(id, work.actor);
-    let introduction = elysium_models::intro_target(&work.context)
+    let introduction = elysium_models::talk_target(&work.context)
         .map(|target| (state.clone(), target.to_string()));
     let lines =
         super::full_speech::generate(state, work.actor, &work.context, introduction.as_ref()).await;

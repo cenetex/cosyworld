@@ -1,27 +1,30 @@
-use super::{conversation, untrusted::ELYSIUM_LINE_RULES_SUFFIX, Context};
+use super::{untrusted::ELYSIUM_LINE_RULES_SUFFIX, Context};
 use crate::{
     card_shared::{
-        cast, elysium_resident_at, is_legacy_elysium_introduction, resident_introduction,
+        cast, elysium_name, elysium_resident_at, elysium_setting, is_legacy_elysium_introduction,
     },
     AppState,
 };
 
 pub(super) fn personal_talk(context: &Context, voiced: &[String]) -> Option<(String, String)> {
     let outcome = context.outcome.as_ref()?;
-    let (actor, target) =
-        conversation::reply_target_for(context, voiced, &outcome.avatars.first()?.id)?;
-    (elysium_resident_at(&target, &context.location)
+    let actor = &outcome.avatars.first()?.id;
+    let target = outcome.card.target.as_ref()?;
+    (outcome.card.kind == "talk"
+        && target != actor
+        && voiced.contains(target)
+        && elysium_resident_at(target, &context.location)
         && cast()["avatars"]
             .as_array()?
             .iter()
-            .any(|seat| seat["id"] == actor)
-        && [&actor, &target].iter().all(|id| {
+            .any(|seat| seat["id"] == actor.as_str())
+        && [actor, target].iter().all(|id| {
             outcome
                 .avatars
                 .iter()
                 .any(|avatar| &avatar.id == *id && avatar.location == context.location)
         }))
-    .then_some((actor, target))
+    .then(|| (actor.clone(), target.clone()))
 }
 
 pub(super) fn needs_introduction(context: &Context, target: &str) -> bool {
@@ -39,21 +42,59 @@ pub(super) fn needs_introduction(context: &Context, target: &str) -> bool {
         })
 }
 
-pub(super) async fn reply(
+pub(super) async fn prepare_name(
     state: &AppState,
     context: &Context,
     target: &str,
-) -> Option<conversation::Entry> {
-    let previous = context
-        .conversation
-        .iter()
-        .rev()
-        .find(|line| line.actor_id == target)
-        .map(|line| line.text.as_str());
-    let reply = resident_introduction(state, target, &context.location, previous).await?;
-    let mut entry = conversation::Entry::spoken(target, reply.text, reply.model.to_owned());
-    entry.elysium_name = Some(reply.name);
-    Some(entry)
+) -> Option<String> {
+    elysium_name(
+        state,
+        target,
+        &context.location,
+        needs_introduction(context, target),
+    )
+    .await
+}
+
+pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&str>) {
+    let Some(setting) = elysium_setting(target, &context.location) else {
+        return;
+    };
+    let Some(resident) = context
+        .entities
+        .iter_mut()
+        .find(|entity| entity.id == target)
+    else {
+        return;
+    };
+    resident.facts.push(format!("Home setting: {setting}."));
+    if context.elysium_token_scattered {
+        resident
+            .facts
+            .push("Token history: scattered beyond this Void.".into());
+    }
+    if let Some(name) = name {
+        resident
+            .facts
+            .push(format!("Privately chosen name: {name}."));
+    }
+    resident
+        .facts
+        .push("Personal information can emerge over several conversations.".into());
+}
+
+pub(super) fn revealed_name(text: &str, name: Option<&str>) -> Option<String> {
+    let name = name?;
+    let inside_name = |ch: char| ch.is_alphabetic() || ch == '-';
+    text.match_indices(name)
+        .any(|(start, _)| {
+            !text[..start].chars().next_back().is_some_and(inside_name)
+                && !text[start + name.len()..]
+                    .chars()
+                    .next()
+                    .is_some_and(inside_name)
+        })
+        .then(|| name.to_string())
 }
 
 #[cfg(test)]
@@ -87,7 +128,9 @@ mod tests {
     const MODEL: &str = "deepseek/deepseek-v4.1-flash";
     const TRAVELER_MODEL: &str = "test-traveler-model";
     const OPENING: &str = "What should I call you?";
+    const EARLY: &str = "I listen to what the well gives back.";
     const LATER: &str = "I hear your voice beside the well.";
+    const REVEAL: &str = "I go by Echo Thread, friend.";
     const LINE: &str =
         "I call myself Echo Thread. My token has slipped into the world beyond this Void.";
 
@@ -95,6 +138,7 @@ mod tests {
         serde_json::from_value(json!({
             "revision":31, "turn":31, "location":ROOM, "scenery":false,
             "action":"Vale has a conversation with Resident of Void 006.",
+            "elysiumTokenScattered":true,
             "speakers":["vale",ID],
             "entities":[
                 {"id":ROOM,"facts":[],"memories":[]},
@@ -117,6 +161,7 @@ mod tests {
     fn introduction_requires_direct_colocated_talk_and_stops_after_learning() {
         let mut context = talk();
         assert!(valid(&context));
+        assert!(personal_talk(&context, &[ID.to_string()]).is_some());
         let selected = |context: &Context| {
             let pair = personal_talk(context, &voiced(context))?;
             needs_introduction(context, &pair.1).then_some(pair)
@@ -146,6 +191,35 @@ mod tests {
         assert!(!needs_introduction(&context, ID));
     }
 
+    #[test]
+    fn a_whole_spoken_name_earns_reveal_evidence() {
+        let name = Some("Echo Thread");
+        assert_eq!(revealed_name(REVEAL, name).as_deref(), name);
+        assert_eq!(
+            revealed_name("They call me Echo Thread. Echo Thread will do.", name).as_deref(),
+            name
+        );
+        for line in [
+            EARLY,
+            "I heard Echo Thread-Eater.",
+            "They call me echo thread.",
+        ] {
+            assert_eq!(revealed_name(line, name), None);
+        }
+        assert_eq!(revealed_name(REVEAL, None), None);
+    }
+
+    #[test]
+    fn token_facts_require_a_scatter_in_the_scene() {
+        let mut context = talk();
+        context.elysium_token_scattered = false;
+        add_talk_facts(&mut context, ID, None);
+        assert!(context.entities[2]
+            .facts
+            .iter()
+            .all(|fact| !fact.contains("Token history")));
+    }
+
     fn assert_signed(entry: &Value, id: &str, line: &str, model: Option<&str>) {
         assert_eq!(entry["id"], id);
         assert_eq!(entry["text"], line);
@@ -162,13 +236,13 @@ mod tests {
             assert!(envelope.claims.rules.ends_with(ELYSIUM_LINE_RULES_SUFFIX));
             assert_eq!(
                 entry.get("elysiumName"),
-                Some(&if line == LINE {
+                Some(&if line == REVEAL {
                     json!("Echo Thread")
                 } else {
                     Value::Null
                 })
             );
-            if line == LINE {
+            if line == REVEAL {
                 let proof: Envelope =
                     serde_json::from_value(entry["elysiumNameSigned"].clone()).unwrap();
                 assert_eq!(keys().verify(&proof), Verdict::Valid);
@@ -233,6 +307,7 @@ mod tests {
     async fn personal_talk_uses_bound_model_and_signs_json_and_sse() {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let attempts = Arc::new(AtomicUsize::new(0));
+        let replies = Arc::new(AtomicUsize::new(0));
         let (address, server) = serve(plain_provider(seen.clone(), move |body, _| {
             if body["model"] == TRAVELER_MODEL {
                 return OPENING.into();
@@ -241,7 +316,13 @@ mod tests {
             if !prompt.contains("Choose a name for yourself")
                 && !prompt.contains("Give yourself an original fantasy name")
             {
-                return LATER.into();
+                return match replies.fetch_add(1, Ordering::Relaxed) {
+                    0 => LATER,
+                    1 => EARLY,
+                    3 => LATER,
+                    _ => REVEAL,
+                }
+                .into();
             }
             match attempts.fetch_add(1, Ordering::Relaxed) {
                 0 => "I have several good ideas.".into(),
@@ -283,18 +364,17 @@ mod tests {
             Ok(VoiceSettings::hosted()),
         )
         .layer(Extension(state.clone()));
-        let before_name = (
-            "My name is still taking shape. Ask me again, traveler.",
-            "elysium-authored",
-        );
-        for (accept, expected) in [
-            ("application/json", before_name),
-            ("text/event-stream", (LINE, MODEL)),
-            ("application/json", (LINE, MODEL)),
-            ("application/json", (LATER, MODEL)),
-        ] {
+        for (index, (accept, expected)) in [
+            ("application/json", LATER),
+            ("application/json", EARLY),
+            ("text/event-stream", REVEAL),
+            ("application/json", LATER),
+        ]
+        .into_iter()
+        .enumerate()
+        {
             let mut context = talk();
-            if expected.0 == LATER {
+            if index == 3 {
                 context.elysium_introduced = Some(ID.into());
             }
             let mut request = Request::post("/card-game/text")
@@ -317,8 +397,7 @@ mod tests {
                     .map(|line| serde_json::from_str(line).unwrap())
                     .collect();
                 assert_eq!(frames.len(), 3, "{frames:?}");
-                for (frame, id, text) in
-                    [(&frames[0], "vale", OPENING), (&frames[1], ID, expected.0)]
+                for (frame, id, text) in [(&frames[0], "vale", OPENING), (&frames[1], ID, expected)]
                 {
                     assert_eq!(frame["type"], "delta");
                     assert_signed(
@@ -334,8 +413,8 @@ mod tests {
                 serde_json::from_slice(&body).unwrap()
             };
             assert_signed(&result["entries"][0], "vale", OPENING, Some(TRAVELER_MODEL));
-            assert_signed(&result["entries"][1], ID, expected.0, Some(expected.1));
-            if expected == before_name {
+            assert_signed(&result["entries"][1], ID, expected, Some(MODEL));
+            if index == 0 {
                 assert!(!root
                     .join("elysium-models")
                     .join(ID)
@@ -355,7 +434,7 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(shared["entries"][0]["text"], OPENING);
-        assert_eq!(shared["entries"][1]["text"], LINE);
+        assert_eq!(shared["entries"][1]["text"], REVEAL);
         assert_eq!(shared["entries"][1]["elysiumName"], "Echo Thread");
         assert!(shared["entries"][1].get("elysiumNameSigned").is_none());
         let seen = seen.lock().unwrap();
@@ -371,6 +450,29 @@ mod tests {
         assert!(naming.iter().all(|request| request["model"] == MODEL));
         assert!(naming[0].to_string().contains("an indigo well"));
         assert!(!naming[0].to_string().contains("Vale"));
+        let resident_replies: Vec<_> = seen
+            .iter()
+            .filter(|body| body["model"] == MODEL && !naming.contains(body))
+            .collect();
+        assert_eq!(resident_replies.len(), 5);
+        for (index, body) in resident_replies.into_iter().enumerate() {
+            assert_eq!(
+                body["messages"].as_array().unwrap().last().unwrap()["content"],
+                format!("Vale says, “{OPENING}”")
+            );
+            let prompt = body.to_string();
+            assert!(prompt.contains("an indigo well"));
+            assert!(prompt.contains("Token history: scattered beyond this Void"));
+            assert_eq!(prompt.contains("Echo Thread"), index > 0);
+        }
+        assert!(seen
+            .iter()
+            .filter(|body| body["model"] == TRAVELER_MODEL)
+            .all(|body| {
+                let prompt = body.to_string();
+                !prompt.contains("Token history: scattered beyond this Void")
+                    && !prompt.contains("Echo Thread")
+            }));
         std::fs::remove_dir_all(root).unwrap();
         server.abort();
     }

@@ -5,6 +5,9 @@ import {
   witnessKnowledge,
   reserveKnowledge,
   reserveLaneKnowledge,
+  learnQuest,
+  questFactId,
+  readClaim,
   knowledgeDisclosures,
   knowsFact,
   validKnowledge,
@@ -135,6 +138,36 @@ describe("saved public knowledge", () => {
     expect(talk(w)[0].factId).toBe(first.id);
     w.turn = 3;
     expect(talk(w)).toEqual([]);
+  });
+
+  it("shares a current request and a book claim over successive Talks despite newer news", () => {
+    const w = bare();
+    const request = { kind: "item", target: "lamp" };
+    const current = questFactId("keeper", request);
+    const former = questFactId("keeper", { kind: "item", target: "bell" });
+    const claim = "claim:sample:river-book:ford";
+    w.actors.keeper.want = request;
+    for (const [id, text] of [
+      [former, "The keeper wants the Bell."],
+      [current, "The keeper wants the Lamp."],
+    ]) {
+      learnQuest(w, "keeper", "moth", { id, text }, { seq: ++w.eventSeq, turn: w.turn });
+    }
+    readClaim(w, "moth", {
+      id: claim, text: "The nearest ford lies beneath the old quay.",
+      book: "river-book", claim: "ford", author: "keeper", about: "station",
+    }, { seq: ++w.eventSeq, turn: w.turn });
+
+    for (const [index, expected] of [current, claim].entries()) {
+      w.turn++;
+      source(w, { text: `Pip brought shell ${index} from the pond.` });
+      expect(talk(w).map(({ factId }) => factId)).toEqual([expected]);
+    }
+    w.turn++;
+    const news = source(w, { text: "Pip carried one more shell from the pond." });
+    expect(talk(w).map(({ factId }) => factId)).toEqual([news.id]);
+    expect(knowsFact(w, "vale", former)).toBe(false);
+    expect(w.knowledge.known.vale[claim]).toMatchObject({ kind: "heard", teller: "moth" });
   });
 
   it("uses one hop per round and keeps the immediate teller on each hop", () => {

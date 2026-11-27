@@ -204,7 +204,7 @@ import { enableMotives } from "./motives.mjs";
 import { seatActors } from "./human-cast.mjs";
 import { PLAYING_KEY } from "./avatar-world.mjs";
 import { openTableSession } from "./table-session.mjs";
-import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
+import { createNarrator, requestNarrative, silentLines, silentSpeakers } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import { carryUpgrades } from "./local-carry.mjs";
@@ -1478,12 +1478,11 @@ const narrator = createNarrator({
   // Speech is handed no name the table shows as a closed box: the same
   // test the hand uses to turn a card face down, a locked box included.
   isCovered: cardIsClosed,
-  early: Boolean(localRuntime()),
+  early: true,
   limit: (context) => markWaking(world, context, (id) => coveredCards.has(id)),
   // Remembered words go back with the envelopes the service signed them with.
   request: signedRequest((context, signal, progress) =>
-    requestNarrative(elysiumPortrait.withIntroduction(context), signal, progress,
-      "/card-game/text", Boolean(localRuntime())),
+    requestNarrative(elysiumPortrait.withIntroduction(context), signal, progress),
   ),
   // Thoughts, persona and dreams come after the line, so they never delay it.
   // A level quest's dream waits on it (sleep-view.mjs).
@@ -1567,20 +1566,20 @@ function loadTurnLines({ pending = false } = {}) {
   exchange.load(lines, { pending });
   render();
 }
-// A request that failed: every avatar due to speak here says "…". A line
-// arrives whole or not at all, so no beat mixes a failure with words.
 function showFailedSilence() {
   const place = world.actors[currentActor(world)].place;
-  const quiet = sceneSpeakers.filter(
+  const speakers = sceneSpeakers.filter(
     (id) => people[id] && world.actors[id]?.place === place,
   );
+  if (!speakers.length && openingWordsDue()) speakers.push(currentActor(world));
   silence = {
     turn: world.turn,
-    lines: silentLines(
-      world,
-      quiet.length || !openingWordsDue() ? quiet : [currentActor(world)],
-    ),
+    lines: silentLines(world, silentSpeakers({ speakers }, world)),
   };
+  if (hasCurrentWords()) {
+    loadTurnLines();
+    return;
+  }
   // The "…" is a caption on the table, not an exchange: it never holds the
   // hand or the next play, so no tap is owed to read it.
   exchange.cancel();

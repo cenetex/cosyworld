@@ -41,9 +41,8 @@ export function legacyElysiumName(text) {
 export function elysiumNameIndex(text, name) {
   if (typeof text !== "string" || !validElysiumName(name)) return -1;
   if (legacyElysiumName(text) === name) return introductionStart.length;
-  const matches = text.matchAll(new RegExp(`(^|[^\\p{Alphabetic}-])${name}(?![\\p{Alphabetic}-])`, "gu"));
-  const first = matches.next().value;
-  return first && matches.next().done ? first.index + first[1].length : -1;
+  const first = new RegExp(`(^|[^\\p{Alphabetic}-])${name}(?![\\p{Alphabetic}-])`, "u").exec(text);
+  return first ? first.index + first[1].length : -1;
 }
 
 export function elysiumTalk(world, actor, resident, place, turn, before = Infinity) {

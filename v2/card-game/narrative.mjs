@@ -432,9 +432,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
   const wayLines = wayFacts(world, location);
   const ways = (id) =>
     wayLines.filter(({ to }) => waySaid(world, id, to)).map(({ line }) => line);
-  // Authored sounds such as the clock's echo stay in the scene/history, but
-  // the speech API's conversation contains only registered avatar voices:
-  // the recent talk at this place, which each speaker reads as a group chat.
+  // Recent avatar dialogue at this place is the conversation each speaker reads.
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -476,6 +474,9 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         : null),
     events,
     conversation,
+    ...(played?.verb === "talk" && world.elysiumEncounters?.[played.targetId]?.scatteredAt
+      ? { elysiumTokenScattered: true }
+      : {}),
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
       if (kind === "location" && isCovered?.(id))
@@ -783,14 +784,14 @@ function writeEcho(next, context) {
     !next.log.some(
       (entry) =>
         entry.turn === next.turn &&
-        entry.generated &&
-        entry.speaker === echo.speaker,
+        entry.locationId === context.location &&
+        entry.speaker === echo.speaker && entry.text === echo.text,
     )
   )
     addLog(next, echo.speaker, echo.text, {
-      kind: "dialogue",
+      kind: "narration",
+      actorId: null,
       entityId: context.location,
-      generated: true,
       locationId: context.location,
     });
   return true;
@@ -946,39 +947,6 @@ export function silentLines(world, ids) {
     });
 }
 
-// Read complete JSON string units while the model is still writing an entry.
-export function partialEntries(source) {
-  const entries = [];
-  const pattern = /\{\s*"id"\s*:\s*("(?:[^"\\]|\\.)*")\s*,\s*"text"\s*:\s*"/gu;
-  for (const match of source.matchAll(pattern)) {
-    let raw = "";
-    for (let i = match.index + match[0].length; i < source.length; i++) {
-      const char = source[i];
-      if (char === '"') break;
-      if (char === "\\") {
-        const length = source[i + 1] === "u" ? 6 : 2;
-        if (i + length > source.length) break;
-        raw += source.slice(i, i + length);
-        i += length - 1;
-      } else raw += char;
-    }
-    try {
-      const id = JSON.parse(match[1]);
-      const text = JSON.parse('"' + raw + '"').replace(/[\uD800-\uDBFF]$/u, "");
-      if (
-        profiles[id] &&
-        text &&
-        text.length <= 400 &&
-        !/[\u0000-\u001f\u007f]/u.test(text)
-      )
-        entries.push({ id, text });
-    } catch {
-      /* A partial escape will be complete in a later chunk. */
-    }
-  }
-  return entries;
-}
-
 const SCENE_CONTEXT_REJECTED = "scene_context_rejected";
 
 export async function requestNarrative(
@@ -986,7 +954,6 @@ export async function requestNarrative(
   signal,
   progress = () => {},
   path = "/card-game/text",
-  validatedOnly = false,
 ) {
   const response = await fetch(path, {
     method: "POST",
@@ -1048,12 +1015,10 @@ export async function requestNarrative(
           if (text.length > 16 * 1024)
             throw new Error("Story text exceeded its limit.");
           // The service sends a whole validated line followed by a newline.
-          const entries = validatedOnly
-            ? text
-                .split("\n")
-                .slice(0, -1)
-                .map((line) => JSON.parse(line))
-            : partialEntries(text);
+          const entries = text
+            .split("\n")
+            .slice(0, -1)
+            .map((line) => JSON.parse(line));
           progress(
             entries.filter((entry) => context.speakers.includes(entry.id)),
           );
@@ -1223,7 +1188,7 @@ export function createNarrator({
         if (early)
           response.entries = response.entries.map((entry) =>
             published.has(entry.id)
-              ? { ...entry, text: published.get(entry.id).text }
+              ? { ...entry, ...published.get(entry.id) }
               : entry,
           );
         const next = applyGeneratedText(getWorld(), context, response, {
