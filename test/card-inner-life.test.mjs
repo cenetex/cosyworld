@@ -92,8 +92,9 @@ describe("inner life panel", () => {
     world.memories.vale.landmarks = [...world.memories.vale.events];
     const found = subjectMemories(world, "vale");
     const by = (id) => found.find((m) => m.id === id);
-    expect(by("cloth").summary).toContain("Received Black cloth from Pip.");
-    expect(by("moth").summary).toContain("Received Black cloth from Pip.");
+    const gift = "Received Black cloth from Pip at Empty station.";
+    expect(by("cloth").summary).toContain(gift);
+    expect(by("moth").summary).toContain(gift);
     expect(by("station").kind).toBe("location");
     expect(found.filter((m) => m.id === "cloth")).toHaveLength(1);
     expect(JSON.stringify(found)).not.toMatch(/raw journal|generated aside/u);
@@ -115,7 +116,7 @@ describe("inner life panel", () => {
     world.items.cloth.holder = "keeper";
     const memories = subjectMemories(world, "vale");
     expect(memories.find((m) => m.id === "moth").summary).toContain("Last seen at Black pond.");
-    expect(memories.find((m) => m.id === "cloth").summary).toContain("Received Black cloth from Pip.");
+    expect(memories.find((m) => m.id === "cloth").summary).toContain("Received Black cloth from Pip at Black pond.");
     expect(memories.find((m) => m.id === "pond").summary).toContain("I have been here.");
     expect(JSON.stringify(memories)).not.toContain("Last seen at Mirror attic");
     expect(subjectMemories(world, "mara").some((m) => m.summary.includes("Received Black cloth"))).toBe(false);

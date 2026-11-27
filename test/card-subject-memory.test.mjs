@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createWorld } from "../v2/card-game/world.mjs";
+import { createWorld, nameOf, places } from "../v2/card-game/world.mjs";
 import { rememberSubjects, upgradeSubjectMemories, validSubjectRecords } from "../v2/card-game/memory.mjs";
-import { createMemorySummaries, subjectMemories } from "../v2/card-game/inner-life.mjs";
+import { createMemorySummaries, innerLifeChain, subjectMemories } from "../v2/card-game/inner-life.mjs";
 import { privateView } from "../v2/card-game/learning.mjs";
 
 describe("retained subject memories", () => {
@@ -26,7 +26,7 @@ describe("retained subject memories", () => {
     world.memories.vale.events = [];
     world.memories.vale.landmarks = [];
     const summary = subjectMemories(world, "vale").find((m) => m.id === "cloth");
-    expect(summary.summary).toContain("Received Black cloth from Pip.");
+    expect(summary.summary).toContain("Received Black cloth from Pip at Empty station.");
     expect(privateView(world, "moth").memories.vale.subjects).toBeUndefined();
     expect(subjectMemories(world, "vale", (id) => id !== "cloth").some((m) => m.id === "cloth")).toBe(false);
   });
@@ -51,8 +51,8 @@ describe("retained subject memories", () => {
 
 describe("first-person memory summaries", () => {
   const memory = { id: "cloth", summary: "Received Black cloth from Pip." };
-  function setup() {
-    let value = null;
+  function setup(saved = null) {
+    let value = saved;
     const requested = [];
     const storage = {
       getItem: () => value,
@@ -86,6 +86,82 @@ describe("first-person memory summaries", () => {
     const changed = { ...memory, summary: "Left Black cloth at Station." };
     expect(reloaded.show(1, "vale", [changed])).toEqual([changed]);
     expect(requested[1].subjects[0].evidence).toBe(changed.summary);
+  });
+
+  it("prioritizes an older witnessed gift over newer sightings in the twelve-subject batch", () => {
+    const { open, requested } = setup();
+    const world = createWorld();
+    world.turn = 4;
+    world.eventSeq = 20;
+    world.life.actors.vale.experiences = [
+      { kind: "gift", other: "moth", item: "cloth", place: "station", turn: 1 },
+    ];
+    const visited = Object.keys(places).filter((id) => id !== "station").slice(0, 13);
+    visited.forEach((locationId, index) => {
+      rememberSubjects(world, "vale", { seq: index + 2, turn: 4, locationId, cast: ["vale"] });
+    });
+    const memories = subjectMemories(world, "vale");
+    expect(memories.slice(0, 13).every((memory) => !memory.significant)).toBe(true);
+
+    expect(open().show(1, "vale", memories)).toEqual(memories);
+    const batch = requested[0].subjects;
+    expect(batch).toHaveLength(12);
+    expect(batch.slice(0, 3).map(({ id }) => id)).toEqual(expect.arrayContaining(["cloth", "moth", "station"]));
+    expect(batch.find(({ id }) => id === "cloth").evidence).toContain("Received Black cloth from Pip at Empty station.");
+  });
+
+  it("discards the old cache and only reuses accepted provider text after reload", async () => {
+    const { open, requested } = setup(JSON.stringify({
+      scope: JSON.stringify([1, "vale"]),
+      entries: [[memory.id, { evidence: memory.summary, text: "I remembered this in an old version." }]],
+    }));
+    const missing = { id: "pond", summary: "I have been here." };
+    const rejected = { id: "moth", summary: "We have spoken." };
+    const memories = [memory, missing, rejected];
+    expect(open().show(1, "vale", memories)).toEqual(memories);
+    const accepted = "I remember receiving the Black cloth from Pip.";
+    requested[0].resolve({ cloth: accepted, moth: "Vale remembers speaking to Pip." });
+    await Promise.resolve();
+
+    const reloaded = open().show(1, "vale", memories);
+    expect(reloaded).toEqual([{ ...memory, summary: accepted }, missing, rejected]);
+    expect(requested[1].subjects).toEqual([
+      { id: "pond", evidence: missing.summary },
+      { id: "moth", evidence: rejected.summary },
+    ]);
+  });
+
+  it("sends canonical evidence and only displays names visible to the avatar", async () => {
+    const { open, requested } = setup();
+    const world = createWorld();
+    const room = "elysium-void-002", resident = "elysium-claude";
+    world.turn = 3;
+    world.eventSeq = 8;
+    rememberSubjects(world, "vale", {
+      seq: 8, turn: 3, locationId: room, cast: ["vale", resident, "moth"],
+      items: [{ id: "cloth", holder: room }],
+    });
+    const canonicalName = nameOf(resident);
+    const aliasName = "Ashen Veil";
+    const read = (text) => text.replaceAll(canonicalName, aliasName);
+    const known = (id) => id !== "moth" && id !== "cloth";
+    const { memories } = innerLifeChain(world, "vale", read, known);
+    const placeMemory = memories.find(({ id }) => id === room);
+    expect(placeMemory).toMatchObject({
+      evidence: `Met ${canonicalName} here.`,
+      summary: `Met ${aliasName} here.`,
+    });
+    expect(memories.find(({ id }) => id === resident).name).toBe(aliasName);
+    expect(JSON.stringify(memories)).not.toMatch(/Pip|Black cloth/);
+
+    const summary = open();
+    summary.show(1, "vale", memories, read);
+    expect(requested[0].subjects).toContainEqual({ id: room, evidence: placeMemory.evidence });
+    expect(JSON.stringify(requested[0].subjects)).not.toMatch(/Ashen Veil|Pip|Black cloth/);
+    requested[0].resolve({ [room]: `I met ${canonicalName} there.` });
+    await Promise.resolve();
+    expect(summary.show(1, "vale", memories, read).find(({ id }) => id === room).summary)
+      .toBe(`I met ${aliasName} there.`);
   });
 
   it("ignores replies after closing and separates worlds and characters", async () => {
