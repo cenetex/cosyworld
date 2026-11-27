@@ -2,6 +2,28 @@
 // names the draft field; callbacks receive plain text, including newlines.
 const editors = new WeakMap();
 const read = (note) => note.innerText.replace(/\r\n?/g, "\n");
+const profileLinks = new Map([
+  ["boardyai", { label: "BoardyAI on X", href: "https://x.com/boardyai" }],
+]);
+
+function showNote(note, text, profile) {
+  if (!profile) note.textContent = text;
+  else {
+    const current = note.querySelector("a");
+    if (current?.href !== profile.href || note.title !== text) {
+      const link = current ?? note.ownerDocument.createElement("a");
+      Object.assign(link, {
+        textContent: profile.label,
+        href: profile.href,
+        target: "_blank",
+        rel: "noopener noreferrer",
+      });
+      note.replaceChildren(text ? `${text} ` : "", link);
+    }
+  }
+  note.title = text;
+  note.hidden = !text && !profile;
+}
 
 function editor(note) {
   let state = editors.get(note);
@@ -59,7 +81,7 @@ function editor(note) {
 // the focused field keeps its DOM, caret, composition and native undo stack.
 export function showActionBeatNote(
   note,
-  { edit = null, note: text = "" } = {},
+  { edit = null, note: text = "", profileFor = null } = {},
 ) {
   const state = editor(note);
   const sameField = state.edit && edit && state.edit.key === edit.key;
@@ -79,8 +101,7 @@ export function showActionBeatNote(
       "spellcheck",
     ])
       note.removeAttribute(attribute);
-    note.textContent = note.title = text;
-    note.hidden = !text;
+    showNote(note, text, profileLinks.get(profileFor));
     return;
   }
   note.hidden = false;

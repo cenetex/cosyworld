@@ -124,7 +124,8 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.build-info a {
+.build-info a,
+.action-beat-note a {
   color: inherit;
 }
 main {
@@ -2941,7 +2942,6 @@ body .beat-live {
   display: block;
   color: #cfc3ab;
 }
-/* The note reads under the heading. */
 .action-beat-heading {
   order: -2;
 }

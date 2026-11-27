@@ -153,6 +153,7 @@
     ".beat-stack[data-action=\"true\"]>#speech-row .speech-line { align-self: auto; display: block; flex: 1; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap }",
     ".beat-stack[data-action=\"true\"]>#speech-row :is(#speaker,#dialogue-text,.beat-captions,.beat-caption) { display: inline; margin-right: 6px }",
     ".beat-stack[data-dropped=\"true\"]>.action-panel { display: none }",
+    ".build-info a,.action-beat-note a { color: inherit }",
     ".card-back { border-radius: inherit; display: none; height: 100%; inset: 0; object-fit: fill; pointer-events: none; position: absolute; width: 100%; z-index: 4 }",
     ".card-exits { inset: 0; overflow: clip; pointer-events: none; position: absolute }",
     ".card-frame .card { z-index: 1 }",

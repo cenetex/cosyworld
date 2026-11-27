@@ -3079,7 +3079,7 @@ function renderActions() {
     panel.style.setProperty("--tier-color", "var(--danger)");
     noteText = `${shownQuestCaption(picked, false)}.`;
   }
-  showActionBeatNote(note, { note: noteText });
+  showActionBeatNote(note, { note: noteText, profileFor: !rested && !closed && viewed });
   const text = abandonQuest ? "Discard this quest?" : elysiumPortrait.text(sentence);
   writeActionMessage(
     message,
@@ -3120,7 +3120,7 @@ $("action-beat").addEventListener(
     const button = event.target.closest("button");
     if (button?.dataset.blocked) return event.stopPropagation();
     if (
-      !actionMessage ||
+      !actionMessage || event.target.closest("a[href]") ||
       (button && !event.currentTarget.hasAttribute("data-card-tap"))
     )
       return;
