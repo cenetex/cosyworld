@@ -115,6 +115,14 @@ Decided on 2026-11-24 and built in rules 200 (`card-game/claims.mjs`).
 - **Memory.** The memory gains `status: "confirmed"` or `"disproved"`, on read and heard claims alike. Validation accepts a status only when it agrees with the branch as the world has it. No status means a belief, so older saves load unchanged. On load, a status whose claim no longer has that truth is dropped.
 - **Narration.** "I read this in Helen's Account Tablet, by The Bard, and I know it is true: …" for a confirmed claim, and "I read in Helen's Account Tablet, by The Bard, that …; it was wrong." for a disproved one, with shorter forms that keep within the 240-character line cap.
 
+## Voice of the documents
+
+- Brian Jacques used sensory detail to make Redwall legible to children listening aloud. A brass key or a lamp burning at the water's edge gives the reader something concrete to picture and recognize in play. [Brian Jacques interview](https://www.washingtonpost.com/archive/lifestyle/tv/2001/04/08/small-heroes-big-tales-in-pbs-series/87f46b66-ee34-47bd-8ff6-a873e9c1f691/)
+- MinaLima used handwriting and wear to show who had handled Harry Potter's schoolbooks and why. In Lonely Forest, a keeper gives instructions, a scribe records a ruling, and a witness writes down what they saw. The conflicting accounts of Helen keep their separate authors and point to different evidence. [MinaLima interview](https://www.harrypotter.com/features/behind-the-scenes-of-the-magical-books-and-textbooks-with-minalima)
+- Roald Dahl's manuscript drafts show how much a small change in a joke can alter its tone. The Station Key makes the staff's absent-mindedness the joke. The burial accounts give their witnesses room to grieve. [Roald Dahl Museum archive](https://www.roalddahlmuseum.org/article/terrific-tricks-archive/)
+
+A document's claims can be repeated in conversation, so each sentence carries the names and conditions a listener needs. A recorded line still requires its choice receipt. A quest excerpt appears on the Read that teaches the quest and uses the book's voice alongside the canonical quest wording in memory.
+
 ## Every text item
 
 That every text item is accounted for is decided. What each one becomes is a proposal, except that the card-prose books go, which follows from the decision that packs carry no hand-authored prose. The list covers every text item in `v2/content/*/card-world.json`, grouped by what it becomes.
@@ -123,7 +131,7 @@ That every text item is accounted for is decided. What each one becomes is a pro
 - Creon's Writ (`greek-creon-writ`): in the Guard's hands it opens the Gate to Battlefield. It keeps the lock and gains one claim by Creon.
 - The Herald's Truce (`greek-olive-branch`): opens the same gate and is consumed by Aethra's urn. It keeps both roles and gains one claim.
 - The Burial Decree (`greek-decree`): Creon wants it, the Guard holds it and his wants turn on keeping it, and the Elder values it. It keeps those roles and gains one claim, the official side of a pair with the Mothers' Petition.
-- Station Key (`ratiradio-station-key`): opens the Staff Kitchen. It keeps the lock. Its "STAFF" tag is a one-claim label, and the play instruction leaves its `text`.
+- Station Key (`ratiradio-station-key`): opens the Staff Kitchen. The tag describes the key and explains how to leave the staff entrance open for everyone.
 - Household Token (`greek-household-token`): its seal is a one-claim label. Reading also teaches Ismene's request for the token while that request is live, turning her quest card face up for the reader. The book records the request's target in `teachesQuest` and the memory records the book.
 
 **Documents with a quest or route role** keep the role and teach their claims.
@@ -133,10 +141,10 @@ That every text item is accounted for is decided. What each one becomes is a pro
 - Record of the House of Atreus (`greek-atreid-record`): three claims that disagree, one for each way in.
 - Request Slip (`ratiradio-request-slip`): RATi holds it once awake. Its lost-property note, the clue to what to bring home, becomes one claim.
 
-**Records of play** become generated books.
-- Burial Account (`greek-burial-account`): its claims are written from its three `records` choices.
+**Records of play** reveal entries as choices are committed.
+- Burial Account (`greek-burial-account`): Antigone's account gains one line at each of the three stages of the burial.
 - The five witness tablets (`greek-egypt-`, `-troy-`, `-tomb-`, `-palace-` and `-farm-testimony`): each appears only on its branch and keeps its delivery role, with one claim by its witness.
-- Maker's Label, Visit Seed, Invitation Home, Mira's Draft, Evening Programme and Sol's Reading (Hoppy Cat): the choice that writes on one or signs it adds a claim with the actor as author, taken from the first sentence of its log line, such as "Penny writes Ledger's name beside the display."
+- Maker's Label, Visit Seed, Invitation Home, Mira's Draft, Evening Programme and Sol's Reading (Hoppy Cat): the choice that writes or signs a document reveals the line keyed to that receipt in `recordText`.
 
 **Inscriptions** get one claim each or keep their name only.
 - Rill's Compass (`hoppycat-concordance-compass`): one claim for the names scratched on its case, keeping its choice roles.

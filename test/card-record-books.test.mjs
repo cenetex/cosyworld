@@ -15,9 +15,14 @@ import { readPage } from "../v2/card-game/read-view.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
 const ACCOUNT = "greek-burial-account";
-const RITES = ["Funeral Oil", "Black cloth", "Burial Shovel"].map(
+const OLD_RITES = ["Funeral Oil", "Black cloth", "Burial Shovel"].map(
   (thing) => `Vale gives the ${thing} to Antigone at Polynices' Hollow.`,
 );
+const RITES = [
+  "At Polynices' Hollow, Antigone rubbed the Funeral Oil into the dust on her brother’s skin.",
+  "At Polynices' Hollow, Antigone shook the folds from the Black cloth and drew it over her brother as a shroud.",
+  "At Polynices' Hollow, Antigone left the Burial Shovel by the grave after the last earth went in.",
+];
 const { buried } = funeralJourney();
 const holding = (world, book) => {
   const w = structuredClone(world);
@@ -40,28 +45,34 @@ describe("a record book", () => {
     );
     const w = decodeSave(encodeSave(read(holding(buried, ACCOUNT), ACCOUNT)));
     expect(readPage(w, "vale", 0)).toMatchObject({ author: "Antigone", claims: RITES });
-    const later = structuredClone(w);
+    const later = JSON.parse(encodeSave(w));
     later.log = [];
-    const kept = decodeSave(encodeSave(later));
-    expect(claimsIn(ACCOUNT, kept)[0].text).toMatch(/^An earlier traveler gives/);
-    expect(claimsIn(ACCOUNT, kept).map((c) => kept.knowledge.facts[c.id].text)).toEqual(RITES);
+    const ids = claimsIn(ACCOUNT, w).map(({ id }) => id);
+    ids.forEach((id, index) => { later.knowledge.facts[id].text = OLD_RITES[index]; });
+    const kept = decodeSave(JSON.stringify(later));
+    expect(claimsIn(ACCOUNT, kept).map(({ text }) => text)).toEqual(RITES);
+    expect(ids.map((id) => kept.knowledge.facts[id].text)).toEqual(RITES);
+    for (const id of ids) {
+      expect(kept.knowledge.facts[id].source).toEqual(w.knowledge.facts[id].source);
+      expect(kept.knowledge.known.vale[id]).toEqual(w.knowledge.known.vale[id]);
+    }
   });
 
   it("writes Hoppy Cat's labels and a witness tablet's delivery as they happen", () => {
     const w = record(createWorld(), "hoppycat-archive", "hoppycat-table-invitation", "hoppycat-table-signal", "hoppycat-table-credit");
     const written = (book) => claimsIn(book, w).map((c) => [c.text, c.author]);
     expect(written("hoppycat-return-path-checklist")).toEqual([
-      ["Static writes an Invitation Home for the traveller.", "hoppycat-staticwashere"],
-      ["Static signs the Invitation Home and lays it on the bench.", "hoppycat-staticwashere"],
+      ["Static drew the way from Signal Jetty to the Halfway Tea Garden on the back, with a blank for his signature.", "hoppycat-staticwashere"],
+      ["Static left the signed Invitation Home on the Signal Jetty bench, so the traveller can board or stay for another cup.", "hoppycat-staticwashere"],
     ]);
     expect(written("hoppycat-provenance-card")).toEqual([
-      ["Penny writes Ledger's name beside the display.", "hoppycat-penny-vellum"],
+      ["Penny has inked Ledger’s name on the Maker’s Label, ready for the tea table at the Halfway Tea Garden.", "hoppycat-penny-vellum"],
     ]);
     const tablet = "greek-egypt-testimony";
     expect(claimsIn(tablet, w)).toHaveLength(1);
     record(w, "greek-drama", "greek-helen-egypt-passage");
     expect(claimsIn(tablet, w)[1].text).toBe(
-      "An earlier traveler gives The Egyptian Witness Tablet to Menelaus at Proteus's Tomb in Egypt.",
+      "At Proteus's Tomb in Egypt, Menelaus agreed to passage and kept the tablet at the tomb while the Travel Provisions were spent.",
     );
   });
 
@@ -115,5 +126,12 @@ describe("the book schema for records", () => {
     expect(bookProblems(pack({ records: ["meet", "rest", "leave"], claims: [claim] }))).not.toEqual([]);
     expect(bookProblems(pack({ records: ["visit"], claims: [claim] }))).not.toEqual([]);
     expect(bookProblems(pack({ records: ["visit"], claims: [] }))).not.toEqual([]);
+  });
+
+  it("accepts a single tellable sentence for a named receipt", () => {
+    const note = { visit: "The scribe marked the visit." };
+    expect(bookProblems(pack({ records: ["visit"], recordText: note }))).toEqual([]);
+    expect(bookProblems(pack({ records: ["leave"], recordText: note }))).not.toEqual([]);
+    expect(bookProblems(pack({ records: ["visit"], recordText: { visit: "A visitor came. A visitor left." } }))).not.toEqual([]);
   });
 });

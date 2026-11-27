@@ -314,7 +314,7 @@
       "claims": [
         {
           "id": "margin",
-          "text": "This stretch of the Danube has unwritten warnings for trespassers.",
+          "text": "On this reach of the Danube, the island warns trespassers without the courtesy of a sign.",
           "about": "willows-landing"
         }
       ]
@@ -353,7 +353,7 @@
       "claims": [
         {
           "id": "their-sound",
-          "text": "The humming on the island is their sound, not the wind's.",
+          "text": "The island’s willows keep humming after the wind dies down.",
           "about": "willows-thicket"
         }
       ]
@@ -387,17 +387,17 @@
       "claims": [
         {
           "id": "far-from-houses",
-          "text": "The island lies far from any house, with only willows, wind and the flooded Danube in sight.",
+          "text": "From the island there is no house in sight, only bent willow tops and the hiss of wind over the flooded Danube.",
           "about": "willows-landing"
         },
         {
           "id": "willows-move",
-          "text": "The willows stand closer to the tent at night than they do by day.",
+          "text": "From the tent door, the nearest willow takes fewer paces to reach at night than by daylight.",
           "about": "willows-camp"
         },
         {
           "id": "willows-hum",
-          "text": "The humming heard across the river comes from the willows themselves.",
+          "text": "From the Crumbling Bank, the willows can be heard humming across the river and felt through the sand.",
           "about": "willows-bank"
         }
       ],

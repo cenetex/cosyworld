@@ -1302,8 +1302,9 @@
         author: "keeper",
         lifecycle: "fixed",
         teachesQuest: "pond",
+        questReadText: "The keeper asks you to make the next call at Black pond and watch the far shore for the ship.",
         claims: [
-          { id: "pond-signal", text: "To call the ship, hold the Black cloth at Black pond while the Lamp burns on the ground there.", about: "pond" }
+          { id: "pond-signal", text: "The ship takes its signal at Black pond from the Black cloth held in hand and the Lamp burning on the ground.", about: "pond" }
         ]
       }
     },
@@ -4408,7 +4409,7 @@
             claims: [
               {
                 id: "no-burial",
-                text: "No one may bury or mourn Polynices, who lies outside the city walls.",
+                text: "By the seal of Thebes, Polynices shall lie outside the city walls without burial or mourning.",
                 about: "greek-polynices-hollow"
               }
             ]
@@ -4420,10 +4421,11 @@
             art: "assets/greek-drama/household-token.png",
             author: "greek-ismene",
             teachesQuest: "greek-household-token",
+            questReadText: "Ismene asks you to put the Household Token back into her hands so she can speak for her own house.",
             claims: [
               {
                 id: "seal",
-                text: "Its bearer speaks for the house of Oedipus in mourning.",
+                text: "Let the bearer of this seal speak for the mourning house of Oedipus, even if the family can send only one voice.",
                 about: "greek-ismene"
               }
             ]
@@ -4475,7 +4477,7 @@
             claims: [
               {
                 id: "argive-dead",
-                text: "Thebes gives up the Argive dead to Athens for burial, under witness.",
+                text: "Under the olive bough and before witnesses, Thebes yields the Argive dead to Athens for burial.",
                 about: "greek-eleusis"
               }
             ]
@@ -4497,14 +4499,18 @@
             claims: [
               {
                 id: "stay",
-                text: "Helen waited out the war in Egypt while a phantom took her place at Troy.",
+                text: "Helen waited out the war beside Proteus's stone tomb in Egypt while a phantom took her place at Troy.",
                 about: "greek-egypt-tomb"
               }
             ],
             records: [
               "greek-helen-egypt-passage",
               "greek-helen-egypt-shelter"
-            ]
+            ],
+            recordText: {
+              "greek-helen-egypt-passage": "At Proteus's Tomb in Egypt, Menelaus agreed to passage and kept the tablet at the tomb while the Travel Provisions were spent.",
+              "greek-helen-egypt-shelter": "At Proteus's Tomb in Egypt, the tablet was given to Helen and left there, with a request for shelter on record."
+            }
           },
           "greek-troy-testimony": {
             name: "The Trojan Witness Tablet",
@@ -4522,14 +4528,18 @@
             claims: [
               {
                 id: "journey",
-                text: "Helen sailed home from Troy herself, and no phantom ever stood in her place.",
+                text: "Helen sailed home from Troy with salt drying on her hands, and no phantom ever took her place.",
                 about: "greek-troy-beach"
               }
             ],
             records: [
               "greek-helen-troy-passage",
               "greek-helen-troy-shelter"
-            ]
+            ],
+            recordText: {
+              "greek-helen-troy-passage": "At the Homecoming Beach, Menelaus agreed to passage and kept the tablet at the beach while the Travel Provisions were spent.",
+              "greek-helen-troy-shelter": "At the Homecoming Beach, the tablet was given to Helen and left there, with a request for shelter on record."
+            }
           },
           "greek-tomb-testimony": {
             name: "The Tomb Witness Tablet",
@@ -4547,14 +4557,18 @@
             claims: [
               {
                 id: "meeting",
-                text: "Electra met her brother at Agamemnon's tomb while she brought offerings.",
+                text: "Electra still had the offerings in her hands when she met her brother Orestes at Agamemnon's Tomb.",
                 about: "greek-argos-tomb"
               }
             ],
             records: [
               "greek-atreid-aeschylus-hearing",
               "greek-atreid-aeschylus-refusal"
-            ]
+            ],
+            recordText: {
+              "greek-atreid-aeschylus-hearing": "At Agamemnon's Tomb, Orestes received the tablet and promised a hearing, and the tablet stayed at the tomb.",
+              "greek-atreid-aeschylus-refusal": "The tablet stayed at Agamemnon's Tomb after it was given to Electra and a refusal was recorded."
+            }
           },
           "greek-palace-testimony": {
             name: "The Palace Witness Tablet",
@@ -4572,14 +4586,18 @@
             claims: [
               {
                 id: "waiting",
-                text: "Electra waited outside the Mycenaean palace for her brother to come home.",
+                text: "Electra listened to every footstep outside the Mycenaean Palace while she waited for her brother Orestes to come home.",
                 about: "greek-mycenae-palace"
               }
             ],
             records: [
               "greek-atreid-sophocles-hearing",
               "greek-atreid-sophocles-refusal"
-            ]
+            ],
+            recordText: {
+              "greek-atreid-sophocles-hearing": "Outside the Mycenaean Palace, Orestes received the tablet and promised a hearing, and the tablet stayed there.",
+              "greek-atreid-sophocles-refusal": "The tablet stayed outside the Mycenaean Palace after it was given to Electra and a refusal was recorded."
+            }
           },
           "greek-farm-testimony": {
             name: "The Farmer's Witness Tablet",
@@ -4597,14 +4615,18 @@
             claims: [
               {
                 id: "farmhouse",
-                text: "Electra lives in a poor farmer's house in the Argive countryside, far from the palace.",
+                text: "Electra lived as a poor farmer\u2019s wife in the Argive countryside, with flour on her hands and the palace far away.",
                 about: "greek-argive-farm"
               }
             ],
             records: [
               "greek-atreid-euripides-hearing",
               "greek-atreid-euripides-refusal"
-            ]
+            ],
+            recordText: {
+              "greek-atreid-euripides-hearing": "At the Argive Farmhouse, Orestes received the tablet and promised a hearing, and the tablet stayed there.",
+              "greek-atreid-euripides-refusal": "The tablet stayed at the Argive Farmhouse after it was given to Electra and a refusal was recorded."
+            }
           },
           "greek-burial-petition": {
             name: "The Mothers\u2019 Petition",
@@ -4618,7 +4640,7 @@
             claims: [
               {
                 id: "sons-home",
-                text: "The Argive mothers ask Athens to win back their sons' bodies from Thebes for burial.",
+                text: "The Argive mothers at Eleusis ask Athens to return their sons\u2019 bodies from Thebes so they can wash and bury them.",
                 about: "greek-theseus"
               }
             ]
@@ -4678,7 +4700,7 @@
             claims: [
               {
                 id: "bury-ajax",
-                text: "Ajax must not lie unburied, and Odysseus should speak for his burial.",
+                text: "Let Odysseus speak for Ajax\u2019s burial, for the chiefs may keep their quarrel and Ajax is owed the earth.",
                 about: "greek-ajax-odysseus"
               }
             ]
@@ -4714,6 +4736,11 @@
               "greek-shroud-polynices",
               "greek-bury-polynices"
             ],
+            recordText: {
+              "greek-anoint-polynices": "At Polynices' Hollow, Antigone rubbed the Funeral Oil into the dust on her brother\u2019s skin.",
+              "greek-shroud-polynices": "At Polynices' Hollow, Antigone shook the folds from the Black cloth and drew it over her brother as a shroud.",
+              "greek-bury-polynices": "At Polynices' Hollow, Antigone left the Burial Shovel by the grave after the last earth went in."
+            },
             holder: "greek-battlefield",
             art: "assets/greek-drama/burial-account.webp",
             requires: [
@@ -4734,7 +4761,7 @@
             claims: [
               {
                 id: "leave-to-bury",
-                text: "The household of Oedipus may bury Polynices, and the gate guard must let them pass.",
+                text: "Under Creon\u2019s seal, the guard shall open the Theban City Gate to the house of Oedipus so it may bury Polynices.",
                 about: "greek-gate"
               }
             ]
@@ -4748,12 +4775,12 @@
             claims: [
               {
                 id: "egypt",
-                text: "Helen spent the war in Egypt, and only a phantom of her went to Troy.",
+                text: "Helen spent the war in Egypt beside Proteus's Tomb, and Troy had only a phantom in her likeness.",
                 about: "greek-egypt-tomb"
               },
               {
                 id: "troy",
-                text: "Helen went to Troy with Paris and stayed there through the war.",
+                text: "The Trojan song carries Helen herself to Troy with Paris and keeps her within its walls through the war.",
                 about: "greek-troy-beach"
               }
             ]
@@ -4767,17 +4794,17 @@
             claims: [
               {
                 id: "tomb",
-                text: "Orestes comes home in secret and finds Electra at Agamemnon's tomb.",
+                text: "In the tomb verse, Orestes slips home unseen and finds Electra at Agamemnon's Tomb.",
                 about: "greek-argos-tomb"
               },
               {
                 id: "palace",
-                text: "Orestes comes home to find Electra waiting outside the Mycenaean palace.",
+                text: "In the palace verse, Orestes comes home to Electra still waiting outside the Mycenaean Palace.",
                 about: "greek-mycenae-palace"
               },
               {
                 id: "farm",
-                text: "Orestes comes home to find Electra married to a poor Argive farmer.",
+                text: "In the farmhouse verse, Orestes returns to find Electra married to a poor Argive farmer.",
                 about: "greek-argive-farm"
               }
             ]
@@ -9536,7 +9563,10 @@
             author: "hoppycat-penny-vellum",
             records: [
               "hoppycat-table-credit"
-            ]
+            ],
+            recordText: {
+              "hoppycat-table-credit": "Penny has inked Ledger\u2019s name on the Maker\u2019s Label, ready for the tea table at the Halfway Tea Garden."
+            }
           },
           "hoppycat-unfinished-prism": {
             name: "Crooked Prism",
@@ -9556,7 +9586,10 @@
             author: "hoppycat-patch-fern",
             records: [
               "hoppycat-table-patch"
-            ]
+            ],
+            recordText: {
+              "hoppycat-table-patch": "Patch planted the seed for the traveller who came to Hoppy's table, and the short Ledger fitted the visit on its label."
+            }
           },
           "hoppycat-concordance-compass": {
             name: "Rill's Compass",
@@ -9569,7 +9602,7 @@
             claims: [
               {
                 id: "two-stops",
-                text: "The route runs by the Signal Jetty and the Halfway Tea Garden.",
+                text: "The compass has two names scratched into it and two stops to make, the Signal Jetty and the Halfway Tea Garden.",
                 about: "hoppycat-signal-jetty"
               }
             ]
@@ -9634,7 +9667,11 @@
             records: [
               "hoppycat-table-invitation",
               "hoppycat-table-signal"
-            ]
+            ],
+            recordText: {
+              "hoppycat-table-invitation": "Static drew the way from Signal Jetty to the Halfway Tea Garden on the back, with a blank for his signature.",
+              "hoppycat-table-signal": "Static left the signed Invitation Home on the Signal Jetty bench, so the traveller can board or stay for another cup."
+            }
           },
           "hoppycat-draft-page": {
             name: "Mira's Draft",
@@ -9652,7 +9689,10 @@
             author: "hoppycat-mira-meraki",
             records: [
               "hoppycat-table-draft-chosen"
-            ]
+            ],
+            recordText: {
+              "hoppycat-table-draft-chosen": "Fable has the empty-chair draft Mira chose, with the reading still to come."
+            }
           },
           "hoppycat-evening-programme": {
             name: "Evening Programme",
@@ -9681,7 +9721,11 @@
             records: [
               "hoppycat-table-draft-ready",
               "hoppycat-table-paint-ready"
-            ]
+            ],
+            recordText: {
+              "hoppycat-table-draft-ready": "Fable read Mira\u2019s empty-chair draft aloud, and the Evening Programme is ready to take to the Halfway Tea Garden.",
+              "hoppycat-table-paint-ready": "Mira finished the playbill with her worn brush, Fable read the title, and the Evening Programme is ready for tea."
+            }
           },
           "hoppycat-sol-programme": {
             name: "Sol's Reading",
@@ -9699,7 +9743,10 @@
             author: "hoppycat-solwashere",
             records: [
               "hoppycat-table-reading"
-            ]
+            ],
+            recordText: {
+              "hoppycat-table-reading": "Sol read about a chair kept ready for a visitor, and the signed programme can go to Hoppy at the Halfway Tea Garden."
+            }
           }
         },
         specials: {
@@ -11640,7 +11687,7 @@
             claims: [
               {
                 id: "margin",
-                text: "This stretch of the Danube has unwritten warnings for trespassers.",
+                text: "On this reach of the Danube, the island warns trespassers without the courtesy of a sign.",
                 about: "willows-landing"
               }
             ]
@@ -11679,7 +11726,7 @@
             claims: [
               {
                 id: "their-sound",
-                text: "The humming on the island is their sound, not the wind's.",
+                text: "The island\u2019s willows keep humming after the wind dies down.",
                 about: "willows-thicket"
               }
             ]
@@ -11713,17 +11760,17 @@
             claims: [
               {
                 id: "far-from-houses",
-                text: "The island lies far from any house, with only willows, wind and the flooded Danube in sight.",
+                text: "From the island there is no house in sight, only bent willow tops and the hiss of wind over the flooded Danube.",
                 about: "willows-landing"
               },
               {
                 id: "willows-move",
-                text: "The willows stand closer to the tent at night than they do by day.",
+                text: "From the tent door, the nearest willow takes fewer paces to reach at night than by daylight.",
                 about: "willows-camp"
               },
               {
                 id: "willows-hum",
-                text: "The humming heard across the river comes from the willows themselves.",
+                text: "From the Crumbling Bank, the willows can be heard humming across the river and felt through the sand.",
                 about: "willows-bank"
               }
             ],
@@ -13924,12 +13971,12 @@
             claims: [
               {
                 id: "staff",
-                text: "This brass key is for the station's staff.",
+                text: "The staff entrance has one brass key, and the staff have a bad habit of losing it.",
                 about: "ratiradio-staff-kitchen"
               },
               {
                 id: "leave-key-inside",
-                text: "Leave the Station Key inside the Staff Kitchen and the entrance stays open.",
+                text: "The staff entrance stays open for everyone while the Station Key is inside the Staff Kitchen.",
                 about: "ratiradio-staff-kitchen"
               }
             ]
@@ -14035,7 +14082,7 @@
             claims: [
               {
                 id: "lost-property",
-                text: "The red beanie, ceramic raven and glass were lost beyond the station and belong in the Listening Room.",
+                text: "The Red Beanie, Raven Figurine and Half-full Glass went missing beyond the station and are due back in the Listening Room.",
                 about: "ratiradio-listening-room"
               }
             ]
@@ -16381,7 +16428,15 @@
   }
 
   // v2/card-game/book-schema.mjs
-  var BOOK_KEYS = ["author", "claims", "lifecycle", "pages", "teachesQuest"];
+  var BOOK_KEYS = [
+    "author",
+    "claims",
+    "lifecycle",
+    "pages",
+    "teachesQuest",
+    "questReadText",
+    "recordText"
+  ];
   var BOOK_CLAIMS = 3;
   var LIFECYCLES = ["kept", "spent", "fixed"];
   var record2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -16402,6 +16457,12 @@
       const author = card(item.author)?.name;
       if (typeof author !== "string")
         fail("author must be a named place, avatar or item of this pack");
+      if (item.recordText !== void 0 && !(record2(item.recordText) && Object.keys(item.recordText).length > 0 && Object.entries(item.recordText).every(
+        ([choice, text2]) => records.includes(choice) && validFactText(text2) && (typeof author !== "string" || heardClaim(author, text2).length <= FACT_LINE_LIMIT)
+      )))
+        fail("recordText needs one tellable sentence per named record");
+      if (item.questReadText !== void 0 && !(item.teachesQuest && validFactText(item.questReadText)))
+        fail("questReadText needs a taught quest and one sentence");
       if (item.teachesQuest !== void 0) {
         const avatar = owns2(pack.avatars, item.author) && pack.avatars[item.author];
         const wants = Array.isArray(avatar?.wants) ? avatar.wants.map((entry) => entry?.want) : [avatar?.want];
@@ -19722,18 +19783,22 @@
     const item = itemOf(packId, book), receipts = s?.packs?.[packId]?.receipts || {};
     return (item.author ? item.records || [] : []).filter((choice) => Object.hasOwn(receipts, choice)).sort((a, b) => receipts[a] - receipts[b]);
   };
-  var record6 = (packId, book, claim, text2) => ({
-    id: `claim:${packId}:${book}:${claim}`,
-    text: text2,
-    book,
-    claim,
-    author: itemOf(packId, book).author,
-    about: null
-  });
+  var record6 = (packId, book, claim, fallback) => {
+    const item = itemOf(packId, book);
+    const written = item.recordText;
+    return {
+      id: `claim:${packId}:${book}:${claim}`,
+      text: written && Object.hasOwn(written, claim) ? written[claim] : fallback(),
+      book,
+      claim,
+      author: item.author,
+      about: null
+    };
+  };
   var authoredClaim = (id) => bookClaims(...id.split(":").slice(1, 3)).find((c) => c.id === id) || null;
   var savedClaim = (s, id, fact) => {
     const [, packId, book, choice] = id.split(":");
-    const claim = authoredClaim(id) ?? (recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, fact?.text) : null);
+    const claim = authoredClaim(id) ?? (recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, () => fact?.text) : null);
     return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
   };
   function bookQuestId(book, legacy = false) {

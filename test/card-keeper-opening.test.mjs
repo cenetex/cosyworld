@@ -29,7 +29,6 @@ function act(s, kind, target, item) {
   assert(r.ok, r.error);
   return r.state;
 }
-// Predicate fixtures isolate simultaneous facts; the playable consent trace is separate.
 function arrangement() {
   const s = createLandingWorld(null, 23);
   s.opening.crossed = true;
@@ -95,9 +94,10 @@ test("the fixed Station log teaches the same call without Pip and keeps the lead
   const page = readPage(s, "vale", seen);
   assert.equal(page.author, "The keeper");
   assert.deepEqual(page.claims, [
-    "To call the ship, hold the Black cloth at Black pond while the Lamp burns on the ground there.",
-    s.knowledge.facts[fact].text,
+    "The ship takes its signal at Black pond from the Black cloth held in hand and the Lamp burning on the ground.",
+    "The keeper asks you to make the next call at Black pond and watch the far shore for the ship.",
   ]);
+  assert.match(s.knowledge.facts[fact].text, /The keeper wants you to call the ship/u);
   assert.equal(s.items[book].holder, "station");
   assert.equal(s.crossings[crossing].discovered, false);
   assert.equal(met(s).length, 0);

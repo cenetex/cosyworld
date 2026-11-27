@@ -114,7 +114,9 @@ describe("text items that teach what they say", () => {
       eventSeq: entry.seq,
     });
     expect(t.s.actors.vale.told ?? []).not.toContain(ISMENE);
-    expect(readPage(t.s, "vale", seen).claims).toContain("Ismene wants the Household Token.");
+    expect(readPage(t.s, "vale", seen).claims).toContain(
+      "Ismene asks you to put the Household Token back into her hands so she can speak for her own house.",
+    );
     expect(readPage(t.s, "moth", seen)).toBeNull();
     expect(knowledgeFacts(t.s, "vale", nameOf, [REQUEST])[0]).toBe(
       "I read this just now in Household Token: Ismene wants the Household Token.",

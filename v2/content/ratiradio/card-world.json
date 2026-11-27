@@ -155,12 +155,12 @@
       "claims": [
         {
           "id": "staff",
-          "text": "This brass key is for the station's staff.",
+          "text": "The staff entrance has one brass key, and the staff have a bad habit of losing it.",
           "about": "ratiradio-staff-kitchen"
         },
         {
           "id": "leave-key-inside",
-          "text": "Leave the Station Key inside the Staff Kitchen and the entrance stays open.",
+          "text": "The staff entrance stays open for everyone while the Station Key is inside the Staff Kitchen.",
           "about": "ratiradio-staff-kitchen"
         }
       ]
@@ -246,7 +246,7 @@
       "claims": [
         {
           "id": "lost-property",
-          "text": "The red beanie, ceramic raven and glass were lost beyond the station and belong in the Listening Room.",
+          "text": "The Red Beanie, Raven Figurine and Half-full Glass went missing beyond the station and are due back in the Listening Room.",
           "about": "ratiradio-listening-room"
         }
       ]

@@ -151,8 +151,9 @@
       "author": "keeper",
       "lifecycle": "fixed",
       "teachesQuest": "pond",
+      "questReadText": "The keeper asks you to make the next call at Black pond and watch the far shore for the ship.",
       "claims": [
-        { "id": "pond-signal", "text": "To call the ship, hold the Black cloth at Black pond while the Lamp burns on the ground there.", "about": "pond" }
+        { "id": "pond-signal", "text": "The ship takes its signal at Black pond from the Black cloth held in hand and the Lamp burning on the ground.", "about": "pond" }
       ]
     }
   },

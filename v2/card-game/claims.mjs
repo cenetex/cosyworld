@@ -52,22 +52,26 @@ const recorded = (s, packId, book) => {
     .filter((choice) => Object.hasOwn(receipts, choice))
     .sort((a, b) => receipts[a] - receipts[b]);
 };
-const record = (packId, book, claim, text) => ({
-  id: `claim:${packId}:${book}:${claim}`,
-  text,
-  book,
-  claim,
-  author: itemOf(packId, book).author,
-  about: null,
-});
+const record = (packId, book, claim, fallback) => {
+  const item = itemOf(packId, book);
+  const written = item.recordText;
+  return {
+    id: `claim:${packId}:${book}:${claim}`,
+    text: written && Object.hasOwn(written, claim) ? written[claim] : fallback(),
+    book,
+    claim,
+    author: item.author,
+    about: null,
+  };
+};
 const recordClaims = (s, packId, book) => {
   const pack = packDefinition(packId);
   if (!pack) return [];
   return recorded(s, packId, book)
-    .map((choice) => {
-      const said = committedChoiceText(s, pack, pack.choices.find((c) => c.id === choice));
-      return record(packId, book, choice, said.match(/^.*?[.!?]["'’”]?(?=\s|$)/u)?.[0] ?? said);
-    })
+    .map((id) => record(packId, book, id, () => {
+      const said = committedChoiceText(s, pack, pack.choices.find((c) => c.id === id));
+      return said.match(/^.*?[.!?]["'’”]?(?=\s|$)/u)?.[0] ?? said;
+    }))
     .filter((claim) => validFactText(claim.text));
 };
 export const authoredClaim = (id) =>
@@ -77,7 +81,7 @@ export const savedClaim = (s, id, fact) => {
   const claim =
     authoredClaim(id) ??
     (recorded(s, packId, book).includes(choice)
-      ? record(packId, book, choice, fact?.text)
+      ? record(packId, book, choice, () => fact?.text)
       : null);
   return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
 };
