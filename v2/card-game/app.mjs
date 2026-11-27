@@ -3970,7 +3970,7 @@ function renderScene() {
   // place its own share and lights, such as the attic's lamp. A place with
   // no night painting takes the full night grade, cooled.
   const authored = placeLight(scene.locationId);
-  renderWeather($("stage"), scene.weather, { ease: stayed });
+  renderWeather($("stage"), scene.weather, { ease: stayed, ambience: sleepLight.hold ? null : authored.ambience });
   let overlay = $("location-overlay");
   if (scene.overlay && !overlay) {
     overlay = node("img", undefined, "backdrop location-overlay");

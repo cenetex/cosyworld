@@ -3,20 +3,70 @@ import {
   weatherStill,
   weatherUniforms,
 } from "./weather-shader.mjs";
-import { blendUniforms, WEATHER_EASE_MS } from "./transitions.mjs";
+import { blendUniforms, scaresEnabled, SCARES_CHANGE, WEATHER_EASE_MS } from "./transitions.mjs";
 import { onStageLight, stageLight } from "./stage-light-view.mjs";
 import { isNeutral, LIGHT_TINTS, nightness } from "./stage-light.mjs";
+import { imageUrl } from "./images.mjs";
 
 const live = new Map();
+const ambient = new WeakMap();
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 function wake() {
   for (const state of live.values()) {
     cancelAnimationFrame(state.frame);
     state.draw();
   }
+  wakeAmbience();
 }
 document.addEventListener("visibilitychange", wake);
 reducedMotion.addEventListener("change", wake);
+document.addEventListener(SCARES_CHANGE, wakeAmbience);
+window.addEventListener("storage", ({ key }) => {
+  if (key === "cosyworld.scares" || key === null) wakeAmbience();
+});
+
+function wakeAmbience() {
+  for (const stage of document.querySelectorAll(".stage[data-ambience]"))
+    syncAmbience(stage, ambient.get(stage));
+}
+
+function syncAmbience(stage, state) {
+  if (!state) return;
+  const { impact } = state.cue;
+  const moving = !document.hidden && !reducedMotion.matches &&
+    stage.dataset.placeCovered !== "true" && (!impact || scaresEnabled());
+  if (moving && !stage.dataset.ambientMotion) stage.dataset.ambientMotion = "true";
+  if (!moving && stage.dataset.ambientMotion) delete stage.dataset.ambientMotion;
+  if (!moving || !impact || state.requested) return;
+  state.requested = true;
+  const source = imageUrl(`./${impact}`);
+  const image = new Image();
+  image.src = source;
+  image.decode().then(() => {
+    if (ambient.get(stage) !== state || !stage.isConnected) return;
+    stage.style.setProperty("--ambient-impact", `url(${JSON.stringify(source)})`);
+    stage.dataset.ambientReady = "true";
+  }).catch(() => { /* The quiet painting remains visible. */ });
+}
+
+function renderAmbience(stage, cue) {
+  let state = ambient.get(stage);
+  if (state && state.cue !== cue) {
+    ambient.delete(stage);
+    delete stage.dataset.ambience;
+    delete stage.dataset.ambientMotion;
+    delete stage.dataset.ambientReady;
+    stage.style.removeProperty("--ambient-impact");
+    state = null;
+  }
+  if (!cue) return;
+  if (!state) {
+    state = { cue, requested: false };
+    ambient.set(stage, state);
+    stage.dataset.ambience = cue.kind;
+  }
+  syncAmbience(stage, state);
+}
 
 // The painting's frame and the stage's box, read once and kept until
 // something can move them: a new size, the stage's or the page's own styles
@@ -202,7 +252,7 @@ export function flashStage(stage, strength, ms, delay = 0) {
 // Stage scenery and place cards use the same resolved location weather.
 // Set the element's data-time-of-day first so night tones apply on cards. A
 // change at the same place eases in; a new place starts on its own sky.
-export function renderWeather(element, weather, { ease = false } = {}) {
+export function renderWeather(element, weather, { ease = false, ambience = null } = {}) {
   let layer = element.querySelector(":scope > .weather-layer");
   const stage = element.classList.contains("stage");
   for (const [key, value] of [
@@ -224,6 +274,7 @@ export function renderWeather(element, weather, { ease = false } = {}) {
     element.append(layer);
   }
   if (stage) {
+    renderAmbience(element, ambience);
     animate(layer, weather, ease);
     return;
   }

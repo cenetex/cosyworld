@@ -2609,6 +2609,15 @@
       "phone": "assets/optimized/phone/png/elysium/void-004.webp",
       "phoneHash": "7188ef08e39e5dc0675e34e962d7e2bb7f143eaf258053961feb9a6ff2f5ffcb"
     },
+    "assets/elysium/void-005-quiet.png": {
+      "sourceHash": "a301c6492032b1ba1770dc802c27d2d94c61e9ba2277e858b352f68f9f101617",
+      "stage": "assets/optimized/stage/png/elysium/void-005-quiet.webp",
+      "stageHash": "8581cbe3b8c387d0c816310b194bd75055876c1fd1bbc3b46b8f317a979eb459",
+      "card": "assets/optimized/card/png/elysium/void-005-quiet.webp",
+      "cardHash": "63c74f2820dc3eadcaf12eadd7277e5c37d74db920293a34d404e9ed26974f63",
+      "phone": "assets/optimized/phone/png/elysium/void-005-quiet.webp",
+      "phoneHash": "27826291ed4280357567e5e08cda847c6f98dd0a6cc89eaf27af56e184afc1f7"
+    },
     "assets/elysium/void-005-token.png": {
       "sourceHash": "23e8577d520bac134ebc5ab839000c36e994f70267f20c1b5eef7b94b591097f",
       "stage": "assets/optimized/stage/png/elysium/void-005-token.webp",

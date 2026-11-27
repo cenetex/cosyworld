@@ -119,6 +119,8 @@ export const FLASH_MS = 140;
 export const QUIET_MS = 30_000;
 export const FLASH_CHANCE = 0.4;
 const SCARES_KEY = "cosyworld.scares";
+export const SCARES_CHANGE = "cosyworld:scares-change";
+let sessionScares;
 
 export function isHalloween(
   date = new Date(),
@@ -142,6 +144,7 @@ export function uncannyAt(
 }
 
 export function scaresEnabled() {
+  if (sessionScares !== undefined) return sessionScares;
   try {
     return localStorage.getItem(SCARES_KEY) !== "off";
   } catch {
@@ -149,7 +152,6 @@ export function scaresEnabled() {
   }
 }
 
-// The settings button turns flashes and scares off for this browser.
 export function installScaresToggle(button) {
   if (!button) return;
   const show = () => {
@@ -158,10 +160,15 @@ export function installScaresToggle(button) {
     button.setAttribute("aria-pressed", String(on));
   };
   button.onclick = () => {
+    const on = !scaresEnabled();
     try {
-      localStorage.setItem(SCARES_KEY, scaresEnabled() ? "off" : "on");
-    } catch {}
+      localStorage.setItem(SCARES_KEY, on ? "on" : "off");
+      sessionScares = undefined;
+    } catch {
+      sessionScares = on;
+    }
     show();
+    document.dispatchEvent(new Event(SCARES_CHANGE));
   };
   show();
 }

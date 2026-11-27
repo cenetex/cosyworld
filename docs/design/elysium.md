@@ -31,6 +31,35 @@ Paths are relative to the repository root; `card-game/` means `v2/card-game/`
 and `rust/` means `v2/orchestrator-rust/src/`. "The prompt" is the text the
 Rust text route sends to a model; "output" is what the model returns.
 
+## Void atmosphere
+
+Keep the camera and cast footing fixed. Each Void holds its painting under a
+separate light layer. The colors distinguish the rooms in the style of a
+color script. [Studio Ghibli layouts](https://www.ghibli.jp/info/004840/),
+[Toei Animation compositing](https://corp.toei-anim.co.jp/en/ir/library/Report/main/04/teaserItems1/0/linkList/0/link/PEROS%20REPORT%202022%20en.pdf),
+[Science SARU color scripting](https://www.theghostintheshell-anime.jp/en/news/article/?id=23788).
+
+| Void | Light cue |
+| --- | --- |
+| 001 | Gold motes and a distant glow |
+| 002 | Amber dust over the folio |
+| 003 | Cool glints across the two mirrors |
+| 004 | A teal and gold wash along the loom |
+| 005 | A copper sky, with one lightning strike and a fading afterglow per 16 seconds |
+| 006 | Indigo light along the well rings |
+| 007 | Jade haze across the stairs |
+
+Void 005 holds a quiet edit of the original painting, then briefly reveals
+the original strike through a sky mask. It uses a long hold and a short
+exposure. [OpenToonz exposure sheets](https://opentoonz.readthedocs.io/en/latest/working_in_xsheet.html).
+The strike stops with **Flashes and scares** off. Reduced motion and hidden
+tabs stop the animated layers. The local strike uses one peak with a fade,
+following the [WCAG flash-frequency guidance](https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold).
+
+Room cues live in `v2/card-game/stage-light.json` and use the shared stage
+weather renderer. They play behind the cast and leave world turns and event
+journals alone.
+
 ## Decisions
 
 Decided by the owner on 2026-11-26.
@@ -50,6 +79,11 @@ Decided by the owner on 2026-11-26.
    void token is returned to its Void, its portrait is generated.
 
 ## Where things stand
+
+Void 005 uses Grok 4.7. Naming and dialogue request low reasoning when the
+model route supports it. The bound model check accepts the request ID
+`x-ai/grok-4.7` and the serving ID `x-ai/grok-4.7-20260916`.
+[OpenRouter model revision](https://openrouter.ai/x-ai/grok-4.7-20260916).
 
 Void 001's shared portrait pilot uses the Gold Spiral opening and a server
 record of the Keystone return. A later committed turn can start the job for

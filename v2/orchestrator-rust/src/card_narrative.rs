@@ -1,5 +1,6 @@
 use crate::ai_gateway::ModelCapability;
 use crate::ai_gateway::{request_voice_completion, AiConfig, ChatCompletionRequest};
+use crate::card_shared::{elysium_model_mismatch, tune_elysium_voice};
 use crate::rate_limit::{RateLimit, RateLimiter};
 use crate::routes::signed_envelope::Envelope;
 use axum::{
@@ -2081,8 +2082,7 @@ fn leaving(context: &Context, id: &str) -> bool {
     })
 }
 
-/// Select a configured tier through the same registry and policy as every
-/// world-content request.
+/// Select a configured tier through the world-content model registry.
 fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
     let mut config = config.clone();
     if let Some(model) = model {
@@ -2098,8 +2098,7 @@ fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
     config
 }
 
-/// Generate a validated part. Ordinary voices can fall back through their
-/// configured tiers. Each Elysium resident always speaks with its own model.
+/// Generate a validated part with the speaker's configured model and fallback policy.
 async fn speak(
     config: &AiConfig,
     context: &Context,
@@ -2117,7 +2116,8 @@ async fn speak(
             .flatten()
             .or_else(|| character_models.get(id).map(String::as_str))
     });
-    let own = tier_config(config, own_model);
+    let mut own = tier_config(config, own_model);
+    tune_elysium_voice(&mut own, bound);
     let fallbacks = if bound.is_some() {
         &[]
     } else {
@@ -2179,8 +2179,8 @@ async fn speak(
                     } else {
                         (1.0 - 0.1 * f64::from(attempt)).max(0.7)
                     },
-                    // A reasoning model may spend some tokens before it has
-                    // visible words. The usual line and memory limits still apply.
+                    // Leave reasoning models space before their visible words.
+                    // The usual line and memory limits still apply.
                     max_tokens: if bound.is_some() {
                         1024
                     } else if part == Part::Persona {
@@ -2215,7 +2215,7 @@ async fn speak(
                         );
                         fallback::Miss::Failed
                     })?;
-                if bound.is_some_and(|model| completion.resolved_model_id != model) {
+                if elysium_model_mismatch(bound, &completion.resolved_model_id) {
                     tier.fetch_max(1, Ordering::Relaxed);
                     call.reject("model_mismatch");
                     tracing::warn!(

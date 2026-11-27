@@ -254,6 +254,73 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn grok_accepts_its_exact_revision_and_keeps_low_reasoning() {
+        const RESIDENT: &str = "elysium-grok";
+        const ROOM: &str = "elysium-void-005";
+        const REVISION: &str = "x-ai/grok-4.7-20260916";
+        const REPLY: &str = "I hear thunder over the ledge.";
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let requests = seen.clone();
+        let provider = post(move |Json(body): Json<Value>| async move {
+            let mut requests = requests.lock().unwrap();
+            requests.push(body);
+            let (model, text) = match requests.len() {
+                1 => ("x-ai/grok-4.6", "Borrowed Name"),
+                2 => (REVISION, "Copper Lark"),
+                3 => (REVISION, REPLY),
+                _ => ("x-ai/grok-4.7-20260917", REPLY),
+            };
+            Json(
+                json!({"model":model,"choices":[{"message":{"content":text},"finish_reason":"stop"}]}),
+            )
+        });
+        let (address, server) = serve(Router::new().route("/chat/completions", provider)).await;
+        let model = crate::card_shared::elysium_model(RESIDENT).unwrap();
+        let config = tiered_config(address, &[(model, true)]);
+        let root = std::env::temp_dir().join(format!("grok-name-{}", crate::random_hex(8)));
+        let mut state = crate::test_support::test_app_state(None);
+        state.ai_config = Arc::new(Some(config.clone()));
+        state.generated_asset_dir = Arc::new(root.clone());
+        let intro = crate::card_shared::resident_introduction(&state, RESIDENT, ROOM, None)
+            .await
+            .unwrap();
+        assert_eq!(intro.name.as_deref(), Some("Copper Lark"));
+
+        let mut scene = void_scene();
+        scene.location = ROOM.into();
+        scene.entities[0].id = RESIDENT.into();
+        scene.entities[1].id = ROOM.into();
+        scene.speakers = vec![RESIDENT.into()];
+        let settings = VoiceSettings {
+            fallback_models: vec!["test-entity-model".into()],
+            ..VoiceSettings::hosted()
+        };
+        let cast = Default::default();
+        let deadline = tokio::time::Instant::now() + settings.scene_timeout;
+        let line = || {
+            speak(
+                &config,
+                &scene,
+                &cast,
+                &settings,
+                deadline,
+                RESIDENT,
+                Part::Line,
+            )
+        };
+        assert_eq!(line().await.unwrap(), (REPLY.into(), REVISION.into()));
+        assert!(line().await.is_err());
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 4);
+        assert!(seen.iter().all(|request| request["model"] == model));
+        assert!(seen
+            .iter()
+            .all(|request| request["reasoning"]["effort"] == "low"));
+        std::fs::remove_dir_all(root).unwrap();
+        server.abort();
+    }
+
+    #[tokio::test]
     async fn elysium_speech_and_reflections_use_only_the_bound_model() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let log = seen.clone();
