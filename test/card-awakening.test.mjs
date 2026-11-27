@@ -11,6 +11,8 @@ import {
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
+import { actionCaption } from "../v2/card-game/beats.mjs";
+import { isSceneText } from "../v2/card-game/scene.mjs";
 import {
   narrativeContext,
   turnOutcome,
@@ -48,7 +50,7 @@ const signal = (s) => s.crossings["pond-clearing"];
 const reach = (s) => act(s, "move", null, "clearing");
 
 describe("the bell crossing to the Steam Clock", () => {
-  it("gives the first ring one reply from echo and preserves it through reload and retries", () => {
+  it("gives the first ring one Echo caption and preserves it through reload and retries", () => {
     let s = ring(pond());
     const context = narrativeContext(s);
     const response = {
@@ -60,23 +62,31 @@ describe("the bell crossing to the Steam Clock", () => {
       })),
     };
     s = applyGeneratedText(s, context, response);
-    const replies = (world) =>
-      world.log.filter((entry) => entry.generated && entry.turn === world.turn);
-    expect(replies(s)).toHaveLength(1);
-    expect(replies(s)[0]).toMatchObject({
+    const echoes = (world) =>
+      world.log.filter((entry) => entry.speaker === "echo" && entry.turn === world.turn);
+    expect(echoes(s)).toHaveLength(1);
+    const [echo] = echoes(s);
+    expect(echo).toMatchObject({
       speaker: "echo",
       text: "bong",
-      kind: "dialogue",
+      kind: "narration",
+      actorId: null,
+    });
+    expect(echo.generated).not.toBe(true);
+    expect(isSceneText(echo)).toBe(false);
+    expect(actionCaption(echo, { viewer: "vale", here: "pond" })).toMatchObject({
+      kind: "signal_echo",
+      text: "Bong.",
     });
     s = decodeSave(encodeSave(s));
     s = applyGeneratedText(s, context, response);
-    expect(replies(s)).toHaveLength(1);
+    expect(echoes(s)).toEqual([echo]);
     s = ring(s);
     expect(s.actors.vale.place).toBe("pond");
     expect(availableCards(s)).toContain("clearing");
     s = reach(s);
     expect(s.actors.vale.place).toBe("clearing");
-    expect(replies(s)).toHaveLength(0);
+    expect(echoes(s)).toHaveLength(0);
   });
 
   it("reveals the way on the second consecutive ring, then crosses with carried items", () => {
