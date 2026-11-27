@@ -186,7 +186,6 @@ it("aligns the three stones to open permanent Fibonacci doors through ordinary t
   expect(world.elysiumCoordinates[voidRoom(8)]).toEqual(sumGallery);
   expect(world.elysiumCoordinates[voidRoom(19)]).toBeUndefined();
 
-  // Move a different stone after 008 to take its independent side route.
   let side = take(
     move(first, spiral, voidRoom(1), voidRoom(2), voidRoom(3)),
     middle,
@@ -211,7 +210,6 @@ it("aligns the three stones to open permanent Fibonacci doors through ordinary t
   ]);
   expect(Object.keys(first.elysiumCoordinates)).toEqual([voidRoom(8)]);
 
-  // When both branches have opened in one world, 008 offers exactly three ways.
   world = drop(move(take(world, middle), voidRoom(8)), middle);
   world = move(take(world, inner), OBSERVATORY, spiral, voidRoom(1));
   world = drop(world, inner);

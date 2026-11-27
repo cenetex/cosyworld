@@ -23,9 +23,7 @@ const coordinateEntityRoom = (id) =>
       ? id
       : null;
 
-// The normal item-at route requirements are also the ordered address.
-// Keeping the mapping here, derived from the pack, gives the gates and the
-// Observatory display one canonical reading of a stone.
+// Ring positions use the same item-at requirements as travel.
 let routes;
 function coordinates() {
   routes ??= (packDefinition("elysium")?.routes || [])
@@ -86,8 +84,6 @@ export const coordinateRouteDiscovered = (world, from, to) =>
   Boolean(world.elysiumCoordinates?.[to]) &&
   coordinates().some((route) => route.from === from && route.room === to);
 
-// Saved draws anchor the atmosphere and resident temperament as well as the
-// provider. All three are reproducible by the shared rules without inference.
 const surroundings = [
   "Thin lines of frost follow the edges of the stone.",
   "Drifts of gold dust hang in place above the floor.",
