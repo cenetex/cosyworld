@@ -114,9 +114,9 @@ try {
     await open(page, url);
     assert.equal(await front(page), late.text, "A partly read line resumes whole.");
     await read(page);
-    assert.equal(await front(page), "…", "A silent reply has its own tap.");
+    assert.equal(await front(page), "Reply unavailable", "A silent reply has its own tap.");
     await open(page, url);
-    assert.equal(await front(page), "…", "Reload preserves the silent reply.");
+    assert.equal(await front(page), "Reply unavailable", "Reload preserves the silent reply status.");
     const final = add("vale", "I hear the bell. I will wait beside the timetable.");
     world.revision++;
     history.push({ play: "final", room: "station", starts_at: Date.now(), lines: [final] });

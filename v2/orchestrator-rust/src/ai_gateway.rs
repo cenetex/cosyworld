@@ -4,6 +4,9 @@ pub(crate) mod image_options;
 #[path = "ai_gateway_stream.rs"]
 mod streaming;
 
+#[path = "ai_gateway_chat_response.rs"]
+mod chat_response;
+
 #[path = "ai_registry.rs"]
 mod registry;
 
@@ -11,11 +14,12 @@ mod registry;
 #[path = "card_llama.rs"]
 pub(crate) mod llama;
 
-use super::compact_whitespace;
 use crate::ai_readiness::{
     AiReadiness, AiReadinessGate, AiReadinessSnapshot, DEFAULT_LOW_CREDIT_THRESHOLD,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+#[cfg(test)]
+use chat_response::{readable_message_content, readable_reasoning_trace};
 pub(crate) use registry::{
     CapabilityRegistrySnapshot, ConcreteModelIdentity, DataPolicyMode, ModelAttribution,
     ModelCapability, PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV,
@@ -97,7 +101,6 @@ fn server_spend_ledger(config: &AiConfig) -> Arc<ServerSpendLedger> {
 // deterministic voice gate, but let the provider manage the private reasoning
 // budget instead of forcing thought and speech through one tiny token cap.
 const RAW_DIALOGUE_REASONING_MODE: &str = "enabled";
-const REASONING_TRACE_MAX_CHARS: usize = 2_048;
 const REASONING_MANDATORY_ERROR: &str =
     "reasoning is mandatory for this endpoint and cannot be disabled";
 
@@ -452,6 +455,7 @@ pub(crate) enum AiFailureKind {
         terminal: bool,
     },
     InvalidResponse,
+    InvalidChatResponse(chat_response::Problem),
 }
 
 impl AiFailureKind {
@@ -465,7 +469,7 @@ impl AiFailureKind {
             Self::Transport => "inference_transport_error",
             Self::ProviderHttp { .. } => "inference_provider_error",
             Self::Readiness { reason_code, .. } => reason_code,
-            Self::InvalidResponse => "inference_invalid_response",
+            Self::InvalidResponse | Self::InvalidChatResponse(_) => "inference_invalid_response",
         }
     }
 }
@@ -563,6 +567,17 @@ impl AiGatewayError {
         self.kind.code()
     }
 
+    pub(crate) fn response_detail(&self) -> Option<&'static str> {
+        match self.kind {
+            AiFailureKind::InvalidChatResponse(problem) => Some(problem.label()),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn retryable_chat_response(&self) -> bool {
+        matches!(self.kind, AiFailureKind::InvalidChatResponse(problem) if problem.retryable())
+    }
+
     pub(crate) fn affects_provider_health(&self) -> bool {
         matches!(
             self.kind,
@@ -570,6 +585,7 @@ impl AiGatewayError {
                 | AiFailureKind::Transport
                 | AiFailureKind::ProviderHttp { .. }
                 | AiFailureKind::InvalidResponse
+                | AiFailureKind::InvalidChatResponse(_)
         )
     }
 
@@ -1294,81 +1310,6 @@ fn reasoning_compatibility_fallback(
         .then_some(ReasoningCompatibilityFallback::Omit)
 }
 
-fn bounded_reasoning_trace(value: &str) -> Option<String> {
-    let value = compact_whitespace(value);
-    if value.is_empty() || value.eq_ignore_ascii_case("[redacted]") {
-        return None;
-    }
-    if value.chars().count() <= REASONING_TRACE_MAX_CHARS {
-        return Some(value);
-    }
-    let mut bounded = value
-        .chars()
-        .take(REASONING_TRACE_MAX_CHARS.saturating_sub(1))
-        .collect::<String>();
-    bounded.push('…');
-    Some(bounded)
-}
-
-/// Chat-completion providers normally return a string, but OpenAI-compatible
-/// gateways also emit text-part arrays. Accept both without treating tool,
-/// image, or opaque parts as resident speech.
-fn readable_message_content(message: &Value) -> Option<String> {
-    let content = message.get("content")?;
-    let text = if let Some(text) = content.as_str() {
-        text.to_string()
-    } else {
-        content
-            .as_array()?
-            .iter()
-            .filter_map(|part| {
-                part.as_str().or_else(|| {
-                    if part
-                        .get("type")
-                        .and_then(Value::as_str)
-                        .is_some_and(|kind| !matches!(kind, "text" | "output_text"))
-                    {
-                        return None;
-                    }
-                    part.get("text")
-                        .and_then(Value::as_str)
-                        .or_else(|| part.get("content").and_then(Value::as_str))
-                })
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
-    let text = text.trim();
-    (!text.is_empty()).then(|| text.to_string())
-}
-
-/// Extracts only readable reasoning. Structured summaries are preferred over
-/// raw text, while encrypted or redacted blocks are deliberately ignored.
-fn readable_reasoning_trace(message: &Value) -> Option<String> {
-    let details = message.get("reasoning_details").and_then(Value::as_array);
-    let detail_fragments = |field: &str| {
-        details
-            .into_iter()
-            .flatten()
-            .filter_map(|detail| detail.get(field).and_then(Value::as_str))
-            .filter_map(bounded_reasoning_trace)
-            .collect::<Vec<_>>()
-    };
-    let summaries = detail_fragments("summary");
-    if !summaries.is_empty() {
-        return bounded_reasoning_trace(&summaries.join(" "));
-    }
-    let texts = detail_fragments("text");
-    if !texts.is_empty() {
-        return bounded_reasoning_trace(&texts.join(" "));
-    }
-    message
-        .get("reasoning")
-        .or_else(|| message.get("reasoning_content"))
-        .and_then(Value::as_str)
-        .and_then(bounded_reasoning_trace)
-}
-
 /// The user turn before a character's own view, and its words when it has
 /// heard nothing. Claude and Gemma's template refuse a chat that opens on an
 /// assistant turn; silence opens every call the same way. It is no
@@ -1699,6 +1640,12 @@ async fn request_completion(
             ));
         };
 
+        let invalid_chat = |problem: chat_response::Problem| AiGatewayError {
+            kind: AiFailureKind::InvalidChatResponse(problem),
+            message: format!("{feature} response could not be used ({})", problem.label()),
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        };
         let body: serde_json::Value = if let Some(on_delta) = on_delta {
             streaming::read_completion(response, on_delta, selection)
                 .await
@@ -1709,43 +1656,19 @@ async fn request_completion(
                     latency: started_at.elapsed(),
                 })?
         } else {
-            response.json().await.map_err(|error| AiGatewayError {
-                kind: AiFailureKind::InvalidResponse,
-                message: format!("{feature} response was not valid JSON: {error}"),
-                attempts: attempt,
-                latency: started_at.elapsed(),
+            response.json().await.map_err(|error| {
+                invalid_chat(if error.is_decode() {
+                    chat_response::Problem::MalformedJson
+                } else {
+                    chat_response::Problem::UnreadableBody
+                })
             })?
         };
-        let first_choice = body
-            .get("choices")
-            .and_then(|choices| choices.get(0))
-            .ok_or_else(|| AiGatewayError {
-                kind: AiFailureKind::InvalidResponse,
-                message: format!("{feature} response did not include a choice"),
-                attempts: attempt,
-                latency: started_at.elapsed(),
-            })?;
-        let message = first_choice.get("message").ok_or_else(|| AiGatewayError {
-            kind: AiFailureKind::InvalidResponse,
-            message: format!("{feature} response did not include a message"),
-            attempts: attempt,
-            latency: started_at.elapsed(),
-        })?;
-        let finish_reason = first_choice
-            .get("finish_reason")
-            .and_then(Value::as_str)
-            .unwrap_or("unknown")
-            .to_string();
-        let reasoning_trace = readable_reasoning_trace(message);
-        let text = readable_message_content(message).ok_or_else(|| AiGatewayError {
-                kind: AiFailureKind::InvalidResponse,
-                message: format!(
-                    "{feature} response did not include message content (finish_reason={finish_reason}, reasoning_only={})",
-                    reasoning_trace.is_some()
-                ),
-                attempts: attempt,
-                latency: started_at.elapsed(),
-            })?;
+        let chat_response::VisibleReply {
+            text,
+            reasoning_trace,
+            finish_reason,
+        } = chat_response::visible_reply(&body).map_err(invalid_chat)?;
         let usage = body.get("usage");
         let usage = AiTokenUsage {
             prompt_tokens: usage

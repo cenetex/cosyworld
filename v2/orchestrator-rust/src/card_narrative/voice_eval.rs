@@ -541,8 +541,10 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
     grew(&["outcomes", "silent"], 1);
     grew(&["rejections", "assistant"], 1);
     assert!(after["prompt_tokens"]["max"].as_u64().unwrap() > 0);
-    // Counters carry labels and numbers, never prompt or reply text.
-    assert!(!after.to_string().contains("lamp"));
+    // A public pack entity can be named lamp. The words stay out of telemetry.
+    let metrics = after.to_string();
+    assert!(!metrics.contains("As an AI, I keep the lamp."));
+    assert!(!metrics.contains("Holding the lamp."));
 }
 
 /// Dione wants the Funeral Oil Vale carries (.dev, 2026-11-03: "Ask Vale to

@@ -427,7 +427,7 @@ try {
       }
       await shared.waitForFunction(
         (text) => document.querySelector("#dialogue-text").textContent === text,
-        width === 390 ? "…" : words("moth"),
+        width === 390 ? "Reply unavailable" : words("moth"),
       );
       assert.equal(await shared.locator("#story-status").isVisible(), false);
       assert.equal(await shared.locator("#action-beat").isVisible(), false);

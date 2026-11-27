@@ -131,6 +131,7 @@ it("loads the portrait from a saved personal return when the resident is nearby"
   const world = returnedWorld({ scatteredAt: 10, talkedAt: 11 });
   display.observe(world, "vale", null);
   expect(fetch).not.toHaveBeenCalled();
+  expect(display.note(resident)).toBe("");
 
   world.actors.vale.place = "pond";
   world.elysiumEncounters[resident] = { scatteredAt: 10, returnedAt: 14, returnedBy: "vale" };
@@ -142,6 +143,7 @@ it("loads the portrait from a saved personal return when the resident is nearby"
   world.actors.vale.place = room;
   restored.observe(world, "vale", null);
   restored.observe(world, "vale", null);
+  expect(restored.note(resident)).toBe("Portrait pending.");
   expect(fetch).toHaveBeenCalledExactlyOnceWith(`/card-game/elysium-portrait/${resident}`, expect.objectContaining({
     credentials: "same-origin",
     method: "POST",
@@ -152,7 +154,8 @@ it("loads the portrait from a saved personal return when the resident is nearby"
   });
   await vi.waitFor(() => expect(restored.source(resident, false)).toBe(portraitSource));
   expect(restored.source(resident, true)).toBeNull();
-  expect(redraw).toHaveBeenCalledOnce();
+  expect(restored.note(resident)).toBe("");
+  expect(redraw).toHaveBeenCalledTimes(2);
 });
 
 it("aborts a personal portrait request on departure and pagehide", () => {
@@ -170,6 +173,7 @@ it("aborts a personal portrait request on departure and pagehide", () => {
   display.observe(world, "vale", null);
   expect(departed.aborted).toBe(true);
   expect(fetch).toHaveBeenCalledOnce();
+  expect(display.note(resident)).toBe("");
 
   world.actors.vale.place = room;
   display.observe(world, "vale", null);
@@ -177,12 +181,30 @@ it("aborts a personal portrait request on departure and pagehide", () => {
   const hidden = fetch.mock.calls[1][1].signal;
   events.get("pagehide")();
   expect(hidden.aborted).toBe(true);
+  expect(display.note(resident)).toBe("");
   display.observe(world, "vale", null);
   expect(fetch).toHaveBeenCalledTimes(2);
   events.get("pageshow")({ persisted: true });
   display.observe(world, "vale", null);
   expect(fetch).toHaveBeenCalledTimes(3);
   events.get("pagehide")();
+});
+
+it("reports the portrait retry and stops showing it when the reward is unavailable", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", async () => new Response(null, {
+    status: 202,
+    headers: { "X-Cosyworld-Portrait-Status": "retrying" },
+  }));
+  const display = createElysiumPortrait(null, () => {}, "table-one");
+  const world = returnedWorld({ scatteredAt: 10, talkedAt: 11, returnedAt: 14, returnedBy: "vale" });
+  display.observe(world, "vale", null);
+  expect(display.note(resident)).toBe("Portrait pending.");
+  await vi.advanceTimersByTimeAsync(0);
+  expect(display.note(resident)).toBe("Retrying portrait.");
+  await vi.advanceTimersByTimeAsync(510_000);
+  expect(display.note(resident)).toBe("Portrait unavailable.");
+  expect(display.source(resident, false)).toBeNull();
 });
 
 it.each([null, "world"])("waits for a second portrait render in table %s", async (worldId) => {

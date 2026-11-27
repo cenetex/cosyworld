@@ -65,6 +65,11 @@ async function personalIntroduction(browser, origin) {
       answer: "Something of mine slipped through a mirror before you saw me.",
       model: boundModel,
     },
+    {
+      question: "Did you paint that silver coat?",
+      answer: "I drew it with the light between the mirrors.",
+      model: boundModel,
+    },
   ];
   const key = "cosyworld.reflected-shore.v1.elysium-personal-smoke";
   const initial = createWorld({ seed: 17 });
@@ -104,10 +109,14 @@ async function personalIntroduction(browser, origin) {
   const attempts = [];
   const portraitRequests = [];
   const portraitPath = `/card-game/elysium-portrait/${resident}`;
+  let artReady = false;
   await page.route(`**${portraitPath}`, (route) => {
     assert.equal(route.request().method(), "POST");
     portraitRequests.push(route.request().postDataJSON());
-    if (portraitRequests.length === 1) return route.fulfill({ status: 202 });
+    if (!artReady) return route.fulfill({
+      status: 202,
+      headers: { "x-cosyworld-portrait-status": "retrying" },
+    });
     return route.fulfill({
       contentType: "image/png",
       headers: { "cache-control": "private, no-store" },
@@ -224,18 +233,34 @@ async function personalIntroduction(browser, origin) {
   await clearSelection(page);
   await selectCard(page, lens, { touch: true });
   await selectCard(page, resident, { touch: true });
+  const waitingForPortrait = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === portraitPath && response.status() === 202);
   await readyActionButton(page, "give").tap();
+  await waitingForPortrait;
+  await speech.filter({ hasText: "Reply unavailable" }).waitFor();
+  await settleHand(page);
+  await clearSelection(page);
+  await selectCard(page, resident, { touch: true });
+  const retryingArt = page.locator(".action-beat-note").filter({ hasText: "Retrying portrait." });
+  await retryingArt.waitFor();
+  artReady = true;
   await awaitPortrait();
+  await retryingArt.waitFor({ state: "hidden" });
   assert(giveDialogueRequests > 0, "the portrait arrives even when Give dialogue fails");
   const returned = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
   assert.equal(returned.items[lens].holder, resident);
   const receipt = returned.elysiumEncounters[resident];
   assert.equal(receipt.returnedBy, "vale");
-  assert.deepEqual(portraitRequests, [receipt, receipt]);
+  const requestCount = portraitRequests.length;
+  assert(requestCount >= 2);
+  assert.deepEqual(portraitRequests, Array(requestCount).fill(receipt));
   await page.reload();
   await awaitPortrait();
-  assert.deepEqual(portraitRequests, [receipt, receipt, receipt]);
+  assert.deepEqual(portraitRequests.slice(requestCount), [receipt]);
   await title.filter({ hasText: name }).waitFor();
+  await talk(exchanges[3]);
+  assert.equal(await speaker.textContent(), name);
+  await page.locator('#speaker-portrait img[src^="data:image/png;base64,"]').waitFor();
   assert.deepEqual(errors, []);
   await page.close();
 }

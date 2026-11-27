@@ -97,6 +97,7 @@ pub(super) struct CardMeta {
     persistence: CardMetaPersistence,
     /// Text-free counters for card voice calls since this process started.
     card_voice: serde_json::Value,
+    card_portraits: serde_json::Value,
 }
 
 #[derive(Debug, Serialize)]
@@ -179,6 +180,7 @@ pub(super) async fn card_meta(State(state): State<AppState>) -> Json<CardMeta> {
             generated_asset_count: storage.generated_asset_count,
         },
         card_voice: routes::card_game::narrative::voice_metrics::snapshot(),
+        card_portraits: crate::card_shared::portrait_activity(),
     })
 }
 

@@ -24,7 +24,7 @@ pub(crate) use engine::check_rules;
 mod full;
 pub(crate) use full::elysium_models::{
     elysium_model, elysium_model_mismatch, elysium_name, elysium_resident_at, elysium_setting,
-    is_legacy_elysium_introduction, tune_elysium_voice, valid_elysium_name,
+    is_legacy_elysium_introduction, portrait_activity, tune_elysium_voice, valid_elysium_name,
 };
 mod full_floor;
 #[cfg(test)]

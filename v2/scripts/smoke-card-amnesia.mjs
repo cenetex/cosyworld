@@ -29,7 +29,7 @@ try {
       localStorage.setItem("cosyworld.dialogue.sound", "off");
       localStorage.setItem("cosyworld.room-music", JSON.stringify({ enabled: false }));
     });
-    // At phone width the voice fails: no line is scripted, Vale shows "…".
+    // At phone width the voice fails and Vale's reply status appears.
     const voiceFails = width < 400;
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
@@ -83,7 +83,7 @@ try {
       await uncover("attic");
       if (voiceFails)
         await page.waitForFunction(
-          () => document.querySelector("#dialogue-text")?.textContent.trim() === "…",
+          () => document.querySelector("#dialogue-text")?.textContent.trim() === "Reply unavailable",
         );
       else await page.waitForFunction(() => /Where am I/.test(document.body.innerText));
       assert(!/remember how I got here/.test(await named()), "A scripted line showed");

@@ -9,7 +9,7 @@ const narrow = globalThis.matchMedia?.("(max-width: 640px)");
 
 // Catalog paths keep their identity; each view chooses the image it needs.
 export function imageUrl(source, size = "stage") {
-  if (typeof source !== "string" || !source) return source;
+  if (typeof source !== "string" || !source || source.startsWith("data:")) return source;
   if (size === "stage" && narrow?.matches) size = "phone";
   const key = `${size}:${source}`;
   if (resolved.has(key)) return resolved.get(key);

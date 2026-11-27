@@ -43,7 +43,7 @@ export function createPagedReveal({ frame, paginate, ...options }) {
   };
   return {
     show(key, text, speaker, { instant = false } = {}) {
-      if (line?.key === key) return;
+      if (line?.key === key && line.text === text) return;
       line = { key, text, speaker, instant, index: 0, pages: [text] };
       line.pages = paginate(text, { whole: instant });
       open();

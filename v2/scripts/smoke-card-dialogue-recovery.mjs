@@ -108,8 +108,7 @@ try {
     };
     const state = () =>
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
-    // Words that fail are a silent "…" line: there is no failure note, no
-    // Retry and no failed state, and play goes on at once.
+    // Unavailable dialogue keeps the next play ready.
     const noFailureUi = async () => {
       assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
       assert.equal(await page.locator("[data-retry-words]").count(), 0);
@@ -118,12 +117,12 @@ try {
         /didn.t arrive|Retry dialogue|\bRetry\b/u,
       );
     };
-    // The front beat is the speaker's "…" alone: never a line and a failure.
+    // The front beat shows the missing reply as a single status.
     const silentBeat = async () => {
       await page.waitForFunction(
         () =>
           document.querySelector("#speech-row")?.dataset.beat === "silent" &&
-          document.querySelector("#dialogue-text").textContent.trim() === "…",
+          document.querySelector("#dialogue-text").textContent.trim() === "Reply unavailable",
         null,
         { timeout: 6000 },
       );
@@ -145,7 +144,7 @@ try {
     assert.equal(requests.length, 1, "one request, no second try");
     assert.equal(await page.locator(".dialogue").isVisible(), true);
     assert.equal(await page.locator("#story-status").isVisible(), false);
-    // The "…" is the speaker's own beat, named like any line.
+    // The status appears on the beat of the expected speaker.
     assert.notEqual((await page.locator("#speaker").innerText()).trim(), "");
     const captionBounds = await page.locator("#beat-captions").boundingBox();
     assert(
@@ -158,7 +157,7 @@ try {
     const before = await state();
     await page.waitForTimeout(1500);
     assert.equal(requests.length, 1);
-    // The next play is available at once. Invalid content is "…" too, and
+    // The next play is available at once. Invalid content also shows a status, and
     // nothing is saved for it.
     mode = "invalid";
     const choose = async () => {
@@ -312,7 +311,7 @@ try {
     await page.keyboard.press("Escape");
     assert.deepEqual(errors, []);
     console.log(
-      `Silent "…" on failure, next play at once, late line and reload passed at ${width}px.`,
+      `Unavailable reply status, next play, late line and reload passed at ${width}px.`,
     );
     await page.close();
   }

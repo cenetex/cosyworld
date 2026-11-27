@@ -38,5 +38,7 @@ it("turns pages under one line and completes on the last", () => {
   expect(paged.nextPage()).toBe(false);
   paged.show("read", "One. Two.", "vale", { instant: true });
   expect(frames.at(-1)).toMatchObject({ page: "One. Two.", complete: true });
+  paged.show("read", "…", "vale", { instant: true });
+  expect(frames.at(-1)).toMatchObject({ page: "…", complete: true });
   paged.cancel();
 });
