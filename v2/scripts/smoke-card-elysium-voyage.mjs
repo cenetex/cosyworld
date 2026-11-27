@@ -6,7 +6,7 @@ import { heldItem } from "../card-game/held-item.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared, load } from "../card-game/shared-world.mjs";
-import { createWorld, encodeSave, exits, holdChoice, legalActions, play as playWorld } from "../card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave, exits, holdChoice, legalActions, play as playWorld } from "../card-game/world.mjs";
 import {
   clearSelection,
   readyActionButton,
@@ -45,6 +45,7 @@ function ordinaryStart() {
 async function personalIntroduction(browser, origin) {
   const resident = "elysium-gemini";
   const room = "elysium-void-003";
+  const lens = `${resident}-token`;
   const name = "Vaelen Silver-Lens";
   const boundModel = "google/gemini-4-hydrogen";
   const exchanges = [
@@ -70,11 +71,8 @@ async function personalIntroduction(browser, origin) {
   initial.turn = initial.revision = DAYLIGHT_TURNS;
   initial.actors.vale.place = "station";
   initial.items[wayfinder].holder = "station";
-  const route = [entry, encounterRoom, room];
   let world = initial;
-  for (const [kind, target] of [
-    ["take", wayfinder], ...route.map((place) => ["move", place]), ["talk", resident],
-  ]) {
+  function playFixture(kind, target) {
     const action = legalActions(world).find((action) =>
       action.kind === kind && (action.target === target || action.item === target),
     );
@@ -83,6 +81,9 @@ async function personalIntroduction(browser, origin) {
     assert.ok(result.ok, result.error);
     world = result.state;
   }
+  playFixture("take", wayfinder);
+  for (const place of [entry, encounterRoom, room]) playFixture("move", place);
+  playFixture("talk", resident);
   assert.ok(world.elysiumEncounters[resident].talkedAt);
   holdChoice(world, "vale", { item: null, revision: world.revision });
   const page = await browser.newPage({
@@ -96,16 +97,31 @@ async function personalIntroduction(browser, origin) {
     localStorage.setItem(`${key}.seen`, JSON.stringify(known));
     localStorage.setItem("cosyworld.dialogue.sound", "off");
     localStorage.setItem("cosyworld.room-music", JSON.stringify({ enabled: false }));
-  }, { key, save: encodeSave(world), known: Object.keys(profiles).filter((id) => id !== `${resident}-token`) });
+  }, { key, save: encodeSave(world), known: Object.keys(profiles).filter((id) => id !== lens) });
   await page.route("**/auth/account", (route) =>
     route.fulfill({ json: { authenticated: false } }),
   );
   const attempts = [];
+  const portraitRequests = [];
+  const portraitPath = `/card-game/elysium-portrait/${resident}`;
+  await page.route(`**${portraitPath}`, (route) => {
+    assert.equal(route.request().method(), "POST");
+    portraitRequests.push(route.request().postDataJSON());
+    if (portraitRequests.length === 1) return route.fulfill({ status: 202 });
+    return route.fulfill({
+      contentType: "image/png",
+      headers: { "cache-control": "private, no-store" },
+      body: generatedPortrait,
+    });
+  });
+  let giveDialogueRequests = 0;
   await page.route("**/card-game/text", (route) => {
     const { revision, turn, outcome, conversation, elysiumIntroduced, elysiumTokenScattered } =
       route.request().postDataJSON();
-    if (outcome?.card?.kind !== "talk" || outcome.card.target !== resident)
+    if (outcome?.card?.kind !== "talk" || outcome.card.target !== resident) {
+      if (outcome?.card?.kind === "give" && outcome.card.target === resident) giveDialogueRequests++;
       return route.fulfill({ status: 503 });
+    }
     const exchange = exchanges[attempts.length];
     attempts.push({ elysiumIntroduced, elysiumTokenScattered, conversation });
     if (!exchange) return route.fulfill({ status: 503 });
@@ -185,6 +201,41 @@ async function personalIntroduction(browser, origin) {
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
   assert(saved.log.some((line) => line.actorId === resident && line.elysiumName === name));
   assert(!attempts[2].conversation.some((line) => line.text.includes("Lens")));
+  world = decodeSave(JSON.stringify(saved));
+  const landing = world.items[lens].holder;
+  for (const place of [encounterRoom, "station"]) playFixture("move", place);
+  if (landing !== "station") playFixture("move", landing);
+  playFixture("take", lens);
+  holdChoice(world, "vale", { item: wayfinder, revision: world.revision });
+  for (const place of [entry, encounterRoom, room]) playFixture("move", place);
+  holdChoice(world, "vale", { item: null, revision: world.revision });
+  await page.evaluate(({ key, save }) => localStorage.setItem(key, save),
+    { key, save: encodeSave(world) });
+  await page.reload();
+  await title.filter({ hasText: name }).waitFor();
+  assert.deepEqual(portraitRequests, []);
+  const stagePortrait = page.locator(`#cast [data-avatar="${resident}"] img`).first();
+  const cardPortrait = page.locator(`#hand [data-card="${resident}"] .art > img`).first();
+  const awaitPortrait = () =>
+    Promise.all([stagePortrait, cardPortrait].map((image) =>
+      image.and(page.locator('img[src^="data:image/png;base64,"]')).waitFor(),
+    ));
+  await settleHand(page);
+  await clearSelection(page);
+  await selectCard(page, lens, { touch: true });
+  await selectCard(page, resident, { touch: true });
+  await readyActionButton(page, "give").tap();
+  await awaitPortrait();
+  assert(giveDialogueRequests > 0, "the portrait arrives even when Give dialogue fails");
+  const returned = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+  assert.equal(returned.items[lens].holder, resident);
+  const receipt = returned.elysiumEncounters[resident];
+  assert.equal(receipt.returnedBy, "vale");
+  assert.deepEqual(portraitRequests, [receipt, receipt]);
+  await page.reload();
+  await awaitPortrait();
+  assert.deepEqual(portraitRequests, [receipt, receipt, receipt]);
+  await title.filter({ hasText: name }).waitFor();
   assert.deepEqual(errors, []);
   await page.close();
 }
@@ -549,7 +600,7 @@ try {
   );
   await Promise.all([vale.close(), mara.close()]);
   await personalIntroduction(browser, origin);
-  console.log("Elysium personal table: Vale speaks, the Void resident answers, and its learned name survives reload.");
+  console.log("Elysium personal table: the name persists and the returned Twin Lens earns a portrait through a dialogue failure and reload.");
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));

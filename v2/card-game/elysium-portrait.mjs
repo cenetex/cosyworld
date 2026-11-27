@@ -2,16 +2,17 @@ import { accountRevision } from "./account-revision.mjs";
 import { accountStorage } from "./account-reset-storage.mjs";
 import { ELYSIUM_MODEL_IDS, elysiumNameIndex, elysiumTalk, legacyElysiumName, validElysiumName } from "./elysium-models.mjs";
 import { imageUrl } from "./images.mjs";
+import { localRuntime } from "./local-service.mjs";
 import { packPeople } from "./pack-registry.mjs";
 import { hasSignedLocalIntroduction } from "./signed-words.mjs";
 
 const resident = "elysium-resident";
 const spiral = "elysium-gold-spiral";
 export const UNNAMED_ELYSIUM_RESIDENT = "???";
-// A final probe follows the server's five-minute generation retry cooldown.
-const retryDelays = [
-  1500, 3500, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 135000,
-];
+const earlyRetryDelays = [1500, 3500, 8000, 16000];
+const nameRetryDelays = [...earlyRetryDelays, ...Array(5).fill(30000), 135000];
+// Allow for the five-minute cooldown and up to 172 seconds to draw again.
+const portraitRetryDelays = [...earlyRetryDelays, ...Array(16).fill(30000)];
 const maxPortraitBytes = 8 * 1024 * 1024;
 const normalName = (name) => name.trim().replace(/ +/gu, " ");
 const introductionName = (line) => Object.hasOwn(line, "elysiumName")
@@ -54,7 +55,9 @@ function clearImage(id, source) {
       );
 }
 
-function createResource(endpoint, read, changed, revoke, forget = () => {}) {
+function createResource(send, read, changed, {
+  revoke, forget = () => {}, delays,
+}) {
   let value = null,
     checkedRevision = null,
     request = null;
@@ -77,7 +80,7 @@ function createResource(endpoint, read, changed, revoke, forget = () => {}) {
   async function probe(active, attempt) {
     let source;
     try {
-      const response = await fetch(endpoint, {
+      const response = await send({
         credentials: "same-origin",
         cache: "no-store",
         redirect: "error",
@@ -86,10 +89,11 @@ function createResource(endpoint, read, changed, revoke, forget = () => {}) {
           active.controller.signal,
           AbortSignal.timeout(10000),
         ]),
-      });
+      }, active.data);
       if (request !== active) return;
       if ([401, 403, 409].includes(response.status)) {
-        revoke();
+        stop();
+        revoke?.();
         return;
       }
       if (response.ok) source = await read(response);
@@ -103,11 +107,11 @@ function createResource(endpoint, read, changed, revoke, forget = () => {}) {
       changed(true);
       return;
     }
-    if (attempt === retryDelays.length) request = null;
+    if (attempt === delays.length) request = null;
     else
       active.timer = setTimeout(
         () => void probe(active, attempt + 1),
-        retryDelays[attempt],
+        delays[attempt],
       );
   }
 
@@ -116,14 +120,14 @@ function createResource(endpoint, read, changed, revoke, forget = () => {}) {
       return value;
     },
     clear,
-    observe(earned, available, revision) {
+    observe(earned, available, revision, data) {
       if (!earned) clear();
       else if (!available) {
         stop();
         checkedRevision = null;
       } else if (!value && !request && checkedRevision !== revision) {
         checkedRevision = revision;
-        request = { controller: new AbortController(), timer: null };
+        request = { controller: new AbortController(), timer: null, data };
         void probe(request, 0);
       }
     },
@@ -134,6 +138,7 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
   const prefix =
     worldId && `/card-game/shared/worlds/${encodeURIComponent(worldId)}`;
   const personalKey = !prefix && saveKey && `${saveKey}.elysium-names`;
+  const personalPortraits = personalKey && !localRuntime();
   const cast = new Map();
   let key = 0,
     started = false,
@@ -166,30 +171,43 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     const legacy = id === resident;
     const suffix = legacy ? "" : `/${encodeURIComponent(id)}`;
     const alias = packPeople[id].name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const requestPortrait = prefix
+      ? (init) => fetch(`${prefix}/elysium-portrait${suffix}`, init)
+      : personalPortraits && !legacy
+        ? (init, receipt) => fetch(`/card-game/elysium-portrait${suffix}`, {
+            ...init,
+            method: "POST",
+            headers: { ...init.headers, "Content-Type": "application/json" },
+            body: JSON.stringify(receipt),
+          })
+        : null;
     cast.set(id, {
       seenTalk: false,
       waiting: false,
       alias: legacy ? null : new RegExp(`\\b(?:the )?${alias}\\b`, "gi"),
       name: prefix && !legacy
         ? createResource(
-            `${prefix}/elysium-identity${suffix}`,
+            (init) => fetch(`${prefix}/elysium-identity${suffix}`, init),
             readName,
             changed,
-            revoke,
+            { revoke, delays: nameRetryDelays },
           )
         : null,
-      portrait: prefix
+      portrait: requestPortrait
         ? createResource(
-            `${prefix}/elysium-portrait${suffix}`,
+            requestPortrait,
             readPortrait,
             changed,
-            revoke,
-            (source) => clearImage(id, source),
+            {
+              revoke: prefix ? revoke : null,
+              forget: (source) => clearImage(id, source),
+              delays: portraitRetryDelays,
+            },
           )
         : null,
     });
   }
-  if (prefix) {
+  if (typeof window !== "undefined" && (prefix || personalPortraits)) {
     window.addEventListener("pagehide", () => {
       suspended = true;
       clear();
@@ -288,9 +306,8 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
       const here = viewer?.place;
       for (const [id, view] of cast) {
         const nearby = Boolean(here && world.actors[id]?.place === here);
-        const { scatteredAt, talkedAt = scatteredAt, returnedAt } =
+        const { scatteredAt, talkedAt = scatteredAt, returnedAt, returnedBy } =
           world.elysiumEncounters?.[id] || {};
-        // An in-room title waits for the introduction to finish.
         if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
         if (line?.actorId === id && line.generated && line.seq > talkedAt) {
           const typed = Object.hasOwn(line, "elysiumName");
@@ -311,7 +328,10 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
             viewer?.visited?.includes(packPeople[id].place),
           world.revision,
         );
-        view.portrait?.observe(active && ready, nearby, world.revision);
+        const receipt = personalPortraits && returnedAt
+          ? { scatteredAt, talkedAt, returnedAt, returnedBy }
+          : undefined;
+        view.portrait?.observe(active && ready, nearby, world.revision, receipt);
       }
       started = true;
     },

@@ -62,6 +62,10 @@ pub(super) fn router() -> Router<AppState> {
             get(elysium_models::portrait),
         )
         .route(
+            elysium_models::PERSONAL_PORTRAIT_ROUTE,
+            post(elysium_models::personal_portrait).layer(DefaultBodyLimit::max(256)),
+        )
+        .route(
             "/card-game/shared/worlds/{id}/command",
             post(command).layer(DefaultBodyLimit::max(8192)),
         )
