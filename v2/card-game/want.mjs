@@ -22,7 +22,7 @@ import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
 import { isElysiumModel } from "./elysium-models.mjs";
-import { knowsFact, questFactId } from "./knowledge.mjs";
+import { knowsFact, questFactId, questTerms } from "./knowledge.mjs";
 import { gainTrust } from "./world/company.mjs";
 import { HEARD_FROM, heardWant, validRumours } from "./world/rumours.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
@@ -114,12 +114,7 @@ export const startXp = (id) =>
   rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
-// The same quest keeps its identity wherever it is read.
-export const questTerms = (w) => JSON.stringify([
-  w.kind, w.target,
-  w.step ? Object.keys(w.step).sort().map((key) => [key, w.step[key]]) : null,
-  w.lit ?? null,
-]);
+export { questTerms };
 export const sameQuest = (left, right) =>
   questTerms(left) === questTerms(right);
 export const wantKey = (id, want) =>

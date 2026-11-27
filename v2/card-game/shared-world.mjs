@@ -44,7 +44,7 @@ import { beginHistory } from "./world/history.mjs";
 import { settleStrandedWayfinder } from "./world/elysium-travel.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
-import { resetImportedElysiumEncounters } from "./elysium-models.mjs";
+import { elysiumTalk, resetImportedElysiumEncounters } from "./elysium-models.mjs";
 
 function validateTransition(world) {
   settleStrandedWayfinder(world);
@@ -350,12 +350,16 @@ export function dispatchShared(request) {
         throw new Error(
           "Each line needs a present speaker or the room, and clear text.",
         );
+      const typed = Object.hasOwn(line, "elysiumName");
+      if (typed && line.elysiumName !== null && !elysiumTalk(world, actor, speaker, room, world.turn))
+        throw new Error("An Elysium name needs its committed Talk.");
       addLog(world, scenic ? nameOf(room) : nameOf(speaker), line.text.trim(), {
         generated: true,
         kind: scenic ? "narration" : expressionKind(profiles[speaker]),
         actorId: speaker,
         entityId: scenic ? room : speaker,
         locationId: room,
+        ...(typed && { elysiumName: line.elysiumName }),
       });
       lines.push(world.log.at(-1));
     }

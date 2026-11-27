@@ -1,3 +1,5 @@
+import { accountStorage as storage } from "./account-reset-storage.mjs";
+import { PLAYING_KEY } from "./avatar-world.mjs";
 import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
 import { arrivePage } from "./page-fade.mjs";
@@ -5,12 +7,6 @@ import { membersLock, request } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
 import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { pipEntry } from "./pip-landing.mjs";
-// A new world opens with the Lonely Forest title over the booting table; the
-// same logo stands in the toolbar for as long as that world is played.
-let storage = null;
-try {
-  storage = localStorage;
-} catch {}
 const page = {
   href: location.href,
   local: !!document.querySelector('meta[name="cosy-local-app"]'),
@@ -56,7 +52,7 @@ try {
   let resume = null;
   try {
     if (!authoring && !local && !params.size && !pipEntry(location.href))
-      resume = JSON.parse(localStorage.getItem("cosyworld.playing") || "null");
+      resume = JSON.parse(storage.getItem(PLAYING_KEY) || "null");
   } catch {}
   if (locked) {
     // The lock stays until a known passkey signs in and the page reloads.

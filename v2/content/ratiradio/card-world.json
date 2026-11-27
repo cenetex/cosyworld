@@ -67,6 +67,7 @@
       ],
       "wants": [
         {
+          "id": "return-beanie",
           "want": {
             "kind": "place",
             "target": "ratiradio-listening-room",
@@ -79,6 +80,7 @@
           }
         },
         {
+          "id": "return-raven",
           "want": {
             "kind": "place",
             "target": "ratiradio-listening-room",
@@ -91,6 +93,7 @@
           }
         },
         {
+          "id": "return-glass",
           "want": {
             "kind": "place",
             "target": "ratiradio-listening-room",

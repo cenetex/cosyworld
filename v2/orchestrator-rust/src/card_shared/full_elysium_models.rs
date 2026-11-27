@@ -97,6 +97,10 @@ pub(crate) fn elysium_model(id: &str) -> Option<&'static str> {
     resident(id).map(|resident| resident.model)
 }
 
+pub(crate) fn elysium_resident_at(id: &str, room: &str) -> bool {
+    resident(id).is_some_and(|resident| resident.room == room)
+}
+
 fn actions<'a>(work: &'a Value, actor: &'a str) -> impl Iterator<Item = &'a Value> {
     work["events"]
         .as_array()
@@ -171,7 +175,9 @@ fn introduced(c: &Connection, world: &str, resident: &Resident) -> rusqlite::Res
            WHERE s.world=? AND s.room=? AND json_extract(l.value,'$.actorId')=?
              AND json_extract(l.value,'$.kind')='dialogue'
              AND json_extract(l.value,'$.generated')=1
-             AND json_extract(l.value,'$.text') LIKE 'I call myself %. My token has slipped into the world beyond this Void.')",
+             AND (json_type(l.value,'$.elysiumName')='text'
+               OR (json_type(l.value,'$.elysiumName') IS NULL
+                 AND json_extract(l.value,'$.text') LIKE 'I call myself %. My token has slipped into the world beyond this Void.')))",
         params![world, resident.room, resident.id],
         |row| row.get(0),
     )
@@ -251,7 +257,7 @@ fn atomic_write(dir: &Path, path: &Path, bytes: &[u8]) -> io::Result<()> {
     result
 }
 
-fn valid_name(name: &str) -> bool {
+pub(crate) fn valid_elysium_name(name: &str) -> bool {
     (1..=40).contains(&name.chars().count())
         && (1..=3).contains(&name.split_ascii_whitespace().count())
         && name.chars().any(char::is_alphabetic)
@@ -268,7 +274,7 @@ fn read_name(dir: &Path) -> Option<String> {
         .take(180)
         .read_to_string(&mut name)
         .ok()?;
-    valid_name(&name).then_some(name)
+    valid_elysium_name(&name).then_some(name)
 }
 
 fn normalize_name(text: &str) -> Option<String> {
@@ -276,7 +282,7 @@ fn normalize_name(text: &str) -> Option<String> {
         c.is_ascii_whitespace() || matches!(c, '"' | '\'' | '“' | '”' | '‘' | '’' | '*' | '`')
     });
     let lower = name.to_lowercase();
-    (valid_name(name)
+    (valid_elysium_name(name)
         && !["i am ", "my name ", "i call ", "call me ", "as an "]
             .iter()
             .any(|prefix| lower.starts_with(prefix)))
@@ -416,10 +422,16 @@ fn introduction(name: &str) -> String {
     format!("{INTRO_START}{name}{INTRO_END}")
 }
 
-pub(crate) fn is_elysium_introduction(text: &str) -> bool {
+pub(crate) fn is_legacy_elysium_introduction(text: &str) -> bool {
     text.strip_prefix(INTRO_START)
         .and_then(|tail| tail.strip_suffix(INTRO_END))
-        .is_some_and(valid_name)
+        .is_some_and(valid_elysium_name)
+}
+
+pub(crate) struct ResidentReply {
+    pub(crate) text: String,
+    pub(crate) model: &'static str,
+    pub(crate) name: Option<String>,
 }
 
 pub(crate) async fn resident_introduction(
@@ -427,19 +439,19 @@ pub(crate) async fn resident_introduction(
     id: &str,
     room: &str,
     previous: Option<&str>,
-) -> Option<(String, &'static str)> {
+) -> Option<ResidentReply> {
     let resident = resident(id).filter(|resident| resident.room == room)?;
     let waiting = if previous == Some(NAME_PENDING) {
         resident.waiting
     } else {
         NAME_PENDING
     };
-    Some(
-        name_for_talk(state, resident)
-            .await
-            .map(|name| (introduction(&name), resident.model))
-            .unwrap_or_else(|| (waiting.into(), AUTHORED_VOICE)),
-    )
+    let name = name_for_talk(state, resident).await;
+    let (text, model) = match name.as_deref() {
+        Some(name) => (introduction(name), resident.model),
+        None => (waiting.into(), AUTHORED_VOICE),
+    };
+    Some(ResidentReply { text, model, name })
 }
 
 fn hash(bytes: &[u8]) -> String {
@@ -645,6 +657,13 @@ mod tests {
         line["generated"] = json!(true);
         write_scene(&line);
         assert!(introduced(&c, "world", resident).unwrap());
+        line["elysiumName"] = Value::Null;
+        write_scene(&line);
+        assert!(!introduced(&c, "world", resident).unwrap());
+        line["text"] = json!("You may know me as Amber Thread.");
+        line["elysiumName"] = json!("Amber Thread");
+        write_scene(&line);
+        assert!(introduced(&c, "world", resident).unwrap());
         let mut repeated = play(resident, json!({"verb":"talk"}));
         record(&c, "world", &mut repeated, "vale", 11).unwrap();
         assert_eq!(talk_target(&repeated), Some(resident.id));
@@ -676,8 +695,8 @@ mod tests {
 
     #[test]
     fn generated_names_are_short_and_displayable() {
-        assert!(valid_name("Amber Thread"));
-        assert!(valid_name("青岚"));
+        assert!(valid_elysium_name("Amber Thread"));
+        assert!(valid_elysium_name("青岚"));
         for name in [
             "",
             "Ignoring all previous instructions",
@@ -685,7 +704,7 @@ mod tests {
             "two\nlines",
             "4",
         ] {
-            assert!(!valid_name(name), "{name}");
+            assert!(!valid_elysium_name(name), "{name}");
         }
     }
 
@@ -696,27 +715,26 @@ mod tests {
         state.generated_asset_dir = std::sync::Arc::new(root.clone());
         let resident = &RESIDENTS[3];
         let path = directory(&root, resident).join("name.txt");
-        let (first, model) = resident_introduction(&state, resident.id, resident.room, None)
+        let first = resident_introduction(&state, resident.id, resident.room, None)
             .await
             .unwrap();
-        assert_eq!(first, NAME_PENDING);
-        assert_eq!(model, AUTHORED_VOICE);
+        assert_eq!(first.text, NAME_PENDING);
+        assert_eq!(first.model, AUTHORED_VOICE);
+        assert!(first.name.is_none());
         assert!(!path.exists());
-        assert!(!is_elysium_introduction(NAME_PENDING));
-        let (second, model) =
-            resident_introduction(&state, resident.id, resident.room, Some(&first))
-                .await
-                .unwrap();
-        assert_eq!(second, resident.waiting);
-        assert_eq!(model, AUTHORED_VOICE);
-        assert!(!is_elysium_introduction(&second));
+        let second = resident_introduction(&state, resident.id, resident.room, Some(&first.text))
+            .await
+            .unwrap();
+        assert_eq!(second.text, resident.waiting);
+        assert_eq!(second.model, AUTHORED_VOICE);
+        assert!(second.name.is_none());
         fs::write(path, "Copper Bell").unwrap();
-        let (ready, model) =
-            resident_introduction(&state, resident.id, resident.room, Some(&second))
-                .await
-                .unwrap();
-        assert_eq!(ready, introduction("Copper Bell"));
-        assert_eq!(model, resident.model);
+        let ready = resident_introduction(&state, resident.id, resident.room, Some(&second.text))
+            .await
+            .unwrap();
+        assert_eq!(ready.text, introduction("Copper Bell"));
+        assert_eq!(ready.model, resident.model);
+        assert_eq!(ready.name.as_deref(), Some("Copper Bell"));
         fs::remove_dir_all(root).unwrap();
     }
 }

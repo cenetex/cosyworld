@@ -1,5 +1,7 @@
 // Public knowledge keeps the event and the person who passed it on.
 // Private thoughts and generated wording stay in character memory.
+import compiled from "./packs.json" with { type: "json" };
+
 export const KNOWLEDGE_VERSION = 1;
 export const KNOWLEDGE_FACT_LIMIT = 256;
 export const KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
@@ -13,8 +15,38 @@ const READ_KINDS = new Set(["claim", "quest"]);
 const CLAIM_KEYS = ["book", "claim", "author", "about"];
 const MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
 const READ_KEYS = [...MEMORY_KEYS, "book"];
-export const questFactId = (owner, want) => `quest:${owner}:${want.target}`;
-export const placeFactId = (place, item) => questFactId(place, { target: item });
+const authoredStages = new Map(compiled.packs.flatMap((pack) =>
+  Object.entries(pack.avatars ?? {}).flatMap(([owner, avatar]) => {
+    const stages = (avatar.wants || []).filter((entry) => entry.id);
+    return stages.length ? [[owner, stages]] : [];
+  }),
+));
+export const authoredQuestStages = (owner, target) =>
+  authoredStages.get(owner)?.filter(({ want }) => want.target === target) ?? [];
+export const questTerms = (w) => JSON.stringify([
+  w.kind, w.target,
+  w.step ? Object.keys(w.step).sort().map((key) => [key, w.step[key]]) : null,
+  w.lit ?? null,
+]);
+export function distinctQuestStages(entries) {
+  const stages = entries.filter((entry) => entry?.want);
+  return stages.every((a, index) => stages.slice(index + 1).every((b) => {
+    if (a.id && a.id === b.id) return false;
+    if (a.want.target !== b.want.target) return true;
+    return questTerms(a.want) === questTerms(b.want) ? !a.id && !b.id : Boolean(a.id && b.id);
+  }));
+}
+export const legacyQuestFactId = (owner, target) => `quest:${owner}:${target}`;
+export const stagedQuestFactId = (owner, target, stage) => `${legacyQuestFactId(owner, target)}:stage:${stage}`;
+export function questFactId(owner, want) {
+  const stages = authoredQuestStages(owner, want.target);
+  const base = legacyQuestFactId(owner, want.target);
+  if (!stages.length) return base;
+  const terms = questTerms(want);
+  const stage = stages.find((entry) => questTerms(entry.want) === terms);
+  return stage ? stagedQuestFactId(owner, want.target, stage.id) : `${base}:unstaged`;
+}
+export const placeFactId = legacyQuestFactId;
 const liveQuest = (world, fact) => {
   const owner = fact.source.actorId,
     card = world?.placeCard?.[owner],
@@ -758,7 +790,8 @@ export function validKnowledge(
             (m.kind === "read"
               ? !READ_KINDS.has(fact.source.kind) ||
                 !safeId(m.book) ||
-                (fact.source.kind === "claim" ? m.book !== fact.source.book : questIn(m.book) !== id)
+                (fact.source.kind === "claim" ? m.book !== fact.source.book :
+                  questIn(m.book) !== id && questIn(m.book, true) !== id)
               : fact.source.kind === "claim"))
       )
         return false;

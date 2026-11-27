@@ -1,6 +1,7 @@
 import { listenerOffer } from "./world/arcana.mjs";
+import { LISTENER } from "./world/arcana-record.mjs";
 
-export const LISTENER = "listener";
+export { LISTENER };
 export const LISTENER_CARD = `offer:${LISTENER}`;
 
 export function listenerTableCard(world, actor) {

@@ -44,6 +44,7 @@ fn remembered() -> Context {
         witnesses: None,
         actor_id: "moth".into(),
         text: "I offered my cloth.".into(),
+        ..Default::default()
     });
     c.entities[0].previous = Some("The lamp is warm.".into());
     c.entities[0].between = serde_json::from_value(json!([{"with": "moth",
@@ -689,6 +690,7 @@ fn talk() -> Context {
             witnesses: heard.clone(),
             actor_id: actor.into(),
             text: text.into(),
+            ..Default::default()
         });
     }
     signed(&c)
@@ -741,6 +743,7 @@ async fn talk_lines_in_a_prompt_are_only_signed_words() {
                         witnesses: Some(vec!["vale".into(), "moth".into()]),
                         actor_id: "moth".into(),
                         text: INJECTION.into(),
+                        ..Default::default()
                     },
                 )
             }),

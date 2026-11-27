@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createElysiumPortrait } from "../v2/card-game/elysium-portrait.mjs";
-import { forgetSigned, rememberSigned } from "../v2/card-game/signed-words.mjs";
+import { forgetSigned, rememberSigned, signedEnvelopes, withSignatures } from "../v2/card-game/signed-words.mjs";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -88,7 +88,7 @@ it.each([
     .toEqual([`/card-game/shared/worlds/world/elysium-identity/${resident}`]);
 });
 
-it("learns a signed personal introduction after a later direct Talk and remembers it for this save", async () => {
+it.each([false, true])("learns a signed personal introduction and remembers its save (typed %s)", async (typed) => {
   const records = new Map();
   const storage = { getItem: (key) => records.get(key), setItem: (key, value) => records.set(key, value) };
   const fetch = vi.fn();
@@ -99,11 +99,14 @@ it("learns a signed personal introduction after a later direct Talk and remember
     run: { seed: 440 }, turn: 5, revision: 7, eventSeq: 22,
     actors: { vale: { place: room }, [resident]: { place: room } },
     elysiumEncounters: { [resident]: { scatteredAt: 10, talkedAt: 11 } },
-    log: [{ seq: 20, turn: 5, verb: "talk", actorId: "vale", targetId: resident }],
+    log: [{ seq: 20, turn: 5, kind: "action", verb: "talk", actorId: "vale", targetId: resident,
+      locationId: room, fromLocationId: room }],
   };
+  const name = "Amber  Silver-Lens";
   const line = {
     actorId: resident, turn: 5, seq: 22, kind: "dialogue", generated: true, locationId: room,
-    text: "I call myself Amber  Silver-Lens. My token has slipped into the world beyond this Void.",
+    text: typed ? `You may call me ${name}.` : `I call myself ${name}. My token has slipped into the world beyond this Void.`,
+    ...(typed && { elysiumName: name }),
   };
   const blur = (text) => text.replace("Lens", "something");
   const read = display.reader(blur, () => false);
@@ -114,12 +117,35 @@ it("learns a signed personal introduction after a later direct Talk and remember
   expect(display.name(resident)).toBe("???");
   expect(read(line.text, line)).toBe(blur(line.text));
   expect(display.withIntroduction(context)).toBe(context);
-  const sign = (claims) => rememberSigned({ entries: [{ id: resident, text: line.text,
-    signed: { sig: "test-signature", claims: { kind: "line", entity: resident, world: "local", turn: 5, seq: 7, ...claims } },
-  }] }, storage);
+  const sign = (claims, proof = true) => {
+    const scope = { entity: resident, world: "local", turn: 5, seq: 7,
+      ...(typed && { rules: "test/elysium-v1" }), ...claims };
+    rememberSigned({ entries: [{ id: resident, text: line.text,
+      signed: { sig: "test-line", claims: { kind: "line", ...scope } },
+      ...(typed && { elysiumName: name }),
+      ...(typed && proof && { elysiumNameSigned: { sig: "test-name", claims: { kind: "elysium-name", ...scope } } }),
+    }] }, storage);
+  };
   sign({ world: "another-world" });
   display.observe(world, "vale", line);
   expect(display.name(resident)).toBe("???");
+  if (typed) {
+    sign({}, false);
+    display.observe(world, "vale", line);
+    expect(display.name(resident)).toBe("???");
+    expect(read(line.text, line)).toBe(blur(line.text));
+    const lookalike = {
+      ...line, text: `I call myself ${name}. My token has slipped into the world beyond this Void.`,
+    };
+    delete lookalike.elysiumName;
+    rememberSigned({ entries: [{ id: resident, text: lookalike.text, signed: {
+      sig: "modern-line", claims: { kind: "line", rules: "test/elysium-v1",
+        entity: resident, world: "local", turn: 5, seq: 7 },
+    } }] }, storage);
+    display.observe(world, "vale", lookalike);
+    expect(display.name(resident)).toBe("???");
+    expect(read(lookalike.text, lookalike)).toBe(blur(lookalike.text));
+  }
   sign();
   expect(read(line.text, line)).toBe(line.text);
   expect(display.reader(blur, () => true)(line.text, line)).toBe(blur(line.text));
@@ -138,6 +164,11 @@ it("learns a signed personal introduction after a later direct Talk and remember
   expect(display.withIntroduction(otherTalk)).toBe(otherTalk);
 
   forgetSigned();
+  if (typed) {
+    const conversation = withSignatures({ entities: [], conversation: [line] }, storage).conversation;
+    expect(conversation[0].elysiumNameSigned).toMatchObject({ claims: { kind: "elysium-name", entity: resident } });
+    expect(signedEnvelopes(storage).every(({ claims }) => claims.kind === "line")).toBe(true);
+  }
   const restored = createElysiumPortrait(null, () => {}, "table-one", storage);
   const later = { ...world, log: [], actors: { ...world.actors, vale: { place: "pond" } } };
   restored.sync(later);

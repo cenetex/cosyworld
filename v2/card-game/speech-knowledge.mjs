@@ -1,5 +1,6 @@
 // The player uncovers cards before their names reach a speech request.
 import {
+  choiceText,
   entityActive,
   observableStates,
   packThings,
@@ -14,6 +15,36 @@ import {
 import { questsOf } from "./want.mjs";
 import { found } from "./world/found.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
+
+export function knowsPackChoice(world, actor, pack, choice) {
+  const turn = world.packs[pack.id].receipts[choice.id];
+  const known = world.knowledge?.known?.[actor] || {};
+  const wordsMatch = (entry, text) =>
+    entry.turn === turn && entry.locationId === choice.at &&
+    text === choiceText(choice, entry.actorId);
+
+  // A commit can be witnessed directly or retained as a personal fact after
+  // the original line leaves the log. Older events may carry only their words.
+  if ((world.log || []).some((entry) => {
+    if (entry.generated || entry.turn !== turn) return false;
+    const commit = (entry.packId === pack.id && entry.choiceId === choice.id) ||
+      (entry.kind === "action" && entry.verb === (choice.on || "choose") &&
+        wordsMatch(entry, entry.text));
+    return commit && (entry.actorId === actor ||
+      (entry.witnesses ?? entry.cast)?.includes(actor) ||
+      Object.hasOwn(known, `event:${entry.seq}`));
+  })) return true;
+
+  return Object.keys(known).some((id) => {
+    const fact = world.knowledge.facts[id];
+    const source = fact?.source;
+    return (source?.kind === "event" && wordsMatch(source, fact.text)) ||
+      (source?.kind === "topic" && source.topic?.packId === pack.id &&
+        source.topic.choiceId === choice.id) ||
+      (source?.kind === "claim" && source.claim === choice.id &&
+        pack.items?.[source.book]?.records?.includes(choice.id));
+  });
+}
 
 // A covered thing reaches the speaker as something sensed but unnamed. The
 // table's own word "covered" stays out of speech (#1665).

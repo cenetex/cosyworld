@@ -1,4 +1,4 @@
-import { learnQuest, questFactId } from "./knowledge.mjs";
+import { authoredQuestStages, KNOWLEDGE_FACT_LIMIT, learnQuest, legacyQuestFactId, questFactId } from "./knowledge.mjs";
 import { consumable } from "./pack-registry.mjs";
 import { nameOf, people, places, theName, things } from "./world/catalog.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
@@ -47,8 +47,45 @@ function noteTold(s, who, owners) {
 const named = (id) =>
   [places, people, things].some((c) => Object.hasOwn(c, id));
 
+function migrateStagedFacts(s) {
+  const k = s.knowledge;
+  if (!k?.facts || !k.known || !Array.isArray(k.pending)) return;
+  for (const [id, fact] of Object.entries(k.facts)) {
+    const source = fact?.source;
+    if (source?.kind !== "quest" || !Array.isArray(source.witnesses)) continue;
+    const owner = source.actorId, target = id.slice(`quest:${owner}:`.length);
+    if (id !== legacyQuestFactId(owner, target)) continue;
+    const matches = authoredQuestStages(owner, target)
+      .filter(({ want }) => questText(s, owner, want) === fact.text);
+    if (matches.length !== 1) continue;
+    const next = questFactId(owner, matches[0].want);
+    if (Object.hasOwn(k.facts, next)) continue;
+    const readers = Object.keys(k.known).filter((actor) => k.known[actor]?.[id]);
+    // Other direct Talks under the same key may have been about a later stage.
+    const confirmed = new Set(readers.filter((actor) => {
+      const memory = k.known[actor][id];
+      return memory.eventSeq === source.eventSeq && memory.learnedTurn === source.turn &&
+        (memory.teller === owner || memory.kind === "read");
+    }));
+    if (!confirmed.size) continue;
+    if (confirmed.size === readers.length) delete k.facts[id];
+    else if (Object.keys(k.facts).length >= KNOWLEDGE_FACT_LIMIT) continue;
+    k.facts[next] = { ...fact, id: next,
+      source: { ...source, witnesses: source.witnesses.filter((actor) => confirmed.has(actor)) } };
+    for (const actor of confirmed) {
+      k.known[actor][next] = k.known[actor][id];
+      delete k.known[actor][id];
+    }
+    k.pending = k.pending.flatMap((p) => {
+      if (p.factId !== id || !confirmed.has(p.speaker)) return [p];
+      return confirmed.has(p.listener) ? [{ ...p, factId: next }] : [];
+    });
+  }
+}
+
 // Saves from before rules 195 count II from their heard map or quest facts.
 export function installQuestFacts(s) {
+  migrateStagedFacts(s);
   for (const [id, a] of Object.entries(s.actors))
     noteTold(s, id, [
       ...Object.keys(a.heard || {}),
@@ -61,6 +98,7 @@ export function installQuestFacts(s) {
     for (const [them, told] of Object.entries(a.heard || {})) {
       const live = s.actors[them]?.want;
       const [kind, target] = told.split(/:(.*)/su);
+      if (authoredQuestStages(them, target).length) continue;
       if (live && told === `${live.kind}:${live.target}`)
         learnTold(s, them, id, live);
       else if (named(target)) learnTold(s, them, id, { kind, target });

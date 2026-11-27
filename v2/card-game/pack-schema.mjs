@@ -1,7 +1,7 @@
 // The closed vocabulary for card-table world packs and their bridges.
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
-import { validFactText } from "./knowledge.mjs";
+import { distinctQuestStages, safeId, stagedQuestFactId, validFactText } from "./knowledge.mjs";
 import { BOOK_KEYS, bookProblems } from "./book-schema.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
@@ -796,9 +796,6 @@ export function packProblems(
           templateOk(a.tastes.noise, 240, ["actor"])),
       `avatar ${id} tastes need likes and sore`,
     );
-    // One want per resident: an item, a place or a person it seeks first, or
-    // (BoardyAI) connecting humans. Or staged wants (rules 133): a short list
-    // of `{want, when}` entries, at most three, any of which may surface.
     check(
       a.want === undefined || a.wants === undefined,
       `avatar ${id} sets want or wants, not both`,
@@ -812,14 +809,14 @@ export function packProblems(
         Array.isArray(a.wants) && a.wants.length >= 1 && a.wants.length <= 3,
         `avatar ${id} wants needs one to three staged wants`,
       );
-      for (const [n, entry] of (Array.isArray(a.wants)
-        ? a.wants
-        : []
-      ).entries())
+      const stages = Array.isArray(a.wants) ? a.wants : [];
+      check(distinctQuestStages(stages), `avatar ${id} wants need distinct ids and terms for stages sharing a target`);
+      for (const [n, entry] of stages.entries())
         check(
-          keysOk(entry, ["want", "when"]) &&
+          keysOk(entry, ["id", "want", "when"]) &&
             record(entry?.want) &&
             wantOk(entry.want, id) &&
+            (entry.id === undefined || (idOk(entry.id) && safeId(stagedQuestFactId(id, entry.want.target, entry.id)))) &&
             (entry.when === undefined ||
               (Array.isArray(entry.when) &&
                 entry.when.length >= 1 &&

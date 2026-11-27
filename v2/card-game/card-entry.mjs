@@ -105,7 +105,8 @@ export const questEntryKey = (quest) =>
     ? `${quest.actor}:arcanum:reading`
     : `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}:${questTerms(quest)}`;
 export const questFaceKey = (quest) =>
-  `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}`;
+  quest.factId ? `${quest.actor}:${quest.factId}` :
+    `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}`;
 
 // The one quest in the hand. `show(key, seen)` takes the held quest's key
 // (or null) and whether it is in view, and returns whether it is due to turn:

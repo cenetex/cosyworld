@@ -1,12 +1,10 @@
-import arcana from "./arcana.json" with { type: "json" };
-import { firstFoolProgress, recordOf } from "./world/arcana-record.mjs";
+import { firstFoolProgress, LISTENER, recordOf } from "./world/arcana-record.mjs";
 import { currentActor, legalActions, nameOf } from "./world.mjs";
 
-const listener = arcana.visit.match.targetId;
 const reading = "The Listener is here for a reading.";
 const helped = ({ count, target }) => `${count} of ${target} people helped`;
-const canRead = (world, known) => known(listener) && legalActions(world).some(
-  (action) => action.kind === "talk" && action.target === listener,
+const canRead = (world, known) => known(LISTENER) && legalActions(world).some(
+  (action) => action.kind === "talk" && action.target === LISTENER,
 );
 
 export function firstFoolNote(world, known) {

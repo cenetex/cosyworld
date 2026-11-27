@@ -10,6 +10,9 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
+import { questFaceKey } from "../v2/card-game/card-entry.mjs";
+import { knowsFact, questFactId } from "../v2/card-game/knowledge.mjs";
+import { tableQuest } from "../v2/card-game/quest-hand.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { lockText } from "./helpers/lock-text.mjs";
 import { acceptBox } from "./helpers/accept-quest.mjs";
@@ -35,8 +38,8 @@ const home = id("listening-room"),
   raven = id("raven");
 const returns = ["red-beanie", "raven-figurine", "glass"].map(id);
 const flags = (s) => s.packs.ratiradio.flags;
-const fixture = (opening = false) => {
-  const s = createWorld({ opening, seed: 17 });
+const fixture = (opening = false, seed = 17) => {
+  const s = createWorld({ opening, seed });
   // This gate/return fixture represents objects already fetched and deposited.
   // Fresh cross-world placement is covered by card-radio-scatter.test.mjs.
   for (const [id, item] of Object.entries(packDefinition("ratiradio").items))
@@ -92,6 +95,75 @@ const route = [
   ["drop", id("raven-figurine")],
 ];
 const arrive = route.findIndex(([kind, to]) => kind === "move" && to === home);
+
+const beanieTalk = () => {
+  let s = fixture(false, 6);
+  for (const [kind, target] of route.slice(0, arrive + 1)) s = act(s, kind, target);
+  s = act(s, "take", returns[1]);
+  expect(s.actors[rati].want.step.items).toEqual([returns[0]]);
+  return act(s, "talk", rati);
+};
+
+it("learns RATi’s next lay only after talking about that stage", () => {
+  let s = beanieTalk();
+  const beanie = questFactId(rati, s.actors[rati].want);
+  const first = tableQuest(s, "vale", rati).quest;
+  expect(first.factId).toBe(beanie);
+  expect(s.knowledge.facts[beanie].text).toMatch(/Red Beanie/u);
+
+  s = decodeSave(encodeSave(act(s, "drop", returns[0])));
+  const raven = questFactId(rati, s.actors[rati].want);
+  expect(s.actors[rati].want.step.items).toEqual([returns[1]]);
+  expect(raven).not.toBe(beanie);
+  expect(knowsFact(s, "vale", beanie)).toBe(true);
+  expect(knowsFact(s, "vale", raven)).toBe(false);
+  expect(tableQuest(s, "vale", rati).quest).toBeNull();
+  expect(legalActions(s).some((a) => a.kind === "accept" && a.target === rati)).toBe(false);
+
+  s = act(s, "talk", rati);
+  const second = tableQuest(s, "vale", rati).quest;
+  expect(second.factId).toBe(raven);
+  expect(questFaceKey(second)).not.toBe(questFaceKey(first));
+  expect(s.knowledge.facts[raven].text).toMatch(/Raven Figurine/u);
+  expect(s.knowledge.facts[beanie].text).toMatch(/Red Beanie/u);
+});
+
+it("preserves old stage evidence without assigning the collided key to later readers", () => {
+  const heard = beanieTalk();
+  const beanie = questFactId(rati, heard.actors[rati].want);
+  const old = JSON.parse(encodeSave(act(heard, "drop", returns[0])));
+  const legacy = `quest:${rati}:${home}`;
+  const k = old.knowledge, learned = k.known.vale[beanie];
+  k.facts[legacy] = { ...k.facts[beanie], id: legacy };
+  delete k.facts[beanie];
+  k.known.vale[legacy] = learned;
+  delete k.known.vale[beanie];
+  k.known.mara = { [legacy]: { ...learned, eventSeq: old.eventSeq, learnedTurn: old.turn } };
+  old.actors.rue.heard = { [rati]: `place:${home}` };
+
+  const s = decodeSave(JSON.stringify(old));
+  const raven = questFactId(rati, s.actors[rati].want);
+  expect(s.knowledge.known.vale[beanie]).toEqual(learned);
+  expect(knowsFact(s, "mara", beanie)).toBe(false);
+  expect(knowsFact(s, "mara", legacy)).toBe(true);
+  expect(s.knowledge.facts[legacy].text).toMatch(/Red Beanie/u);
+  for (const actor of ["vale", "mara", "rue"])
+    expect(knowsFact(s, actor, raven)).toBe(false);
+  expect(s.actors.rue.told).toContain(rati);
+  expect(decodeSave(encodeSave(s))).toEqual(s);
+});
+
+it("rejects duplicate or ambiguous authored quest stages", () => {
+  for (const collide of [
+    (stages) => { stages[1].id = stages[0].id; },
+    (stages) => { delete stages[1].id; },
+    (stages) => { stages[1].want = stages[0].want; },
+  ]) {
+    const pack = structuredClone(packDefinition("ratiradio"));
+    collide(pack.avatars[rati].wants);
+    expect(() => validatePackDefinition(pack)).toThrow(/distinct ids and terms/u);
+  }
+});
 
 it("walks the full return, introduces both residents at home, then keeps the unlock", () => {
   let s = fixture();

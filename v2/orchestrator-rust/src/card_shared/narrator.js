@@ -3,6 +3,7 @@
   // v2/card-game/arcana.json
   var arcana_default = {
     schema: 1,
+    starterId: "arcanum-0",
     calls: 3,
     visit: {
       match: {
@@ -1099,7 +1100,8 @@
 
   // v2/card-game/world/arcana-record.mjs
   var cardIds = new Set(arcana_default.cards.map((card) => card.id));
-  var FOOL = arcana_default.cards.find((card) => card.number === 0).id;
+  var STARTER = arcana_default.starterId;
+  var LISTENER = arcana_default.visit.match.targetId;
   var isArcanum = (id) => cardIds.has(id);
   var CALLS = arcana_default.calls;
   var didsOf = (c) => c.kind === "did" ? [c] : [...c.conditions || [], ...c.condition ? [c.condition] : []].flatMap(
@@ -1134,8 +1136,8 @@
   var unlockedOf = (s, traveler) => [...new Set((s.actors?.[traveler]?.upgrades || []).filter(isArcanum))].sort();
   var rewardPending = (s, traveler) => recordOf(s, traveler).spread.some((slot) => slot.face === "reward");
   function firstFoolSlot(s, traveler, record7 = recordOf(s, traveler)) {
-    if ((record7.level ?? record7.proved.length) > 0 || !record7.need.includes(FOOL)) return null;
-    return record7.spread.find((entry) => entry.card === FOOL && ["down", "reward"].includes(entry.face)) ?? null;
+    if ((record7.level ?? record7.proved.length) > 0 || !record7.need.includes(STARTER)) return null;
+    return record7.spread.find((entry) => entry.card === STARTER && ["down", "reward"].includes(entry.face)) ?? null;
   }
   function called(s, traveler) {
     if (!humanPresent(s, traveler) || rewardPending(s, traveler)) return false;
@@ -1773,11 +1775,28 @@
   ]);
   var models = new Set(ELYSIUM_MODEL_IDS);
   var tokens = new Set(ELYSIUM_MODEL_IDS.map((id) => `${id}-token`));
+  var introductionStart = "I call myself ";
+  var introductionEnd = ". My token has slipped into the world beyond this Void.";
   var isElysiumModel = (id) => models.has(id);
   var isElysiumModelToken = (id) => tokens.has(id);
   var elysiumModelToken = (id) => `${id}-token`;
   var firstTalk = (record7) => record7?.talkedAt === void 0 ? record7?.scatteredAt : record7.talkedAt;
   var keepsElysiumToken = (resident, item) => isElysiumModel(resident) && elysiumModelToken(resident) === item;
+  function validElysiumName(name) {
+    return typeof name === "string" && [...name].length <= 40 && /\p{Alphabetic}/u.test(name) && !/[^\p{Alphabetic} -]/u.test(name) && name.trim().split(/ +/u).length <= 3;
+  }
+  function legacyElysiumName(text2) {
+    if (typeof text2 !== "string" || !text2.startsWith(introductionStart) || !text2.endsWith(introductionEnd)) return null;
+    const name = text2.slice(introductionStart.length, -introductionEnd.length);
+    return validElysiumName(name) ? name : null;
+  }
+  function elysiumNameIndex(text2, name) {
+    if (typeof text2 !== "string" || !validElysiumName(name)) return -1;
+    if (legacyElysiumName(text2) === name) return introductionStart.length;
+    const matches2 = text2.matchAll(new RegExp(`(^|[^\\p{Alphabetic}-])${name}(?![\\p{Alphabetic}-])`, "gu"));
+    const first = matches2.next().value;
+    return first && matches2.next().done ? first.index + first[1].length : -1;
+  }
   function validElysiumEncounters(s) {
     const records = s.elysiumEncounters;
     if (records === void 0) return true;
@@ -1795,6 +1814,8 @@
     });
   }
   function validElysiumEncounterEvent(s, e, people2) {
+    if (Object.hasOwn(e, "elysiumName") && (!e.generated || e.kind !== "dialogue" || !isElysiumModel(e.actorId) || e.entityId !== e.actorId || e.elysiumName !== null && (e.locationId !== people2[e.actorId]?.home || elysiumNameIndex(e.text, e.elysiumName) < 0)))
+      return false;
     if (e.elysiumArrival === void 0 && e.elysiumModel === void 0 && e.portraitModel === void 0) return true;
     const resident = e.elysiumArrival ?? e.elysiumModel ?? e.portraitModel;
     const record7 = s.elysiumEncounters?.[resident];
@@ -1807,1605 +1828,6 @@
     if (e.elysiumModel !== void 0)
       return e.portraitModel === void 0 && e.verb === "talk" && firstTalk(record7) === e.seq;
     return e.verb === "give" && e.accepted === true && !e.handover && e.itemId === elysiumModelToken(resident) && record7.returnedAt === e.seq && record7.returnedBy === e.actorId;
-  }
-
-  // v2/card-game/knowledge.mjs
-  var KNOWLEDGE_VERSION = 1;
-  var KNOWLEDGE_FACT_LIMIT = 256;
-  var KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
-  var KNOWLEDGE_PENDING_LIMIT = 32;
-  var FACT_TEXT_LIMIT = 180;
-  var FACT_LINE_LIMIT = 240;
-  var heardClaim = (author, text2) => `I heard what ${author} wrote: ${text2}`;
-  var PROTECTED_FACT_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
-  var PROTECTED_KINDS = /* @__PURE__ */ new Set(["topic", "claim", "quest"]);
-  var READ_KINDS = /* @__PURE__ */ new Set(["claim", "quest"]);
-  var CLAIM_KEYS = ["book", "claim", "author", "about"];
-  var MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
-  var READ_KEYS = [...MEMORY_KEYS, "book"];
-  var questFactId = (owner2, want) => `quest:${owner2}:${want.target}`;
-  var placeFactId = (place, item) => questFactId(place, { target: item });
-  var liveQuest = (world, fact) => {
-    const owner2 = fact.source.actorId, card = world?.placeCard?.[owner2], want = world?.actors?.[owner2]?.want;
-    return card ? fact.id === placeFactId(owner2, card) : Boolean(want) && fact.id === questFactId(owner2, want);
-  };
-  var protectedFact = (fact, world) => PROTECTED_KINDS.has(fact.source.kind) && (fact.source.kind !== "quest" || liveQuest(world, fact));
-  var owns = (o, key2) => typeof key2 === "string" && !!o && Object.hasOwn(o, key2);
-  var record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-  var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
-  var text = (v, limit) => typeof v === "string" && !!v.trim() && v.length <= limit && !/[\u0000-\u001f\u007f]/u.test(v);
-  var fields = (v, keys) => record(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key2) => keys.includes(key2));
-  var whole = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
-  var tokens2 = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
-  var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens2).filter(Boolean);
-  var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
-  var decimalPoint = /(?<=\p{N})\.(?=\p{N})/gu;
-  var validQuestText = (v) => typeof v === "string" && validFactText(v.replace(decimalPoint, "0"));
-  var newKnowledge = () => ({
-    version: KNOWLEDGE_VERSION,
-    facts: {},
-    known: {},
-    pending: []
-  });
-  var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
-  var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
-  function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
-    const knowledge = world.knowledge;
-    if (knowsFact(world, actor, fact.id)) return false;
-    const known = knowledge.known[actor] ??= {};
-    known[fact.id] = { kind, teller, eventSeq, learnedTurn };
-    const ordered = Object.keys(known).sort(
-      (a, b) => known[b].learnedTurn - known[a].learnedTurn || known[b].eventSeq - known[a].eventSeq || a.localeCompare(b)
-    );
-    for (const id of ordered.slice(KNOWLEDGE_PERSON_LIMIT)) delete known[id];
-    knowledge.pending = knowledge.pending.filter(
-      (p) => knowsFact(world, p.speaker, p.factId)
-    );
-    return owns(known, fact.id);
-  }
-  var GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
-  function pinnedFacts(world) {
-    const facts = world.knowledge?.facts || {};
-    const byPlay = {};
-    for (const f of Object.values(facts).sort(compareFacts))
-      if (f.source.kind === "event")
-        (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
-    const rank2 = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
-    const grievances = world.motives?.grievances || {};
-    const standing = Object.keys(grievances).sort().flatMap((holder) => grievances[holder].map((g, i) => ({ holder, g, i }))).sort(
-      (a, b) => rank2(a.g) - rank2(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
-    );
-    const pinned = /* @__PURE__ */ new Set();
-    for (const { holder, g } of standing) {
-      const evidence = g.incident ? owns(facts, g.incident) ? [facts[g.incident]] : [] : (byPlay[`${g.other}|${g.turn}`] || []).filter(
-        (f) => f.source.witnesses.includes(holder)
-      );
-      for (const f of evidence) {
-        if (pinned.size >= GRIEVANCE_PIN_LIMIT) return pinned;
-        if (f.source.kind === "event") pinned.add(f.id);
-      }
-    }
-    return pinned;
-  }
-  function retainFact(world, fact) {
-    const knowledge = world.knowledge;
-    if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
-    const spare = (f) => protectedFact(f, world);
-    const all = Object.values(knowledge.facts);
-    const spared = spare(fact) ? all.filter(spare).sort(compareFacts) : [];
-    const old = spared.slice(PROTECTED_FACT_LIMIT - 1);
-    if (!old.length && all.length >= KNOWLEDGE_FACT_LIMIT) {
-      const aging = all.filter((f) => !spare(f)).sort(compareFacts);
-      const pinned = pinnedFacts(world);
-      old.push(
-        [...aging].reverse().find((f) => !pinned.has(f.id)) || aging.at(-1)
-      );
-      if (!old[0]) return null;
-    }
-    for (const { id } of old) {
-      delete knowledge.facts[id];
-      for (const known of Object.values(knowledge.known)) delete known[id];
-      knowledge.pending = knowledge.pending.filter((p) => p.factId !== id);
-    }
-    knowledge.facts[fact.id] = fact;
-    return fact;
-  }
-  var newsVerbs = /* @__PURE__ */ new Set([
-    "read",
-    "give",
-    "trade",
-    "attack",
-    "threaten",
-    "accompany",
-    "choose"
-  ]);
-  function witnessKnowledge(world, entry, eligible = () => true, topics = []) {
-    if (!world.knowledge || entry.generated || entry.kind !== "action" && !entry.consequence || !newsVerbs.has(entry.verb) && !entry.consequence || !validFactText(entry.text) || !entry.seq || !world.actors[entry.actorId] || entry.verb === "choose" && topics.some(
-      (topic) => topic.packId === entry.packId && topic.choiceId === entry.choiceId
-    ))
-      return null;
-    const witnesses = [
-      .../* @__PURE__ */ new Set([
-        entry.actorId,
-        ...entry.cast || [],
-        ...entry.witnesses || []
-      ])
-    ].filter((id) => world.actors[id] && eligible(id)).sort();
-    const fact = retainFact(world, {
-      id: `event:${entry.seq}`,
-      text: entry.text.trim(),
-      source: {
-        kind: "event",
-        eventSeq: entry.seq,
-        turn: entry.turn,
-        actorId: entry.actorId,
-        locationId: entry.locationId,
-        witnesses,
-        topic: null
-      }
-    });
-    if (!fact) return null;
-    for (const actor of witnesses)
-      remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
-    return fact;
-  }
-  function installKnowledge(world, eligible = () => true, topics = []) {
-    if (world.knowledge !== void 0) return world.knowledge;
-    world.knowledge = newKnowledge();
-    for (const entry of world.log || [])
-      witnessKnowledge(world, entry, eligible, topics);
-    return world.knowledge;
-  }
-  function learnQuest(world, owner2, learner, { id, text: text2 }, entry) {
-    installKnowledge(world);
-    const { book } = entry;
-    const seen = entry.at === owner2;
-    if (!(world.actors[owner2] || seen) || owner2 === learner || !entry.seq || !safeId(id) || !validQuestText(text2) || knowsFact(world, learner, id))
-      return null;
-    const fact = retainFact(world, {
-      id,
-      text: text2,
-      source: {
-        kind: "quest",
-        eventSeq: entry.seq,
-        turn: entry.turn,
-        actorId: owner2,
-        locationId: seen ? owner2 : world.actors[owner2].place,
-        witnesses: [],
-        topic: null
-      }
-    });
-    if (!fact) return null;
-    if (seen || book) fact.source.witnesses = [.../* @__PURE__ */ new Set([...fact.source.witnesses, learner])].sort();
-    const kind = book ? "read" : seen ? "witnessed" : "heard";
-    const teller = kind === "heard" ? owner2 : null;
-    if (remember(world, learner, fact, kind, teller, entry.seq, entry.turn) && book)
-      world.knowledge.known[learner][id].book = book;
-    return fact;
-  }
-  function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
-    const pending = (world.knowledge?.pending || []).filter(
-      (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && p.turn === world.turn
-    );
-    pending.sort(
-      (a, b) => Number(b.eventSeq === eventSeq) - Number(a.eventSeq === eventSeq) || b.eventSeq - a.eventSeq || a.factId.localeCompare(b.factId)
-    );
-    return pending.slice(0, 1).map((p) => ({
-      factId: p.factId,
-      speaker: p.speaker,
-      listener: p.listener,
-      eventSeq: p.eventSeq,
-      text: world.knowledge.facts[p.factId].text
-    }));
-  }
-  function knowledgeFacts(world, actor, nameOf3 = (id) => id, priority = [], limit = 2, scene = []) {
-    const known = world.knowledge?.known?.[actor] || {};
-    const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
-    const first = (a, b) => priority.includes(b.id) - priority.includes(a.id);
-    const facts = Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean);
-    const near = (fact) => scene.includes(fact.source.about);
-    const read2 = facts.filter((fact) => known[fact.id].kind === "read").sort(
-      (a, b) => first(a, b) || near(b) - near(a) || learned(b) - learned(a) || compareFacts(a, b)
-    ).slice(0, Math.min(2, limit - 1));
-    const told = facts.filter((fact) => known[fact.id].kind === "heard").sort(
-      (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b)
-    ).slice(0, limit - read2.length);
-    const seen = facts.filter((fact) => known[fact.id].kind === "witnessed").sort((a, b) => first(a, b) || compareFacts(a, b)).slice(0, Math.min(2, limit - told.length - read2.length));
-    return [...told, ...seen, ...read2].sort(first).map((fact) => {
-      const memory = known[fact.id];
-      const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
-      if (fact.source.kind === "claim") {
-        const author = nameOf3(fact.source.author);
-        const from = `${nameOf3(fact.source.book)}, by ${author}`;
-        const claimTeller = nameOf3(memory.teller), that = fact.text.replace(/[.!?。！？]$/u, "");
-        const settled2 = {
-          confirmed: [
-            memory.kind === "read" ? `I read this in ${from}, and I know it is true: ${fact.text}` : `${claimTeller} told me this from ${from}, and I know it is true: ${fact.text}`,
-            `I know what ${author} wrote is true: ${fact.text}`,
-            `${author} wrote truly: ${fact.text}`
-          ],
-          disproved: [
-            memory.kind === "read" ? `I read in ${from}, that ${that}; it was wrong.` : `${claimTeller} told me that ${from}, says ${that}; it was wrong.`,
-            `${author} wrote that ${that}; it was wrong.`,
-            `${author} was wrong: ${fact.text}`
-          ]
-        };
-        const lines = settled2[memory.status] ?? (memory.kind === "read" ? [
-          `I read this ${ageText(age)} in ${from}: ${fact.text}`,
-          `I read what ${author} wrote: ${fact.text}`
-        ] : [
-          `${claimTeller} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
-          `${claimTeller} told me what ${author} wrote: ${fact.text}`,
-          heardClaim(author, fact.text)
-        ]);
-        const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
-        return fits ?? lines.at(-1).slice(0, FACT_LINE_LIMIT);
-      }
-      const stale2 = fact.source.kind === "event" && age >= STALE_TURNS || fact.source.kind === "quest" && !protectedFact(fact, world) ? " Things may have changed since." : "";
-      if (memory.kind === "read")
-        return `I read this ${ageText(age)} in ${nameOf3(memory.book)}: ${fact.text}${stale2}`.slice(0, FACT_LINE_LIMIT);
-      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
-      const place = fact.source.kind === "topic" ? null : fact.source.locationId;
-      const where = place && !fact.text.includes(nameOf3(place)) ? ` at ${nameOf3(place)}` : "";
-      const retold = fact.source.kind === "quest" && memory.kind === "heard" && memory.teller !== fact.source.actorId;
-      const heardAt = retold && world.log?.find((e) => e.seq === memory.eventSeq)?.locationId;
-      const heardWhere = retold ? heardAt ? ` at ${nameOf3(heardAt)}` : "" : where;
-      const source = retold ? ` ${nameOf3(fact.source.actorId)} made the request${where}.` : "";
-      return `${origin} this ${ageText(age)}${heardWhere}: ${fact.text}${source}${stale2}`.slice(
-        0,
-        240
-      );
-    });
-  }
-  var STALE_TURNS = 6;
-  var GRIEVANCE_DORMANT_TURNS = 24;
-  var grievanceActive = (world, g) => !g.repaired && world.turn - (g.lastTouched ?? g.turn) < GRIEVANCE_DORMANT_TURNS;
-  var ageText = (turns) => turns <= 1 ? "just now" : turns < STALE_TURNS ? "a little while ago" : turns <= 20 ? "some time ago" : "long ago";
-  function validKnowledge(world, actors2, places2, topics = [], laneText = () => null, claimOf = () => null, questIn = () => null) {
-    const k = world.knowledge;
-    if (k === void 0) return true;
-    if (!fields(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
-      return false;
-    const settles2 = {};
-    for (const [id, fact] of Object.entries(k.facts)) {
-      if (!safeId(id) || !fields(fact, ["id", "text", "source"]) || fact.id !== id || !(fact.source?.kind === "quest" ? validQuestText : validFactText)(
-        fact.text
-      ))
-        return false;
-      const s = fact.source;
-      if (!fields(s, [
-        "kind",
-        "eventSeq",
-        "turn",
-        "actorId",
-        "locationId",
-        "witnesses",
-        "topic",
-        ...s.kind === "repair" ? ["answers"] : [],
-        ...s.kind === "claim" ? CLAIM_KEYS : []
-      ]) || ![
-        "event",
-        "topic",
-        "ending",
-        "lane",
-        "repair",
-        "claim",
-        "quest"
-      ].includes(s.kind) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !(actors2.includes(s.actorId) || s.kind === "quest" && s.actorId === s.locationId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
-        (a, i) => !actors2.includes(a) || i && s.witnesses[i - 1] >= a
-      ))
-        return false;
-      if (s.kind === "event") {
-        if (id !== `event:${s.eventSeq}` || s.topic !== null) return false;
-      } else if (s.kind === "repair") {
-        const a = s.answers;
-        if (id !== `repair:${s.eventSeq}` || s.topic !== null || !fields(a, ["recipient", "incident"]) || !actors2.includes(a.recipient) || !/^event:[1-9]\d*$/u.test(a.incident) || Number(a.incident.slice(6)) >= s.eventSeq)
-          return false;
-      } else if (s.kind === "lane") {
-        if (laneText(id) !== fact.text || s.topic !== null) return false;
-      } else if (s.kind === "ending") {
-        if (!/^ending:./u.test(id) || s.topic !== null) return false;
-      } else if (s.kind === "quest") {
-        if (s.topic !== null || !id.startsWith(`quest:${s.actorId}:`) || id.endsWith(":"))
-          return false;
-      } else if (s.kind === "claim") {
-        const claim = claimOf(id, fact);
-        if (s.topic !== null || claim?.text !== fact.text || CLAIM_KEYS.some((key2) => claim[key2] !== s[key2]))
-          return false;
-        settles2[id] = claim.settles;
-      } else {
-        if (!fields(s.topic, ["packId", "id", "choiceId"])) return false;
-        const topic = topics.find(
-          (t) => t.packId === s.topic.packId && t.id === s.topic.id
-        );
-        if (!topic || topic.id !== id || topic.text !== fact.text || topic.speaker !== s.actorId || topic.at !== s.locationId || (topic.choiceId ?? null) !== s.topic.choiceId || s.witnesses.length !== 1 || s.witnesses[0] !== s.actorId)
-          return false;
-      }
-    }
-    if (Object.values(k.facts).filter(
-      (f) => f.source.kind !== "quest" && protectedFact(f)
-    ).length > PROTECTED_FACT_LIMIT)
-      return false;
-    for (const [actor, known] of Object.entries(k.known)) {
-      if (!actors2.includes(actor) || !record(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
-        return false;
-      for (const [id, m] of Object.entries(known)) {
-        const fact = k.facts[id];
-        if (!owns(k.facts, id) || fact.source.kind === "quest" && fact.source.actorId === actor || !fields(m, [
-          ...m?.kind === "read" ? READ_KEYS : MEMORY_KEYS,
-          ...m?.status === void 0 ? [] : ["status"]
-        ]) || m.status !== void 0 && (!settles2[id] || m.status !== settles2[id]) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || (fact.source.kind === "claim" ? m.book !== fact.source.book : questIn(m.book) !== id) : fact.source.kind === "claim")))
-          return false;
-      }
-    }
-    const pendingKeys = /* @__PURE__ */ new Set();
-    return k.pending.every((p) => {
-      if (!fields(p, [
-        "factId",
-        "speaker",
-        "listener",
-        "eventSeq",
-        "turn",
-        "locationId",
-        "commitChoice"
-      ]) || !owns(k.facts, p.factId) || !actors2.includes(p.speaker) || !actors2.includes(p.listener) || p.speaker === p.listener || !knowsFact(world, p.speaker, p.factId) || !whole(p.eventSeq, world.eventSeq) || p.eventSeq < 1 || !whole(p.turn, world.turn) || typeof p.commitChoice !== "boolean" || !places2.includes(p.locationId))
-        return false;
-      const learned = k.known[p.speaker][p.factId];
-      if (learned.kind !== "witnessed" && learned.learnedTurn >= p.turn)
-        return false;
-      const fact = k.facts[p.factId];
-      if (p.commitChoice && (fact.source.kind !== "topic" || !fact.source.topic.choiceId || p.speaker !== fact.source.actorId || p.locationId !== fact.source.locationId))
-        return false;
-      const key2 = `${p.eventSeq}/${p.speaker}/${p.listener}`;
-      if (pendingKeys.has(key2)) return false;
-      pendingKeys.add(key2);
-      return true;
-    });
-  }
-
-  // v2/card-game/conversation.mjs
-  var talkedDirectly = (s, actor, other) => (s.conversations || []).some(
-    (c) => c.actors.includes(actor) && c.actors.includes(other) && actor !== other
-  );
-  function recordConversation(s, event, current = true) {
-    if (event?.kind !== "action" || event.verb !== "talk" || event.generated)
-      return;
-    const actors2 = [event.actorId, event.targetId].sort();
-    if (actors2[0] === actors2[1] || actors2.some((id) => !s.actors[id])) return;
-    let row = (s.conversations || []).find(
-      (c) => c.actors.join() === actors2.join()
-    );
-    if (!row) {
-      row = { actors: actors2, seq: event.seq, turn: event.turn };
-      (s.conversations ??= []).push(row);
-    }
-    if (current) row.company = event.seq;
-  }
-  function installConversations(s) {
-    if (s.conversations !== void 0) return;
-    s.conversations = [];
-    for (const event of s.log || []) recordConversation(s, event, false);
-  }
-  function validConversations(s) {
-    const rows = s.conversations;
-    if (rows === void 0) return true;
-    const seen = /* @__PURE__ */ new Set(), size = Object.keys(s.actors).length;
-    return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
-      if (!c || Object.keys(c).filter((k) => k !== "company").sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn || c.company !== void 0 && (!Number.isSafeInteger(c.company) || c.company < c.seq || c.company > s.eventSeq || !companySource(s, c)))
-        return false;
-      const key2 = c.actors.join(":"), fresh = !seen.has(key2);
-      seen.add(key2);
-      return fresh;
-    });
-  }
-  function companySource(s, c) {
-    const source = s.log.find((e) => e.seq === c.company);
-    return !source || source.kind === "action" && source.verb === "talk" && !source.generated && [source.actorId, source.targetId].sort().join() === c.actors.join();
-  }
-
-  // v2/card-game/weather.json
-  var weather_default = {
-    turns: 12,
-    cycles: {
-      boeotia: ["clear", "cloud", "rain", "cloud", "mist", "clear"],
-      attica: ["clear", "clear", "cloud", "rain", "cloud", "mist"],
-      argolid: ["cloud", "clear", "clear", "mist", "cloud", "rain"],
-      phocis: ["mist", "cloud", "rain", "cloud", "clear", "clear"],
-      thessaly: ["cloud", "rain", "mist", "clear", "clear", "cloud"],
-      troad: ["mist", "cloud", "rain", "rain", "cloud", "clear"],
-      thrace: ["cloud", "mist", "rain", "cloud", "clear", "cloud"],
-      lemnos: ["clear", "mist", "cloud", "rain", "cloud", "clear"],
-      egypt: ["clear", "clear", "cloud", "clear", "mist", "clear"],
-      tauris: ["mist", "rain", "cloud", "clear", "cloud", "rain"],
-      sicily: ["clear", "cloud", "clear", "mist", "rain", "cloud"],
-      susa: ["clear", "clear", "cloud", "clear", "cloud", "rain"],
-      scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
-      heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
-      underworld: ["mist"],
-      sea: ["mist", "rain", "mist", "rain", "mist", "clear"],
-      willows: ["rain", "mist", "rain", "rain", "mist", "mist", "rain", "mist"]
-    },
-    places: {
-      boeotia: {
-        coast: [
-          "greek-harbor",
-          "greek-aulis"
-        ],
-        court: [
-          "greek-courtyard",
-          "greek-well",
-          "greek-palace"
-        ],
-        open: [
-          "greek-gate",
-          "greek-battlefield",
-          "greek-polynices-hollow",
-          "greek-road-thebes"
-        ],
-        grove: [
-          "greek-sanctuary",
-          "greek-cithaeron"
-        ]
-      },
-      attica: {
-        court: [
-          "greek-athens",
-          "greek-acropolis",
-          "greek-acharnae"
-        ],
-        coast: [
-          "greek-piraeus",
-          "greek-athens-harbor",
-          "greek-road-athens-harbor",
-          "greek-road-piraeus-eleusis",
-          "greek-road-coast"
-        ],
-        open: [
-          "greek-road-athens-piraeus",
-          "greek-road-athens-colonus",
-          "greek-road-athens-eleusis",
-          "greek-road-athens-marathon",
-          "greek-road-colonus-eleusis",
-          "greek-road-colonus-marathon",
-          "greek-assembly",
-          "greek-attic-farm",
-          "greek-marathon"
-        ],
-        shelter: [
-          "greek-demos-house",
-          "greek-thinkery",
-          "greek-jury-house"
-        ],
-        grove: [
-          "greek-festival",
-          "greek-colonus",
-          "greek-eleusis",
-          "greek-bird-wilderness"
-        ]
-      },
-      argolid: {
-        open: [
-          "greek-argolid-road",
-          "greek-argos-tomb"
-        ],
-        coast: [
-          "greek-argos-sanctuary"
-        ],
-        court: [
-          "greek-argos-palace",
-          "greek-mycenae-palace",
-          "greek-corinth",
-          "greek-troezen"
-        ],
-        shelter: [
-          "greek-argive-farm"
-        ]
-      },
-      phocis: {
-        court: [
-          "greek-delphi"
-        ],
-        open: [
-          "greek-road-sacred-way"
-        ]
-      },
-      thessaly: {
-        shelter: [
-          "greek-trachis"
-        ],
-        open: [
-          "greek-oeta"
-        ],
-        court: [
-          "greek-pherae"
-        ],
-        grove: [
-          "greek-thetis"
-        ]
-      },
-      troad: {
-        open: [
-          "greek-troy",
-          "greek-trojan-camp",
-          "greek-ajax-grave"
-        ],
-        coast: [
-          "greek-greek-camp",
-          "greek-troy-beach",
-          "greek-ajax-landing"
-        ],
-        shelter: [
-          "greek-ajax-household"
-        ]
-      },
-      thrace: {
-        coast: [
-          "greek-thrace"
-        ],
-        open: [
-          "greek-road-north"
-        ]
-      },
-      lemnos: {
-        shelter: [
-          "greek-lemnos"
-        ]
-      },
-      egypt: {
-        court: [
-          "greek-egypt-tomb"
-        ]
-      },
-      tauris: {
-        court: [
-          "greek-tauris"
-        ],
-        coast: [
-          "greek-road-black-sea"
-        ]
-      },
-      sicily: {
-        shelter: [
-          "greek-sicily"
-        ],
-        open: [
-          "greek-road-colonists"
-        ]
-      },
-      susa: {
-        court: [
-          "greek-susa"
-        ],
-        open: [
-          "greek-road-royal"
-        ]
-      },
-      scythia: {
-        open: [
-          "greek-scythian-crag"
-        ]
-      },
-      heights: {
-        open: [
-          "greek-divine-heights"
-        ]
-      },
-      underworld: {
-        underground: [
-          "greek-underworld"
-        ]
-      },
-      sea: {
-        coast: [
-          "greek-ship"
-        ]
-      },
-      willows: {
-        river: [
-          "willows-camp",
-          "willows-thicket",
-          "willows-bank"
-        ]
-      }
-    }
-  };
-
-  // v2/card-game/weather.mjs
-  var WEATHER_TURNS = weather_default.turns;
-  var locations = Object.fromEntries(
-    Object.entries(weather_default.places).flatMap(
-      ([region, exposures]) => Object.entries(exposures).flatMap(
-        ([exposure, ids3]) => ids3.map((id) => [id, { region, exposure }])
-      )
-    )
-  );
-  function regionWeather(world, region) {
-    const cycle = weather_default.cycles[region];
-    if (!cycle) return null;
-    const period = Math.floor(world.turn / WEATHER_TURNS);
-    return { region, period, condition: cycle[period % cycle.length] };
-  }
-  function locationWeather(world, id) {
-    const place = locations[id];
-    if (!place) return null;
-    const now = regionWeather(world, place.region);
-    return {
-      ...now,
-      exposure: place.exposure,
-      variant: `${now.condition}-${place.exposure}`
-    };
-  }
-
-  // v2/card-game/item-use.mjs
-  var usedUp = (world, id) => Array.isArray(world.usedUp) && world.usedUp.includes(id);
-  var gone = (world, id) => Array.isArray(world.gone) && world.gone.includes(id);
-
-  // v2/card-game/world/for-good.mjs
-  var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
-  var startOf = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
-  function restForGood(item) {
-    let rest = restOf(item);
-    for (let i = 0; i < 8 && rest !== void 0; i++) {
-      if (startOf(rest)) return startOf(rest);
-      if (restOf(rest) === void 0) return rest;
-      rest = restOf(rest);
-    }
-    return rest;
-  }
-
-  // v2/card-game/pack-transport.mjs
-  var TRANSPORT_VERSION = 3;
-  var PHASES = ["docked", "course", "sea", "arrived"];
-  var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
-  var transportPlace = (place) => Boolean(shipAt(place));
-  var passengers = (s, id) => Object.entries(s.actors).filter(
-    ([actor, a]) => a.place === transports[id].place && entityActive(s, actor)
-  ).map(([, a]) => a);
-  var passengerIds = (s, id) => Object.entries(s.actors).filter(
-    ([actor, a]) => a.place === transports[id].place && entityActive(s, actor)
-  ).map(([actor]) => actor).sort();
-  function lanesFrom(t, dock) {
-    const out = [];
-    for (const lane of t.lanes || []) {
-      if (lane.from === dock) out.push(lane.to);
-      else if (lane.to === dock && !lane.oneWay) out.push(lane.from);
-    }
-    return [...new Set(out)];
-  }
-  var seaEdge = (from, to) => [`sea:${from}`, `sea:${to}`];
-  var laneOfEdge = ([from, to]) => from?.startsWith("sea:") && to?.startsWith("sea:") ? [from.slice(4), to.slice(4)] : null;
-  var tables = null;
-  function laneTables() {
-    if (tables) return tables;
-    const all = Object.values(transports);
-    tables = {
-      edges: all.flatMap(
-        (t) => t.docks.flatMap(
-          (dock) => lanesFrom(t, dock).map((to) => seaEdge(dock, to))
-        )
-      ),
-      ports: new Set(all.flatMap((t) => t.docks.map(regionOf))),
-      shipmasters: new Set(all.map((t) => t.shipmaster).filter(Boolean))
-    };
-    return tables;
-  }
-  var laneEdges = () => laneTables().edges;
-  var regionOf = (dock) => packPlaces[dock]?.packId ?? null;
-  var homeOf = (actor) => {
-    const pack = packPeople[actor]?.packId ?? null;
-    return laneTables().ports.has(pack) ? pack : null;
-  };
-  var storyDock = (s, dock) => Boolean(packPlaces[dock]?.requires?.length) && entityActive(s, dock);
-  function knowsLane(s, actor, from, to) {
-    if (!actor || laneTables().shipmasters.has(actor)) return true;
-    const home = homeOf(actor);
-    if (regionOf(from) === home || regionOf(to) === home) return true;
-    const a = `sea:${from}`, b = `sea:${to}`;
-    if ((s.routeKnowledge?.[actor] || []).some(([x, y]) => x === a && y === b))
-      return true;
-    return storyDock(s, from) || storyDock(s, to);
-  }
-  var knowsLaneFrom = (s, id, dock, actor) => !actor || lanesFrom(transports[id], dock).some(
-    (to) => entityActive(s, to) && knowsLane(s, actor, dock, to)
-  );
-  var laneGate = (t, from, to) => (t.lanes || []).find(
-    (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
-  )?.opensWith ?? null;
-  var laneConditions = (from, to) => Object.values(transports).map((t) => laneGate(t, from, to)).find(Boolean) ?? null;
-  var openLanes = (s, t, dock, actor = null) => lanesFrom(t, dock).filter((to) => {
-    if (!entityActive(s, to)) return false;
-    const gate = laneGate(t, dock, to);
-    return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
-  });
-  function laneReach(s, id, from, actor = null) {
-    const t = transports[id];
-    const seen = /* @__PURE__ */ new Set([from]), queue = [from];
-    for (let i = 0; i < queue.length; i++)
-      for (const next of openLanes(s, t, queue[i], actor))
-        if (!seen.has(next)) {
-          seen.add(next);
-          queue.push(next);
-        }
-    return queue.slice(1);
-  }
-  var read = (s, id) => {
-    const state = s.transports?.[id];
-    return state?.version === 2 ? upgradeTransportState(s, id, state) : state;
-  };
-  var freshState = (dock, turn = 0) => ({
-    version: TRANSPORT_VERSION,
-    phase: "docked",
-    dock,
-    destination: null,
-    riders: [],
-    since: turn,
-    recall: null
-  });
-  function installTransports(s) {
-    s.transports ??= {};
-    for (const [id, t] of Object.entries(transports))
-      s.transports[id] ??= freshState(t.at, s.turn || 0);
-  }
-  function transportUnlocked(s, id) {
-    const signals = crossings.filter(
-      (c) => c.transport === id && (c.signal || c.unlockWhen)
-    );
-    return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
-  }
-  var shipDock = (s, id) => read(s, id)?.phase === "sea" ? null : read(s, id)?.dock ?? null;
-  var shipAtSea = (s, id) => read(s, id)?.phase === "sea";
-  var humanAboard = (s, t) => Object.entries(s.actors).some(
-    ([who, a]) => a.place === t.place && controlledByHuman(s, who)
-  );
-  function canDisembark(s, id, actor) {
-    const state = read(s, id);
-    return Boolean(
-      actor && state.phase === "arrived" && s.actors[actor]?.place === transports[id].place && state.riders.includes(actor)
-    );
-  }
-  function courseOptions(s, id, actor = null) {
-    const t = transports[id], state = read(s, id);
-    if (!["docked", "arrived"].includes(state.phase)) return [];
-    if (actor && s.actors[actor]?.place !== t.place) return [];
-    if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
-    return openLanes(s, t, state.dock, actor);
-  }
-  function transportExits(s, place, previous = null, actor = null) {
-    const found2 = shipAt(place);
-    if (!found2) return [];
-    const [id, t] = found2, state = read(s, id);
-    const aboard = actor && s.actors[actor]?.place === t.place;
-    if (previous !== null && previous !== void 0 || !aboard) {
-      if (t.docks.includes(previous)) return laneReach(s, id, previous, actor);
-      const from = state.phase === "sea" || state.phase === "course" ? state.destination : state.dock;
-      return [
-        ...state.phase === "sea" || state.phase === "course" || canDisembark(s, id, actor) ? [from] : [],
-        ...laneReach(s, id, from, actor)
-      ].filter((dock, i, all) => all.indexOf(dock) === i);
-    }
-    return [
-      ...canDisembark(s, id, actor) ? [state.dock] : [],
-      ...courseOptions(s, id, actor)
-    ];
-  }
-  function transportScenery(s, place, nameOf3) {
-    const found2 = shipAt(place);
-    if (!found2) return [];
-    const state = read(s, found2[0]);
-    if (state.phase === "sea")
-      return [`The ship is at sea, bound for ${nameOf3(state.destination)}.`];
-    if (state.phase === "course")
-      return [`The ship has set its course for ${nameOf3(state.destination)}.`];
-    if (state.phase === "arrived")
-      return [`The ship has arrived at ${nameOf3(state.dock)}.`];
-    return [`The ship is docked at ${nameOf3(state.dock)}.`];
-  }
-  var whole2 = (n) => Number.isSafeInteger(n) && n >= 0;
-  function validTransports(s) {
-    const saved = s.transports;
-    if (!saved || Array.isArray(saved) || Object.keys(saved).sort().join() !== Object.keys(transports).sort().join())
-      return false;
-    return Object.entries(transports).every(([id, t]) => {
-      const state = saved[id];
-      if (!state || Object.keys(state).sort().join() !== "destination,dock,phase,recall,riders,since,version" || state.version !== TRANSPORT_VERSION || !PHASES.includes(state.phase) || !t.docks.includes(state.dock) || !whole2(state.since) || state.since > (s.turn ?? 0) || !Array.isArray(state.riders) || new Set(state.riders).size !== state.riders.length || state.riders.some((a) => !s.actors[a]) || state.recall !== null && !t.docks.includes(state.recall))
-        return false;
-      const aboard = passengers(s, id).length;
-      if (!aboard && state.recall !== null && state.phase !== "sea") return false;
-      if (state.phase === "docked")
-        return state.destination === null && !state.riders.length;
-      if (state.phase === "arrived")
-        return state.destination === null && (aboard > 0 || state.riders.length > 0);
-      return !state.riders.length && lanesFrom(t, state.dock).includes(state.destination) && (state.phase === "sea" || aboard > 0);
-    });
-  }
-  function upgradeTransportState(s, id, state) {
-    const aboard = passengerIds(s, id);
-    const arrived = aboard.length > 0 && state.dock === state.destination;
-    return {
-      version: TRANSPORT_VERSION,
-      phase: arrived ? "arrived" : "docked",
-      dock: state.dock,
-      destination: null,
-      riders: arrived ? aboard : [],
-      since: s.turn || 0,
-      recall: aboard.length ? state.recall : null
-    };
-  }
-
-  // v2/card-game/pack-rules.mjs
-  var DAYLIGHT_TURNS = 24;
-  var crossingState = (s, id) => s.crossings?.[id];
-  var newCrossingState = (c) => c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
-  var newPackRecord = (pack) => ({
-    revision: pack.revision,
-    ...pack.recital ? { recitals: {} } : {},
-    ...pack.choices ? {
-      choices: {},
-      flags: {},
-      receipts: {},
-      met: {},
-      scope: pack.release ? "opening" : "full"
-    } : {},
-    sounds: Object.fromEntries(
-      Object.keys(pack.fixtures || {}).map((id) => [id, 0])
-    )
-  });
-  function newTemperament(id) {
-    const t = packPeople[id]?.temperament;
-    return t ? { awake: !t.asleep, irritation: 0, wakeCause: null } : {};
-  }
-  var fixtureSounding = (s, id) => s.turn < (s.packs?.[packFixtures[id]?.packId]?.sounds?.[id] ?? 0);
-  var soundAt = (s, place, senses2) => senses2.baseSoundAt(s, place) || fixturesAt(place).some((f) => fixtureSounding(s, f.id));
-  function objectPlace(s, item) {
-    let holder = s.items[item]?.holder;
-    const seen = /* @__PURE__ */ new Set([item]);
-    while (s.items[holder]) {
-      if (seen.has(holder)) return null;
-      seen.add(holder);
-      holder = s.items[holder].holder;
-    }
-    return s.actors[holder]?.place || holder;
-  }
-  function conditionMet(s, c, senses2, packId = null, actor = null) {
-    const state = s.packs?.[packId];
-    switch (c.kind) {
-      case "sound":
-        return !!senses2 && c.at.some((place) => soundAt(s, place, senses2));
-      case "light":
-        return Boolean(
-          entityActive(s, c.item) && s.items[c.item]?.lit && s.items[c.item]?.fuel > 0 && c.at.includes(objectPlace(s, c.item)) && (!c.uncovered || !Object.values(s.items).some((i) => i.holder === c.item))
-        );
-      case "not":
-        return !conditionMet(s, c.condition, senses2, packId, actor);
-      case "any":
-        return c.conditions.some(
-          (r) => conditionMet(s, r, senses2, packId, actor)
-        );
-      case "choice":
-        return state?.choices?.[c.key] === c.value;
-      case "choice_unset":
-        return !!state && !Object.hasOwn(state.choices || {}, c.key);
-      case "clock": {
-        const hour = s.turn % (2 * DAYLIGHT_TURNS);
-        return c.from < c.to ? hour >= c.from && hour < c.to : hour >= c.from || hour < c.to;
-      }
-      case "flag":
-        return (state?.flags?.[c.key] ?? false) === c.value;
-      case "talked":
-        return talkedDirectly(
-          s,
-          actor || senses2?.player || currentActor(s),
-          c.person
-        );
-      case "knows": {
-        const who = actor || senses2?.player || currentActor(s);
-        return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
-      }
-      case "trusted":
-        if (actor === c.actor) return true;
-        return (s.actors[c.actor]?.trust?.[actor] || 0) >= c.min && !(s.motives?.grievances?.[c.actor] || []).some(
-          (g) => g.other === actor && grievanceActive(s, g)
-        );
-      case "holding":
-        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) && !usedUp(s, c.item);
-      // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
-      case "upgraded":
-        return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
-      case "shared_world":
-        return sharedEnabled(s);
-      case "gate_open":
-        return packRouteOpen(s, c.from, c.to);
-      case "home_door":
-        return s.doors?.[c.home] === c.place;
-      // The current player carries the thing, unless another carrier is named.
-      case "in_hand":
-        return heldItem(s, actor ?? currentActor(s)) === c.item && !usedUp(s, c.item);
-      case "actor_at":
-        return s.actors[actor ?? currentActor(s)]?.place === c.place;
-      case "held":
-        return s.items[c.item]?.holder === (c.actor ?? currentActor(s)) && !usedUp(s, c.item);
-      // The thing rests on a place, not in a hand or inside another thing.
-      case "grounded": {
-        const holder = s.items[c.item]?.holder;
-        return holder != null && !s.items[holder] && !s.actors[holder] && !usedUp(s, c.item);
-      }
-      case "connected_humans":
-        return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
-      // Enough travellers stand together in one place: a lock for two.
-      case "humans_at":
-        return sharedEnabled(s) && roomHumanCount(s, c.place) >= c.minimum;
-      case "item_near": {
-        if (usedUp(s, c.item)) return false;
-        let holder = s.items[c.item]?.holder;
-        const seen = /* @__PURE__ */ new Set([c.item]);
-        while (s.items[holder] && !seen.has(holder)) {
-          seen.add(holder);
-          holder = s.items[holder].holder;
-        }
-        return (!controlledByHuman(s, holder) || humanPresent(s, holder)) && objectPlace(s, c.item) === c.place;
-      }
-      case "item_present":
-        return Boolean(
-          s.items[c.item] && !usedUp(s, c.item) && objectPlace(s, c.item) === c.place
-        );
-      // Any thing tagged c.tag, carried by someone present at c.place.
-      case "tag_held":
-        return Object.keys(s.actors).some(
-          (id) => s.actors[id].upgrades?.includes(c.tag) && s.actors[id].place === c.place && (!controlledByHuman(s, id) || humanPresent(s, id))
-        ) || Object.keys(s.items).some((id) => {
-          const holder = s.items[id].holder;
-          return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder]?.place === c.place && (!controlledByHuman(s, holder) || humanPresent(s, holder));
-        });
-      case "item_at":
-        return s.items[c.item]?.holder === c.place && !usedUp(s, c.item);
-      case "arcana_called":
-        return calledTravelers(s).length > 0;
-      case "arcana_selling":
-        return Object.keys(s.actors).some(
-          (id) => selling(s, id) && s.actors[id].place === s.actors[c.actor]?.place
-        );
-      // Any thing from that world in the place: carried there or resting there.
-      case "pack_item_present":
-        return Object.keys(s.items).some(
-          (id) => packThings[id]?.packId === c.pack && entityActive(s, id) && objectPlace(s, id) === c.place
-        );
-      case "home_item_present":
-        return Object.keys(s.items).some(
-          (id) => restForGood(id) === c.home && entityActive(s, id) && objectPlace(s, id) === c.place
-        );
-      case "drawn":
-        return !!state?.specials?.includes(c.id);
-      case "met":
-        return !!state?.met && Object.hasOwn(state.met, c.actor);
-      // The saved world clock: every DAYLIGHT_TURNS turns, day and night swap.
-      case "daylight":
-        return (Math.floor((s.turn || 0) / DAYLIGHT_TURNS) % 2 ? "night" : "day") === c.phase;
-      // The saved regional weather where c.place is.
-      case "weather":
-        return locationWeather(s, c.place)?.condition === c.condition;
-      // A seeded chance: true for `lasts` turns at a time, one window in
-      // `odds`, hashed from the run seed so every table agrees.
-      case "chance":
-        return runHash(s, `${c.key}:${Math.floor((s.turn || 0) / c.lasts)}`) % c.odds === 0;
-      // A transport docked (or just arrived) at a port, or "@sea" between ports.
-      case "ship_at":
-        return c.dock === "@sea" ? shipAtSea(s, c.transport) : shipDock(s, c.transport) === c.dock;
-      default:
-        return false;
-    }
-  }
-  function runHash(s, key2) {
-    let h = 2166136261;
-    for (const ch of `${s.run?.seed ?? 0}:${key2}`)
-      h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-    return h;
-  }
-  var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
-  var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
-  var crossingOpen = (s, c, senses2, actor = senses2?.player ?? null) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId, actor));
-  var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor) || humanAvatarIds.includes(actor);
-  var crossingExits = (s, place, actor, senses2) => crossings.filter(
-    (c) => c.from === place && mayCross(c, actor, senses2) && crossingOpen(s, c, senses2, actor) && (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor))
-  ).map((c) => c.transport ? transports[c.transport].place : c.to);
-  var packDiscovered = (s, packId) => packId === ELYSIUM_PACK && humanAvatarIds.some((id) => s.actors[id]?.visited?.includes(ELYSIUM_ENTRY)) || crossings.some(
-    (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
-  );
-  var crossingScenery = (s, place, senses2, waiting = []) => crossings.filter(
-    (c) => c.from === place && c.scenery && !waiting.includes(c.transport ? transports[c.transport].place : c.to)
-  ).map(
-    (c) => crossingOpen(s, c, senses2) ? c.scenery.open : c.scenery.closed
-  ).filter(Boolean);
-  var matches = (p, a, holder) => Boolean(p) && p.verb === a.kind && (p.item === void 0 || p.item === a.item) && (p.target === void 0 || p.target === a.target) && (p.from === void 0 || p.from === holder);
-  function signalEcho(s, location, card) {
-    const c = crossings.find(
-      (c2) => c2.signal?.echo && c2.from === location && s.crossings[c2.id].phase > 0 && matches(c2.signal.steps[s.crossings[c2.id].phase - 1], card)
-    );
-    return c?.signal.echo || null;
-  }
-  var hasTemperament = (id) => Boolean(packPeople[id]?.temperament);
-  function variantOf(s, id) {
-    const a = packPeople[id];
-    if (!a?.temperament) return null;
-    const state = s.actors[id];
-    const name = !state.awake ? "asleep" : a.variants.irritated && state.irritation >= a.temperament.irritated ? "irritated" : "awake";
-    return {
-      name,
-      ...name === "irritated" ? a.variants.awake : {},
-      ...a.variants[name]
-    };
-  }
-  var exactKeys = (o, keys) => o && typeof o === "object" && !Array.isArray(o) && Object.keys(o).sort().join() === [...keys].sort().join();
-  var whole3 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
-  function validPackState(s, senses2) {
-    if (!validTransports(s) || !exactKeys(
-      s.crossings,
-      crossings.map((c) => c.id)
-    ) || !exactKeys(
-      s.packs,
-      packDefinitions.map((p) => p.id)
-    ))
-      return false;
-    for (const c of crossings) {
-      const state = s.crossings[c.id];
-      if (!c.signal) {
-        const method = state?.method;
-        if (!exactKeys(state, method === void 0 ? ["discovered"] : ["discovered", "method"]) || typeof state.discovered !== "boolean" || method !== void 0 && (!state.discovered || method !== c.unlockMethod)) return false;
-        continue;
-      }
-      if (!exactKeys(state, ["discovered", "phase", "until"]) || typeof state.discovered !== "boolean" || !whole3(
-        state.phase,
-        c.signal.steps.length - (c.signal.opens === null ? 0 : 1)
-      ) || !whole3(
-        state.until,
-        c.signal.opens === null ? 0 : s.turn + c.signal.opens
-      ) || (state.until > 0 || c.signal.opens === null && state.phase === c.signal.steps.length) && !state.discovered || state.phase > 0 && !(senses2.humanActors || [senses2.player]).some(
-        (id) => s.actors[id]?.place === c.from
-      ))
-        return false;
-    }
-    for (const pack of packDefinitions) {
-      const record7 = s.packs[pack.id];
-      const fixtures = Object.entries(pack.fixtures || {});
-      if (!exactKeys(record7, [
-        ...pack.specials && s.run ? ["specials"] : [],
-        ...pack.choices ? [
-          "revision",
-          "sounds",
-          "choices",
-          "flags",
-          "receipts",
-          "met",
-          "scope",
-          ...pack.recital ? ["recitals"] : []
-        ] : ["revision", "sounds"]
-      ]) || record7.revision !== pack.revision || !exactKeys(
-        record7.sounds,
-        fixtures.map(([id]) => id)
-      ) || fixtures.some(
-        ([id, f]) => !whole3(record7.sounds[id], s.turn + f.sound.turns)
-      ))
-        return false;
-    }
-    for (const [id, a] of Object.entries(packPeople)) {
-      const state = s.actors[id];
-      if (!state) return false;
-      const t = a.temperament;
-      if (!t) {
-        if (["awake", "irritation", "wakeCause"].some((k) => k in state))
-          return false;
-        continue;
-      }
-      if (typeof state.awake !== "boolean" || !whole3(state.irritation, t.irritation) || ![null, "voice", "sound"].includes(state.wakeCause) || !state.awake && (state.wakeCause !== null || !t.asleep) || state.awake && state.wakeCause === null && t.asleep)
-        return false;
-    }
-    return validatePackStates(s);
-  }
-
-  // v2/card-game/glimpse.mjs
-  var GLIMPSE_KINDS = ["arcanum"];
-  function validGlimpse(g) {
-    return Boolean(
-      g && typeof g === "object" && !Array.isArray(g) && Object.keys(g).length === 4 && Number.isSafeInteger(g.level) && g.level >= 0 && g.level <= LEVEL_CAP && GLIMPSE_KINDS.includes(g.kind) && isArcanum(g.id) && typeof g.at === "string" && g.at.length > 0 && g.at.length <= 120
-    );
-  }
-
-  // v2/card-game/offer-chance.mjs
-  var offerFrom = (s, actor) => s.actors[actor]?.offered?.from ?? null;
-  function validOffered(s, id) {
-    const offered = s.actors[id].offered;
-    if (offered === void 0) return true;
-    return Boolean(
-      offered && typeof offered === "object" && Object.keys(offered).sort().join() === "from,turn" && offered.from !== id && Object.hasOwn(s.actors, offered.from) && Number.isSafeInteger(offered.turn) && offered.turn >= 0 && offered.turn <= s.turn
-    );
-  }
-
-  // v2/card-game/world/lock-goals.mjs
-  var DEPTH = 4;
-  var settersIn = (choices, condition) => (choices || []).filter(
-    (choice) => (choice.effects || []).some(
-      (e) => condition.kind === "choice" ? e.kind === "choose" && e.key === condition.key && e.value === condition.value : e.kind === "set_flag" && e.key === condition.key && e.value === condition.value
-    )
-  );
-  var OWN_VERB = { item: "hold", person: "talk", place: "meet" };
-  var packKind = (id) => Object.hasOwn(packPeople, id) ? "person" : isPackPlace(id) ? "place" : "item";
-  function playGoal(choice, kindIn) {
-    const item = (choice.requires || []).find(
-      (r) => r.kind === "holding" && r.role === "actor"
-    )?.item;
-    if (choice.on === "give")
-      return item ? {
-        kind: kindIn(item),
-        target: item,
-        step: { verb: "give", to: choice.subject }
-      } : null;
-    const target = choice.on === "wait" ? choice.at : choice.subject;
-    if (!target) return null;
-    const kind = kindIn(target), verb = choice.on ?? OWN_VERB[kind];
-    return verb === OWN_VERB[kind] ? { kind, target } : { kind, target, step: { verb } };
-  }
-  function goalsFrom(world, conditions, depth = 0, seen = []) {
-    const out = [];
-    const push = (goal) => {
-      if (goal && !out.some((g) => JSON.stringify(g) === JSON.stringify(goal)))
-        out.push(goal);
-    };
-    for (const condition of conditions || []) {
-      if (world.met(condition)) continue;
-      switch (condition.kind) {
-        case "any": {
-          for (const branch of condition.conditions) {
-            const goals = goalsFrom(world, [branch], depth, seen);
-            if (goals.length) {
-              goals.forEach(push);
-              break;
-            }
-          }
-          break;
-        }
-        case "talked":
-          push({ kind: "person", target: condition.person });
-          break;
-        case "holding":
-          if (condition.actor)
-            push({
-              kind: "item",
-              target: condition.item,
-              step: { verb: "give", to: condition.actor }
-            });
-          else if (condition.role === "actor")
-            push({ kind: "item", target: condition.item });
-          break;
-        case "item_at":
-          push({
-            kind: "place",
-            target: condition.place,
-            step: { verb: "lay", items: [condition.item] }
-          });
-          break;
-        case "item_near":
-        case "item_present":
-          push({
-            kind: "item",
-            target: condition.item,
-            ...condition.place ? { step: { verb: "bring", at: condition.place } } : {}
-          });
-          break;
-        case "in_hand":
-          push({ kind: "item", target: condition.item });
-          break;
-        case "grounded":
-        case "light": {
-          const light = conditions.find(
-            (c) => c.kind === "light" && c.item === condition.item
-          );
-          const laid = conditions.some(
-            (c) => c.kind === "grounded" && c.item === condition.item
-          );
-          if (laid && light)
-            push({
-              kind: "place",
-              target: light.at[0],
-              step: { verb: "lay", items: [condition.item] },
-              lit: true
-            });
-          else if (light)
-            push({ kind: "item", target: condition.item, lit: true });
-          break;
-        }
-        case "not":
-          if (condition.condition.kind === "light")
-            push({ kind: "item", target: condition.condition.item, lit: false });
-          break;
-        case "flag":
-        case "choice": {
-          if (depth >= DEPTH) break;
-          for (const choice of settersIn(world.choices, condition)) {
-            if (seen.includes(choice.id)) continue;
-            const play2 = playGoal(choice, world.kind ?? packKind);
-            const needs = (choice.requires || []).filter(
-              (r) => !(r.kind === "holding" && r.role === "actor" && r.item === play2?.target)
-            ).sort(
-              (a, b) => Number(!["flag", "choice"].includes(a.kind)) - Number(!["flag", "choice"].includes(b.kind))
-            );
-            const [first] = goalsFrom(world, needs, depth + 1, [
-              ...seen,
-              choice.id
-            ]);
-            push(first ?? play2);
-            if (first || play2) break;
-          }
-          break;
-        }
-        default:
-          break;
-      }
-    }
-    return out;
-  }
-  var goalsOf = (s, packId, conditions, actor) => goalsFrom(
-    {
-      met: (condition) => packId ? conditionsMet(s, packId, [condition], actor) : conditionMet(s, condition, null),
-      choices: packId ? packDefinition(packId)?.choices : []
-    },
-    conditions
-  );
-  var stepGoal = (s, want, actor) => want?.step?.verb === "lay" && want.step.finish && goalsOf(
-    s,
-    packOf(want.target)?.id,
-    [{ kind: "flag", key: want.step.finish, value: true }],
-    actor
-  )[0] || want;
-
-  // v2/card-game/want-talk.mjs
-  var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
-  function stagedWants(world, id) {
-    const person = packPeople[id];
-    const list = person?.wants ?? [
-      ...authoredWant(id) ? [{ want: authoredWant(id) }] : []
-    ];
-    return list.map((entry, index) => ({
-      index,
-      want: entry.want,
-      when: entry.when ?? [],
-      open: !entry.when?.length || Boolean(person && conditionsMet(world, person.packId, entry.when))
-    }));
-  }
-  var wantOf = (world, id) => world.actors?.[id]?.want || authoredWant(id);
-  var rootOf = (world, item) => {
-    let holder = world.items[item]?.holder;
-    const seen = /* @__PURE__ */ new Set([item]);
-    while (world.items[holder] && !seen.has(holder)) {
-      seen.add(holder);
-      holder = world.items[holder].holder;
-    }
-    return holder;
-  };
-  var article = (name) => /^(the|a|an) /iu.test(name) ? name : `the ${name}`;
-  var callWords = (want, name) => `call the ship: hold ${name("cloth")} at ${name(want.target)} while ${name("lamp")} burns on the ground there`;
-  function met(world, id, want) {
-    if (want.kind === "connect") return false;
-    if (want.step?.verb === "call") return false;
-    const here2 = world.actors[id].place;
-    if (want.kind === "item")
-      return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
-    if (want.step?.verb === "lay") return layMet(world, want);
-    if (want.kind === "place") return here2 === want.target;
-    return world.actors[want.target]?.place === here2;
-  }
-  function trustedEnough(world, id, want, listener) {
-    if (!listener) return true;
-    const same2 = stagedWants(world, id).filter(
-      (entry) => entry.want.kind === want.kind && entry.want.target === want.target
-    );
-    const authored = same2.find((entry) => questTerms(entry.want) === questTerms(want))?.want ?? same2[0]?.want;
-    if (!authored?.minTrust) return true;
-    return (world.actors[id].trust?.[listener] || 0) >= authored.minTrust;
-  }
-  function revealed(world, id, want, listener) {
-    return Boolean(
-      want && world.actors?.[id] && // A made thing still locked is wanted all the same (rules 102), and a
-      // sealed one (rules 133).
-      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked) || Boolean(packThings[want.target]?.sealed)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !lostOf(world, want) && !met(world, id, want) && trustedEnough(world, id, want, listener)
-    );
-  }
-  function wantFact(world, id, nameOf3, listener) {
-    const done = world.actors?.[id]?.completedQuest;
-    if (done && !world.actors[id].want) return `${nameOf3(done.by)} called the ship for me.`;
-    const want = wantOf(world, id);
-    if (want?.kind === "connect" && world.actors?.[id])
-      return "I want to introduce you to someone.";
-    const making = want?.kind === "item" && world.actors?.[id] && makerChoice(id, want.target);
-    if (making) {
-      const set = heldSlots(making.requires).map(
-        (slot) => slot.map((item) => article(nameOf3(item))).join(" or ")
-      );
-      return `I want ${article(nameOf3(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
-    }
-    if (!revealed(world, id, want, listener)) return null;
-    const said = stepGoal(world, want, listener ?? id);
-    const name = nameOf3(said.target);
-    const help = listener && offerFrom(world, listener) === id ? " I would be glad of your help." : "";
-    if (said.step?.verb === "lay")
-      return `I want ${said.step.items.map((item) => article(nameOf3(item))).join(", ")} laid in ${name}.${help}`;
-    if (said.step?.verb === "call") return `I want you to ${callWords(said, nameOf3)}.${help}`;
-    return (said.kind === "item" ? said.step?.verb === "eat" ? `I want to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${article(name)}${said.step.at ? ` at ${nameOf3(said.step.at)}` : ""}.` : said.step?.verb === "bring" && said.step.at ? `I want ${article(name)} brought to ${nameOf3(said.step.at)}.` : said.step?.verb === "give" && said.step.to !== id ? `I want ${article(name)} given to ${nameOf3(said.step.to)}.` : `I want ${article(name)}.` : said.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
-  }
-  function refusalWhy(entry, nameOf3) {
-    const who = nameOf3(entry.targetId), id = entry.wantId;
-    if (entry.reason === "grudge") return `${who} holds a grudge.`;
-    if (entry.reason === "needs-it") return `${who} needs it.`;
-    if (!id) return `${who} wants something else.`;
-    const name = nameOf3(id);
-    return forest_default.people[id] || packPeople[id] ? `${who} wants to see ${name}.` : forest_default.places[id] || packPlaces[id] ? `${who} wants to be at ${name}.` : `${who} wants ${article(name)}.`;
-  }
-  var wantHeard = (world, played, id, player2) => id === player2 || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
-
-  // v2/card-game/world/dwell.mjs
-  var DWELL_TURNS = 24;
-  var DWELL_SPREAD = 6;
-  var MAX_DWELL = DWELL_TURNS + DWELL_SPREAD - 1;
-  var ATTEND_CAP = DWELL_TURNS;
-  var validDwell = (s) => Object.values(s.actors).every(
-    (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
-  );
-
-  // v2/card-game/world/rumours.mjs
-  var RUMOURS_HELD = 3;
-  var TELL_FAILS = 2;
-  var KINDS = ["item", "place", "person", "gone"];
-  var FIELDS = "at,day,holder,hops,kind,subject,teller";
-  var dayOf = (s) => Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
-  var keyOf = (kind, target) => `${kind}:${target}`;
-  function rumourWords(s, r, names2) {
-    const name = names2.name(r.subject);
-    const line = r.kind === "gone" ? `${name} is gone for good.` : r.hops === 0 && r.holder ? `${names2.name(r.holder)} has ${name}${r.at && r.at !== r.subject ? ` at ${names2.name(r.at)}` : ""}.` : r.hops <= 1 && r.at && r.at !== r.subject ? `${name} is at ${names2.name(r.at)}.` : r.hops <= 2 && names2.world(r.at ?? r.subject) ? `${name} is somewhere in ${names2.world(r.at ?? r.subject)}.` : names2.legend(r.subject) ?? `People speak of ${name}.`;
-    return r.teller ? `${names2.name(r.teller)} told me: ${line}` : line;
-  }
-  function validRumours(s, id) {
-    const a = s.actors[id], day = dayOf(s), list = a.rumours;
-    const ref = (x) => x === null || typeof x === "string";
-    return (a.heardOn === void 0 || Number.isSafeInteger(a.heardOn) && a.heardOn >= 0 && a.heardOn <= day) && (list === void 0 || Array.isArray(list) && list.length >= 1 && list.length <= RUMOURS_HELD && new Set(list.map((r) => keyOf(r?.kind, r?.subject))).size === list.length && list.every(
-      (r) => r && Object.keys(r).filter((k) => k !== "fails").sort().join() === FIELDS && (r.fails === void 0 || Number.isInteger(r.fails) && r.fails >= 1 && r.fails <= TELL_FAILS) && KINDS.includes(r.kind) && typeof r.subject === "string" && r.subject.length <= 80 && ref(r.at) && ref(r.holder) && ref(r.teller) && [0, 1, 2, 3].includes(r.hops) && Number.isSafeInteger(r.day) && r.day >= 0 && r.day <= day
-    ));
-  }
-
-  // v2/card-game/want.mjs
-  var WANT_KINDS = ["item", "place", "person", "connect"];
-  var STEP_VERBS = {
-    item: ["find", "give", "bring"],
-    person: ["meet"],
-    place: ["rest"]
-  };
-  var SAVED_STEP_VERBS = ["threaten", "attack"];
-  var CONNECT_TARGET = "humans";
-  var REFUSAL_LIMIT = 3;
-  var STALL_TURNS = 48;
-  var CONTENT_TURNS = 24;
-  var knownActors = (s) => [
-    .../* @__PURE__ */ new Set([
-      ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
-      ...s.controlledActors || []
-    ])
-  ].filter(
-    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
-  );
-  var wantless = (id) => forest_default.people[id]?.wants === false;
-  var travels = (id, s = null) => !isPackActor(id) && forest_default.people[id]?.travels !== false || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
-  var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
-  var rankXp = (r) => r * (r - 1) / 2;
-  var startXp = (id) => rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
-  var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
-  var questTerms = (w) => JSON.stringify([
-    w.kind,
-    w.target,
-    w.step ? Object.keys(w.step).sort().map((key2) => [key2, w.step[key2]]) : null,
-    w.lit ?? null
-  ]);
-  var MAX_HELD = 3;
-  var heldOf = (a) => a?.want ? [a.want, ...a.under || []] : [];
-  var LISTENER_FROM = "quest:listener:";
-  var fetching = (w) => w.from?.startsWith(LISTENER_FROM) === true;
-  var slotsUsed = (a) => {
-    const held = heldOf(a);
-    const fetches = held.filter(fetching).length;
-    return held.length - fetches + (fetches ? 1 : 0) + tarotsHeld(a);
-  };
-  var questsOf = (s, id) => heldOf(s.actors[id]);
-  var closedKey = questTerms;
-  var contentOf = (s, id) => Boolean(s.actors[id]?.content && !s.actors[id].want);
-  function releaseQuest(a, want) {
-    const held = heldOf(a).filter((w) => w !== want);
-    a.want = held[0] ?? null;
-    if (held.length > 1) a.under = held.slice(1);
-    else delete a.under;
-  }
-  var MAX_CLOSED = 64;
-  var newWant = (kind, target, turn) => ({
-    kind,
-    target,
-    since: turn,
-    refusals: 0
-  });
-  var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
-  var lostOf = (s, w) => w ? [
-    w.target,
-    w.step?.to,
-    w.step?.with,
-    w.step?.at,
-    ...(w.step?.items || []).filter(
-      (id) => !(w.step.finish && spentByChoice(s, id))
-    )
-  ].find((id) => typeof id === "string" && neverBack(s, id)) : void 0;
-  var heldWant = (s, w) => ({
-    ...newWant(w.kind, w.target, s.turn),
-    ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {},
-    ...w.step ? { step: { ...w.step } } : {}
-  });
-  var mixed = (h) => {
-    h = Math.imul(h ^ h >>> 16, 2246822507);
-    h = Math.imul(h ^ h >>> 13, 3266489909);
-    return (h ^ h >>> 16) >>> 0;
-  };
-  var stagedOrder = (a, b) => a.rank - b.rank || a.index - b.index;
-  function stagedNext(s, id, previous = null) {
-    if (!packPeople[id]?.wants) return null;
-    const day = Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
-    const entries = stagedWants(s, id).filter(
-      ({ open, want }) => open && (!want.minTrust || Object.entries(s.actors[id].trust || {}).some(
-        ([who, trust]) => trust >= want.minTrust && controlledByHuman(s, who)
-      )) && validTarget(s, want.kind, want.target) && !lostOf(s, want) && !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) && !questMet(s, id, heldWant(s, want), null, null)
-    ).map((entry) => ({
-      ...entry,
-      rank: mixed(runHash(s, `staged:${id}:${entry.index}:${day}`))
-    })).sort(stagedOrder);
-    return entries.length ? heldWant(s, entries[0].want) : null;
-  }
-  function installWants(s) {
-    for (const [id, a] of Object.entries(s.actors)) {
-      if (wantless(id)) a.want = null;
-      else if (!("want" in a)) {
-        const w = humanAvatarIds.includes(id) ? null : authoredWant(id);
-        a.want = humanAvatarIds.includes(id) ? null : stagedNext(s, id) ?? (w && validTarget(s, w.kind, w.target) && !lostOf(s, w) ? heldWant(s, w) : null);
-      }
-      a.xp ??= startXp(id);
-      delete a.halfwayIssued;
-      if (a.glimpse !== void 0 && !validGlimpse(a.glimpse)) delete a.glimpse;
-      if (humanAvatarIds.includes(id) && heldOf(a).some((w) => w.quest)) {
-        const kept = heldOf(a).filter((w) => !w.quest);
-        a.want = kept[0] ?? null;
-        if (kept.length > 1) a.under = kept.slice(1);
-        else delete a.under;
-      }
-      while (heldOf(a).length && slotsUsed(a) > MAX_HELD)
-        releaseQuest(a, heldOf(a).at(-1));
-      if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
-      a.visited ??= [a.place];
-      a.talked ??= [];
-    }
-  }
-  var introduced = (s, actor, talk) => {
-    const here2 = s.actors[actor]?.place;
-    return Boolean(
-      talk && here2 && s.actors[talk.actor]?.place === here2 && connectedHumans(s).filter((id) => s.actors[id].place === here2).length >= 2
-    );
-  };
-  var placeOfItem = (s, item) => {
-    const root = rootOf2(s, item);
-    return s.actors[root]?.place ?? root;
-  };
-  var together = (s, a, b) => Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
-  function layMet(world, { target, step, lit }) {
-    if (step.finish)
-      return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
-    return step.items.every(
-      (item) => world.items[item]?.holder === target && (!lit || Boolean(world.items[item].lit))
-    );
-  }
-  function stepMet(s, actor, want, action) {
-    const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (verb === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
-    if (verb === "call") return false;
-    if (verb === "lay") return layMet(s, want);
-    if (verb === "find") return placeOfItem(s, want.target) === me.place;
-    if (verb === "eat")
-      return Boolean(
-        action?.kind === "eat" && action.item === want.target && action.accepted !== false && (!at || me.place === at) && (action.actor === actor && (!want.step.with || action.target === want.step.with) || want.step.with && action.actor === want.step.with && action.target === actor)
-      );
-    if (verb === "give") return by("give") || by("trade");
-    if (verb === "bring" && want.kind === "person")
-      return at ? together(s, actor, want.target) && me.place === at : together(s, want.target, to);
-    if (verb === "bring")
-      return rootOf2(s, want.target) === actor && me.place === at && (!to || together(s, actor, to));
-    if (verb === "meet")
-      return together(s, actor, want.target) && (!at || me.place === at);
-    if (verb === "rest") return false;
-    return by(verb);
-  }
-  function questMet(s, actor, want, talk, action) {
-    if (!want) return false;
-    if (want.step) return stepMet(s, actor, want, action);
-    if (want.kind === "connect") return introduced(s, actor, talk);
-    if (want.kind === "item")
-      return holdsAsWanted(s, actor, want) || want.lit === void 0 && action?.kind === "give" && action.accepted === true && action.target === actor && action.item === want.target;
-    if (want.kind === "place") return s.actors[actor].place === want.target;
-    return Boolean(
-      s.actors[want.target]?.place === s.actors[actor].place && (talk ? talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor : action?.led?.includes(actor) && entityActive(s, want.target))
-    );
-  }
-  function holdsAsWanted(s, actor, want) {
-    if (want.lit === void 0) return rootOf2(s, want.target) === actor;
-    const item = s.items[want.target];
-    return item.holder === actor && Boolean(item.lit) === want.lit && !Object.values(s.items).some((i) => i.holder === want.target);
-  }
-  function rootOf2(s, id) {
-    let holder = s.items[id].holder;
-    const seen = /* @__PURE__ */ new Set([id]);
-    while (s.items[holder] && !seen.has(holder)) {
-      seen.add(holder);
-      holder = s.items[holder].holder;
-    }
-    return holder;
-  }
-  var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
-  function validStep(s, w, id) {
-    const { verb, ...cards } = w.step;
-    if (verb === "call")
-      return w.kind === "place" && Object.keys(cards).join() === "crossing" && crossings.some((c) => c.id === cards.crossing && c.from === w.target && c.unlockWhen?.length);
-    if (verb === "lay")
-      return w.kind === "place" && Object.keys(cards).every((key2) => ["items", "finish"].includes(key2)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
-        (resident) => resident.want?.target === w.target && resident.want?.step?.verb === "lay" && resident.want.step.finish === cards.finish && JSON.stringify(resident.want.step.items) === JSON.stringify(cards.items)
-      ));
-    const home = verb === "bring" && w.story && !cards.to;
-    const gift = verb === "give" && w.story;
-    const slept = verb === "rest" && !w.story;
-    const eaten = verb === "eat" && w.kind === "item" && isFood(w.target);
-    const asked = !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
-    const named2 = eaten ? ["at", "with"].filter((key2) => cards[key2] !== void 0) : home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
-    return (home || gift || slept || asked || eaten) && [
-      ...STEP_VERBS[w.kind] || [],
-      ...eaten ? ["eat"] : [],
-      ...w.kind === "person" ? SAVED_STEP_VERBS : [],
-      ...asked ? [verb] : []
-    ].includes(verb) && Object.keys(cards).length === named2.length && named2.every((key2) => typeof cards[key2] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target) && (!cards.with || Object.hasOwn(s.actors, cards.with) && cards.with !== id);
-  }
-  function validWant(s, id) {
-    const a = s.actors[id];
-    const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
-    const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
-    const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && (a.completedQuest === void 0 || validCompletion(s, id, a.completedQuest)) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && a.heard === void 0 && validTold(s, id) && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
-  }
-  function validCompletion(s, id, done) {
-    return Boolean(done && Object.keys(done).sort().join() === "by,turn,want" && Object.hasOwn(s.actors, done.by) && Number.isSafeInteger(done.turn) && done.turn >= done.want?.since && done.turn <= s.turn && done.want?.step?.verb === "call" && validQuest(s, id, done.want));
-  }
-  function validTold(s, id) {
-    const told = s.actors[id].told;
-    return told === void 0 || Array.isArray(told) && told.length > 0 && told.every(
-      (o, i) => o !== id && Object.hasOwn(s.actors, o) && (!i || told[i - 1] < o)
-    );
-  }
-  function validUnder(s, id) {
-    const a = s.actors[id];
-    if (a.under === void 0) return true;
-    const held = heldOf(a);
-    return Boolean(
-      humanAvatarIds.includes(id) && Array.isArray(a.under) && a.want && a.under.length >= 1 && slotsUsed(a) <= MAX_HELD && a.under.every((w) => validQuest(s, id, w)) && new Set(held.map(closedKey)).size === held.length
-    );
-  }
-  function validClosed(s, a) {
-    if (a.closed === void 0) return true;
-    const entries = a.closed && typeof a.closed === "object" && !Array.isArray(a.closed) ? Object.entries(a.closed) : null;
-    return Boolean(
-      entries && entries.length >= 1 && entries.length <= MAX_CLOSED && entries.every(
-        ([from, rec]) => OFFER_FROM.test(from) && Array.isArray(rec) && rec.length === 2 && Number.isSafeInteger(rec[0]) && rec[0] >= 0 && rec[0] <= s.turn && typeof rec[1] === "string" && rec[1].length <= 400
-      )
-    );
-  }
-  var OFFER_FROM = /^quest:[\w:.-]{1,80}$/u;
-  function validQuest(s, id, w) {
-    const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
-    return Boolean(
-      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean" || w.step?.verb === "lay" && w.lit === true) && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals <= REFUSAL_LIMIT
-    );
   }
 
   // v2/card-game/packs.json
@@ -15414,6 +13836,7 @@
             ],
             wants: [
               {
+                id: "return-beanie",
                 want: {
                   kind: "place",
                   target: "ratiradio-listening-room",
@@ -15426,6 +13849,7 @@
                 }
               },
               {
+                id: "return-raven",
                 want: {
                   kind: "place",
                   target: "ratiradio-listening-room",
@@ -15438,6 +13862,7 @@
                 }
               },
               {
+                id: "return-glass",
                 want: {
                   kind: "place",
                   target: "ratiradio-listening-room",
@@ -16307,6 +14732,1629 @@
     ]
   };
 
+  // v2/card-game/knowledge.mjs
+  var KNOWLEDGE_VERSION = 1;
+  var KNOWLEDGE_FACT_LIMIT = 256;
+  var KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
+  var KNOWLEDGE_PENDING_LIMIT = 32;
+  var FACT_TEXT_LIMIT = 180;
+  var FACT_LINE_LIMIT = 240;
+  var heardClaim = (author, text2) => `I heard what ${author} wrote: ${text2}`;
+  var PROTECTED_FACT_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+  var PROTECTED_KINDS = /* @__PURE__ */ new Set(["topic", "claim", "quest"]);
+  var READ_KINDS = /* @__PURE__ */ new Set(["claim", "quest"]);
+  var CLAIM_KEYS = ["book", "claim", "author", "about"];
+  var MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
+  var READ_KEYS = [...MEMORY_KEYS, "book"];
+  var authoredStages = new Map(packs_default.packs.flatMap(
+    (pack) => Object.entries(pack.avatars ?? {}).flatMap(([owner2, avatar]) => {
+      const stages = (avatar.wants || []).filter((entry) => entry.id);
+      return stages.length ? [[owner2, stages]] : [];
+    })
+  ));
+  var authoredQuestStages = (owner2, target) => authoredStages.get(owner2)?.filter(({ want }) => want.target === target) ?? [];
+  var questTerms = (w) => JSON.stringify([
+    w.kind,
+    w.target,
+    w.step ? Object.keys(w.step).sort().map((key2) => [key2, w.step[key2]]) : null,
+    w.lit ?? null
+  ]);
+  function distinctQuestStages(entries) {
+    const stages = entries.filter((entry) => entry?.want);
+    return stages.every((a, index) => stages.slice(index + 1).every((b) => {
+      if (a.id && a.id === b.id) return false;
+      if (a.want.target !== b.want.target) return true;
+      return questTerms(a.want) === questTerms(b.want) ? !a.id && !b.id : Boolean(a.id && b.id);
+    }));
+  }
+  var legacyQuestFactId = (owner2, target) => `quest:${owner2}:${target}`;
+  var stagedQuestFactId = (owner2, target, stage) => `${legacyQuestFactId(owner2, target)}:stage:${stage}`;
+  function questFactId(owner2, want) {
+    const stages = authoredQuestStages(owner2, want.target);
+    const base = legacyQuestFactId(owner2, want.target);
+    if (!stages.length) return base;
+    const terms = questTerms(want);
+    const stage = stages.find((entry) => questTerms(entry.want) === terms);
+    return stage ? stagedQuestFactId(owner2, want.target, stage.id) : `${base}:unstaged`;
+  }
+  var placeFactId = legacyQuestFactId;
+  var liveQuest = (world, fact) => {
+    const owner2 = fact.source.actorId, card = world?.placeCard?.[owner2], want = world?.actors?.[owner2]?.want;
+    return card ? fact.id === placeFactId(owner2, card) : Boolean(want) && fact.id === questFactId(owner2, want);
+  };
+  var protectedFact = (fact, world) => PROTECTED_KINDS.has(fact.source.kind) && (fact.source.kind !== "quest" || liveQuest(world, fact));
+  var owns = (o, key2) => typeof key2 === "string" && !!o && Object.hasOwn(o, key2);
+  var record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
+  var text = (v, limit) => typeof v === "string" && !!v.trim() && v.length <= limit && !/[\u0000-\u001f\u007f]/u.test(v);
+  var fields = (v, keys) => record(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key2) => keys.includes(key2));
+  var whole = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
+  var tokens2 = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
+  var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens2).filter(Boolean);
+  var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
+  var decimalPoint = /(?<=\p{N})\.(?=\p{N})/gu;
+  var validQuestText = (v) => typeof v === "string" && validFactText(v.replace(decimalPoint, "0"));
+  var newKnowledge = () => ({
+    version: KNOWLEDGE_VERSION,
+    facts: {},
+    known: {},
+    pending: []
+  });
+  var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
+  var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
+  function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
+    const knowledge = world.knowledge;
+    if (knowsFact(world, actor, fact.id)) return false;
+    const known = knowledge.known[actor] ??= {};
+    known[fact.id] = { kind, teller, eventSeq, learnedTurn };
+    const ordered = Object.keys(known).sort(
+      (a, b) => known[b].learnedTurn - known[a].learnedTurn || known[b].eventSeq - known[a].eventSeq || a.localeCompare(b)
+    );
+    for (const id of ordered.slice(KNOWLEDGE_PERSON_LIMIT)) delete known[id];
+    knowledge.pending = knowledge.pending.filter(
+      (p) => knowsFact(world, p.speaker, p.factId)
+    );
+    return owns(known, fact.id);
+  }
+  var GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+  function pinnedFacts(world) {
+    const facts = world.knowledge?.facts || {};
+    const byPlay = {};
+    for (const f of Object.values(facts).sort(compareFacts))
+      if (f.source.kind === "event")
+        (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
+    const rank2 = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
+    const grievances = world.motives?.grievances || {};
+    const standing = Object.keys(grievances).sort().flatMap((holder) => grievances[holder].map((g, i) => ({ holder, g, i }))).sort(
+      (a, b) => rank2(a.g) - rank2(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
+    );
+    const pinned = /* @__PURE__ */ new Set();
+    for (const { holder, g } of standing) {
+      const evidence = g.incident ? owns(facts, g.incident) ? [facts[g.incident]] : [] : (byPlay[`${g.other}|${g.turn}`] || []).filter(
+        (f) => f.source.witnesses.includes(holder)
+      );
+      for (const f of evidence) {
+        if (pinned.size >= GRIEVANCE_PIN_LIMIT) return pinned;
+        if (f.source.kind === "event") pinned.add(f.id);
+      }
+    }
+    return pinned;
+  }
+  function retainFact(world, fact) {
+    const knowledge = world.knowledge;
+    if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
+    const spare = (f) => protectedFact(f, world);
+    const all = Object.values(knowledge.facts);
+    const spared = spare(fact) ? all.filter(spare).sort(compareFacts) : [];
+    const old = spared.slice(PROTECTED_FACT_LIMIT - 1);
+    if (!old.length && all.length >= KNOWLEDGE_FACT_LIMIT) {
+      const aging = all.filter((f) => !spare(f)).sort(compareFacts);
+      const pinned = pinnedFacts(world);
+      old.push(
+        [...aging].reverse().find((f) => !pinned.has(f.id)) || aging.at(-1)
+      );
+      if (!old[0]) return null;
+    }
+    for (const { id } of old) {
+      delete knowledge.facts[id];
+      for (const known of Object.values(knowledge.known)) delete known[id];
+      knowledge.pending = knowledge.pending.filter((p) => p.factId !== id);
+    }
+    knowledge.facts[fact.id] = fact;
+    return fact;
+  }
+  var newsVerbs = /* @__PURE__ */ new Set([
+    "read",
+    "give",
+    "trade",
+    "attack",
+    "threaten",
+    "accompany",
+    "choose"
+  ]);
+  function witnessKnowledge(world, entry, eligible = () => true, topics = []) {
+    if (!world.knowledge || entry.generated || entry.kind !== "action" && !entry.consequence || !newsVerbs.has(entry.verb) && !entry.consequence || !validFactText(entry.text) || !entry.seq || !world.actors[entry.actorId] || entry.verb === "choose" && topics.some(
+      (topic) => topic.packId === entry.packId && topic.choiceId === entry.choiceId
+    ))
+      return null;
+    const witnesses = [
+      .../* @__PURE__ */ new Set([
+        entry.actorId,
+        ...entry.cast || [],
+        ...entry.witnesses || []
+      ])
+    ].filter((id) => world.actors[id] && eligible(id)).sort();
+    const fact = retainFact(world, {
+      id: `event:${entry.seq}`,
+      text: entry.text.trim(),
+      source: {
+        kind: "event",
+        eventSeq: entry.seq,
+        turn: entry.turn,
+        actorId: entry.actorId,
+        locationId: entry.locationId,
+        witnesses,
+        topic: null
+      }
+    });
+    if (!fact) return null;
+    for (const actor of witnesses)
+      remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
+    return fact;
+  }
+  function installKnowledge(world, eligible = () => true, topics = []) {
+    if (world.knowledge !== void 0) return world.knowledge;
+    world.knowledge = newKnowledge();
+    for (const entry of world.log || [])
+      witnessKnowledge(world, entry, eligible, topics);
+    return world.knowledge;
+  }
+  function learnQuest(world, owner2, learner, { id, text: text2 }, entry) {
+    installKnowledge(world);
+    const { book } = entry;
+    const seen = entry.at === owner2;
+    if (!(world.actors[owner2] || seen) || owner2 === learner || !entry.seq || !safeId(id) || !validQuestText(text2) || knowsFact(world, learner, id))
+      return null;
+    const fact = retainFact(world, {
+      id,
+      text: text2,
+      source: {
+        kind: "quest",
+        eventSeq: entry.seq,
+        turn: entry.turn,
+        actorId: owner2,
+        locationId: seen ? owner2 : world.actors[owner2].place,
+        witnesses: [],
+        topic: null
+      }
+    });
+    if (!fact) return null;
+    if (seen || book) fact.source.witnesses = [.../* @__PURE__ */ new Set([...fact.source.witnesses, learner])].sort();
+    const kind = book ? "read" : seen ? "witnessed" : "heard";
+    const teller = kind === "heard" ? owner2 : null;
+    if (remember(world, learner, fact, kind, teller, entry.seq, entry.turn) && book)
+      world.knowledge.known[learner][id].book = book;
+    return fact;
+  }
+  function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
+    const pending = (world.knowledge?.pending || []).filter(
+      (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && p.turn === world.turn
+    );
+    pending.sort(
+      (a, b) => Number(b.eventSeq === eventSeq) - Number(a.eventSeq === eventSeq) || b.eventSeq - a.eventSeq || a.factId.localeCompare(b.factId)
+    );
+    return pending.slice(0, 1).map((p) => ({
+      factId: p.factId,
+      speaker: p.speaker,
+      listener: p.listener,
+      eventSeq: p.eventSeq,
+      text: world.knowledge.facts[p.factId].text
+    }));
+  }
+  function knowledgeFacts(world, actor, nameOf3 = (id) => id, priority = [], limit = 2, scene = []) {
+    const known = world.knowledge?.known?.[actor] || {};
+    const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
+    const first = (a, b) => priority.includes(b.id) - priority.includes(a.id);
+    const facts = Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean);
+    const near = (fact) => scene.includes(fact.source.about);
+    const read2 = facts.filter((fact) => known[fact.id].kind === "read").sort(
+      (a, b) => first(a, b) || near(b) - near(a) || learned(b) - learned(a) || compareFacts(a, b)
+    ).slice(0, Math.min(2, limit - 1));
+    const told = facts.filter((fact) => known[fact.id].kind === "heard").sort(
+      (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b)
+    ).slice(0, limit - read2.length);
+    const seen = facts.filter((fact) => known[fact.id].kind === "witnessed").sort((a, b) => first(a, b) || compareFacts(a, b)).slice(0, Math.min(2, limit - told.length - read2.length));
+    return [...told, ...seen, ...read2].sort(first).map((fact) => {
+      const memory = known[fact.id];
+      const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
+      if (fact.source.kind === "claim") {
+        const author = nameOf3(fact.source.author);
+        const from = `${nameOf3(fact.source.book)}, by ${author}`;
+        const claimTeller = nameOf3(memory.teller), that = fact.text.replace(/[.!?。！？]$/u, "");
+        const settled2 = {
+          confirmed: [
+            memory.kind === "read" ? `I read this in ${from}, and I know it is true: ${fact.text}` : `${claimTeller} told me this from ${from}, and I know it is true: ${fact.text}`,
+            `I know what ${author} wrote is true: ${fact.text}`,
+            `${author} wrote truly: ${fact.text}`
+          ],
+          disproved: [
+            memory.kind === "read" ? `I read in ${from}, that ${that}; it was wrong.` : `${claimTeller} told me that ${from}, says ${that}; it was wrong.`,
+            `${author} wrote that ${that}; it was wrong.`,
+            `${author} was wrong: ${fact.text}`
+          ]
+        };
+        const lines = settled2[memory.status] ?? (memory.kind === "read" ? [
+          `I read this ${ageText(age)} in ${from}: ${fact.text}`,
+          `I read what ${author} wrote: ${fact.text}`
+        ] : [
+          `${claimTeller} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
+          `${claimTeller} told me what ${author} wrote: ${fact.text}`,
+          heardClaim(author, fact.text)
+        ]);
+        const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
+        return fits ?? lines.at(-1).slice(0, FACT_LINE_LIMIT);
+      }
+      const stale2 = fact.source.kind === "event" && age >= STALE_TURNS || fact.source.kind === "quest" && !protectedFact(fact, world) ? " Things may have changed since." : "";
+      if (memory.kind === "read")
+        return `I read this ${ageText(age)} in ${nameOf3(memory.book)}: ${fact.text}${stale2}`.slice(0, FACT_LINE_LIMIT);
+      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
+      const place = fact.source.kind === "topic" ? null : fact.source.locationId;
+      const where = place && !fact.text.includes(nameOf3(place)) ? ` at ${nameOf3(place)}` : "";
+      const retold = fact.source.kind === "quest" && memory.kind === "heard" && memory.teller !== fact.source.actorId;
+      const heardAt = retold && world.log?.find((e) => e.seq === memory.eventSeq)?.locationId;
+      const heardWhere = retold ? heardAt ? ` at ${nameOf3(heardAt)}` : "" : where;
+      const source = retold ? ` ${nameOf3(fact.source.actorId)} made the request${where}.` : "";
+      return `${origin} this ${ageText(age)}${heardWhere}: ${fact.text}${source}${stale2}`.slice(
+        0,
+        240
+      );
+    });
+  }
+  var STALE_TURNS = 6;
+  var GRIEVANCE_DORMANT_TURNS = 24;
+  var grievanceActive = (world, g) => !g.repaired && world.turn - (g.lastTouched ?? g.turn) < GRIEVANCE_DORMANT_TURNS;
+  var ageText = (turns) => turns <= 1 ? "just now" : turns < STALE_TURNS ? "a little while ago" : turns <= 20 ? "some time ago" : "long ago";
+  function validKnowledge(world, actors2, places2, topics = [], laneText = () => null, claimOf = () => null, questIn = () => null) {
+    const k = world.knowledge;
+    if (k === void 0) return true;
+    if (!fields(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
+      return false;
+    const settles2 = {};
+    for (const [id, fact] of Object.entries(k.facts)) {
+      if (!safeId(id) || !fields(fact, ["id", "text", "source"]) || fact.id !== id || !(fact.source?.kind === "quest" ? validQuestText : validFactText)(
+        fact.text
+      ))
+        return false;
+      const s = fact.source;
+      if (!fields(s, [
+        "kind",
+        "eventSeq",
+        "turn",
+        "actorId",
+        "locationId",
+        "witnesses",
+        "topic",
+        ...s.kind === "repair" ? ["answers"] : [],
+        ...s.kind === "claim" ? CLAIM_KEYS : []
+      ]) || ![
+        "event",
+        "topic",
+        "ending",
+        "lane",
+        "repair",
+        "claim",
+        "quest"
+      ].includes(s.kind) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !(actors2.includes(s.actorId) || s.kind === "quest" && s.actorId === s.locationId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
+        (a, i) => !actors2.includes(a) || i && s.witnesses[i - 1] >= a
+      ))
+        return false;
+      if (s.kind === "event") {
+        if (id !== `event:${s.eventSeq}` || s.topic !== null) return false;
+      } else if (s.kind === "repair") {
+        const a = s.answers;
+        if (id !== `repair:${s.eventSeq}` || s.topic !== null || !fields(a, ["recipient", "incident"]) || !actors2.includes(a.recipient) || !/^event:[1-9]\d*$/u.test(a.incident) || Number(a.incident.slice(6)) >= s.eventSeq)
+          return false;
+      } else if (s.kind === "lane") {
+        if (laneText(id) !== fact.text || s.topic !== null) return false;
+      } else if (s.kind === "ending") {
+        if (!/^ending:./u.test(id) || s.topic !== null) return false;
+      } else if (s.kind === "quest") {
+        if (s.topic !== null || !id.startsWith(`quest:${s.actorId}:`) || id.endsWith(":"))
+          return false;
+      } else if (s.kind === "claim") {
+        const claim = claimOf(id, fact);
+        if (s.topic !== null || claim?.text !== fact.text || CLAIM_KEYS.some((key2) => claim[key2] !== s[key2]))
+          return false;
+        settles2[id] = claim.settles;
+      } else {
+        if (!fields(s.topic, ["packId", "id", "choiceId"])) return false;
+        const topic = topics.find(
+          (t) => t.packId === s.topic.packId && t.id === s.topic.id
+        );
+        if (!topic || topic.id !== id || topic.text !== fact.text || topic.speaker !== s.actorId || topic.at !== s.locationId || (topic.choiceId ?? null) !== s.topic.choiceId || s.witnesses.length !== 1 || s.witnesses[0] !== s.actorId)
+          return false;
+      }
+    }
+    if (Object.values(k.facts).filter(
+      (f) => f.source.kind !== "quest" && protectedFact(f)
+    ).length > PROTECTED_FACT_LIMIT)
+      return false;
+    for (const [actor, known] of Object.entries(k.known)) {
+      if (!actors2.includes(actor) || !record(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
+        return false;
+      for (const [id, m] of Object.entries(known)) {
+        const fact = k.facts[id];
+        if (!owns(k.facts, id) || fact.source.kind === "quest" && fact.source.actorId === actor || !fields(m, [
+          ...m?.kind === "read" ? READ_KEYS : MEMORY_KEYS,
+          ...m?.status === void 0 ? [] : ["status"]
+        ]) || m.status !== void 0 && (!settles2[id] || m.status !== settles2[id]) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || (fact.source.kind === "claim" ? m.book !== fact.source.book : questIn(m.book) !== id && questIn(m.book, true) !== id) : fact.source.kind === "claim")))
+          return false;
+      }
+    }
+    const pendingKeys = /* @__PURE__ */ new Set();
+    return k.pending.every((p) => {
+      if (!fields(p, [
+        "factId",
+        "speaker",
+        "listener",
+        "eventSeq",
+        "turn",
+        "locationId",
+        "commitChoice"
+      ]) || !owns(k.facts, p.factId) || !actors2.includes(p.speaker) || !actors2.includes(p.listener) || p.speaker === p.listener || !knowsFact(world, p.speaker, p.factId) || !whole(p.eventSeq, world.eventSeq) || p.eventSeq < 1 || !whole(p.turn, world.turn) || typeof p.commitChoice !== "boolean" || !places2.includes(p.locationId))
+        return false;
+      const learned = k.known[p.speaker][p.factId];
+      if (learned.kind !== "witnessed" && learned.learnedTurn >= p.turn)
+        return false;
+      const fact = k.facts[p.factId];
+      if (p.commitChoice && (fact.source.kind !== "topic" || !fact.source.topic.choiceId || p.speaker !== fact.source.actorId || p.locationId !== fact.source.locationId))
+        return false;
+      const key2 = `${p.eventSeq}/${p.speaker}/${p.listener}`;
+      if (pendingKeys.has(key2)) return false;
+      pendingKeys.add(key2);
+      return true;
+    });
+  }
+
+  // v2/card-game/conversation.mjs
+  var talkedDirectly = (s, actor, other) => (s.conversations || []).some(
+    (c) => c.actors.includes(actor) && c.actors.includes(other) && actor !== other
+  );
+  function recordConversation(s, event, current = true) {
+    if (event?.kind !== "action" || event.verb !== "talk" || event.generated)
+      return;
+    const actors2 = [event.actorId, event.targetId].sort();
+    if (actors2[0] === actors2[1] || actors2.some((id) => !s.actors[id])) return;
+    let row = (s.conversations || []).find(
+      (c) => c.actors.join() === actors2.join()
+    );
+    if (!row) {
+      row = { actors: actors2, seq: event.seq, turn: event.turn };
+      (s.conversations ??= []).push(row);
+    }
+    if (current) row.company = event.seq;
+  }
+  function installConversations(s) {
+    if (s.conversations !== void 0) return;
+    s.conversations = [];
+    for (const event of s.log || []) recordConversation(s, event, false);
+  }
+  function validConversations(s) {
+    const rows = s.conversations;
+    if (rows === void 0) return true;
+    const seen = /* @__PURE__ */ new Set(), size = Object.keys(s.actors).length;
+    return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
+      if (!c || Object.keys(c).filter((k) => k !== "company").sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn || c.company !== void 0 && (!Number.isSafeInteger(c.company) || c.company < c.seq || c.company > s.eventSeq || !companySource(s, c)))
+        return false;
+      const key2 = c.actors.join(":"), fresh = !seen.has(key2);
+      seen.add(key2);
+      return fresh;
+    });
+  }
+  function companySource(s, c) {
+    const source = s.log.find((e) => e.seq === c.company);
+    return !source || source.kind === "action" && source.verb === "talk" && !source.generated && [source.actorId, source.targetId].sort().join() === c.actors.join();
+  }
+
+  // v2/card-game/weather.json
+  var weather_default = {
+    turns: 12,
+    cycles: {
+      boeotia: ["clear", "cloud", "rain", "cloud", "mist", "clear"],
+      attica: ["clear", "clear", "cloud", "rain", "cloud", "mist"],
+      argolid: ["cloud", "clear", "clear", "mist", "cloud", "rain"],
+      phocis: ["mist", "cloud", "rain", "cloud", "clear", "clear"],
+      thessaly: ["cloud", "rain", "mist", "clear", "clear", "cloud"],
+      troad: ["mist", "cloud", "rain", "rain", "cloud", "clear"],
+      thrace: ["cloud", "mist", "rain", "cloud", "clear", "cloud"],
+      lemnos: ["clear", "mist", "cloud", "rain", "cloud", "clear"],
+      egypt: ["clear", "clear", "cloud", "clear", "mist", "clear"],
+      tauris: ["mist", "rain", "cloud", "clear", "cloud", "rain"],
+      sicily: ["clear", "cloud", "clear", "mist", "rain", "cloud"],
+      susa: ["clear", "clear", "cloud", "clear", "cloud", "rain"],
+      scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
+      heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
+      underworld: ["mist"],
+      sea: ["mist", "rain", "mist", "rain", "mist", "clear"],
+      willows: ["rain", "mist", "rain", "rain", "mist", "mist", "rain", "mist"]
+    },
+    places: {
+      boeotia: {
+        coast: [
+          "greek-harbor",
+          "greek-aulis"
+        ],
+        court: [
+          "greek-courtyard",
+          "greek-well",
+          "greek-palace"
+        ],
+        open: [
+          "greek-gate",
+          "greek-battlefield",
+          "greek-polynices-hollow",
+          "greek-road-thebes"
+        ],
+        grove: [
+          "greek-sanctuary",
+          "greek-cithaeron"
+        ]
+      },
+      attica: {
+        court: [
+          "greek-athens",
+          "greek-acropolis",
+          "greek-acharnae"
+        ],
+        coast: [
+          "greek-piraeus",
+          "greek-athens-harbor",
+          "greek-road-athens-harbor",
+          "greek-road-piraeus-eleusis",
+          "greek-road-coast"
+        ],
+        open: [
+          "greek-road-athens-piraeus",
+          "greek-road-athens-colonus",
+          "greek-road-athens-eleusis",
+          "greek-road-athens-marathon",
+          "greek-road-colonus-eleusis",
+          "greek-road-colonus-marathon",
+          "greek-assembly",
+          "greek-attic-farm",
+          "greek-marathon"
+        ],
+        shelter: [
+          "greek-demos-house",
+          "greek-thinkery",
+          "greek-jury-house"
+        ],
+        grove: [
+          "greek-festival",
+          "greek-colonus",
+          "greek-eleusis",
+          "greek-bird-wilderness"
+        ]
+      },
+      argolid: {
+        open: [
+          "greek-argolid-road",
+          "greek-argos-tomb"
+        ],
+        coast: [
+          "greek-argos-sanctuary"
+        ],
+        court: [
+          "greek-argos-palace",
+          "greek-mycenae-palace",
+          "greek-corinth",
+          "greek-troezen"
+        ],
+        shelter: [
+          "greek-argive-farm"
+        ]
+      },
+      phocis: {
+        court: [
+          "greek-delphi"
+        ],
+        open: [
+          "greek-road-sacred-way"
+        ]
+      },
+      thessaly: {
+        shelter: [
+          "greek-trachis"
+        ],
+        open: [
+          "greek-oeta"
+        ],
+        court: [
+          "greek-pherae"
+        ],
+        grove: [
+          "greek-thetis"
+        ]
+      },
+      troad: {
+        open: [
+          "greek-troy",
+          "greek-trojan-camp",
+          "greek-ajax-grave"
+        ],
+        coast: [
+          "greek-greek-camp",
+          "greek-troy-beach",
+          "greek-ajax-landing"
+        ],
+        shelter: [
+          "greek-ajax-household"
+        ]
+      },
+      thrace: {
+        coast: [
+          "greek-thrace"
+        ],
+        open: [
+          "greek-road-north"
+        ]
+      },
+      lemnos: {
+        shelter: [
+          "greek-lemnos"
+        ]
+      },
+      egypt: {
+        court: [
+          "greek-egypt-tomb"
+        ]
+      },
+      tauris: {
+        court: [
+          "greek-tauris"
+        ],
+        coast: [
+          "greek-road-black-sea"
+        ]
+      },
+      sicily: {
+        shelter: [
+          "greek-sicily"
+        ],
+        open: [
+          "greek-road-colonists"
+        ]
+      },
+      susa: {
+        court: [
+          "greek-susa"
+        ],
+        open: [
+          "greek-road-royal"
+        ]
+      },
+      scythia: {
+        open: [
+          "greek-scythian-crag"
+        ]
+      },
+      heights: {
+        open: [
+          "greek-divine-heights"
+        ]
+      },
+      underworld: {
+        underground: [
+          "greek-underworld"
+        ]
+      },
+      sea: {
+        coast: [
+          "greek-ship"
+        ]
+      },
+      willows: {
+        river: [
+          "willows-camp",
+          "willows-thicket",
+          "willows-bank"
+        ]
+      }
+    }
+  };
+
+  // v2/card-game/weather.mjs
+  var WEATHER_TURNS = weather_default.turns;
+  var locations = Object.fromEntries(
+    Object.entries(weather_default.places).flatMap(
+      ([region, exposures]) => Object.entries(exposures).flatMap(
+        ([exposure, ids3]) => ids3.map((id) => [id, { region, exposure }])
+      )
+    )
+  );
+  function regionWeather(world, region) {
+    const cycle = weather_default.cycles[region];
+    if (!cycle) return null;
+    const period = Math.floor(world.turn / WEATHER_TURNS);
+    return { region, period, condition: cycle[period % cycle.length] };
+  }
+  function locationWeather(world, id) {
+    const place = locations[id];
+    if (!place) return null;
+    const now = regionWeather(world, place.region);
+    return {
+      ...now,
+      exposure: place.exposure,
+      variant: `${now.condition}-${place.exposure}`
+    };
+  }
+
+  // v2/card-game/item-use.mjs
+  var usedUp = (world, id) => Array.isArray(world.usedUp) && world.usedUp.includes(id);
+  var gone = (world, id) => Array.isArray(world.gone) && world.gone.includes(id);
+
+  // v2/card-game/world/for-good.mjs
+  var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
+  var startOf = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
+  function restForGood(item) {
+    let rest = restOf(item);
+    for (let i = 0; i < 8 && rest !== void 0; i++) {
+      if (startOf(rest)) return startOf(rest);
+      if (restOf(rest) === void 0) return rest;
+      rest = restOf(rest);
+    }
+    return rest;
+  }
+
+  // v2/card-game/pack-transport.mjs
+  var TRANSPORT_VERSION = 3;
+  var PHASES = ["docked", "course", "sea", "arrived"];
+  var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
+  var transportPlace = (place) => Boolean(shipAt(place));
+  var passengers = (s, id) => Object.entries(s.actors).filter(
+    ([actor, a]) => a.place === transports[id].place && entityActive(s, actor)
+  ).map(([, a]) => a);
+  var passengerIds = (s, id) => Object.entries(s.actors).filter(
+    ([actor, a]) => a.place === transports[id].place && entityActive(s, actor)
+  ).map(([actor]) => actor).sort();
+  function lanesFrom(t, dock) {
+    const out = [];
+    for (const lane of t.lanes || []) {
+      if (lane.from === dock) out.push(lane.to);
+      else if (lane.to === dock && !lane.oneWay) out.push(lane.from);
+    }
+    return [...new Set(out)];
+  }
+  var seaEdge = (from, to) => [`sea:${from}`, `sea:${to}`];
+  var laneOfEdge = ([from, to]) => from?.startsWith("sea:") && to?.startsWith("sea:") ? [from.slice(4), to.slice(4)] : null;
+  var tables = null;
+  function laneTables() {
+    if (tables) return tables;
+    const all = Object.values(transports);
+    tables = {
+      edges: all.flatMap(
+        (t) => t.docks.flatMap(
+          (dock) => lanesFrom(t, dock).map((to) => seaEdge(dock, to))
+        )
+      ),
+      ports: new Set(all.flatMap((t) => t.docks.map(regionOf))),
+      shipmasters: new Set(all.map((t) => t.shipmaster).filter(Boolean))
+    };
+    return tables;
+  }
+  var laneEdges = () => laneTables().edges;
+  var regionOf = (dock) => packPlaces[dock]?.packId ?? null;
+  var homeOf = (actor) => {
+    const pack = packPeople[actor]?.packId ?? null;
+    return laneTables().ports.has(pack) ? pack : null;
+  };
+  var storyDock = (s, dock) => Boolean(packPlaces[dock]?.requires?.length) && entityActive(s, dock);
+  function knowsLane(s, actor, from, to) {
+    if (!actor || laneTables().shipmasters.has(actor)) return true;
+    const home = homeOf(actor);
+    if (regionOf(from) === home || regionOf(to) === home) return true;
+    const a = `sea:${from}`, b = `sea:${to}`;
+    if ((s.routeKnowledge?.[actor] || []).some(([x, y]) => x === a && y === b))
+      return true;
+    return storyDock(s, from) || storyDock(s, to);
+  }
+  var knowsLaneFrom = (s, id, dock, actor) => !actor || lanesFrom(transports[id], dock).some(
+    (to) => entityActive(s, to) && knowsLane(s, actor, dock, to)
+  );
+  var laneGate = (t, from, to) => (t.lanes || []).find(
+    (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
+  )?.opensWith ?? null;
+  var laneConditions = (from, to) => Object.values(transports).map((t) => laneGate(t, from, to)).find(Boolean) ?? null;
+  var openLanes = (s, t, dock, actor = null) => lanesFrom(t, dock).filter((to) => {
+    if (!entityActive(s, to)) return false;
+    const gate = laneGate(t, dock, to);
+    return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
+  });
+  function laneReach(s, id, from, actor = null) {
+    const t = transports[id];
+    const seen = /* @__PURE__ */ new Set([from]), queue = [from];
+    for (let i = 0; i < queue.length; i++)
+      for (const next of openLanes(s, t, queue[i], actor))
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+    return queue.slice(1);
+  }
+  var read = (s, id) => {
+    const state = s.transports?.[id];
+    return state?.version === 2 ? upgradeTransportState(s, id, state) : state;
+  };
+  var freshState = (dock, turn = 0) => ({
+    version: TRANSPORT_VERSION,
+    phase: "docked",
+    dock,
+    destination: null,
+    riders: [],
+    since: turn,
+    recall: null
+  });
+  function installTransports(s) {
+    s.transports ??= {};
+    for (const [id, t] of Object.entries(transports))
+      s.transports[id] ??= freshState(t.at, s.turn || 0);
+  }
+  function transportUnlocked(s, id) {
+    const signals = crossings.filter(
+      (c) => c.transport === id && (c.signal || c.unlockWhen)
+    );
+    return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
+  }
+  var shipDock = (s, id) => read(s, id)?.phase === "sea" ? null : read(s, id)?.dock ?? null;
+  var shipAtSea = (s, id) => read(s, id)?.phase === "sea";
+  var humanAboard = (s, t) => Object.entries(s.actors).some(
+    ([who, a]) => a.place === t.place && controlledByHuman(s, who)
+  );
+  function canDisembark(s, id, actor) {
+    const state = read(s, id);
+    return Boolean(
+      actor && state.phase === "arrived" && s.actors[actor]?.place === transports[id].place && state.riders.includes(actor)
+    );
+  }
+  function courseOptions(s, id, actor = null) {
+    const t = transports[id], state = read(s, id);
+    if (!["docked", "arrived"].includes(state.phase)) return [];
+    if (actor && s.actors[actor]?.place !== t.place) return [];
+    if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
+    return openLanes(s, t, state.dock, actor);
+  }
+  function transportExits(s, place, previous = null, actor = null) {
+    const found2 = shipAt(place);
+    if (!found2) return [];
+    const [id, t] = found2, state = read(s, id);
+    const aboard = actor && s.actors[actor]?.place === t.place;
+    if (previous !== null && previous !== void 0 || !aboard) {
+      if (t.docks.includes(previous)) return laneReach(s, id, previous, actor);
+      const from = state.phase === "sea" || state.phase === "course" ? state.destination : state.dock;
+      return [
+        ...state.phase === "sea" || state.phase === "course" || canDisembark(s, id, actor) ? [from] : [],
+        ...laneReach(s, id, from, actor)
+      ].filter((dock, i, all) => all.indexOf(dock) === i);
+    }
+    return [
+      ...canDisembark(s, id, actor) ? [state.dock] : [],
+      ...courseOptions(s, id, actor)
+    ];
+  }
+  function transportScenery(s, place, nameOf3) {
+    const found2 = shipAt(place);
+    if (!found2) return [];
+    const state = read(s, found2[0]);
+    if (state.phase === "sea")
+      return [`The ship is at sea, bound for ${nameOf3(state.destination)}.`];
+    if (state.phase === "course")
+      return [`The ship has set its course for ${nameOf3(state.destination)}.`];
+    if (state.phase === "arrived")
+      return [`The ship has arrived at ${nameOf3(state.dock)}.`];
+    return [`The ship is docked at ${nameOf3(state.dock)}.`];
+  }
+  var whole2 = (n) => Number.isSafeInteger(n) && n >= 0;
+  function validTransports(s) {
+    const saved = s.transports;
+    if (!saved || Array.isArray(saved) || Object.keys(saved).sort().join() !== Object.keys(transports).sort().join())
+      return false;
+    return Object.entries(transports).every(([id, t]) => {
+      const state = saved[id];
+      if (!state || Object.keys(state).sort().join() !== "destination,dock,phase,recall,riders,since,version" || state.version !== TRANSPORT_VERSION || !PHASES.includes(state.phase) || !t.docks.includes(state.dock) || !whole2(state.since) || state.since > (s.turn ?? 0) || !Array.isArray(state.riders) || new Set(state.riders).size !== state.riders.length || state.riders.some((a) => !s.actors[a]) || state.recall !== null && !t.docks.includes(state.recall))
+        return false;
+      const aboard = passengers(s, id).length;
+      if (!aboard && state.recall !== null && state.phase !== "sea") return false;
+      if (state.phase === "docked")
+        return state.destination === null && !state.riders.length;
+      if (state.phase === "arrived")
+        return state.destination === null && (aboard > 0 || state.riders.length > 0);
+      return !state.riders.length && lanesFrom(t, state.dock).includes(state.destination) && (state.phase === "sea" || aboard > 0);
+    });
+  }
+  function upgradeTransportState(s, id, state) {
+    const aboard = passengerIds(s, id);
+    const arrived = aboard.length > 0 && state.dock === state.destination;
+    return {
+      version: TRANSPORT_VERSION,
+      phase: arrived ? "arrived" : "docked",
+      dock: state.dock,
+      destination: null,
+      riders: arrived ? aboard : [],
+      since: s.turn || 0,
+      recall: aboard.length ? state.recall : null
+    };
+  }
+
+  // v2/card-game/pack-rules.mjs
+  var DAYLIGHT_TURNS = 24;
+  var crossingState = (s, id) => s.crossings?.[id];
+  var newCrossingState = (c) => c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
+  var newPackRecord = (pack) => ({
+    revision: pack.revision,
+    ...pack.recital ? { recitals: {} } : {},
+    ...pack.choices ? {
+      choices: {},
+      flags: {},
+      receipts: {},
+      met: {},
+      scope: pack.release ? "opening" : "full"
+    } : {},
+    sounds: Object.fromEntries(
+      Object.keys(pack.fixtures || {}).map((id) => [id, 0])
+    )
+  });
+  function newTemperament(id) {
+    const t = packPeople[id]?.temperament;
+    return t ? { awake: !t.asleep, irritation: 0, wakeCause: null } : {};
+  }
+  var fixtureSounding = (s, id) => s.turn < (s.packs?.[packFixtures[id]?.packId]?.sounds?.[id] ?? 0);
+  var soundAt = (s, place, senses2) => senses2.baseSoundAt(s, place) || fixturesAt(place).some((f) => fixtureSounding(s, f.id));
+  function objectPlace(s, item) {
+    let holder = s.items[item]?.holder;
+    const seen = /* @__PURE__ */ new Set([item]);
+    while (s.items[holder]) {
+      if (seen.has(holder)) return null;
+      seen.add(holder);
+      holder = s.items[holder].holder;
+    }
+    return s.actors[holder]?.place || holder;
+  }
+  function conditionMet(s, c, senses2, packId = null, actor = null) {
+    const state = s.packs?.[packId];
+    switch (c.kind) {
+      case "sound":
+        return !!senses2 && c.at.some((place) => soundAt(s, place, senses2));
+      case "light":
+        return Boolean(
+          entityActive(s, c.item) && s.items[c.item]?.lit && s.items[c.item]?.fuel > 0 && c.at.includes(objectPlace(s, c.item)) && (!c.uncovered || !Object.values(s.items).some((i) => i.holder === c.item))
+        );
+      case "not":
+        return !conditionMet(s, c.condition, senses2, packId, actor);
+      case "any":
+        return c.conditions.some(
+          (r) => conditionMet(s, r, senses2, packId, actor)
+        );
+      case "choice":
+        return state?.choices?.[c.key] === c.value;
+      case "choice_unset":
+        return !!state && !Object.hasOwn(state.choices || {}, c.key);
+      case "clock": {
+        const hour = s.turn % (2 * DAYLIGHT_TURNS);
+        return c.from < c.to ? hour >= c.from && hour < c.to : hour >= c.from || hour < c.to;
+      }
+      case "flag":
+        return (state?.flags?.[c.key] ?? false) === c.value;
+      case "talked":
+        return talkedDirectly(
+          s,
+          actor || senses2?.player || currentActor(s),
+          c.person
+        );
+      case "knows": {
+        const who = actor || senses2?.player || currentActor(s);
+        return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
+      }
+      case "trusted":
+        if (actor === c.actor) return true;
+        return (s.actors[c.actor]?.trust?.[actor] || 0) >= c.min && !(s.motives?.grievances?.[c.actor] || []).some(
+          (g) => g.other === actor && grievanceActive(s, g)
+        );
+      case "holding":
+        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) && !usedUp(s, c.item);
+      // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
+      case "upgraded":
+        return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
+      case "shared_world":
+        return sharedEnabled(s);
+      case "gate_open":
+        return packRouteOpen(s, c.from, c.to);
+      case "home_door":
+        return s.doors?.[c.home] === c.place;
+      // The current player carries the thing, unless another carrier is named.
+      case "in_hand":
+        return heldItem(s, actor ?? currentActor(s)) === c.item && !usedUp(s, c.item);
+      case "actor_at":
+        return s.actors[actor ?? currentActor(s)]?.place === c.place;
+      case "held":
+        return s.items[c.item]?.holder === (c.actor ?? currentActor(s)) && !usedUp(s, c.item);
+      // The thing rests on a place, not in a hand or inside another thing.
+      case "grounded": {
+        const holder = s.items[c.item]?.holder;
+        return holder != null && !s.items[holder] && !s.actors[holder] && !usedUp(s, c.item);
+      }
+      case "connected_humans":
+        return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
+      // Enough travellers stand together in one place: a lock for two.
+      case "humans_at":
+        return sharedEnabled(s) && roomHumanCount(s, c.place) >= c.minimum;
+      case "item_near": {
+        if (usedUp(s, c.item)) return false;
+        let holder = s.items[c.item]?.holder;
+        const seen = /* @__PURE__ */ new Set([c.item]);
+        while (s.items[holder] && !seen.has(holder)) {
+          seen.add(holder);
+          holder = s.items[holder].holder;
+        }
+        return (!controlledByHuman(s, holder) || humanPresent(s, holder)) && objectPlace(s, c.item) === c.place;
+      }
+      case "item_present":
+        return Boolean(
+          s.items[c.item] && !usedUp(s, c.item) && objectPlace(s, c.item) === c.place
+        );
+      // Any thing tagged c.tag, carried by someone present at c.place.
+      case "tag_held":
+        return Object.keys(s.actors).some(
+          (id) => s.actors[id].upgrades?.includes(c.tag) && s.actors[id].place === c.place && (!controlledByHuman(s, id) || humanPresent(s, id))
+        ) || Object.keys(s.items).some((id) => {
+          const holder = s.items[id].holder;
+          return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder]?.place === c.place && (!controlledByHuman(s, holder) || humanPresent(s, holder));
+        });
+      case "item_at":
+        return s.items[c.item]?.holder === c.place && !usedUp(s, c.item);
+      case "arcana_called":
+        return calledTravelers(s).length > 0;
+      case "arcana_selling":
+        return Object.keys(s.actors).some(
+          (id) => selling(s, id) && s.actors[id].place === s.actors[c.actor]?.place
+        );
+      // Any thing from that world in the place: carried there or resting there.
+      case "pack_item_present":
+        return Object.keys(s.items).some(
+          (id) => packThings[id]?.packId === c.pack && entityActive(s, id) && objectPlace(s, id) === c.place
+        );
+      case "home_item_present":
+        return Object.keys(s.items).some(
+          (id) => restForGood(id) === c.home && entityActive(s, id) && objectPlace(s, id) === c.place
+        );
+      case "drawn":
+        return !!state?.specials?.includes(c.id);
+      case "met":
+        return !!state?.met && Object.hasOwn(state.met, c.actor);
+      // The saved world clock: every DAYLIGHT_TURNS turns, day and night swap.
+      case "daylight":
+        return (Math.floor((s.turn || 0) / DAYLIGHT_TURNS) % 2 ? "night" : "day") === c.phase;
+      // The saved regional weather where c.place is.
+      case "weather":
+        return locationWeather(s, c.place)?.condition === c.condition;
+      // A seeded chance: true for `lasts` turns at a time, one window in
+      // `odds`, hashed from the run seed so every table agrees.
+      case "chance":
+        return runHash(s, `${c.key}:${Math.floor((s.turn || 0) / c.lasts)}`) % c.odds === 0;
+      // A transport docked (or just arrived) at a port, or "@sea" between ports.
+      case "ship_at":
+        return c.dock === "@sea" ? shipAtSea(s, c.transport) : shipDock(s, c.transport) === c.dock;
+      default:
+        return false;
+    }
+  }
+  function runHash(s, key2) {
+    let h = 2166136261;
+    for (const ch of `${s.run?.seed ?? 0}:${key2}`)
+      h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    return h;
+  }
+  var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
+  var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
+  var crossingOpen = (s, c, senses2, actor = senses2?.player ?? null) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId, actor));
+  var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor) || humanAvatarIds.includes(actor);
+  var crossingExits = (s, place, actor, senses2) => crossings.filter(
+    (c) => c.from === place && mayCross(c, actor, senses2) && crossingOpen(s, c, senses2, actor) && (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor))
+  ).map((c) => c.transport ? transports[c.transport].place : c.to);
+  var packDiscovered = (s, packId) => packId === ELYSIUM_PACK && humanAvatarIds.some((id) => s.actors[id]?.visited?.includes(ELYSIUM_ENTRY)) || crossings.some(
+    (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
+  );
+  var crossingScenery = (s, place, senses2, waiting = []) => crossings.filter(
+    (c) => c.from === place && c.scenery && !waiting.includes(c.transport ? transports[c.transport].place : c.to)
+  ).map(
+    (c) => crossingOpen(s, c, senses2) ? c.scenery.open : c.scenery.closed
+  ).filter(Boolean);
+  var matches = (p, a, holder) => Boolean(p) && p.verb === a.kind && (p.item === void 0 || p.item === a.item) && (p.target === void 0 || p.target === a.target) && (p.from === void 0 || p.from === holder);
+  function signalEcho(s, location, card) {
+    const c = crossings.find(
+      (c2) => c2.signal?.echo && c2.from === location && s.crossings[c2.id].phase > 0 && matches(c2.signal.steps[s.crossings[c2.id].phase - 1], card)
+    );
+    return c?.signal.echo || null;
+  }
+  var hasTemperament = (id) => Boolean(packPeople[id]?.temperament);
+  function variantOf(s, id) {
+    const a = packPeople[id];
+    if (!a?.temperament) return null;
+    const state = s.actors[id];
+    const name = !state.awake ? "asleep" : a.variants.irritated && state.irritation >= a.temperament.irritated ? "irritated" : "awake";
+    return {
+      name,
+      ...name === "irritated" ? a.variants.awake : {},
+      ...a.variants[name]
+    };
+  }
+  var exactKeys = (o, keys) => o && typeof o === "object" && !Array.isArray(o) && Object.keys(o).sort().join() === [...keys].sort().join();
+  var whole3 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
+  function validPackState(s, senses2) {
+    if (!validTransports(s) || !exactKeys(
+      s.crossings,
+      crossings.map((c) => c.id)
+    ) || !exactKeys(
+      s.packs,
+      packDefinitions.map((p) => p.id)
+    ))
+      return false;
+    for (const c of crossings) {
+      const state = s.crossings[c.id];
+      if (!c.signal) {
+        const method = state?.method;
+        if (!exactKeys(state, method === void 0 ? ["discovered"] : ["discovered", "method"]) || typeof state.discovered !== "boolean" || method !== void 0 && (!state.discovered || method !== c.unlockMethod)) return false;
+        continue;
+      }
+      if (!exactKeys(state, ["discovered", "phase", "until"]) || typeof state.discovered !== "boolean" || !whole3(
+        state.phase,
+        c.signal.steps.length - (c.signal.opens === null ? 0 : 1)
+      ) || !whole3(
+        state.until,
+        c.signal.opens === null ? 0 : s.turn + c.signal.opens
+      ) || (state.until > 0 || c.signal.opens === null && state.phase === c.signal.steps.length) && !state.discovered || state.phase > 0 && !(senses2.humanActors || [senses2.player]).some(
+        (id) => s.actors[id]?.place === c.from
+      ))
+        return false;
+    }
+    for (const pack of packDefinitions) {
+      const record7 = s.packs[pack.id];
+      const fixtures = Object.entries(pack.fixtures || {});
+      if (!exactKeys(record7, [
+        ...pack.specials && s.run ? ["specials"] : [],
+        ...pack.choices ? [
+          "revision",
+          "sounds",
+          "choices",
+          "flags",
+          "receipts",
+          "met",
+          "scope",
+          ...pack.recital ? ["recitals"] : []
+        ] : ["revision", "sounds"]
+      ]) || record7.revision !== pack.revision || !exactKeys(
+        record7.sounds,
+        fixtures.map(([id]) => id)
+      ) || fixtures.some(
+        ([id, f]) => !whole3(record7.sounds[id], s.turn + f.sound.turns)
+      ))
+        return false;
+    }
+    for (const [id, a] of Object.entries(packPeople)) {
+      const state = s.actors[id];
+      if (!state) return false;
+      const t = a.temperament;
+      if (!t) {
+        if (["awake", "irritation", "wakeCause"].some((k) => k in state))
+          return false;
+        continue;
+      }
+      if (typeof state.awake !== "boolean" || !whole3(state.irritation, t.irritation) || ![null, "voice", "sound"].includes(state.wakeCause) || !state.awake && (state.wakeCause !== null || !t.asleep) || state.awake && state.wakeCause === null && t.asleep)
+        return false;
+    }
+    return validatePackStates(s);
+  }
+
+  // v2/card-game/glimpse.mjs
+  var GLIMPSE_KINDS = ["arcanum"];
+  function validGlimpse(g) {
+    return Boolean(
+      g && typeof g === "object" && !Array.isArray(g) && Object.keys(g).length === 4 && Number.isSafeInteger(g.level) && g.level >= 0 && g.level <= LEVEL_CAP && GLIMPSE_KINDS.includes(g.kind) && isArcanum(g.id) && typeof g.at === "string" && g.at.length > 0 && g.at.length <= 120
+    );
+  }
+
+  // v2/card-game/offer-chance.mjs
+  var offerFrom = (s, actor) => s.actors[actor]?.offered?.from ?? null;
+  function validOffered(s, id) {
+    const offered = s.actors[id].offered;
+    if (offered === void 0) return true;
+    return Boolean(
+      offered && typeof offered === "object" && Object.keys(offered).sort().join() === "from,turn" && offered.from !== id && Object.hasOwn(s.actors, offered.from) && Number.isSafeInteger(offered.turn) && offered.turn >= 0 && offered.turn <= s.turn
+    );
+  }
+
+  // v2/card-game/world/lock-goals.mjs
+  var DEPTH = 4;
+  var settersIn = (choices, condition) => (choices || []).filter(
+    (choice) => (choice.effects || []).some(
+      (e) => condition.kind === "choice" ? e.kind === "choose" && e.key === condition.key && e.value === condition.value : e.kind === "set_flag" && e.key === condition.key && e.value === condition.value
+    )
+  );
+  var OWN_VERB = { item: "hold", person: "talk", place: "meet" };
+  var packKind = (id) => Object.hasOwn(packPeople, id) ? "person" : isPackPlace(id) ? "place" : "item";
+  function playGoal(choice, kindIn) {
+    const item = (choice.requires || []).find(
+      (r) => r.kind === "holding" && r.role === "actor"
+    )?.item;
+    if (choice.on === "give")
+      return item ? {
+        kind: kindIn(item),
+        target: item,
+        step: { verb: "give", to: choice.subject }
+      } : null;
+    const target = choice.on === "wait" ? choice.at : choice.subject;
+    if (!target) return null;
+    const kind = kindIn(target), verb = choice.on ?? OWN_VERB[kind];
+    return verb === OWN_VERB[kind] ? { kind, target } : { kind, target, step: { verb } };
+  }
+  function goalsFrom(world, conditions, depth = 0, seen = []) {
+    const out = [];
+    const push = (goal) => {
+      if (goal && !out.some((g) => JSON.stringify(g) === JSON.stringify(goal)))
+        out.push(goal);
+    };
+    for (const condition of conditions || []) {
+      if (world.met(condition)) continue;
+      switch (condition.kind) {
+        case "any": {
+          for (const branch of condition.conditions) {
+            const goals = goalsFrom(world, [branch], depth, seen);
+            if (goals.length) {
+              goals.forEach(push);
+              break;
+            }
+          }
+          break;
+        }
+        case "talked":
+          push({ kind: "person", target: condition.person });
+          break;
+        case "holding":
+          if (condition.actor)
+            push({
+              kind: "item",
+              target: condition.item,
+              step: { verb: "give", to: condition.actor }
+            });
+          else if (condition.role === "actor")
+            push({ kind: "item", target: condition.item });
+          break;
+        case "item_at":
+          push({
+            kind: "place",
+            target: condition.place,
+            step: { verb: "lay", items: [condition.item] }
+          });
+          break;
+        case "item_near":
+        case "item_present":
+          push({
+            kind: "item",
+            target: condition.item,
+            ...condition.place ? { step: { verb: "bring", at: condition.place } } : {}
+          });
+          break;
+        case "in_hand":
+          push({ kind: "item", target: condition.item });
+          break;
+        case "grounded":
+        case "light": {
+          const light = conditions.find(
+            (c) => c.kind === "light" && c.item === condition.item
+          );
+          const laid = conditions.some(
+            (c) => c.kind === "grounded" && c.item === condition.item
+          );
+          if (laid && light)
+            push({
+              kind: "place",
+              target: light.at[0],
+              step: { verb: "lay", items: [condition.item] },
+              lit: true
+            });
+          else if (light)
+            push({ kind: "item", target: condition.item, lit: true });
+          break;
+        }
+        case "not":
+          if (condition.condition.kind === "light")
+            push({ kind: "item", target: condition.condition.item, lit: false });
+          break;
+        case "flag":
+        case "choice": {
+          if (depth >= DEPTH) break;
+          for (const choice of settersIn(world.choices, condition)) {
+            if (seen.includes(choice.id)) continue;
+            const play2 = playGoal(choice, world.kind ?? packKind);
+            const needs = (choice.requires || []).filter(
+              (r) => !(r.kind === "holding" && r.role === "actor" && r.item === play2?.target)
+            ).sort(
+              (a, b) => Number(!["flag", "choice"].includes(a.kind)) - Number(!["flag", "choice"].includes(b.kind))
+            );
+            const [first] = goalsFrom(world, needs, depth + 1, [
+              ...seen,
+              choice.id
+            ]);
+            push(first ?? play2);
+            if (first || play2) break;
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    return out;
+  }
+  var goalsOf = (s, packId, conditions, actor) => goalsFrom(
+    {
+      met: (condition) => packId ? conditionsMet(s, packId, [condition], actor) : conditionMet(s, condition, null),
+      choices: packId ? packDefinition(packId)?.choices : []
+    },
+    conditions
+  );
+  var stepGoal = (s, want, actor) => want?.step?.verb === "lay" && want.step.finish && goalsOf(
+    s,
+    packOf(want.target)?.id,
+    [{ kind: "flag", key: want.step.finish, value: true }],
+    actor
+  )[0] || want;
+
+  // v2/card-game/want-talk.mjs
+  var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
+  function stagedWants(world, id) {
+    const person = packPeople[id];
+    const list = person?.wants ?? [
+      ...authoredWant(id) ? [{ want: authoredWant(id) }] : []
+    ];
+    return list.map((entry, index) => ({
+      index,
+      want: entry.want,
+      when: entry.when ?? [],
+      open: !entry.when?.length || Boolean(person && conditionsMet(world, person.packId, entry.when))
+    }));
+  }
+  var wantOf = (world, id) => world.actors?.[id]?.want || authoredWant(id);
+  var rootOf = (world, item) => {
+    let holder = world.items[item]?.holder;
+    const seen = /* @__PURE__ */ new Set([item]);
+    while (world.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = world.items[holder].holder;
+    }
+    return holder;
+  };
+  var article = (name) => /^(the|a|an) /iu.test(name) ? name : `the ${name}`;
+  var callWords = (want, name) => `call the ship: hold ${name("cloth")} at ${name(want.target)} while ${name("lamp")} burns on the ground there`;
+  function met(world, id, want) {
+    if (want.kind === "connect") return false;
+    if (want.step?.verb === "call") return false;
+    const here2 = world.actors[id].place;
+    if (want.kind === "item")
+      return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
+    if (want.step?.verb === "lay") return layMet(world, want);
+    if (want.kind === "place") return here2 === want.target;
+    return world.actors[want.target]?.place === here2;
+  }
+  function trustedEnough(world, id, want, listener) {
+    if (!listener) return true;
+    const same2 = stagedWants(world, id).filter(
+      (entry) => entry.want.kind === want.kind && entry.want.target === want.target
+    );
+    const authored = same2.find((entry) => questTerms(entry.want) === questTerms(want))?.want ?? same2[0]?.want;
+    if (!authored?.minTrust) return true;
+    return (world.actors[id].trust?.[listener] || 0) >= authored.minTrust;
+  }
+  function revealed(world, id, want, listener) {
+    return Boolean(
+      want && world.actors?.[id] && // A made thing still locked is wanted all the same (rules 102), and a
+      // sealed one (rules 133).
+      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked) || Boolean(packThings[want.target]?.sealed)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !lostOf(world, want) && !met(world, id, want) && trustedEnough(world, id, want, listener)
+    );
+  }
+  function wantFact(world, id, nameOf3, listener) {
+    const done = world.actors?.[id]?.completedQuest;
+    if (done && !world.actors[id].want) return `${nameOf3(done.by)} called the ship for me.`;
+    const want = wantOf(world, id);
+    if (want?.kind === "connect" && world.actors?.[id])
+      return "I want to introduce you to someone.";
+    const making = want?.kind === "item" && world.actors?.[id] && makerChoice(id, want.target);
+    if (making) {
+      const set = heldSlots(making.requires).map(
+        (slot) => slot.map((item) => article(nameOf3(item))).join(" or ")
+      );
+      return `I want ${article(nameOf3(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
+    }
+    if (!revealed(world, id, want, listener)) return null;
+    const said = stepGoal(world, want, listener ?? id);
+    const name = nameOf3(said.target);
+    const help = listener && offerFrom(world, listener) === id ? " I would be glad of your help." : "";
+    if (said.step?.verb === "lay")
+      return `I want ${said.step.items.map((item) => article(nameOf3(item))).join(", ")} laid in ${name}.${help}`;
+    if (said.step?.verb === "call") return `I want you to ${callWords(said, nameOf3)}.${help}`;
+    return (said.kind === "item" ? said.step?.verb === "eat" ? `I want to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${article(name)}${said.step.at ? ` at ${nameOf3(said.step.at)}` : ""}.` : said.step?.verb === "bring" && said.step.at ? `I want ${article(name)} brought to ${nameOf3(said.step.at)}.` : said.step?.verb === "give" && said.step.to !== id ? `I want ${article(name)} given to ${nameOf3(said.step.to)}.` : `I want ${article(name)}.` : said.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
+  }
+  function refusalWhy(entry, nameOf3) {
+    const who = nameOf3(entry.targetId), id = entry.wantId;
+    if (entry.reason === "grudge") return `${who} holds a grudge.`;
+    if (entry.reason === "needs-it") return `${who} needs it.`;
+    if (!id) return `${who} wants something else.`;
+    const name = nameOf3(id);
+    return forest_default.people[id] || packPeople[id] ? `${who} wants to see ${name}.` : forest_default.places[id] || packPlaces[id] ? `${who} wants to be at ${name}.` : `${who} wants ${article(name)}.`;
+  }
+  var wantHeard = (world, played, id, player2) => id === player2 || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
+
+  // v2/card-game/world/dwell.mjs
+  var DWELL_TURNS = 24;
+  var DWELL_SPREAD = 6;
+  var MAX_DWELL = DWELL_TURNS + DWELL_SPREAD - 1;
+  var ATTEND_CAP = DWELL_TURNS;
+  var validDwell = (s) => Object.values(s.actors).every(
+    (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
+  );
+
+  // v2/card-game/world/rumours.mjs
+  var RUMOURS_HELD = 3;
+  var TELL_FAILS = 2;
+  var KINDS = ["item", "place", "person", "gone"];
+  var FIELDS = "at,day,holder,hops,kind,subject,teller";
+  var dayOf = (s) => Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
+  var keyOf = (kind, target) => `${kind}:${target}`;
+  function rumourWords(s, r, names2) {
+    const name = names2.name(r.subject);
+    const line = r.kind === "gone" ? `${name} is gone for good.` : r.hops === 0 && r.holder ? `${names2.name(r.holder)} has ${name}${r.at && r.at !== r.subject ? ` at ${names2.name(r.at)}` : ""}.` : r.hops <= 1 && r.at && r.at !== r.subject ? `${name} is at ${names2.name(r.at)}.` : r.hops <= 2 && names2.world(r.at ?? r.subject) ? `${name} is somewhere in ${names2.world(r.at ?? r.subject)}.` : names2.legend(r.subject) ?? `People speak of ${name}.`;
+    return r.teller ? `${names2.name(r.teller)} told me: ${line}` : line;
+  }
+  function validRumours(s, id) {
+    const a = s.actors[id], day = dayOf(s), list = a.rumours;
+    const ref = (x) => x === null || typeof x === "string";
+    return (a.heardOn === void 0 || Number.isSafeInteger(a.heardOn) && a.heardOn >= 0 && a.heardOn <= day) && (list === void 0 || Array.isArray(list) && list.length >= 1 && list.length <= RUMOURS_HELD && new Set(list.map((r) => keyOf(r?.kind, r?.subject))).size === list.length && list.every(
+      (r) => r && Object.keys(r).filter((k) => k !== "fails").sort().join() === FIELDS && (r.fails === void 0 || Number.isInteger(r.fails) && r.fails >= 1 && r.fails <= TELL_FAILS) && KINDS.includes(r.kind) && typeof r.subject === "string" && r.subject.length <= 80 && ref(r.at) && ref(r.holder) && ref(r.teller) && [0, 1, 2, 3].includes(r.hops) && Number.isSafeInteger(r.day) && r.day >= 0 && r.day <= day
+    ));
+  }
+
+  // v2/card-game/want.mjs
+  var WANT_KINDS = ["item", "place", "person", "connect"];
+  var STEP_VERBS = {
+    item: ["find", "give", "bring"],
+    person: ["meet"],
+    place: ["rest"]
+  };
+  var SAVED_STEP_VERBS = ["threaten", "attack"];
+  var CONNECT_TARGET = "humans";
+  var REFUSAL_LIMIT = 3;
+  var STALL_TURNS = 48;
+  var CONTENT_TURNS = 24;
+  var knownActors = (s) => [
+    .../* @__PURE__ */ new Set([
+      ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
+      ...s.controlledActors || []
+    ])
+  ].filter(
+    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
+  );
+  var wantless = (id) => forest_default.people[id]?.wants === false;
+  var travels = (id, s = null) => !isPackActor(id) && forest_default.people[id]?.travels !== false || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
+  var rankXp = (r) => r * (r - 1) / 2;
+  var startXp = (id) => rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
+  var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
+  var MAX_HELD = 3;
+  var heldOf = (a) => a?.want ? [a.want, ...a.under || []] : [];
+  var LISTENER_FROM = "quest:listener:";
+  var fetching = (w) => w.from?.startsWith(LISTENER_FROM) === true;
+  var slotsUsed = (a) => {
+    const held = heldOf(a);
+    const fetches = held.filter(fetching).length;
+    return held.length - fetches + (fetches ? 1 : 0) + tarotsHeld(a);
+  };
+  var questsOf = (s, id) => heldOf(s.actors[id]);
+  var closedKey = questTerms;
+  var contentOf = (s, id) => Boolean(s.actors[id]?.content && !s.actors[id].want);
+  function releaseQuest(a, want) {
+    const held = heldOf(a).filter((w) => w !== want);
+    a.want = held[0] ?? null;
+    if (held.length > 1) a.under = held.slice(1);
+    else delete a.under;
+  }
+  var MAX_CLOSED = 64;
+  var newWant = (kind, target, turn) => ({
+    kind,
+    target,
+    since: turn,
+    refusals: 0
+  });
+  var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
+  var lostOf = (s, w) => w ? [
+    w.target,
+    w.step?.to,
+    w.step?.with,
+    w.step?.at,
+    ...(w.step?.items || []).filter(
+      (id) => !(w.step.finish && spentByChoice(s, id))
+    )
+  ].find((id) => typeof id === "string" && neverBack(s, id)) : void 0;
+  var heldWant = (s, w) => ({
+    ...newWant(w.kind, w.target, s.turn),
+    ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {},
+    ...w.step ? { step: { ...w.step } } : {}
+  });
+  var mixed = (h) => {
+    h = Math.imul(h ^ h >>> 16, 2246822507);
+    h = Math.imul(h ^ h >>> 13, 3266489909);
+    return (h ^ h >>> 16) >>> 0;
+  };
+  var stagedOrder = (a, b) => a.rank - b.rank || a.index - b.index;
+  function stagedNext(s, id, previous = null) {
+    if (!packPeople[id]?.wants) return null;
+    const day = Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
+    const entries = stagedWants(s, id).filter(
+      ({ open, want }) => open && (!want.minTrust || Object.entries(s.actors[id].trust || {}).some(
+        ([who, trust]) => trust >= want.minTrust && controlledByHuman(s, who)
+      )) && validTarget(s, want.kind, want.target) && !lostOf(s, want) && !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) && !questMet(s, id, heldWant(s, want), null, null)
+    ).map((entry) => ({
+      ...entry,
+      rank: mixed(runHash(s, `staged:${id}:${entry.index}:${day}`))
+    })).sort(stagedOrder);
+    return entries.length ? heldWant(s, entries[0].want) : null;
+  }
+  function installWants(s) {
+    for (const [id, a] of Object.entries(s.actors)) {
+      if (wantless(id)) a.want = null;
+      else if (!("want" in a)) {
+        const w = humanAvatarIds.includes(id) ? null : authoredWant(id);
+        a.want = humanAvatarIds.includes(id) ? null : stagedNext(s, id) ?? (w && validTarget(s, w.kind, w.target) && !lostOf(s, w) ? heldWant(s, w) : null);
+      }
+      a.xp ??= startXp(id);
+      delete a.halfwayIssued;
+      if (a.glimpse !== void 0 && !validGlimpse(a.glimpse)) delete a.glimpse;
+      if (humanAvatarIds.includes(id) && heldOf(a).some((w) => w.quest)) {
+        const kept = heldOf(a).filter((w) => !w.quest);
+        a.want = kept[0] ?? null;
+        if (kept.length > 1) a.under = kept.slice(1);
+        else delete a.under;
+      }
+      while (heldOf(a).length && slotsUsed(a) > MAX_HELD)
+        releaseQuest(a, heldOf(a).at(-1));
+      if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
+      a.visited ??= [a.place];
+      a.talked ??= [];
+    }
+  }
+  var introduced = (s, actor, talk) => {
+    const here2 = s.actors[actor]?.place;
+    return Boolean(
+      talk && here2 && s.actors[talk.actor]?.place === here2 && connectedHumans(s).filter((id) => s.actors[id].place === here2).length >= 2
+    );
+  };
+  var placeOfItem = (s, item) => {
+    const root = rootOf2(s, item);
+    return s.actors[root]?.place ?? root;
+  };
+  var together = (s, a, b) => Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
+  function layMet(world, { target, step, lit }) {
+    if (step.finish)
+      return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
+    return step.items.every(
+      (item) => world.items[item]?.holder === target && (!lit || Boolean(world.items[item].lit))
+    );
+  }
+  function stepMet(s, actor, want, action) {
+    const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (verb === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
+    if (verb === "call") return false;
+    if (verb === "lay") return layMet(s, want);
+    if (verb === "find") return placeOfItem(s, want.target) === me.place;
+    if (verb === "eat")
+      return Boolean(
+        action?.kind === "eat" && action.item === want.target && action.accepted !== false && (!at || me.place === at) && (action.actor === actor && (!want.step.with || action.target === want.step.with) || want.step.with && action.actor === want.step.with && action.target === actor)
+      );
+    if (verb === "give") return by("give") || by("trade");
+    if (verb === "bring" && want.kind === "person")
+      return at ? together(s, actor, want.target) && me.place === at : together(s, want.target, to);
+    if (verb === "bring")
+      return rootOf2(s, want.target) === actor && me.place === at && (!to || together(s, actor, to));
+    if (verb === "meet")
+      return together(s, actor, want.target) && (!at || me.place === at);
+    if (verb === "rest") return false;
+    return by(verb);
+  }
+  function questMet(s, actor, want, talk, action) {
+    if (!want) return false;
+    if (want.step) return stepMet(s, actor, want, action);
+    if (want.kind === "connect") return introduced(s, actor, talk);
+    if (want.kind === "item")
+      return holdsAsWanted(s, actor, want) || want.lit === void 0 && action?.kind === "give" && action.accepted === true && action.target === actor && action.item === want.target;
+    if (want.kind === "place") return s.actors[actor].place === want.target;
+    return Boolean(
+      s.actors[want.target]?.place === s.actors[actor].place && (talk ? talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor : action?.led?.includes(actor) && entityActive(s, want.target))
+    );
+  }
+  function holdsAsWanted(s, actor, want) {
+    if (want.lit === void 0) return rootOf2(s, want.target) === actor;
+    const item = s.items[want.target];
+    return item.holder === actor && Boolean(item.lit) === want.lit && !Object.values(s.items).some((i) => i.holder === want.target);
+  }
+  function rootOf2(s, id) {
+    let holder = s.items[id].holder;
+    const seen = /* @__PURE__ */ new Set([id]);
+    while (s.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = s.items[holder].holder;
+    }
+    return holder;
+  }
+  var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
+  function validStep(s, w, id) {
+    const { verb, ...cards } = w.step;
+    if (verb === "call")
+      return w.kind === "place" && Object.keys(cards).join() === "crossing" && crossings.some((c) => c.id === cards.crossing && c.from === w.target && c.unlockWhen?.length);
+    if (verb === "lay")
+      return w.kind === "place" && Object.keys(cards).every((key2) => ["items", "finish"].includes(key2)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
+        (resident) => resident.want?.target === w.target && resident.want?.step?.verb === "lay" && resident.want.step.finish === cards.finish && JSON.stringify(resident.want.step.items) === JSON.stringify(cards.items)
+      ));
+    const home = verb === "bring" && w.story && !cards.to;
+    const gift = verb === "give" && w.story;
+    const slept = verb === "rest" && !w.story;
+    const eaten = verb === "eat" && w.kind === "item" && isFood(w.target);
+    const asked = !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
+    const named2 = eaten ? ["at", "with"].filter((key2) => cards[key2] !== void 0) : home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    return (home || gift || slept || asked || eaten) && [
+      ...STEP_VERBS[w.kind] || [],
+      ...eaten ? ["eat"] : [],
+      ...w.kind === "person" ? SAVED_STEP_VERBS : [],
+      ...asked ? [verb] : []
+    ].includes(verb) && Object.keys(cards).length === named2.length && named2.every((key2) => typeof cards[key2] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target) && (!cards.with || Object.hasOwn(s.actors, cards.with) && cards.with !== id);
+  }
+  function validWant(s, id) {
+    const a = s.actors[id];
+    const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
+    const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
+    const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && (a.completedQuest === void 0 || validCompletion(s, id, a.completedQuest)) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && a.heard === void 0 && validTold(s, id) && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+  }
+  function validCompletion(s, id, done) {
+    return Boolean(done && Object.keys(done).sort().join() === "by,turn,want" && Object.hasOwn(s.actors, done.by) && Number.isSafeInteger(done.turn) && done.turn >= done.want?.since && done.turn <= s.turn && done.want?.step?.verb === "call" && validQuest(s, id, done.want));
+  }
+  function validTold(s, id) {
+    const told = s.actors[id].told;
+    return told === void 0 || Array.isArray(told) && told.length > 0 && told.every(
+      (o, i) => o !== id && Object.hasOwn(s.actors, o) && (!i || told[i - 1] < o)
+    );
+  }
+  function validUnder(s, id) {
+    const a = s.actors[id];
+    if (a.under === void 0) return true;
+    const held = heldOf(a);
+    return Boolean(
+      humanAvatarIds.includes(id) && Array.isArray(a.under) && a.want && a.under.length >= 1 && slotsUsed(a) <= MAX_HELD && a.under.every((w) => validQuest(s, id, w)) && new Set(held.map(closedKey)).size === held.length
+    );
+  }
+  function validClosed(s, a) {
+    if (a.closed === void 0) return true;
+    const entries = a.closed && typeof a.closed === "object" && !Array.isArray(a.closed) ? Object.entries(a.closed) : null;
+    return Boolean(
+      entries && entries.length >= 1 && entries.length <= MAX_CLOSED && entries.every(
+        ([from, rec]) => OFFER_FROM.test(from) && Array.isArray(rec) && rec.length === 2 && Number.isSafeInteger(rec[0]) && rec[0] >= 0 && rec[0] <= s.turn && typeof rec[1] === "string" && rec[1].length <= 400
+      )
+    );
+  }
+  var OFFER_FROM = /^quest:[\w:.-]{1,80}$/u;
+  function validQuest(s, id, w) {
+    const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
+    return Boolean(
+      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean" || w.step?.verb === "lay" && w.lit === true) && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals <= REFUSAL_LIMIT
+    );
+  }
+
   // v2/card-game/book-schema.mjs
   var BOOK_KEYS = ["author", "claims", "lifecycle", "pages", "teachesQuest"];
   var BOOK_CLAIMS = 3;
@@ -17091,9 +17139,11 @@
           Array.isArray(a.wants) && a.wants.length >= 1 && a.wants.length <= 3,
           `avatar ${id} wants needs one to three staged wants`
         );
-        for (const [n, entry] of (Array.isArray(a.wants) ? a.wants : []).entries())
+        const stages = Array.isArray(a.wants) ? a.wants : [];
+        check(distinctQuestStages(stages), `avatar ${id} wants need distinct ids and terms for stages sharing a target`);
+        for (const [n, entry] of stages.entries())
           check(
-            keysOk(entry, ["want", "when"]) && record4(entry?.want) && wantOk(entry.want, id) && (entry.when === void 0 || Array.isArray(entry.when) && entry.when.length >= 1 && entry.when.length <= 4),
+            keysOk(entry, ["id", "want", "when"]) && record4(entry?.want) && wantOk(entry.want, id) && (entry.id === void 0 || idOk3(entry.id) && safeId(stagedQuestFactId(id, entry.want.target, entry.id))) && (entry.when === void 0 || Array.isArray(entry.when) && entry.when.length >= 1 && entry.when.length <= 4),
             `avatar ${id} wants[${n}] needs a want and one to four saved-state conditions in when`
           );
       }
@@ -18330,13 +18380,13 @@
     )?.actorId || null;
     return choiceText(choice, actor);
   }
-  function packFacts(world, id) {
+  function packFacts(world, id, known = () => true) {
     const e = packEntity(id);
     if (!e) return [];
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state) return [];
     return (pack.choices || []).filter(
-      (c) => owns5(state.receipts, c.id) && (c.subject === id || c.at === id && c.on !== "hold" || e.records?.includes(c.id) || c.effects.some((effect) => effect.item === id))
+      (c) => owns5(state.receipts, c.id) && (c.subject === id || c.at === id && c.on !== "hold" || e.records?.includes(c.id) || c.effects.some((effect) => effect.item === id)) && known(pack, c)
     ).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-3).map((c) => committedChoiceText(world, pack, c).slice(0, 240));
   }
   function packNarration(world, id) {
@@ -18349,7 +18399,7 @@
     ).length;
     return [`Discoveries recorded so far: ${count}.`];
   }
-  function packSceneFacts(world, location) {
+  function packSceneFacts(world, location, known = () => true) {
     const e = packEntity(location);
     if (!e) return [];
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
@@ -18365,9 +18415,9 @@
         (effect) => effect.kind === "choose" && historyKeys.has(effect.key)
       )
     );
-    const local = committed.filter((c) => c.at === location && c.on !== "hold" && !canon.includes(c)).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-2);
+    const local = committed.filter((c) => c.at === location && c.on !== "hold" && !canon.includes(c) && known(pack, c)).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-2);
     return [
-      ...canon.map(
+      ...canon.filter((c) => known(pack, c)).map(
         (c) => `Established account: ${committedChoiceText(world, pack, c)}`
       ),
       ...local.map((c) => committedChoiceText(world, pack, c))
@@ -19417,7 +19467,43 @@
     else delete s.actors[who].told;
   }
   var named = (id) => [places, people, things].some((c) => Object.hasOwn(c, id));
+  function migrateStagedFacts(s) {
+    const k = s.knowledge;
+    if (!k?.facts || !k.known || !Array.isArray(k.pending)) return;
+    for (const [id, fact] of Object.entries(k.facts)) {
+      const source = fact?.source;
+      if (source?.kind !== "quest" || !Array.isArray(source.witnesses)) continue;
+      const owner2 = source.actorId, target = id.slice(`quest:${owner2}:`.length);
+      if (id !== legacyQuestFactId(owner2, target)) continue;
+      const matches2 = authoredQuestStages(owner2, target).filter(({ want }) => questText(s, owner2, want) === fact.text);
+      if (matches2.length !== 1) continue;
+      const next = questFactId(owner2, matches2[0].want);
+      if (Object.hasOwn(k.facts, next)) continue;
+      const readers = Object.keys(k.known).filter((actor) => k.known[actor]?.[id]);
+      const confirmed = new Set(readers.filter((actor) => {
+        const memory = k.known[actor][id];
+        return memory.eventSeq === source.eventSeq && memory.learnedTurn === source.turn && (memory.teller === owner2 || memory.kind === "read");
+      }));
+      if (!confirmed.size) continue;
+      if (confirmed.size === readers.length) delete k.facts[id];
+      else if (Object.keys(k.facts).length >= KNOWLEDGE_FACT_LIMIT) continue;
+      k.facts[next] = {
+        ...fact,
+        id: next,
+        source: { ...source, witnesses: source.witnesses.filter((actor) => confirmed.has(actor)) }
+      };
+      for (const actor of confirmed) {
+        k.known[actor][next] = k.known[actor][id];
+        delete k.known[actor][id];
+      }
+      k.pending = k.pending.flatMap((p) => {
+        if (p.factId !== id || !confirmed.has(p.speaker)) return [p];
+        return confirmed.has(p.listener) ? [{ ...p, factId: next }] : [];
+      });
+    }
+  }
   function installQuestFacts(s) {
+    migrateStagedFacts(s);
     for (const [id, a] of Object.entries(s.actors))
       noteTold(s, id, [
         ...Object.keys(a.heard || {}),
@@ -19427,6 +19513,7 @@
       for (const [them, told] of Object.entries(a.heard || {})) {
         const live = s.actors[them]?.want;
         const [kind, target] = told.split(/:(.*)/su);
+        if (authoredQuestStages(them, target).length) continue;
         if (live && told === `${live.kind}:${live.target}`)
           learnTold(s, them, id, live);
         else if (named(target)) learnTold(s, them, id, { kind, target });
@@ -19627,9 +19714,14 @@
     const claim = authoredClaim(id) ?? (recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, fact?.text) : null);
     return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
   };
-  function bookQuestId(book) {
+  function bookQuestId(book, legacy = false) {
     const item = itemOf(bookPack(book), book);
-    return item?.teachesQuest ? questFactId(item.author, { target: item.teachesQuest }) : null;
+    if (!item.teachesQuest) return null;
+    const { author, teachesQuest } = item;
+    if (legacy) return legacyQuestFactId(author, teachesQuest);
+    const stages = authoredQuestStages(author, teachesQuest);
+    if (stages.length > 1) return null;
+    return questFactId(author, stages[0]?.want ?? { target: teachesQuest });
   }
   var claimTruth = (packId, about) => {
     const keys = (packDefinition(packId)?.continuity?.groups || []).map((g) => g.key);
@@ -20413,21 +20505,38 @@
   );
   var risingIn = (card) => card.proof.flatMap(countsIn).filter((c) => c.min !== void 0);
   var cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
-  var FOOL2 = 0;
   var WORLD = 21;
-  var LISTENER = arcana_default.visit.match.targetId;
   var listenerCardLine = (traveler) => `${nameOf2(LISTENER)} offers ${nameOf2(traveler)} a face-down card.`;
+  var legacyReading = (entry, traveler) => entry.text === listenerCardLine(traveler) || entry.text === `${nameOf2(LISTENER)} gives ${nameOf2(traveler)} a face-down card.`;
+  var listenerTalk = (entry) => entry.kind === "action" && !entry.generated && entry.verb === "talk" && entry.targetId === LISTENER;
+  var followsReadingTalk = (entry, talk) => entry.turn === talk.turn && entry.seq > talk.seq && entry.locationId === talk.locationId && entry.witnesses?.includes(talk.actorId);
   function listenerDeal(world, traveler) {
     const talk = world.log.findLast(
-      (entry) => entry.turn === world.turn && entry.kind === "action" && !entry.generated && entry.actorId === traveler && (entry.verb === "accept" || entry.verb === "talk" && entry.targetId === LISTENER)
+      (entry) => entry.turn === world.turn && entry.kind === "action" && !entry.generated && entry.actorId === traveler && (entry.verb === "accept" || listenerTalk(entry))
     );
     if (talk?.verb !== "talk") return null;
     return world.log.findLast(
-      (entry) => entry.turn === talk.turn && entry.seq > talk.seq && entry.kind === "narration" && !entry.generated && entry.consequence && entry.actorId === LISTENER && entry.locationId === talk.locationId && entry.witnesses?.includes(traveler) && [listenerCardLine(traveler), `${nameOf2(LISTENER)} gives ${nameOf2(traveler)} a face-down card.`].includes(entry.text)
+      (entry) => followsReadingTalk(entry, talk) && entry.kind === "narration" && !entry.generated && entry.consequence && entry.actorId === LISTENER && (entry.listenerEvent === void 0 ? legacyReading(entry, traveler) : entry.listenerEvent?.kind === "reading" && entry.listenerEvent.sourceSeq === talk.seq)
     ) ?? null;
   }
+  function validListenerEvent(world, entry) {
+    const event = entry.listenerEvent;
+    if (event === void 0) return true;
+    if (entry.generated || !plainObject(event) || !["fool", "spread"].includes(event.offer) || Object.keys(event).some((key2) => !["kind", "offer", "sourceSeq"].includes(key2)))
+      return false;
+    if (event.kind === "reading") {
+      if (event.offer !== "fool" || entry.kind !== "narration" || entry.actorId !== LISTENER || entry.consequence !== true || !Number.isSafeInteger(event.sourceSeq) || event.sourceSeq <= 0 || event.sourceSeq >= entry.seq || !entry.witnesses?.includes(LISTENER) || !entry.witnesses?.some(humanAvatar)) return false;
+      const talk = world.log.find((line) => line.seq === event.sourceSeq);
+      return !talk || listenerTalk(talk) && humanAvatar(talk.actorId) && followsReadingTalk(entry, talk);
+    }
+    if (event.sourceSeq !== void 0 || entry.kind !== "action" || entry.targetId !== LISTENER || !humanAvatar(entry.actorId))
+      return false;
+    if (event.kind === "offer")
+      return event.offer === "spread" && entry.verb === "give" && entry.accepted === true && Array.isArray(entry.gone) && entry.gone.includes(entry.itemId);
+    return event.kind === "handover" && entry.verb === "accept" && entry.consequence === true;
+  }
   var numberOf = (id) => cardOf(id)?.number;
-  var isMiddle = (id) => Boolean(cardOf(id)) && numberOf(id) !== FOOL2 && numberOf(id) !== WORLD;
+  var isMiddle = (id) => Boolean(cardOf(id)) && id !== STARTER && numberOf(id) !== WORLD;
   var numbered = (n) => deck.cards.find((card) => card.number === n)?.id;
   var sorted = (ids3) => [...new Set(ids3)].sort();
   var collect = (actor, ids3) => actor.upgrades = sorted([...actor.upgrades || [], ...ids3]);
@@ -20446,7 +20555,7 @@
       deck.cards.filter((card) => isMiddle(card.id)).map((card) => card.id)
     );
     return [
-      ...ids3(deck.cards.filter((card) => card.number === FOOL2)),
+      ...ids3(deck.cards.filter((card) => card.id === STARTER)),
       ...middle,
       ...ids3(deck.cards.filter((card) => card.number === WORLD))
     ];
@@ -20559,9 +20668,9 @@
     const locked = unknown.length ? pick2(unknown, "locked", scale, up) : pick2(known, "locked", nextScale(level + 1), up);
     return up || locked ? [up, bonus, locked].filter(Boolean) : [];
   }
-  function firstOfferSlot(s, traveler, fool = numbered(FOOL2)) {
+  function firstOfferSlot(s, traveler) {
     const { spread } = recordOf(s, traveler);
-    return fool && spread.length < MAX_HELD && spread.every((slot) => slot.card !== fool) ? makeSlot(s, traveler, fool, "down") : null;
+    return cardOf(STARTER) && spread.length < MAX_HELD && spread.every((slot) => slot.card !== STARTER) ? makeSlot(s, traveler, STARTER, "down") : null;
   }
   var sells = (s, traveler) => recordOf(s, traveler).sale && !recordOf(s, traveler).paid && nextSpread(s, traveler).length > 0;
   function listenerOffer(s, traveler) {
@@ -20617,7 +20726,7 @@
       const needed2 = Array.isArray(record7.need) ? record7.need : [];
       for (const slot of Array.isArray(record7.spread) ? record7.spread : []) {
         if (!plainObject(slot)) continue;
-        const firstFool = slot.card === numbered(FOOL2) && (record7.level ?? proved.length) === 0 && needed2.includes(slot.card);
+        const firstFool = slot.card === STARTER && (record7.level ?? proved.length) === 0 && needed2.includes(slot.card);
         if (slot.face === "up" && firstFool && !proved.includes(slot.card))
           slot.face = "reward";
         else if (slot.face === "down" && owned.has(slot.card) && !firstFool) {
@@ -20673,7 +20782,7 @@
       ) && (record7.calls === void 0 || Number.isSafeInteger(record7.calls) && record7.calls >= 1 && record7.calls <= CALLS) && (record7.callers === void 0 || validList(record7.callers) && record7.callers.length >= 1 && record7.callers.length <= (record7.calls ?? 0)) && (record7.sale === void 0 || record7.sale === true) && (record7.paid === void 0 || record7.paid === true) && (record7.level === void 0 || validLevel(record7.level)) && (record7.spread === void 0 || validSpread(record7.spread)) && (record7.need === void 0 || validNeed(record7.need)) && (record7.done === void 0 || validDone(record7.done)) && validOffer(record7) && validList(record7.did) && validList(record7.proved);
     });
   }
-  var validOffer = (record7) => record7.offer === void 0 || typeof record7.offer === "string" && Object.hasOwn(places, record7.offer) && (record7.paid === true || (record7.level ?? record7.proved?.length) === 0 && !(Array.isArray(record7.spread) && record7.spread.some((slot) => slot.card === numbered(FOOL2))));
+  var validOffer = (record7) => record7.offer === void 0 || typeof record7.offer === "string" && Object.hasOwn(places, record7.offer) && (record7.paid === true || (record7.level ?? record7.proved?.length) === 0 && !(Array.isArray(record7.spread) && record7.spread.some((slot) => slot.card === STARTER)));
 
   // v2/card-game/world/offers.mjs
   var placeMet = (s, place) => s.placeMet && Object.hasOwn(s.placeMet, place) ? s.placeMet[place] : [];
@@ -21121,9 +21230,9 @@
       "take",
       "drop",
       "craft",
-      // Old logs name a sealed card's quest "gate"; now it is "quest" (rules 133).
       "gate",
       "quest",
+      // Rules 133 renamed the sealed card's quest.
       "pack",
       "give",
       "ask",
@@ -21165,6 +21274,7 @@
       if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail(`log:${e.seq}:location`);
       if (e.verb != null && !verbs2.includes(e.verb)) fail(`log:${e.seq}:verb`);
       if (!validCraftEvent(s, e)) fail(`log:${e.seq}:craft`);
+      if (!validListenerEvent(s, e)) fail(`log:${e.seq}:listener-event`);
       if (e.verb === "craft" && (!places[e.locationId] || !holderIds.has(e.holderId) && !ids.includes(e.holderId)))
         fail(`log:${e.seq}:craft`);
       if (e.receipt !== void 0) fail(`log:${e.seq}:receipt`);
@@ -21704,6 +21814,21 @@
   }
 
   // v2/card-game/speech-knowledge.mjs
+  function knowsPackChoice(world, actor, pack, choice) {
+    const turn = world.packs[pack.id].receipts[choice.id];
+    const known = world.knowledge?.known?.[actor] || {};
+    const wordsMatch = (entry, text2) => entry.turn === turn && entry.locationId === choice.at && text2 === choiceText(choice, entry.actorId);
+    if ((world.log || []).some((entry) => {
+      if (entry.generated || entry.turn !== turn) return false;
+      const commit = entry.packId === pack.id && entry.choiceId === choice.id || entry.kind === "action" && entry.verb === (choice.on || "choose") && wordsMatch(entry, entry.text);
+      return commit && (entry.actorId === actor || (entry.witnesses ?? entry.cast)?.includes(actor) || Object.hasOwn(known, `event:${entry.seq}`));
+    })) return true;
+    return Object.keys(known).some((id) => {
+      const fact = world.knowledge.facts[id];
+      const source = fact?.source;
+      return source?.kind === "event" && wordsMatch(source, fact.text) || source?.kind === "topic" && source.topic?.packId === pack.id && source.topic.choiceId === choice.id || source?.kind === "claim" && source.claim === choice.id && pack.items?.[source.book]?.records?.includes(choice.id);
+    });
+  }
   var UNKNOWN_THING = "something I can't make out";
   var UNKNOWN_LIGHT = "something shining I can't make out";
   var UNKNOWN_PERSON = "someone I haven't met yet";
@@ -22560,9 +22685,10 @@
     const ways2 = (id) => wayLines.filter(({ to }) => waySaid(world, id, to)).map(({ line }) => line);
     const conversation = beforeFirstLight ? [] : world.log.filter(
       (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && (entry.turn < world.turn || remaining && entry.turn === world.turn)
-    ).slice(-6).map(({ actorId, text: text2, cast: cast2, witnesses }) => ({
+    ).slice(-6).map(({ actorId, text: text2, cast: cast2, witnesses, elysiumName }) => ({
       actorId,
       text: text2,
+      ...elysiumName !== void 0 && { elysiumName },
       witnesses: [
         .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast2 || []])
       ]
@@ -22588,7 +22714,8 @@
         const kind = profiles[id].kind;
         if (kind === "location" && isCovered?.(id))
           return { id, facts: [], desire: null, memories: [], previous: null };
-        const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location) : [];
+        const knownChoice = kind === "avatar" ? (pack, choice) => knowsPackChoice(world, id, pack, choice) : void 0;
+        const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location, knownChoice) : [];
         const want = kind === "avatar" && world.actors[id]?.want !== null && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf2, currentActor(world)) : null;
         const cause = want && world.actors[id]?.rumours?.find((r) => r.subject === wantOf2(world, id)?.target);
         const glimpse = world.actors[id]?.glimpse;
@@ -22608,7 +22735,7 @@
           ...recitalFacts(world, packDefinitions, id),
           ...kind === "avatar" ? laneTalkFacts(world, id) : [],
           ...learningFacts(world, id, nameOf2),
-          ...[...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4),
+          ...[...packFacts(world, id, knownChoice), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4),
           ...kind === "location" ? packNarration(world, id) : []
         ];
         let desire = null;

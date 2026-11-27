@@ -511,6 +511,7 @@ import {
   settleArcana,
   tarotActions,
   validArcana,
+  validListenerEvent,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
 import {
@@ -3824,9 +3825,7 @@ export function validateWorld(s) {
     "take",
     "drop",
     "craft",
-    // Old logs name a sealed card's quest "gate"; now it is "quest" (rules 133).
-    "gate",
-    "quest",
+    "gate", "quest", // Rules 133 renamed the sealed card's quest.
     "pack",
     "give",
     "ask",
@@ -3881,6 +3880,7 @@ export function validateWorld(s) {
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail(`log:${e.seq}:location`);
     if (e.verb != null && !verbs.includes(e.verb)) fail(`log:${e.seq}:verb`);
     if (!validCraftEvent(s, e)) fail(`log:${e.seq}:craft`);
+    if (!validListenerEvent(s, e)) fail(`log:${e.seq}:listener-event`);
     if (
       e.verb === "craft" &&
       (!places[e.locationId] ||

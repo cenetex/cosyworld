@@ -1,6 +1,7 @@
 import { learningFacts } from "./learning.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
+import { elysiumNameIndex, elysiumTalk, isElysiumModel } from "./elysium-models.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { refusalWhy, revealed, wantFact, wantHeard } from "./want-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
@@ -17,6 +18,7 @@ import {
   packDefinitions,
   packFacts,
   packNarration,
+  packPeople,
   packSceneFacts,
   observableStates,
   packOf,
@@ -52,6 +54,7 @@ import {
   forgetCovered,
   forgetUnfound,
   groundedInner,
+  knowsPackChoice,
 } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
@@ -444,9 +447,10 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
             (entry.turn < world.turn || (remaining && entry.turn === world.turn)),
         )
         .slice(-6)
-        .map(({ actorId, text, cast, witnesses }) => ({
+        .map(({ actorId, text, cast, witnesses, elysiumName }) => ({
           actorId,
           text,
+          ...(elysiumName !== undefined && { elysiumName }),
           witnesses: [
             ...new Set([actorId, ...(witnesses || []), ...(cast || [])]),
           ],
@@ -476,12 +480,14 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       const kind = profiles[id].kind;
       if (kind === "location" && isCovered?.(id))
         return { id, facts: [], desire: null, memories: [], previous: null };
-      // The place and player retain the route's established history. Another
-      // resident knows only their own recorded interactions and memories.
+      const knownChoice = kind === "avatar"
+        ? (pack, choice) => knowsPackChoice(world, id, pack, choice)
+        : undefined;
+      // The place keeps the established account. A traveler needs evidence.
       const continuity =
         !isCovered?.(location) &&
         (kind === "location" || id === currentActor(world))
-          ? packSceneFacts(world, location)
+          ? packSceneFacts(world, location, knownChoice)
           : [];
       // A want reaches the player through Talk: one first-person line for
       // the player and for whoever is in this Talk. Narration only.
@@ -517,7 +523,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         ...recitalFacts(world, packDefinitions, id),
         ...(kind === "avatar" ? laneTalkFacts(world, id) : []),
         ...learningFacts(world, id, nameOf),
-        ...[...packFacts(world, id), ...continuity]
+        ...[...packFacts(world, id, knownChoice), ...continuity]
           .filter((fact, index, all) => all.indexOf(fact) === index)
           .slice(-4),
         ...(kind === "location" ? packNarration(world, id) : []),
@@ -880,6 +886,11 @@ export function applyGeneratedText(
       continue;
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
+    const entry = entries.find((line) => line.id === id);
+    const typed = isElysiumModel(id) && Object.hasOwn(entry, "elysiumName");
+    const learned = typed && place === packPeople[id]?.home &&
+      elysiumNameIndex(text, entry.elysiumName) >= 0 &&
+      elysiumTalk(next, currentActor(next), id, place, next.turn);
     addLog(next, profiles[id].name, text, {
       kind: avatar ? expressionKind(profiles[id]) : "narration",
       actorId: avatar ? id : null,
@@ -887,6 +898,7 @@ export function applyGeneratedText(
       generated: true,
       locationId: place,
       cast: place === context.location ? [...cast] : castAt(place),
+      ...(typed && { elysiumName: learned ? entry.elysiumName : null }),
       ...(movement ? { arrivalFrom: movement.from } : {}),
     });
   }
