@@ -400,14 +400,19 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
     !knowsFact(world, listener, fact.id) &&
     (known[fact.id]?.kind === "witnessed" ||
       known[fact.id]?.learnedTurn < world.turn);
-  const rank = (f) => topics.findIndex((t) => t.id === f.id) + 1 || Infinity;
+  const rank = (fact) => {
+    const topic = topics.findIndex((entry) => entry.id === fact.id);
+    if (topic >= 0) return topic;
+    if (fact.source.kind === "quest") return topics.length;
+    if (fact.source.kind === "claim") return topics.length + 1;
+    return topics.length + 2;
+  };
   const fact =
     authored.find(fresh) ||
     Object.keys(known)
       .map((id) => world.knowledge.facts[id])
-      .filter(Boolean)
-      .sort((a, b) => rank(a) - rank(b) || compareFacts(a, b))
-      .find(fresh);
+      .filter((fact) => fact && fresh(fact))
+      .sort((a, b) => rank(a) - rank(b) || compareFacts(a, b))[0];
   if (!fact) return null;
   const prior = world.knowledge.pending.find(
     (p) =>
