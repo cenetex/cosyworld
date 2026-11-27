@@ -134,7 +134,9 @@ describe("explicit invitations", () => {
   });
 
   it("opens the route for an invited resident one crossing at a time", () => {
-    let state = invite(world(), ANN, "station");
+    const start = world();
+    start.stationExitOrder = ["co-far"];
+    let state = invite(start, ANN, "station");
     atBoth(state, ANN, "station");
     expect(state.invitedPlaces[ANN]).toEqual(["station"]);
     state = go(state, "co-far");

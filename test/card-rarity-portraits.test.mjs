@@ -17,6 +17,7 @@ import {
 } from "../v2/card-game/rarity-portraits.mjs";
 import { levelOf, newWant, rankXp } from "../v2/card-game/want.mjs";
 import { rankOf } from "../v2/card-game/level-tiers.mjs";
+import { DAY_TURNS } from "../v2/card-game/resident-home.mjs";
 import {
   flipStagePortrait,
   portraitFraming,
@@ -32,7 +33,8 @@ describe("earned Hoppy Cat portraits", () => {
       const base = portrait(id),
         threshold = rankXp(rankOf(form.level));
       expect(portrait(id, null, world)).toBe(base);
-      world.turn = 1000;
+      const awakeTurn = DAY_TURNS * 21 + 12;
+      world.turn = awakeTurn;
       world.revision = world.turn;
       world.actors[id].xp = threshold - 1;
       world.actors.vale.place = world.actors[id].place;

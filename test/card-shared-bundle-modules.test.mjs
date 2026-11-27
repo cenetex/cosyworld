@@ -73,6 +73,7 @@ const RULES = [
   "world/boxes.mjs",
   "world/company.mjs",
   "world/dwell.mjs",
+  "world/elysium-coordinates.mjs",
   "world/elysium-travel.mjs",
   "world/catalog.mjs",
   "world/create.mjs",

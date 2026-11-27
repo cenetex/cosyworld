@@ -2,6 +2,7 @@ import "./helpers/no-dwell.mjs";
 import { expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
+import { useUp } from "../v2/card-game/item-use.mjs";
 import { perception, listenerOf } from "../v2/card-game/perception.mjs";
 import {
   assistantRoleScenes,
@@ -74,18 +75,22 @@ it("does not count a thing that is out of play as newly come", () => {
   world.actors.moth.place = world.actors.keeper.place = "pond";
   world.actors.moth.want = world.actors.keeper.want = null;
   const home = world.actors.vale.place;
-  const hidden = Object.keys(world.items).find(
-    (id) => world.items[id].holder === home && !entityActive(world, id),
-  );
-  expect(hidden).toBeTruthy();
-  const back = act(act(act(act(world, "move"), "move", home), "move"), "move", home);
-  const view = perception(back, "vale", {
-    speakers: ["vale"],
-    entries: [],
-    actor: "vale",
-    present: ["vale"],
-    desire: null,
-    location: home,
-  });
-  expect(view.arrival?.came).not.toBe(hidden);
+  const away = act(act(act(world, "move", "pond"), "move", home), "move", "pond");
+  const cloth = "cloth";
+  away.items[cloth].holder = home;
+  const back = act(away, "move", home);
+  const arrival = () =>
+    perception(back, "vale", {
+      speakers: ["vale"],
+      entries: [],
+      actor: "vale",
+      present: ["vale"],
+      desire: null,
+      location: home,
+    }).arrival;
+  expect(arrival()).toEqual({ came: cloth });
+  useUp(back, cloth, home);
+  expect(back.items[cloth].holder).toBe(home);
+  expect(entityActive(back, cloth)).toBe(false);
+  expect(arrival()).toEqual({});
 });

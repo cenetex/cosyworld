@@ -737,10 +737,10 @@ fn spend(limits: &mut RateLimiter, now: Instant) -> bool {
         && limits.allow("discord-day".into(), PER_DAY, now)
 }
 
-fn admitted(state: &TextState, headers: &HeaderMap, kind: &str) -> Result<(), Response> {
+fn admission_error(state: &TextState, headers: &HeaderMap, kind: &str) -> Option<Response> {
     let token = std::env::var("COSYWORLD_BOT_TOKEN").ok();
     if !authorized(headers, token.as_deref()) {
-        return Err(error(StatusCode::UNAUTHORIZED, "unauthorized"));
+        return Some(error(StatusCode::UNAUTHORIZED, "unauthorized"));
     }
     let now = Instant::now();
     let allowed = state.limits.lock().is_ok_and(|mut limits| match kind {
@@ -751,10 +751,7 @@ fn admitted(state: &TextState, headers: &HeaderMap, kind: &str) -> Result<(), Re
         }
         _ => limits.allow("discord-cast".into(), LIMIT, now),
     });
-    if !allowed {
-        return Err(error(StatusCode::TOO_MANY_REQUESTS, "busy"));
-    }
-    Ok(())
+    (!allowed).then(|| error(StatusCode::TOO_MANY_REQUESTS, "busy"))
 }
 
 async fn enter(
@@ -796,7 +793,7 @@ pub(super) async fn cast_route(
     headers: HeaderMap,
     query: Result<Query<CastQuery>, QueryRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "cast") {
+    if let Some(refused) = admission_error(&state, &headers, "cast") {
         return refused;
     }
     let Ok(Query(query)) = query else {
@@ -818,7 +815,7 @@ pub(super) async fn lines(
     headers: HeaderMap,
     request: Result<Json<LinesRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "lines") {
+    if let Some(refused) = admission_error(&state, &headers, "lines") {
         return refused;
     }
     let mut request = match request {
@@ -1041,7 +1038,7 @@ pub(super) async fn coordinate(
     headers: HeaderMap,
     request: Result<Json<CoordinateRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "coordinate") {
+    if let Some(refused) = admission_error(&state, &headers, "coordinate") {
         return refused;
     }
     let Ok(Json(mut request)) = request else {
@@ -1124,7 +1121,7 @@ pub(super) async fn notes(
     headers: HeaderMap,
     request: Result<Json<NotesRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "coordinate") {
+    if let Some(refused) = admission_error(&state, &headers, "coordinate") {
         return refused;
     }
     let Ok(Json(request)) = request else {

@@ -62,6 +62,7 @@ describe("schema", () => {
   const attempt = (patch) => {
     const p = structuredClone(packDefinition("greek-drama"));
     delete p.items["greek-household-token"].teachesQuest;
+    delete p.items["greek-household-token"].questReadText;
     patch(p.avatars[R]);
     return validatePackDefinition(p);
   };
@@ -139,6 +140,7 @@ describe("schema", () => {
   it("warns, without failing, when a give choice takes a staged gift", () => {
     const p = structuredClone(packDefinition("greek-drama"));
     delete p.items["greek-household-token"].teachesQuest;
+    delete p.items["greek-household-token"].questReadText;
     delete p.avatars[R].want;
     p.avatars[R].wants = [item("greek-figs")];
     p.choices.push({

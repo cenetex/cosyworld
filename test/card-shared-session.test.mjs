@@ -143,7 +143,9 @@ describe("resume the play already at the table", () => {
       const result = await connection.play({ kind: "wait" }, "new-attempt");
       expect(result.resumedPlay).toBe(true);
       expect(connection.state).toEqual(current);
-      expect(listener).toHaveBeenCalledWith(current);
+      expect(listener).toHaveBeenCalledExactlyOnceWith(current, {
+        clockOnly: false,
+      });
       expect(report).not.toHaveBeenCalled();
       expect(
         fetch.mock.calls.slice(start).map(([, init]) => init.method),
