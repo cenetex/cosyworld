@@ -7,7 +7,7 @@
 // local and shared play group the same events the same way, and nothing here
 // is ever saved. See v2/docs/card-table/dialogue-beats.md.
 import { currentActor, nameOf as fullName } from "./world.mjs";
-import { isSceneText } from "./scene.mjs";
+import { isSceneText, isSignalEcho } from "./scene.mjs";
 import { consumable, transports } from "./pack-registry.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 import { refusalWhy } from "./want-talk.mjs";
@@ -84,6 +84,8 @@ export function actionCaption(
   entry,
   { viewer, here, arrival = null, sailed = false },
 ) {
+  if (isSignalEcho(entry))
+    return { seq: entry.seq, icon: "♪", text: sentence(entry.text), kind: "signal_echo", actorId: null };
   if (!entry || entry.generated || !entry.actorId) return null;
   const verb =
     entry.verb ||

@@ -68,9 +68,11 @@ pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&
         return;
     };
     resident.facts.push(format!("Home setting: {setting}."));
-    resident
-        .facts
-        .push("Token history: scattered beyond this Void on the first arrival.".into());
+    if context.elysium_token_scattered {
+        resident
+            .facts
+            .push("Token history: scattered beyond this Void.".into());
+    }
     if let Some(name) = name {
         resident
             .facts
@@ -84,14 +86,15 @@ pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&
 pub(super) fn revealed_name(text: &str, name: Option<&str>) -> Option<String> {
     let name = name?;
     let inside_name = |ch: char| ch.is_alphabetic() || ch == '-';
-    let mut matches = text.match_indices(name).filter(|&(start, _)| {
-        !text[..start].chars().next_back().is_some_and(inside_name)
-            && !text[start + name.len()..]
-                .chars()
-                .next()
-                .is_some_and(inside_name)
-    });
-    (matches.next().is_some() && matches.next().is_none()).then(|| name.to_string())
+    text.match_indices(name)
+        .any(|(start, _)| {
+            !text[..start].chars().next_back().is_some_and(inside_name)
+                && !text[start + name.len()..]
+                    .chars()
+                    .next()
+                    .is_some_and(inside_name)
+        })
+        .then(|| name.to_string())
 }
 
 #[cfg(test)]
@@ -135,6 +138,7 @@ mod tests {
         serde_json::from_value(json!({
             "revision":31, "turn":31, "location":ROOM, "scenery":false,
             "action":"Vale has a conversation with Resident of Void 006.",
+            "elysiumTokenScattered":true,
             "speakers":["vale",ID],
             "entities":[
                 {"id":ROOM,"facts":[],"memories":[]},
@@ -188,18 +192,32 @@ mod tests {
     }
 
     #[test]
-    fn only_a_single_spoken_name_earns_reveal_evidence() {
+    fn a_whole_spoken_name_earns_reveal_evidence() {
         let name = Some("Echo Thread");
         assert_eq!(revealed_name(REVEAL, name).as_deref(), name);
+        assert_eq!(
+            revealed_name("They call me Echo Thread. Echo Thread will do.", name).as_deref(),
+            name
+        );
         for line in [
             EARLY,
             "I heard Echo Thread-Eater.",
-            "They call me Echo Thread. Echo Thread will do.",
             "They call me echo thread.",
         ] {
             assert_eq!(revealed_name(line, name), None);
         }
         assert_eq!(revealed_name(REVEAL, None), None);
+    }
+
+    #[test]
+    fn token_facts_require_a_scatter_in_the_scene() {
+        let mut context = talk();
+        context.elysium_token_scattered = false;
+        add_talk_facts(&mut context, ID, None);
+        assert!(context.entities[2]
+            .facts
+            .iter()
+            .all(|fact| !fact.contains("Token history")));
     }
 
     fn assert_signed(entry: &Value, id: &str, line: &str, model: Option<&str>) {
@@ -440,7 +458,7 @@ mod tests {
         for (index, body) in resident_replies.into_iter().enumerate() {
             assert_eq!(
                 body["messages"].as_array().unwrap().last().unwrap()["content"],
-                OPENING
+                format!("Vale says, “{OPENING}”")
             );
             let prompt = body.to_string();
             assert!(prompt.contains("an indigo well"));

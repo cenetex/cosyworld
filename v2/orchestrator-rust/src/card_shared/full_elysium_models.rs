@@ -174,6 +174,19 @@ pub(super) fn record(
     Ok(())
 }
 
+pub(super) fn mark_known_introduction(
+    c: &Connection,
+    world: &str,
+    work: &mut Value,
+    actor: &str,
+) -> Result<()> {
+    if let Some(resident) = spoken_to(work, actor) {
+        let known = introduced(c, world, resident).map_err(sql_error)?;
+        work["context"]["elysiumIntroduced"] = json!(known.then_some(resident.id));
+    }
+    Ok(())
+}
+
 fn introduced(c: &Connection, world: &str, resident: &Resident) -> rusqlite::Result<bool> {
     c.query_row(
         "SELECT EXISTS(SELECT 1 FROM card_full_scenes s, json_each(s.content,'$.lines') l
@@ -643,6 +656,8 @@ mod tests {
         assert_eq!(talk_target(&first), Some(resident.id));
         assert!(earned(&c, "world", resident, false).unwrap());
         assert!(!introduced(&c, "world", resident).unwrap());
+        mark_known_introduction(&c, "world", &mut first, "vale").unwrap();
+        assert_eq!(first["context"]["elysiumIntroduced"], Value::Null);
         let mut line = json!({"actorId": resident.id, "kind":"dialogue", "text":"I call myself Amber Thread. My token has slipped into the world beyond this Void.", "generated":false});
         let write_scene =
             |line: &Value| {
@@ -664,8 +679,12 @@ mod tests {
         write_scene(&line);
         assert!(introduced(&c, "world", resident).unwrap());
         let mut repeated = play(resident, json!({"verb":"talk"}));
-        record(&c, "world", &mut repeated, "vale", 11).unwrap();
+        repeated["context"] = json!({"conversation": []});
+        mark_known_introduction(&c, "world", &mut repeated, "vale").unwrap();
         assert_eq!(talk_target(&repeated), Some(resident.id));
+        assert_eq!(repeated["context"]["elysiumIntroduced"], resident.id);
+        mark_known_introduction(&c, "other-world", &mut repeated, "vale").unwrap();
+        assert_eq!(repeated["context"]["elysiumIntroduced"], Value::Null);
         assert!(!introduced(&c, "other-world", resident).unwrap());
         assert!(!earned(&c, "other-world", resident, false).unwrap());
         assert!(!earned(&c, "world", &RESIDENTS[1], false).unwrap());

@@ -912,9 +912,15 @@ export function witnessed(entry, actor = "vale") {
   return Boolean(entry.cast?.includes(actor));
 }
 
+export function isSignalEcho(entry) {
+  return !!entry && !entry.actorId && entry.entityId === entry.locationId &&
+    crossings.some(({ from, signal }) => from === entry.locationId && signal?.echo &&
+      signal.echo.speaker === entry.speaker && signal.echo.text === entry.text);
+}
+
 export function isSceneText(entry, shared = false) {
   return Boolean(
-    entry &&
+    entry && !isSignalEcho(entry) &&
       (entry.kind === "dialogue" ||
         (entry.generated === true &&
           entry.kind === "narration" &&

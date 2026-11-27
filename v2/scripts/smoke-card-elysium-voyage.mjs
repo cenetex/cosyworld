@@ -50,8 +50,8 @@ async function personalIntroduction(browser, origin) {
   const exchanges = [
     {
       question: "What do I call you?",
-      answer: "My name is still taking shape. Ask me again, traveler.",
-      model: "elysium-authored",
+      answer: "Listen first. The mirrors have never agreed on dawn.",
+      model: boundModel,
     },
     {
       question: "Have you settled on a name?",
@@ -61,7 +61,7 @@ async function personalIntroduction(browser, origin) {
     },
     {
       question: "What do you see here?",
-      answer: "The two mirrors never catch the same star.",
+      answer: "Something of mine slipped through a mirror before you saw me.",
       model: boundModel,
     },
   ];
@@ -102,11 +102,12 @@ async function personalIntroduction(browser, origin) {
   );
   const attempts = [];
   await page.route("**/card-game/text", (route) => {
-    const { revision, turn, outcome, conversation, elysiumIntroduced } = route.request().postDataJSON();
+    const { revision, turn, outcome, conversation, elysiumIntroduced, elysiumTokenScattered } =
+      route.request().postDataJSON();
     if (outcome?.card?.kind !== "talk" || outcome.card.target !== resident)
       return route.fulfill({ status: 503 });
     const exchange = exchanges[attempts.length];
-    attempts.push({ elysiumIntroduced, conversation });
+    attempts.push({ elysiumIntroduced, elysiumTokenScattered, conversation });
     if (!exchange) return route.fulfill({ status: 503 });
     const { question, answer, model } = exchange;
     const entries = [
@@ -179,6 +180,7 @@ async function personalIntroduction(browser, origin) {
   await talk(exchanges[2]);
   assert.equal(await speaker.textContent(), name);
   assert.deepEqual(attempts.map(({ elysiumIntroduced }) => elysiumIntroduced), [undefined, undefined, resident]);
+  assert(attempts.every(({ elysiumTokenScattered }) => elysiumTokenScattered));
   assert.equal(attempts[1].conversation.find((line) => line.actorId === resident)?.elysiumName, null);
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
   assert(saved.log.some((line) => line.actorId === resident && line.elysiumName === name));

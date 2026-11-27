@@ -62,8 +62,19 @@ impl Entry {
     }
 }
 
-/// Reserve 45% of the scene for the reply. Prepare an introduction alongside
-/// the opener so naming can finish without delaying the first line.
+pub(super) async fn prepare_resident<'a>(
+    context: &Context,
+    introduction: Option<&'a Introduction>,
+    deadline: tokio::time::Instant,
+) -> Option<(&'a str, Option<String>)> {
+    let (state, target) = introduction?;
+    let name = tokio::time::timeout_at(deadline, elysium::prepare_name(state, context, target))
+        .await
+        .ok()
+        .flatten();
+    Some((target, name))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn exchange(
     config: &AiConfig,
@@ -77,30 +88,37 @@ pub(super) async fn exchange(
     introduction: Option<&Introduction>,
 ) -> Result<(), SceneClosed> {
     let reserve = reply_reserve(settings.scene_timeout);
+    let opener_deadline = deadline - reserve;
     let opener_ids = [actor.to_string()];
     let opener = voice_lines(
         config,
         context,
         character_models,
         settings,
-        deadline - reserve,
+        opener_deadline,
         &opener_ids,
         on_delta,
         lines,
+        None,
     );
-    if let Some((state, _)) = introduction.filter(|(_, id)| id == target) {
-        let reply = tokio::time::timeout_at(deadline, elysium::reply(state, context, target));
-        let (said, reply) = tokio::join!(opener, reply);
-        said?;
-        if let Ok(Some(reply)) = reply {
-            publish_line(context, on_delta, lines, reply)?;
-        }
-        return Ok(());
-    }
-    opener.await?;
+    let (said, resident) = tokio::join!(
+        opener,
+        prepare_resident(
+            context,
+            introduction.filter(|(_, id)| id == target),
+            opener_deadline
+        )
+    );
+    said?;
     let Some(heard) = lines
         .get(actor)
         .and_then(|line| with_line(context, actor, &line.text))
+        .or_else(|| {
+            copy_context(context).map(|mut next| {
+                next.no_fresh_opener = true;
+                next
+            })
+        })
     else {
         return Ok(());
     };
@@ -113,6 +131,7 @@ pub(super) async fn exchange(
         &[target.to_string()],
         on_delta,
         lines,
+        resident,
     )
     .await
 }
@@ -129,7 +148,14 @@ pub(super) async fn voice_lines(
     ids: &[String],
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
     lines: &mut BTreeMap<String, Entry>,
+    resident: Option<(&str, Option<String>)>,
 ) -> Result<(), SceneClosed> {
+    let prepared = resident.as_ref().and_then(|(target, name)| {
+        let mut next = copy_context(context)?;
+        elysium::add_talk_facts(&mut next, target, name.as_deref());
+        Some(next)
+    });
+    let context = prepared.as_ref().unwrap_or(context);
     // Each job owns its id: a borrowed one makes the scene future too
     // general for `tokio::spawn`.
     #[allow(clippy::unnecessary_to_owned)]
@@ -155,7 +181,11 @@ pub(super) async fn voice_lines(
             let Ok((text, model)) = result else {
                 continue;
             };
-            publish_line(context, on_delta, lines, Entry::spoken(&id, text, model))?;
+            let mut entry = Entry::spoken(&id, text, model);
+            if let Some((_, name)) = resident.as_ref().filter(|(target, _)| *target == id) {
+                entry.elysium_name = Some(elysium::revealed_name(&entry.text, name.as_deref()));
+            }
+            publish_line(context, on_delta, lines, entry)?;
         }
         Ok(())
     })
@@ -199,7 +229,7 @@ pub(super) fn applies(context: &Context, entity: &Entity, part: Part) -> bool {
 pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a SpokenLine> {
     // Exchange contexts contain prior-turn speech only; fresh line chaining
     // belongs to Talk. Keep old promises in chat(), not as this play's result.
-    if custody::exchange(context, &entity.id) {
+    if context.no_fresh_opener || custody::exchange(context, &entity.id) {
         return None;
     }
     answered(context, entity).or_else(|| {
@@ -410,7 +440,12 @@ pub(super) fn frame(
     let fresh: Vec<_> = mentions
         .into_iter()
         .filter(|fact| !known.iter().any(|(_, text)| text.contains(fact.as_str())))
-        .map(|fact| (Section::Directions, fact))
+        .map(|fact| {
+            (
+                Section::Facts,
+                format!("Something I know and can bring up if it fits the conversation: {fact}"),
+            )
+        })
         .collect();
     let known: Vec<_> = known.into_iter().chain(fresh).collect();
     let between = between.iter().map(|l| (Section::Conversation, l.clone()));
@@ -499,9 +534,18 @@ pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
 /// Talk target answers it. Everyone voiced this turn heard it. The line was
 /// generated and validated on this server this turn, after the browser's
 /// lines were verified (`untrusted::trusted`), so it needs no envelope.
-pub(super) fn with_line(context: &Context, actor: &str, text: &str) -> Option<Context> {
+fn copy_context(context: &Context) -> Option<Context> {
     let mut next: Context = serde_json::from_value(serde_json::to_value(context).ok()?).ok()?;
     next.acting_avatar = context.acting_avatar.clone();
+    next.present.clone_from(&context.present);
+    next.images.clone_from(&context.images);
+    next.channel = context.channel;
+    next.no_fresh_opener = context.no_fresh_opener;
+    Some(next)
+}
+
+pub(super) fn with_line(context: &Context, actor: &str, text: &str) -> Option<Context> {
+    let mut next = copy_context(context)?;
     let mut witnesses = context.speakers.clone();
     if !witnesses.iter().any(|id| id == actor) {
         witnesses.push(actor.to_string());
@@ -726,7 +770,7 @@ mod tests {
     /// With no line from the actor this turn, the target does not answer
     /// one from an earlier turn.
     #[tokio::test]
-    async fn no_actor_line_means_no_reply() {
+    async fn a_resident_responds_without_an_opener_from_this_turn() {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let (address, server) = serve(slow_provider(seen.clone(), |stem| match stem {
             "Vale:" => 5_000,
@@ -753,9 +797,13 @@ mod tests {
             None,
         )
         .await;
-        assert!(result.is_err());
+        let result = result.unwrap();
+        assert_eq!(result["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(result["entries"][0]["id"], "moth");
         assert!(started.elapsed() < Duration::from_millis(900));
-        assert!(pip_requests(&seen).is_empty());
+        let pip = pip_requests(&seen);
+        assert_eq!(pip.len(), 1);
+        assert!(!super::super::tests::turn_of(&pip[0], "user").contains("yesterday"));
         server.abort();
     }
 

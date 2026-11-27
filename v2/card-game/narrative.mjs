@@ -432,9 +432,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
   const wayLines = wayFacts(world, location);
   const ways = (id) =>
     wayLines.filter(({ to }) => waySaid(world, id, to)).map(({ line }) => line);
-  // Authored sounds such as the clock's echo stay in the scene/history, but
-  // the speech API's conversation contains only registered avatar voices:
-  // the recent talk at this place, which each speaker reads as a group chat.
+  // Recent avatar dialogue at this place is the conversation each speaker reads.
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -476,6 +474,9 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         : null),
     events,
     conversation,
+    ...(played?.verb === "talk" && world.elysiumEncounters?.[played.targetId]?.scatteredAt
+      ? { elysiumTokenScattered: true }
+      : {}),
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
       if (kind === "location" && isCovered?.(id))
@@ -783,14 +784,14 @@ function writeEcho(next, context) {
     !next.log.some(
       (entry) =>
         entry.turn === next.turn &&
-        entry.generated &&
-        entry.speaker === echo.speaker,
+        entry.locationId === context.location &&
+        entry.speaker === echo.speaker && entry.text === echo.text,
     )
   )
     addLog(next, echo.speaker, echo.text, {
-      kind: "dialogue",
+      kind: "narration",
+      actorId: null,
       entityId: context.location,
-      generated: true,
       locationId: context.location,
     });
   return true;

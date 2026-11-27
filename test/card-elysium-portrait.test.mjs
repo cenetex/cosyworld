@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { elysiumNameIndex } from "../v2/card-game/elysium-models.mjs";
 import { createElysiumPortrait } from "../v2/card-game/elysium-portrait.mjs";
 import { forgetSigned, rememberSigned, signedEnvelopes, withSignatures } from "../v2/card-game/signed-words.mjs";
 
@@ -9,6 +10,13 @@ afterEach(() => {
 
 const resident = "elysium-claude";
 const room = "elysium-void-002";
+
+it("accepts a spoken name more than once and ignores partial matches", () => {
+  const name = "Echo Thread";
+  const text = "They call me Echo Thread. Echo Thread will do.";
+  expect(elysiumNameIndex(text, name)).toBe(text.indexOf(name));
+  expect(elysiumNameIndex("I heard Echo Thread-Eater.", name)).toBe(-1);
+});
 
 it("covers different resident aliases without a shared identity response", () => {
   const display = createElysiumPortrait(null, () => {});
