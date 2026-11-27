@@ -2166,7 +2166,7 @@ function performAction(action, revision) {
     }
     revision = world.revision;
   }
-  const result = attemptPlay(() => play(world, action, revision), saveCodec);
+  const result = attemptPlay(() => play(world, action, revision, currentActor(world), elysiumPortrait.ready(world)), saveCodec);
   if (!result.ok) {
     if (result.fault) reportSaveFault(result.fault, action);
     else count("error.rules_reject");

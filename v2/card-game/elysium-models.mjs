@@ -32,6 +32,29 @@ export const elysiumModelTalked = (s, id) =>
 export const keepsElysiumToken = (resident, item) =>
   isElysiumModel(resident) && elysiumModelToken(resident) === item;
 
+export const elysiumPortraitReady = (world, id) =>
+  world?.elysiumEncounters?.[id]?.portraitReady === true;
+export const elysiumResidentAnchored = (world, id) =>
+  isElysiumModel(id) && !elysiumPortraitReady(world, id);
+
+export function withElysiumPortraits(world, receipts, installLife) {
+  if (!Array.isArray(receipts)) return world;
+  for (const receipt of receipts) {
+    const resident = receipt?.resident;
+    if (!elysiumResidentAnchored(world, resident)) continue;
+    const encounter = world.elysiumEncounters?.[resident];
+    if (
+      encounter?.returnedAt &&
+      encounter.returnedAt === receipt.returnedAt &&
+      world.items[elysiumModelToken(resident)]?.holder === resident
+    ) {
+      encounter.portraitReady = true;
+      installLife(world, (id) => id === resident);
+    }
+  }
+  return world;
+}
+
 export function validElysiumName(name) {
   return typeof name === "string" && [...name].length <= 40 &&
     /\p{Alphabetic}/u.test(name) && !/[^\p{Alphabetic} -]/u.test(name) &&
@@ -84,7 +107,16 @@ export function recordElysiumEncounter(s, event) {
 }
 
 // Shared introductions and token returns must be played in the shared world.
-export function resetImportedElysiumEncounters(s) {
+export function resetImportedElysiumEncounters(s, people) {
+  for (const resident of ELYSIUM_MODEL_IDS) {
+    if (!elysiumPortraitReady(s, resident)) continue;
+    const actor = s.actors[resident];
+    actor.place = people[resident].home;
+    actor.want = null;
+    for (const key of ["sleeping", "homeward", "dwellUntil", "attend"])
+      delete actor[key];
+    if (s.invitedPlaces) delete s.invitedPlaces[resident];
+  }
   delete s.elysiumEncounters;
   for (const event of s.log) {
     delete event.elysiumArrival;
@@ -111,8 +143,12 @@ export function validElysiumEncounters(s) {
     if (!isElysiumModel(resident) || !s.actors[resident] ||
         !s.items[elysiumModelToken(resident)] || !record || !seq(record.scatteredAt))
       return false;
-    const { talkedAt, scatteredAt, returnedAt, returnedBy } = record;
-    const fields = Object.keys(record).filter((field) => field !== "talkedAt").sort().join();
+    const { talkedAt, scatteredAt, returnedAt, returnedBy, portraitReady } = record;
+    if (Object.hasOwn(record, "portraitReady") && (portraitReady !== true || !returnedAt))
+      return false;
+    const fields = Object.keys(record)
+      .filter((field) => !["talkedAt", "portraitReady"].includes(field))
+      .sort().join();
     if (Object.hasOwn(record, "talkedAt") && talkedAt !== null &&
         (!seq(talkedAt) || talkedAt <= scatteredAt))
       return false;

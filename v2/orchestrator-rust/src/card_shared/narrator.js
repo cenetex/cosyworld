@@ -1914,6 +1914,7 @@
   var elysiumModelToken = (id) => `${id}-token`;
   var firstTalk = (record7) => record7?.talkedAt === void 0 ? record7?.scatteredAt : record7.talkedAt;
   var keepsElysiumToken = (resident, item) => isElysiumModel(resident) && elysiumModelToken(resident) === item;
+  var elysiumPortraitReady = (world, id) => world?.elysiumEncounters?.[id]?.portraitReady === true;
   function validElysiumName(name) {
     return typeof name === "string" && [...name].length <= 40 && /\p{Alphabetic}/u.test(name) && !/[^\p{Alphabetic} -]/u.test(name) && name.trim().split(/ +/u).length <= 3;
   }
@@ -1933,8 +1934,10 @@
     return Object.entries(records).every(([resident, record7]) => {
       if (!isElysiumModel(resident) || !s.actors[resident] || !s.items[elysiumModelToken(resident)] || !record7 || !seq(record7.scatteredAt))
         return false;
-      const { talkedAt, scatteredAt, returnedAt, returnedBy } = record7;
-      const fields3 = Object.keys(record7).filter((field) => field !== "talkedAt").sort().join();
+      const { talkedAt, scatteredAt, returnedAt, returnedBy, portraitReady } = record7;
+      if (Object.hasOwn(record7, "portraitReady") && (portraitReady !== true || !returnedAt))
+        return false;
+      const fields3 = Object.keys(record7).filter((field) => !["talkedAt", "portraitReady"].includes(field)).sort().join();
       if (Object.hasOwn(record7, "talkedAt") && talkedAt !== null && (!seq(talkedAt) || talkedAt <= scatteredAt))
         return false;
       if (fields3 === "scatteredAt") return true;
@@ -16599,7 +16602,7 @@
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var wantless = (id) => forest_default.people[id]?.wants === false;
-  var travels = (id, s = null) => !isPackActor(id) && forest_default.people[id]?.travels !== false || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var travels = (id, s = null) => !isPackActor(id) && forest_default.people[id]?.travels !== false || freed(s, id) || elysiumPortraitReady(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
   var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
   var rankXp = (r) => r * (r - 1) / 2;
   var startXp = (id) => rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));

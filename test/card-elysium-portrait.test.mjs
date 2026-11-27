@@ -127,7 +127,7 @@ it.each([
     .toEqual([`/card-game/shared/worlds/world/elysium-identity/${resident}`]);
 });
 
-it("loads the portrait from a saved personal return when the resident is nearby", async () => {
+it("loads a saved personal portrait offsite and reports the decoded return once", async () => {
   const fetch = vi.fn().mockImplementation(async () => portraitResponse());
   vi.stubGlobal("fetch", fetch);
   stubPortraitDecoder();
@@ -143,7 +143,7 @@ it("loads the portrait from a saved personal return when the resident is nearby"
   world.revision++;
   const restored = createElysiumPortrait(null, redraw, "table-one");
   restored.observe(world, "vale", null);
-  expect(fetch).not.toHaveBeenCalled();
+  expect(restored.ready(world)).toEqual([]);
 
   world.actors.vale.place = room;
   restored.observe(world, "vale", null);
@@ -158,12 +158,16 @@ it("loads the portrait from a saved personal return when the resident is nearby"
     scatteredAt: 10, talkedAt: 10, returnedAt: 14, returnedBy: "vale",
   });
   await vi.waitFor(() => expect(restored.source(resident, false)).toBe(portraitSource));
+  expect(restored.ready(world)).toEqual([{ resident, returnedAt: 14 }]);
+  world.elysiumEncounters[resident].portraitReady = true;
+  expect(restored.ready(world)).toEqual([]);
+  expect(restored.source(resident, false)).toBe(portraitSource);
   expect(restored.source(resident, true)).toBeNull();
   expect(restored.note(resident)).toBe("");
   expect(redraw).toHaveBeenCalledTimes(2);
 });
 
-it("aborts a personal portrait request on departure and pagehide", () => {
+it("keeps an earned personal portrait request on departure and aborts it on pagehide", () => {
   const events = new Map();
   vi.stubGlobal("window", { addEventListener: (event, callback) => events.set(event, callback) });
   const fetch = vi.fn((_, { signal }) => new Promise((resolve) => {
@@ -176,23 +180,43 @@ it("aborts a personal portrait request on departure and pagehide", () => {
   const departed = fetch.mock.calls[0][1].signal;
   world.actors.vale.place = "pond";
   display.observe(world, "vale", null);
-  expect(departed.aborted).toBe(true);
+  expect(departed.aborted).toBe(false);
   expect(fetch).toHaveBeenCalledOnce();
-  expect(display.note(resident)).toBe("");
+  expect(display.note(resident)).toBe("Portrait pending.");
 
-  world.actors.vale.place = room;
-  display.observe(world, "vale", null);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  const hidden = fetch.mock.calls[1][1].signal;
   events.get("pagehide")();
-  expect(hidden.aborted).toBe(true);
+  expect(departed.aborted).toBe(true);
   expect(display.note(resident)).toBe("");
+  expect(display.ready(world)).toEqual([]);
   display.observe(world, "vale", null);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledOnce();
   events.get("pageshow")({ persisted: true });
   display.observe(world, "vale", null);
-  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(fetch).toHaveBeenCalledTimes(2);
   events.get("pagehide")();
+});
+
+it("clears decoded personal proof when the return receipt or run changes", async () => {
+  vi.stubGlobal("fetch", async () => portraitResponse());
+  vi.stubGlobal("document", { images: [] });
+  stubPortraitDecoder();
+  const display = createElysiumPortrait(null, () => {}, "table-one");
+  const world = returnedWorld({ scatteredAt: 10, talkedAt: 11, returnedAt: 14, returnedBy: "vale" });
+  const check = () => vi.waitFor(() =>
+    expect(display.ready(world)).toEqual([{ resident, returnedAt: 14 }]),
+  );
+  display.observe(world, "vale", null);
+  await check();
+
+  world.elysiumEncounters[resident].talkedAt = 12;
+  expect(display.ready(world)).toEqual([]);
+  expect(display.source(resident, false)).toBeNull();
+  display.observe(world, "vale", null);
+  await check();
+
+  world.run.seed++;
+  expect(display.ready(world)).toEqual([]);
+  expect(display.source(resident, false)).toBeNull();
 });
 
 it("reports the portrait retry and stops showing it when the reward is unavailable", async () => {
@@ -234,6 +258,7 @@ it.each([null, "world"])("waits for a second portrait render in table %s", async
   expect(display.source(resident, false)).toBeNull();
   await vi.advanceTimersByTimeAsync(10_000);
   expect(display.source(resident, false)).toBe(portraitSource);
+  expect(display.ready(world)).toEqual(worldId ? [] : [{ resident, returnedAt: 14 }]);
   expect(portraitRequests.at(-1)).toEqual(worldId
     ? { url: `/card-game/shared/worlds/${worldId}/elysium-portrait/${resident}`, method: undefined }
     : { url: `/card-game/elysium-portrait/${resident}`, method: "POST" });

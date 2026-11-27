@@ -26,6 +26,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+#[path = "full_elysium_readiness.rs"]
+mod readiness;
+pub(super) use readiness::attach_ready_portraits;
+
 pub(super) const NAME_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-identity/{resident}";
 pub(super) const PORTRAIT_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-portrait/{resident}";
 pub(super) const PERSONAL_PORTRAIT_ROUTE: &str = "/card-game/elysium-portrait/{resident}";
@@ -278,11 +282,15 @@ fn actions<'a>(work: &'a Value, actor: &'a str) -> impl Iterator<Item = &'a Valu
         })
 }
 
-fn spoken_to(work: &Value, actor: &str) -> Option<&'static Resident> {
+fn talked_resident(work: &Value, actor: &str) -> Option<&'static Resident> {
     actions(work, actor).find_map(|event| {
         let resident = resident(event["targetId"].as_str()?)?;
-        (event["verb"] == "talk" && event["locationId"] == resident.room).then_some(resident)
+        (event["verb"] == "talk").then_some(resident)
     })
+}
+
+fn spoken_to(work: &Value, actor: &str) -> Option<&'static Resident> {
+    talked_resident(work, actor).filter(|resident| work["room"] == resident.room)
 }
 
 pub(super) fn talk_target(work: &Value) -> Option<&'static str> {
@@ -290,7 +298,10 @@ pub(super) fn talk_target(work: &Value) -> Option<&'static str> {
 }
 
 pub(super) fn scene_talk_target(work: &Value, actor: &str) -> Option<String> {
-    spoken_to(work, actor)
+    talked_resident(work, actor)
+        .filter(|resident| {
+            work["room"] == resident.room || work["context"]["elysiumIntroduced"] == resident.id
+        })
         .map(|resident| resident.id.to_owned())
         .or_else(|| coordinate::talk_target(work, actor))
 }
@@ -336,7 +347,10 @@ pub(super) fn mark_known_introduction(
     work: &mut Value,
     actor: &str,
 ) -> Result<()> {
-    if let Some(target) = scene_talk_target(work, actor) {
+    if let Some(resident) = talked_resident(work, actor) {
+        let known = introduced(c, world, resident).map_err(sql_error)?;
+        work["context"]["elysiumIntroduced"] = json!(known.then_some(resident.id));
+    } else if let Some(target) = coordinate::talk_target(work, actor) {
         let room = work["room"].as_str().ok_or("The scene needs a place.")?;
         let known = introduced_at(c, world, room, &target).map_err(sql_error)?;
         work["context"]["elysiumIntroduced"] = json!(known.then_some(target));
@@ -694,7 +708,7 @@ pub(crate) async fn elysium_name(
     room: &str,
     can_choose: bool,
 ) -> Option<String> {
-    let resident = resident(id).filter(|resident| resident.room == room)?;
+    let resident = resident(id).filter(|resident| !can_choose || resident.room == room)?;
     let dir = directory(&state.generated_asset_dir, resident);
     if can_choose {
         let state = state.clone();
@@ -759,7 +773,8 @@ fn read_portrait(dir: &Path) -> Option<Vec<u8>> {
         if file.take(MAX_PORTRAIT + 1).read_to_end(&mut bytes).is_err() {
             continue;
         }
-        if bytes.len() as u64 <= MAX_PORTRAIT
+        if bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+            && bytes.len() as u64 <= MAX_PORTRAIT
             && path.file_stem().and_then(|s| s.to_str()) == Some(hash(&bytes).as_str())
         {
             return Some(bytes);
@@ -1371,6 +1386,32 @@ mod tests {
         assert_eq!(returned["elysiumPortraitEarned"], true);
         assert!(earned(&c, "world", resident, true).unwrap());
         assert!(!earned(&c, "other-world", resident, true).unwrap());
+    }
+
+    #[test]
+    fn a_moved_core_resident_only_reuses_a_home_introduction() {
+        let c = Connection::open_in_memory().unwrap();
+        store::schema_sqlite(&c).unwrap();
+        let resident = &RESIDENTS[0];
+        let mut talk = play(resident, json!({"verb":"talk"}));
+        talk["room"] = json!("station");
+        talk["events"][0]["locationId"] = json!("station");
+        talk["events"][0]["fromLocationId"] = json!("station");
+        let line = json!({"actorId":resident.id,"kind":"dialogue","generated":true,
+            "text":"The lantern made a circle on the step.","elysiumName":"Amber Thread"});
+        for room in ["station", resident.room] {
+            c.execute(
+                "INSERT OR REPLACE INTO card_full_scenes(world,room,play,content) VALUES(?,?,?,?)",
+                params!["world", room, "intro", json!({"lines":[line]}).to_string()],
+            )
+            .unwrap();
+            mark_known_introduction(&c, "world", &mut talk, "vale").unwrap();
+            assert_eq!(
+                scene_talk_target(&talk, "vale").as_deref(),
+                (room == resident.room).then_some(resident.id)
+            );
+            assert_eq!(talk_target(&talk), None);
+        }
     }
 
     #[test]

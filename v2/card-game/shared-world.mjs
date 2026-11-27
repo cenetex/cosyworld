@@ -157,7 +157,7 @@ function importClientSave(save) {
   // Upgrades are per passkey, and a local save is its own passkey (#1873).
   for (const actor of Object.values(raw.actors || {})) delete actor?.upgrades;
   const world = decodeSave(JSON.stringify(raw));
-  resetImportedElysiumEncounters(world);
+  resetImportedElysiumEncounters(world, people);
   for (const actor of Object.values(world.actors || {}))
     if (actor?.upgrades) {
       actor.upgrades = actor.upgrades.filter((id) => !isArcanum(id));
@@ -277,6 +277,7 @@ export function dispatchShared(request) {
       action,
       request.revision ?? world.revision,
       actor,
+      request.elysiumPortraits,
     );
     if (!result.ok)
       return { ok: false, world: stored(world), error: result.error };

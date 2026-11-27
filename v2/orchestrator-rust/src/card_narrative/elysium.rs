@@ -126,6 +126,7 @@ pub(super) fn personal_talk(context: &Context, voiced: &[String]) -> Option<(Str
         && target != actor
         && voiced.contains(target)
         && (elysium_resident_at(target, &context.location)
+            || (elysium_model(target).is_some() && !needs_introduction(context, target))
             || coordinate(context, target).is_some())
         && cast()["avatars"]
             .as_array()?
@@ -172,11 +173,11 @@ pub(super) const SELF_INTRODUCTION: &str =
     "Introduce yourself to the traveler in your own words using your chosen name.";
 
 pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&str>) {
-    let Some(setting) = elysium_setting(target, &context.location)
-        .or_else(|| coordinate(context, target)?.setting())
-    else {
+    let setting = elysium_setting(target, &context.location)
+        .or_else(|| coordinate(context, target)?.setting());
+    if setting.is_none() && name.is_none() {
         return;
-    };
+    }
     let introducing = name.is_some() && needs_introduction(context, target);
     let Some(resident) = context
         .entities
@@ -185,7 +186,9 @@ pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&
     else {
         return;
     };
-    resident.facts.push(format!("Home setting: {setting}."));
+    if let Some(setting) = setting {
+        resident.facts.push(format!("Home setting: {setting}."));
+    }
     if context.elysium_token_scattered {
         resident
             .facts

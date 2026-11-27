@@ -176,6 +176,7 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     suspended = false,
     authorized = true,
     personalWorld = null,
+    personalSeed,
     personalNames = {};
 
   function changed(refresh) {
@@ -257,14 +258,34 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
 
   function sync(world) {
     if (!personalKey) return;
-    if (personalWorld?.run?.seed !== world.run?.seed) {
+    const seed = world.run?.seed;
+    const newRun = personalSeed !== seed;
+    if (newRun) {
+      personalSeed = seed;
       personalNames = {};
       try {
         const saved = JSON.parse(storage.getItem(personalKey));
-        if (saved?.seed === world.run?.seed && saved.names &&
+        if (saved?.seed === seed && saved.names &&
           typeof saved.names === "object" && !Array.isArray(saved.names)) personalNames = saved.names;
       } catch { /* A blocked store only lasts for this page. */ }
       changed(false);
+    }
+    if (personalPortraits) {
+      for (const id of ELYSIUM_MODEL_IDS) {
+        const view = cast.get(id);
+        if (!view?.portrait) continue;
+        const { scatteredAt, talkedAt = scatteredAt, returnedAt, returnedBy } =
+          world.elysiumEncounters?.[id] || {};
+        const receipt = returnedAt
+          ? { scatteredAt, talkedAt, returnedAt, returnedBy }
+          : null;
+        const receiptKey = receipt && JSON.stringify(receipt);
+        if (newRun || receiptKey !== view.receiptKey) {
+          view.portrait.clear();
+          view.receiptKey = receiptKey;
+          view.receipt = receipt;
+        }
+      }
     }
     personalWorld = world;
   }
@@ -333,6 +354,19 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     revoke,
     sync,
     name,
+    ready(world) {
+      if (!personalPortraits || !authorized || suspended) return [];
+      sync(world);
+      const ready = [];
+      for (const resident of ELYSIUM_MODEL_IDS) {
+        const view = cast.get(resident);
+        const returnedAt = view?.receipt?.returnedAt;
+        if (returnedAt && view.portrait.value &&
+          world.elysiumEncounters[resident].portraitReady !== true)
+          ready.push({ resident, returnedAt });
+      }
+      return ready;
+    },
     withIntroduction(context) {
       const card = context.outcome?.card;
       return card?.kind === "talk" && personalName(card.target)
@@ -350,7 +384,7 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
       const here = viewer?.place;
       for (const [id, view] of cast) {
         const nearby = Boolean(here && world.actors[id]?.place === here);
-        const { scatteredAt, talkedAt: tokenTalk = scatteredAt, returnedAt, returnedBy } =
+        const { scatteredAt, talkedAt: tokenTalk = scatteredAt, returnedAt, portraitReady } =
           world.elysiumEncounters?.[id] || {};
         const talkedAt = view.coordinate ? coordinateTalkAt(world, actor, id) : tokenTalk;
         if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
@@ -388,10 +422,8 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
             viewer?.visited?.includes(packPeople[id].place),
           world.revision,
         );
-        const receipt = personalPortraits && returnedAt
-          ? { scatteredAt, talkedAt, returnedAt, returnedBy }
-          : undefined;
-        view.portrait?.observe(active && ready, nearby, world.revision, receipt);
+        const available = nearby || Boolean(view.receipt && !portraitReady);
+        view.portrait?.observe(active && ready, available, world.revision, view.receipt);
       }
       started = true;
     },
