@@ -63,8 +63,10 @@ pub(super) fn parse(text: &str, work: &Value, ids: &[String]) -> Result<Value> {
             continue;
         }
         let mut line = json!({"reflection":entry["reflection"],"model":entry["model"],"speaker":name,"text":text,"entityId":id,"actorId":if profile["kind"]=="avatar"{Some(id)}else{None}});
-        if let Some(name) = entry.get("elysiumName") {
-            line["elysiumName"] = name.clone();
+        for key in ["elysiumName", "disclosed"] {
+            if let Some(value) = entry.get(key) {
+                line[key] = value.clone();
+            }
         }
         lines.push(line);
     }

@@ -1,7 +1,7 @@
 import "./helpers/no-dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
-import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { applyGeneratedText, narrativeContext } from "../v2/card-game/narrative.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
   createWorld,
@@ -34,6 +34,7 @@ import { cardChoices, availableCards, lockWords } from "../v2/card-game/cards.mj
 
 const pack = packDefinitions.find((p) => p.id === "willows");
 const BOOK = "willows-notebook";
+const PIPE_CLAIM = "claim:willows:willows-pipe:their-sound";
 const find = (world, fields) =>
   legalActions(world).find((a) =>
     Object.entries(fields).every(([key, value]) => a[key] === value),
@@ -97,7 +98,25 @@ function discoveries() {
   let world = take(observe(island(), "examine-hull"), "provisions");
   world = drop(move(world, "willows-camp"), "provisions");
   world = observe(world, "count-stores");
-  world = act(world, { kind: "talk", target: "willows-swede" });
+  const action = find(world, { kind: "talk", target: "willows-swede" });
+  const talk = play(world, action);
+  expect(talk.ok, talk.error).toBe(true);
+  world = talk.state;
+  const context = narrativeContext(world, action);
+  const [disclosure] = context.disclosures;
+  expect(disclosure).toMatchObject({
+    factId: PIPE_CLAIM, speaker: "willows-swede", listener: "vale", deferred: true,
+  });
+  const { factId, speaker, listener, eventSeq } = disclosure;
+  world = applyGeneratedText(world, context, {
+    revision: context.revision,
+    model: "fixture",
+    entries: [{
+      id: speaker,
+      text: "The wind can drop to nothing and those willows still hum.",
+      disclosed: { factId, speaker, listener, eventSeq },
+    }],
+  });
   world = move(world, "willows-thicket");
   world = observe(world, "examine-hollows");
   world = move(world, "willows-bank");
@@ -147,12 +166,14 @@ describe("The Willows", () => {
   ])("loads an old save whose notebook was %s", (_, holder, history, open) => {
     const old = discoveries();
     Object.assign(old.items[BOOK], { holder, history });
+    // Older saves kept learned knowledge without linking it to a spoken line.
+    for (const line of old.log) delete line.disclosedFactId;
     const save = JSON.stringify(old);
     const shared = dispatchShared({ op: "create", save }).world;
     const read = (w) => Object.values(w.knowledge.known).flatMap(Object.keys).filter((id) => id.startsWith("claim:"));
-    const [map, pipe] = ["map:margin", "pipe:their-sound"].map((c) => `claim:willows:willows-${c}`);
-    expect(read(old)).toEqual([pipe, map, pipe]);
-    expect(old.knowledge.known.vale[pipe]).toMatchObject({ kind: "heard", teller: "willows-swede" });
+    expect(read(old)).toEqual([PIPE_CLAIM, "claim:willows:willows-map:margin", PIPE_CLAIM]);
+    const heard = old.knowledge.known.vale[PIPE_CLAIM];
+    expect(heard).toMatchObject({ kind: "heard", teller: "willows-swede" });
     for (const world of [
       decodeSave(save),
       dispatchShared({ op: "upgrade", from: "full-card-world/191", world: shared }).world,
@@ -160,6 +181,7 @@ describe("The Willows", () => {
       expect(world.items[BOOK]).toEqual({ holder, history });
       expect(entityActive(world, BOOK)).toBe(open);
       expect(read(world)).toEqual(read(old));
+      expect(world.knowledge.known.vale[PIPE_CLAIM]).toEqual(heard);
     }
   });
 

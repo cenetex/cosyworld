@@ -231,25 +231,25 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "fe76a31823545063"
+      "sha256": "a757510661395325"
     },
     "met": {
       "turn": 3,
       "place": "pond",
       "carried": [],
-      "sha256": "035e6f029ab028de"
+      "sha256": "9c97492c50a336ca"
     },
     "sleepQuest": {
       "turn": 3,
       "place": "pond",
       "carried": [],
-      "sha256": "035e6f029ab028de"
+      "sha256": "9c97492c50a336ca"
     },
     "levelled": {
       "turn": 24,
       "place": "attic",
       "carried": [],
-      "sha256": "598818f85f9f815b"
+      "sha256": "99a8aa429a364620"
     }
   }
 }

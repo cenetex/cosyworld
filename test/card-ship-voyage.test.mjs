@@ -8,7 +8,9 @@ import {
   plan,
   play,
 } from "../v2/card-game/world.mjs";
+import { applyGeneratedText, narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import {
   callTransport,
   learnLane,
@@ -339,8 +341,23 @@ describe("calling the empty ship", () => {
 
 describe("a ship at a dock nobody showed you", () => {
   const SHIP = "greek-ship",
-    DOCK = "greek-piraeus";
+    DOCK = "greek-piraeus",
+    RHAPSODE = "greek-rhapsode";
   const boards = (s, actor) => exits(s, DOCK, actor).includes(SHIP);
+  const routeReply = (context) => {
+    const [offered] = context.disclosures;
+    expect(offered).toMatchObject({
+      factId: "lane:greek-harbor>greek-piraeus",
+      speaker: RHAPSODE,
+      listener: "vale",
+      deferred: true,
+    });
+    const { factId, speaker, listener, eventSeq } = offered;
+    return {
+      text: "Load the travel provisions before sailing from the Wine-Dark Harbor to Piraeus.",
+      disclosed: { factId, speaker, listener, eventSeq },
+    };
+  };
 
   it("is a locked box until the actor learns a lane from that dock", () => {
     let s = setup(DOCK);
@@ -358,25 +375,46 @@ describe("a ship at a dock nobody showed you", () => {
     expect(s.actors.vale.place).toBe(SHIP);
   });
 
-  it("opens on the shared Talk that tells a lane, with no speech", () => {
+  it("opens for the listener once the Rhapsode reveals the lane in shared play", () => {
     let s = setup(DOCK);
-    s.actors["greek-rhapsode"].place = DOCK;
-    s = act(reload(s), "vale", "talk", "greek-rhapsode");
+    s.actors[RHAPSODE].place = DOCK;
+    s = reload(s);
+    const action = ask(s, "vale").actions.find(
+      (a) => a.kind === "talk" && a.target === RHAPSODE,
+    );
+    const played = ask(s, "vale", "play", { action });
+    expect(played.ok, played.error).toBe(true);
+    expect(lockWords(ask(played.world, "vale").world, SHIP)).not.toBe(null);
+    const context = sharedContext({
+      world: played.world, actor: "vale", claimed: players, present: players, action,
+    });
+    s = ask(played.world, "vale", "speech", {
+      room: context.location,
+      lines: [{ actorId: RHAPSODE, ...routeReply(context) }],
+    }).world;
     expect(lockWords(ask(s, "vale").world, SHIP)).toBe(null);
     expect(lockWords(ask(s, "mara").world, SHIP)).not.toBe(null);
     s = act(s, "vale", "move", SHIP);
     expect(targets(s, "vale", "course")).not.toEqual([]);
   });
 
-  it("opens on the local Talk that tells a lane, with no speech", () => {
+  it("opens once the Rhapsode reveals the lane in local play", () => {
     const s = setup(DOCK);
-    s.actors["greek-rhapsode"].place = DOCK;
+    s.actors[RHAPSODE].place = DOCK;
     const seen = ask(reload(s), "vale");
     const talk = seen.actions.find(
-      (a) => a.kind === "talk" && a.target === "greek-rhapsode",
+      (a) => a.kind === "talk" && a.target === RHAPSODE,
     );
     expect(lockWords(seen.world, SHIP)).not.toBe(null);
-    const told = play(seen.world, talk, s.revision, "vale").state;
+    const played = play(seen.world, talk, s.revision, "vale");
+    expect(played.ok, played.error).toBe(true);
+    expect(lockWords(played.state, SHIP)).not.toBe(null);
+    const context = narrativeContext(played.state, talk);
+    const told = applyGeneratedText(played.state, context, {
+      revision: context.revision,
+      model: "fixture",
+      entries: [{ id: RHAPSODE, ...routeReply(context) }],
+    });
     expect(lockWords(told, SHIP)).toBe(null);
     expect(exits(told, DOCK, "vale")).toContain(SHIP);
   });

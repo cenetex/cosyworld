@@ -10,9 +10,12 @@ pub(super) fn applies(context: &Context, id: &str, part: Part) -> bool {
     context.waking && part == Part::Line && kind(id, "avatar")
 }
 
-/// Whether the speaker's player has uncovered the speaker's own card.
-pub(super) fn knows_self(context: &Context, id: &str) -> bool {
-    !context.covered.iter().any(|c| c == id)
+fn uncovered(context: &Context, id: &str) -> bool {
+    !context
+        .covered
+        .iter()
+        .chain(&context.concealed)
+        .any(|card| card == id)
 }
 
 /// The system voice: none while waking, even once the speaker's own card is
@@ -25,26 +28,24 @@ pub(super) fn system(context: &Context, entity: &Entity, part: Part) -> String {
 }
 
 pub(super) fn lead(context: &Context) -> String {
-    if context.covered.contains(&context.location) {
-        String::new()
-    } else {
+    if uncovered(context, &context.location) {
         conversation::place(context, "")
+    } else {
+        String::new()
     }
 }
 
 pub(super) fn asked() -> String {
-    format!("You wake up. {}", conversation::THINK)
+    "What is your first waking thought? One short first-person sentence in your own words, using only the details you know.".into()
 }
 
-/// The waking frame: one line of waking, then each uncovered thing.
 pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
-    let mut lines = vec!["I'm waking up.".to_string()];
-    // Once its card is uncovered, the speaker knows its own name.
-    if knows_self(context, &entity.id) {
-        lines.push(format!("My name is {}.", name(&entity.id)));
+    let mut facts = vec!["State: waking".to_string()];
+    if uncovered(context, &entity.id) {
+        facts.push(format!("Known name: {}", name(&entity.id)));
     }
-    if !context.covered.contains(&context.location) {
-        lines.push(format!("I'm at {}.", name(&context.location)));
+    if uncovered(context, &context.location) {
+        facts.push(format!("Known place: {}", name(&context.location)));
     }
     let held: Vec<_> = context
         .outcome
@@ -52,14 +53,16 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         .flat_map(|o| o.avatars.iter())
         .filter(|a| a.id == entity.id)
         .flat_map(|a| a.holding.iter())
-        .filter(|item| !context.covered.contains(item))
-        .map(|item| person::the(&name(item)))
+        .filter(|item| uncovered(context, item))
+        .map(|item| name(item))
         .collect();
     if !held.is_empty() {
-        lines.push(format!("I'm carrying {}.", person::list(&held)));
+        facts.push(format!("Known holdings: {}", held.join(", ")));
     }
-    lines.extend(custody::hand(context, &entity.id));
-    lines.join("\n")
+    if let Some(item) = custody::hand_item(context, &entity.id) {
+        facts.push(format!("In hand: {}", name(item)));
+    }
+    facts.join("\n\n")
 }
 
 #[cfg(test)]
@@ -87,15 +90,12 @@ mod tests {
             .map(|(_, line)| line)
             .collect::<Vec<_>>()
             .join("\n");
-        assert_eq!(prompt, "I'm waking up.");
+        assert_eq!(prompt, "State: waking");
         let sent = messages(&c, vale, Part::Line);
         assert_eq!(sent.system, "");
         assert_eq!(sent.lead, "");
-        assert_eq!(sent.assistant, "I'm waking up.");
-        assert_eq!(
-            sent.user,
-            "You wake up. What do you think to yourself? One short sentence."
-        );
+        assert_eq!(sent.assistant, "State: waking");
+        assert_eq!(sent.user, asked());
         assert_eq!(
             messages(&c, vale, Part::Thought).user,
             crate::ai_gateway::SILENCE
@@ -111,14 +111,14 @@ mod tests {
         let vale = entity(&c, "vale");
         assert_eq!(
             transcript(&c, vale),
-            "I'm waking up.\nI'm at Empty station."
+            "State: waking\n\nKnown place: Empty station"
         );
         assert_eq!(system(&c, vale, Part::Line), "");
         let c = waking(&[]);
         let vale = entity(&c, "vale");
         assert_eq!(
             transcript(&c, vale),
-            "I'm waking up.\nMy name is Vale.\nI'm at Empty station."
+            "State: waking\n\nKnown name: Vale\n\nKnown place: Empty station"
         );
         // He knows his name, but his persona waits past waking (#1665).
         assert_eq!(system(&c, vale, Part::Line), "");
@@ -130,7 +130,7 @@ mod tests {
         );
         assert!(sent
             .assistant
-            .starts_with("I'm waking up.\nMy name is Vale."));
+            .starts_with("State: waking\n\nKnown name: Vale"));
         assert_eq!(sent.user, asked());
         assert!(!system(&c, vale, Part::Thought).is_empty());
         // Outside the opening, the full conversation frame.
@@ -140,6 +140,40 @@ mod tests {
         assert!(
             full.starts_with("I'm alone here.\nI ask Pip what they want."),
             "{full}"
+        );
+    }
+
+    #[test]
+    fn waking_holdings_describe_only_revealed_items() {
+        let mut c = waking(&["lamp"]);
+        c.concealed.push("cloth".into());
+        c.outcome = serde_json::from_value(json!({
+            "card":{"kind":"arrive"},
+            "avatars":[{"id":"vale","location":"station","holding":["lamp","cloth"],"heldItem":"lamp"}],
+            "items":[
+                {"id":"lamp","holder":"vale","location":"station"},
+                {"id":"cloth","holder":"vale","location":"station"}
+            ]
+        })).unwrap();
+        let vale = entity(&c, "vale");
+        let unseen = messages(&c, vale, Part::Line);
+        assert!(!unseen.assistant.contains("Lamp"));
+        assert!(!unseen.assistant.contains("cloth"));
+        assert!(!unseen.assistant.contains("holdings"));
+        c.covered.clear();
+        let vale = entity(&c, "vale");
+        let seen = messages(&c, vale, Part::Line);
+        assert!(seen
+            .assistant
+            .ends_with("Known holdings: Lamp\n\nIn hand: Lamp"));
+        assert!(!seen.assistant.contains("cloth"));
+        let reply = "I can feel a little more of the world now.";
+        assert_eq!(
+            Check::new(&c, vale, Part::Line)
+                .verdict(reply, true)
+                .unwrap()
+                .0,
+            reply
         );
     }
 

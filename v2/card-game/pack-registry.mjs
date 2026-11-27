@@ -815,18 +815,28 @@ export function applyDeparture(world, actor, to) {
   for (const item of Object.values(world.items))
     if (item.holder === actor) item.holder = world.actors[actor].place;
 }
-// Choices marked "on": "talk" are the effect of a traveler's Talk with their
-// subject. They are never offered as cards.
-export function packTalkChoice(world, action, turn = world.turn) {
+// A Talk choice linked to an authored topic waits for that topic to be spoken.
+// Other Talk choices are the action itself. Neither is offered as a card.
+export function packTalkChoice(world, action, { turn = world.turn, topicId } = {}) {
   if (!controlledByHuman(world, action.actor)) return null;
+  const atTurn = turn === world.turn ? world : { ...world, turn };
   for (const pack of packDefinitions)
-    for (const c of pack.choices || [])
+    for (const c of pack.choices || []) {
       if (
-        c.on === "talk" &&
-        c.subject === action.target &&
-        choiceFeasible(world, pack, c, action.actor, "talk", turn)
+        c.on !== "talk" ||
+        c.subject !== action.target ||
+        !choiceFeasible(atTurn, pack, c, action.actor, "talk")
       )
-        return { packId: pack.id, choiceId: c.id, actor: action.actor };
+        continue;
+      const choice = { packId: pack.id, choiceId: c.id, actor: action.actor };
+      const topics = (pack.topics || []).filter((t) => t.choiceId === c.id);
+      if (!topics.length && topicId === undefined) return choice;
+      const topic = topics.find((t) =>
+        (topicId === undefined || t.id === topicId) &&
+        conditionsMet(atTurn, pack.id, t.requires, action.actor),
+      );
+      if (topic) return { ...choice, topicId: topic.id };
+    }
   return null;
 }
 export function applyPackChoice(

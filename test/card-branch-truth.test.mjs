@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyTalkDisclosure,
   createWorld,
   decodeSave,
   encodeSave,
@@ -12,6 +13,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { knowledgeFacts } from "../v2/card-game/knowledge.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { claimTruth, claimsIn } from "../v2/card-game/claims.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 
 const HELEN = "greek-helen-accounts",
   ATREID = "greek-atreid-record";
@@ -98,7 +100,16 @@ describe("a claim's truth follows the world's branch", () => {
     w = wait(w);
     w.actors.vale.place = "greek-harbor";
     const heard = () => claimsIn(HELEN).find((c) => w.knowledge.known["greek-shipmaster"]?.[c.id]);
-    for (let n = 0; n < 6 && !heard(); n++) w = act(w, "talk", (a) => a.target === "greek-shipmaster");
+    for (let n = 0; n < 6 && !heard(); n++) {
+      w = act(w, "talk", (a) => a.target === "greek-shipmaster");
+      const context = narrativeContext(w);
+      const disclosure = context.disclosures?.[0];
+      if (disclosure)
+        applyTalkDisclosure(w, disclosure, {
+          actorId: disclosure.speaker,
+          locationId: context.location,
+        });
+    }
     const told = heard();
     expect(w.knowledge.known.vale[told.id].status).toBeDefined();
     expect(w.knowledge.known["greek-shipmaster"][told.id]).toMatchObject({ kind: "heard", teller: "vale" });

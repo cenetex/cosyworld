@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, nameOf } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, nameOf, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { availableCards } from "../v2/card-game/cards.mjs";
+import { createElysiumPortrait } from "../v2/card-game/elysium-portrait.mjs";
+import { commitDisclosure } from "../v2/card-game/knowledge.mjs";
+import { isLockedBox } from "../v2/card-game/locked-box.mjs";
+import { revealedBeat } from "../v2/card-game/presentation.mjs";
 import {
   coveredText,
   coveredTextReader,
@@ -11,6 +16,7 @@ import {
   markWaking,
   UNKNOWN_PERSON,
 } from "../v2/card-game/speech-knowledge.mjs";
+import { ajaxCamp } from "./helpers/greek-ajax.mjs";
 
 const fresh = () => enableMotives(createWorld({ opening: true }));
 const visible = ({ concealed, ...context }) => JSON.stringify(context);
@@ -79,6 +85,45 @@ describe("speech knows only uncovered cards (#1575)", () => {
     expect(visible(limited)).not.toMatch(/Route board|Between-hours carriage/);
     expect(limited.disclosures).toEqual([]);
     expect(visible(forgetCovered(s, full, () => false))).toContain(text);
+  });
+
+  it("keeps a fresh area's deferred clue confined to the selected Talk and its confirmed reply", () => {
+    const camp = ajaxCamp();
+    const speaker = "greek-ajax-teucer";
+    const hiddenPerson = "greek-ajax-tecmessa";
+    const talk = legalActions(camp).find((action) => action.kind === "talk" && action.target === speaker);
+    const result = play(camp, talk);
+    expect(result.ok).toBe(true);
+    const world = result.state;
+    const seen = new Set([...camp.actors.vale.visited, ...availableCards(camp)]);
+    const covered = (id) => !seen.has(id) || isLockedBox(world, id);
+    const full = narrativeContext(world, talk);
+    const { concealed, disclosures, ...limited } = narrativeContext(world, talk, covered);
+    const [clue] = disclosures;
+    expect(covered(hiddenPerson)).toBe(true);
+    expect(concealed).toContain(hiddenPerson);
+    expect(disclosures).toEqual(full.disclosures);
+    expect(clue).toMatchObject({ factId: "greek-ajax-shield-teucer", speaker, listener: "vale", deferred: true });
+    expect(clue.text).toContain("Tecmessa");
+    expect(JSON.stringify(limited)).not.toContain("Tecmessa");
+    expect(narrativeContext(world, talk, (id) => id === speaker || covered(id)).disclosures).toEqual([]);
+
+    const text = "Tecmessa cares for Eurysaces while Mara waits.";
+    const line = { kind: "dialogue", generated: true, text, disclosedFactId: clue.factId };
+    const portrait = createElysiumPortrait(null, () => {});
+    const reader = (view = world) => portrait.reader(coveredTextReader(view, covered));
+    expect(reader()(text, line)).toBe("Someone cares for Eurysaces while someone waits.");
+    expect(commitDisclosure(world, clue, speaker, full.location)).toBeTruthy();
+    const exact = { ...line, text: clue.text };
+    expect(revealedBeat({ line: exact, silent: false, actions: [] }, reader()).line.silent).toBe(false);
+    const presented = revealedBeat({ line, silent: false, actions: [{ text }] }, reader());
+    expect(presented.line.text).toBe("Tecmessa cares for Eurysaces while someone waits.");
+    expect(presented.line.silent).toBe(true);
+    expect(presented.silent).toBe(false);
+    expect(presented.actions[0].text).not.toContain("Tecmessa");
+    expect(reader({ ...world, playerActorId: "mara" })(text, line)).not.toContain("Tecmessa");
+    expect(reader()(text, { ...line, disclosedFactId: null })).not.toContain("Tecmessa");
+    expect(covered(hiddenPerson)).toBe(true);
   });
 
   it("marks the first line waking and lists Vale and his place while covered (#1600)", () => {

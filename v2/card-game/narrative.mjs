@@ -1,7 +1,14 @@
 import { learningFacts } from "./learning.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
-import { elysiumNameIndex, elysiumTalk, isElysiumModel } from "./elysium-models.mjs";
+import {
+  elysiumTalk,
+  isElysiumModel,
+  isLegacyElysiumLine,
+  isLegacyElysiumSpeech,
+  legacyElysiumName,
+  validElysiumName,
+} from "./elysium-models.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { refusalWhy, revealed, wantFact, wantHeard } from "./want-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
@@ -44,6 +51,7 @@ import {
   REFUSED_VERBS,
   willingToGive,
   canTrade,
+  applyTalkDisclosure,
 } from "./world.mjs";
 import { controlledByHuman, residentAvatar } from "./human-cast.mjs";
 import { knownActors, wantOf } from "./want.mjs";
@@ -295,6 +303,7 @@ function quietAlone(world, cast, state) {
     (entry) =>
       entry.generated &&
       entry.kind === "dialogue" &&
+      !isLegacyElysiumLine(entry) &&
       profiles[entry.actorId]?.kind === "avatar",
   );
   if (last?.actorId !== actor) return false;
@@ -432,7 +441,8 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
   const wayLines = wayFacts(world, location);
   const ways = (id) =>
     wayLines.filter(({ to }) => waySaid(world, id, to)).map(({ line }) => line);
-  // Recent avatar dialogue at this place is the conversation each speaker reads.
+  // The server still verifies a saved introduction as proof of learning the name.
+  // Other scripted replies have no place in recent conversation.
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -440,6 +450,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           (entry) =>
             entry.generated &&
             entry.kind === "dialogue" &&
+            (!isLegacyElysiumLine(entry) || legacyElysiumName(entry.text)) &&
             profiles[entry.actorId]?.kind === "avatar" &&
             entry.locationId === location &&
             (entry.turn < world.turn || (remaining && entry.turn === world.turn)),
@@ -704,7 +715,8 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         memories: speechMemories(world.memories[id], {
           expressions: !beforeFirstLight,
         }),
-        previous: beforeFirstLight ? null : world.memories[id].text,
+        previous: beforeFirstLight || isLegacyElysiumSpeech(id, world.memories[id].text)
+          ? null : world.memories[id].text,
         ...(kind === "avatar"
           ? {
               inner_life: groundedLife(world, id),
@@ -874,23 +886,21 @@ export function applyGeneratedText(
   ].filter((id) => id && !omitted.includes(id))) {
     const movement = changes.find((change) => change.actorId === id);
     const place = movement ? movement.to : context.location;
-    if (
-      incremental &&
-      next.log.some(
-        (entry) =>
-          entry.generated &&
-          entry.turn === next.turn &&
-          entry.entityId === id &&
-          entry.locationId === place,
-      )
-    )
+    const entry = entries.find((line) => line.id === id);
+    const published = incremental && next.log.find(
+      (line) => line.generated && line.turn === next.turn &&
+        line.entityId === id && line.locationId === place,
+    );
+    if (published) {
+      if (published.text === entry.text.trim())
+        applyTalkDisclosure(next, entry.disclosed, published);
       continue;
+    }
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
-    const entry = entries.find((line) => line.id === id);
     const typed = isElysiumModel(id) && Object.hasOwn(entry, "elysiumName");
     const learned = typed && place === packPeople[id]?.home &&
-      elysiumNameIndex(text, entry.elysiumName) >= 0 &&
+      validElysiumName(entry.elysiumName) &&
       elysiumTalk(next, currentActor(next), id, place, next.turn);
     addLog(next, profiles[id].name, text, {
       kind: avatar ? expressionKind(profiles[id]) : "narration",
@@ -902,6 +912,7 @@ export function applyGeneratedText(
       ...(typed && { elysiumName: learned ? entry.elysiumName : null }),
       ...(movement ? { arrivalFrom: movement.from } : {}),
     });
+    if (avatar) applyTalkDisclosure(next, entry.disclosed, next.log.at(-1));
   }
   return validateWorld(next);
 }

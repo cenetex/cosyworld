@@ -16,6 +16,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { wantFact } from "../v2/card-game/want-talk.mjs";
 import { toldWant } from "../v2/card-game/talk-quest.mjs";
 import { readPage } from "../v2/card-game/read-view.mjs";
+import { publishPipReply } from "./helpers/pip-clue.mjs";
 
 const crossing = "pond-greek-harbor", fact = "quest:keeper:pond";
 const reload = (s) => decodeSave(encodeSave(s));
@@ -53,6 +54,8 @@ test("Pip tells a sourced, visible keeper lead on the first pond Talk", () => {
   assert(!knowsFact(s, "vale", fact));
   choose(s, null);
   s = act(act(s, "move", "pond"), "talk", "moth");
+  assert(!knowsFact(s, "vale", fact));
+  s = publishPipReply(s);
   assert.equal(s.knowledge.known.vale[fact].teller, "moth");
   const ids = availableCards(s), table = tableQuests(s, "vale", ids);
   const lead = table.find((t) => t.owner === "keeper");

@@ -647,7 +647,7 @@ const handCard = (id) =>
   $("hand").querySelector(`.card[data-card="${id}"], .card[data-quest-id="${id}"]`);
 const CARD_BACK = "./assets/card-back.webp";
 const cardBack = (id) => isLockedBox(world, id) ? LOCKED_BACK : CARD_BACK;
-const visibleText = (text) => elysiumPortrait.text(coveredText(world, text, cardIsClosed));
+const visibleText = (text, line) => elysiumPortrait.text(coveredText(world, text, cardIsClosed, line));
 const displayName = (id) => elysiumPortrait.name(id) ?? nameOf(id);
 const voidSpeaker = (id) => id && !cardIsCovered(id) && elysiumPortrait.name(id);
 const cardColours = (ids) =>
@@ -1229,7 +1229,7 @@ const reveal = createPagedReveal({
     if (value.complete && !reviewing && announcedBeat !== value.key) {
       announcedBeat = value.key;
       $("speech-announcement").textContent = [
-        shownSceneLine?.silent ? REPLY_UNAVAILABLE : expressionLabel(
+        value.text === REPLY_UNAVAILABLE ? REPLY_UNAVAILABLE : expressionLabel(
           { ...people[value.speaker], name: voidSpeaker(value.speaker) || visibleText(nameOf(value.speaker)) }, value.text),
         ...frontCaptions,
       ].join(" ");
@@ -1554,7 +1554,7 @@ function loadTurnLines({ pending = false } = {}) {
   );
   const voiced = lines.filter(
     (entry) =>
-      visibleText(entry.text) === entry.text && voicedSceneLine(shownWorld(), entry),
+      visibleText(entry.text, entry) === entry.text && voicedSceneLine(shownWorld(), entry),
   );
   if (localRuntime() && voiced.length) {
     const line =
@@ -4304,7 +4304,7 @@ function renderScene() {
   const line = front?.line || null;
   shownSceneLine = line;
   elysiumPortrait.observe(world, viewer, line && completedSpeech.has(lineKey(line, scene.locationId)) ? line : null);
-  const text = line?.silent && !reviewing ? REPLY_UNAVAILABLE : line?.text || "";
+  const text = front?.silent && !reviewing ? REPLY_UNAVAILABLE : line?.text || "";
   $("speaker").textContent = voidSpeaker(front?.speakerId) || visibleText(
     front ? line?.speaker || front.label ||
         (front.speakerId ? nameOf(front.speakerId) : "")
@@ -4450,7 +4450,7 @@ function renderScene() {
     // already read; it stays whole instead of being written again.
     reveal.show(key, text, speaker, {
       instant:
-        line.silent || completedSpeech.has(key) ||
+        front.silent || completedSpeech.has(key) ||
         (!sharedSession && !reviewing && line.turn !== world.turn),
     });
   } else {
@@ -5991,7 +5991,7 @@ function syncSharedLine() {
   if (!live && after !== null) return;
   const entry = shownWorld().log.findLast(
     (entry) =>
-      entry.generated &&
+      entry.generated && isSceneText(entry, true) &&
       entry.locationId === room &&
       (live?.seq
         ? entry.seq === live.seq

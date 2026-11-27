@@ -8,6 +8,7 @@ import { worldNameOf } from "./world-name.mjs";
 import { signedEnvelopes } from "./signed-words.mjs";
 import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
 import { profiles } from "./memory.mjs";
+import { isLegacyElysiumLine } from "./elysium-models.mjs";
 
 export const humanAvatars = roster.avatars;
 const $ = (id) => document.getElementById(id);
@@ -429,8 +430,8 @@ const sharedLineDuration = (line) =>
 // the player who played it. A line arrives whole or is "…", never a failure.
 export const SHARED_SILENT_TEXT = "…";
 function withSilence(scene) {
-  const lines = scene.lines || [];
-  const last = lines.at(-1) ?? {
+  const lines = (scene.lines || []).filter((line) => !isLegacyElysiumLine(line));
+  const last = scene.lines?.at(-1) ?? {
     seq: scene.after,
     turn: scene.turn ?? null,
     locationId: scene.room,
@@ -595,7 +596,8 @@ export function sharedReadingLine(state, room, saved = null) {
   if (saved?.room === room && saved.actor === state.actor && saved.seed === state.world?.run?.seed &&
       Number.isFinite(saved.seq) && saved.seq >= 0) {
     const kept = lines.find((line) => line.seq === saved.seq) || log.find(
-      (line) => line.seq === saved.seq && line.generated && line.locationId === room,
+      (line) => line.seq === saved.seq && line.generated && line.locationId === room &&
+        !isLegacyElysiumLine(line),
     );
     if (kept) return kept;
     const next = lines.find((line) => line.seq > saved.seq);
@@ -606,7 +608,7 @@ export function sharedReadingLine(state, room, saved = null) {
 
 // Select a saved scene's line; imported local log entries have no such record.
 export function sharedVoiceReference(state, line) {
-  if (!Number.isInteger(line?.seq) || line.silent) return;
+  if (!Number.isInteger(line?.seq) || line.silent || isLegacyElysiumLine(line)) return;
   for (const scene of state?.history || []) {
     const index = scene.lines?.findIndex((entry) => entry.seq === line.seq);
     if (scene.play && index >= 0) return { play: scene.play, line: index };

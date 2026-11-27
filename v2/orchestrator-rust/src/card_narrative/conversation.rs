@@ -10,7 +10,7 @@ use super::{
     Reflection, Section,
 };
 
-use super::{elysium, speak, AiConfig, Introduction, SceneClosed, VoiceSettings};
+use super::{elysium, knowledge, speak, AiConfig, Introduction, SceneClosed, VoiceSettings};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 
@@ -42,8 +42,10 @@ fn present_name<'de, D: Deserializer<'de>>(
 #[derive(Serialize)]
 pub(super) struct Entry {
     pub(super) id: String,
-    text: String,
+    pub(super) text: String,
     pub(super) model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) disclosed: Option<super::knowledge::Receipt>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) reflection: Option<Reflection>,
     #[serde(rename = "elysiumName", skip_serializing_if = "Option::is_none")]
@@ -56,6 +58,7 @@ impl Entry {
             id: id.to_owned(),
             text,
             model,
+            disclosed: None,
             reflection: None,
             elysium_name: crate::card_shared::elysium_model(id).map(|_| None),
         }
@@ -160,7 +163,7 @@ pub(super) async fn voice_lines(
     // general for `tokio::spawn`.
     #[allow(clippy::unnecessary_to_owned)]
     let jobs = ids.to_vec().into_iter().map(|id| async move {
-        let result = speak(
+        let voice = speak(
             config,
             context,
             character_models,
@@ -168,33 +171,29 @@ pub(super) async fn voice_lines(
             deadline,
             &id,
             Part::Line,
-        )
-        .await;
-        (id, result)
+        );
+        let (text, model) = tokio::time::timeout_at(deadline, voice).await.ok()?.ok()?;
+        let mut entry = Entry::spoken(&id, text, model);
+        // Once accepted, a line still publishes if its optional evidence check times out.
+        knowledge::confirm(config, context, &mut entry, deadline).await;
+        Some(entry)
     });
     let mut results = futures_util::StreamExt::buffer_unordered(
         futures_util::stream::iter(jobs),
         settings.parallel.max(1),
     );
-    let collected = tokio::time::timeout_at(deadline, async {
-        while let Some((id, result)) = futures_util::StreamExt::next(&mut results).await {
-            let Ok((text, model)) = result else {
-                continue;
-            };
-            let mut entry = Entry::spoken(&id, text, model);
-            if let Some((_, name)) = resident.as_ref().filter(|(target, _)| *target == id) {
-                entry.elysium_name = Some(elysium::revealed_name(&entry.text, name.as_deref()));
-            }
-            publish_line(context, on_delta, lines, entry)?;
+    while let Some(result) = futures_util::StreamExt::next(&mut results).await {
+        let Some(mut entry) = result else {
+            continue;
+        };
+        if let Some((_, name)) = resident.as_ref().filter(|(target, _)| {
+            *target == entry.id && elysium::needs_introduction(context, target)
+        }) {
+            entry.elysium_name = Some(name.clone());
         }
-        Ok(())
-    })
-    .await;
-    drop(results);
-    match collected {
-        Ok(Err(closed)) => Err(closed),
-        _ => Ok(()),
+        publish_line(context, on_delta, lines, entry)?;
     }
+    Ok(())
 }
 
 fn publish_line(
@@ -471,6 +470,7 @@ pub(super) const SCAFFOLD: &[&str] = &[
     "my next words are fresh",
     "helped reach my goal",
     "measured attempt",
+    "introduce yourself to the traveler in your own words",
 ];
 
 /// Whether a lowercased reply reads back a prompt label, in any case.
@@ -516,11 +516,17 @@ pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
     ]
     .join("\n\n");
     let lone = lone(context, entity);
+    let mut system = if lone {
+        super::system_voice(entity, Part::Line)
+    } else {
+        system(entity)
+    };
+    if context.elysium_introducer.as_deref() == Some(entity.id.as_str()) {
+        system.push(' ');
+        system.push_str(elysium::SELF_INTRODUCTION);
+    }
     super::Prompt {
-        system: match lone {
-            true => super::system_voice(entity, Part::Line),
-            false => system(entity),
-        },
+        system,
         lead: match lone {
             true => place(context, &assistant),
             false => String::new(),
@@ -534,13 +540,15 @@ pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
 /// Talk target answers it. Everyone voiced this turn heard it. The line was
 /// generated and validated on this server this turn, after the browser's
 /// lines were verified (`untrusted::trusted`), so it needs no envelope.
-fn copy_context(context: &Context) -> Option<Context> {
+pub(super) fn copy_context(context: &Context) -> Option<Context> {
     let mut next: Context = serde_json::from_value(serde_json::to_value(context).ok()?).ok()?;
     next.acting_avatar = context.acting_avatar.clone();
     next.present.clone_from(&context.present);
     next.images.clone_from(&context.images);
     next.channel = context.channel;
     next.no_fresh_opener = context.no_fresh_opener;
+    next.elysium_introducer
+        .clone_from(&context.elysium_introducer);
     Some(next)
 }
 

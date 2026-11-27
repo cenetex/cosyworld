@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   KNOWLEDGE_FACT_LIMIT,
   PROTECTED_FACT_LIMIT,
+  commitDisclosure,
   knowledgeDisclosures,
   knowledgeFacts,
   knowsFact,
@@ -164,7 +165,10 @@ describe("quest facts", () => {
     w.turn = 2;
     const tell = (speaker, listener) => {
       reserveKnowledge(w, speaker, listener, entry(w));
-      return knowledgeDisclosures(w, [speaker], [speaker, listener], "station");
+      const disclosures = knowledgeDisclosures(w, [speaker], [speaker, listener], "station");
+      for (const disclosure of disclosures)
+        commitDisclosure(w, disclosure, speaker, "station");
+      return disclosures;
     };
     expect(tell("vale", "moth")).toEqual([]);
     expect(tell("vale", "keeper")[0].factId).toBe(Q);
@@ -185,7 +189,8 @@ describe("quest facts", () => {
   it("count as told when learned second-hand, but not toward II", () => {
     const w = told(bare());
     w.turn = 2;
-    reserveKnowledge(w, "vale", "keeper", entry(w));
+    const disclosure = reserveKnowledge(w, "vale", "keeper", entry(w));
+    commitDisclosure(w, disclosure, "vale", "station");
     expect(toldWant(w, "keeper", "moth")).toBe(true);
     expect(questOwners(w, "keeper")).toEqual([]);
     expect(questOwners(w, "vale")).toEqual(["moth"]);

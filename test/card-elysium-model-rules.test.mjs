@@ -182,12 +182,13 @@ it.each(["scattered", "returned"])("can play the shared encounter after importin
   let local = arrive();
   if (progress === "returned") {
     local = act(local, "talk", claude);
-    addLog(local, "Resident of Void 002", "You may call me Mica Thread.", {
+    addLog(local, "Resident of Void 002", "The leaves keep their own time.", {
       actorId: claude, entityId: claude, kind: "dialogue", generated: true,
       locationId: study, elysiumName: "Mica Thread",
     });
+    expect(reload(local).log.at(-1).elysiumName).toBe("Mica Thread");
     const malformed = structuredClone(local);
-    malformed.log.at(-1).elysiumName = "Unspoken Name";
+    malformed.log.at(-1).elysiumName = "Unusable-Name-7";
     expect(() => decodeSave(JSON.stringify(malformed))).toThrow("This save needs a fresh start.");
     local = act(bringBack(local), "give", claude, token);
   }
@@ -201,7 +202,7 @@ it.each(["scattered", "returned"])("can play the shared encounter after importin
   expect(shared.actors.vale.xp).toBe(local.actors.vale.xp);
   expect(shared.log.some((e) => e.elysiumArrival || e.elysiumModel || e.portraitModel)).toBe(false);
   if (progress === "returned")
-    expect(shared.log.find((line) => line.text === "You may call me Mica Thread.")?.elysiumName).toBeNull();
+    expect(shared.log.find((line) => line.text === "The leaves keep their own time.")?.elysiumName).toBeNull();
 
   const sharedAct = (world, kind, target, item) => {
     const request = { world, actor: "vale", claimed: ["vale"], present: ["vale"] };

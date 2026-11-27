@@ -42,6 +42,8 @@ it("accepts a spoken name more than once and ignores partial matches", () => {
   const text = "They call me Echo Thread. Echo Thread will do.";
   expect(elysiumNameIndex(text, name)).toBe(text.indexOf(name));
   expect(elysiumNameIndex("I heard Echo Thread-Eater.", name)).toBe(-1);
+  expect(elysiumNameIndex("My name is 青嵐.", "青嵐")).toBe(11);
+  expect(elysiumNameIndex("The name on the shelf is 青嵐石.", "青嵐")).toBe(-1);
 });
 
 it("covers different resident aliases without a shared identity response", () => {
@@ -81,7 +83,10 @@ it("waits for the first real reply before fetching the resident's name", async (
 
   world.actors.vale.place = room;
   world.revision++;
-  display.observe(world, "vale", { actorId: resident, generated: true, seq: 13 });
+  display.observe(world, "vale", {
+    actorId: resident, generated: true, seq: 13, kind: "dialogue",
+    elysiumName: "Amber Thread", text: "The leaves are quiet tonight.",
+  });
   await vi.waitFor(() => expect(display.name(resident)).toBe("Amber Thread"));
   expect(fetch).toHaveBeenCalledOnce();
   expect(display.text("Talk to the Resident of Void 002.")).toBe("Talk to Amber Thread.");
@@ -234,7 +239,8 @@ it.each([null, "world"])("waits for a second portrait render in table %s", async
     : { url: `/card-game/elysium-portrait/${resident}`, method: "POST" });
 });
 
-it.each([false, true])("learns a signed personal introduction and remembers its save (typed %s)", async (typed) => {
+it.each(["legacy", "spoken", "unspoken"])("learns a signed personal introduction and remembers its save (%s)", async (mode) => {
+  const typed = mode !== "legacy";
   const records = new Map();
   const storage = { getItem: (key) => records.get(key), setItem: (key, value) => records.set(key, value) };
   const fetch = vi.fn();
@@ -248,10 +254,12 @@ it.each([false, true])("learns a signed personal introduction and remembers its 
     log: [{ seq: 20, turn: 5, kind: "action", verb: "talk", actorId: "vale", targetId: resident,
       locationId: room, fromLocationId: room }],
   };
-  const name = "Amber  Silver-Lens";
+  const name = mode === "unspoken" ? "青嵐" : "Amber  Silver-Lens";
+  const shownName = name.replace(/ +/gu, " ");
   const line = {
     actorId: resident, turn: 5, seq: 22, kind: "dialogue", generated: true, locationId: room,
-    text: typed ? `You may call me ${name}.` : `I call myself ${name}. My token has slipped into the world beyond this Void.`,
+    text: mode === "unspoken" ? "The leaves keep their own time." : typed
+      ? `You may call me ${name}.` : `I call myself ${name}. My token has slipped into the world beyond this Void.`,
     ...(typed && { elysiumName: name }),
   };
   const blur = (text) => text.replace("Lens", "something");
@@ -261,7 +269,7 @@ it.each([false, true])("learns a signed personal introduction and remembers its 
   display.observe(world, "vale", { ...line, text: "A thread is caught in the dark." });
   display.observe(world, "vale", line);
   expect(display.name(resident)).toBe("???");
-  expect(read(line.text, line)).toBe(blur(line.text));
+  expect(read(line.text, line)).toBe(typed ? blur(line.text) : "");
   expect(display.withIntroduction(context)).toBe(context);
   const sign = (claims, proof = true) => {
     const scope = { entity: resident, world: "local", turn: 5, seq: 7,
@@ -290,21 +298,27 @@ it.each([false, true])("learns a signed personal introduction and remembers its 
     } }] }, storage);
     display.observe(world, "vale", lookalike);
     expect(display.name(resident)).toBe("???");
-    expect(read(lookalike.text, lookalike)).toBe(blur(lookalike.text));
+    expect(read(lookalike.text, lookalike)).toBe("");
   }
   sign();
-  expect(read(line.text, line)).toBe(line.text);
-  expect(display.reader(blur, () => true)(line.text, line)).toBe(blur(line.text));
+  display.observe(world, "vale", null);
+  expect(display.name(resident)).toBe("???");
+  expect(read(line.text, line)).toBe(typed ? line.text : "");
+  expect(display.reader(blur, () => true)(line.text, line)).toBe(typed ? blur(line.text) : "");
   const other = { ...line, text: "The Lens lies far from here." };
   expect(read(other.text, other)).toBe(blur(other.text));
   display.observe(world, "vale", { ...line, silent: true });
   display.observe({ ...world, log: [] }, "vale", line);
   expect(display.name(resident)).toBe("???");
-  display.observe(world, "vale", line);
+  const saved = { ...world, log: [...world.log, line] };
+  if (mode === "unspoken") {
+    display.observe(saved, "vale", { ...line, text: "Something keeps its own time.", silent: true });
+  } else if (typed) display.observe(world, "vale", line);
+  else display.observe(saved, "vale", null);
   await Promise.resolve();
   expect(redraw).toHaveBeenCalledOnce();
-  expect(display.name(resident)).toBe("Amber Silver-Lens");
-  expect(display.text("Bring the token to the Resident of Void 002.")).toBe("Bring the token to Amber Silver-Lens.");
+  expect(display.name(resident)).toBe(shownName);
+  expect(display.text("Bring the token to the Resident of Void 002.")).toBe(`Bring the token to ${shownName}.`);
   expect(display.withIntroduction(context)).toEqual({ ...context, elysiumIntroduced: resident });
   const otherTalk = { outcome: { card: { kind: "talk", target: "elysium-gemini" } } };
   expect(display.withIntroduction(otherTalk)).toBe(otherTalk);
@@ -318,7 +332,7 @@ it.each([false, true])("learns a signed personal introduction and remembers its 
   const restored = createElysiumPortrait(null, () => {}, "table-one", storage);
   const later = { ...world, log: [], actors: { ...world.actors, vale: { place: "pond" } } };
   restored.sync(later);
-  expect(restored.name(resident)).toBe("Amber Silver-Lens");
+  expect(restored.name(resident)).toBe(shownName);
   restored.sync({ ...later, eventSeq: 15 });
   expect(restored.name(resident)).toBe("???");
   restored.sync({ ...later, run: { seed: 441 } });

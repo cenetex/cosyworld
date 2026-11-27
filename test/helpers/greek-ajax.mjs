@@ -43,9 +43,7 @@ export function ajaxStart() {
 export function ajaxTalk(
   world,
   topicId,
-  actor = "vale",
-  words,
-  target = "greek-ajax-teucer",
+  { actor = "vale", target = "greek-ajax-teucer" } = {},
 ) {
   const action = legalActions(world, actor).find(
     (a) => a.kind === "talk" && a.target === target,
@@ -57,15 +55,16 @@ export function ajaxTalk(
   const disclosure = context.disclosures?.[0];
   if (disclosure?.factId !== topicId)
     throw new Error(`Expected ${topicId}, reserved ${disclosure?.factId}`);
+  const { factId, speaker, listener, eventSeq } = disclosure;
   return applyGeneratedText(result.state, context, {
     revision: context.revision,
     model: "fixture",
     entries: context.entities.map(({ id }) => ({
       id,
-      text:
-        id === disclosure.speaker
-          ? (words ?? disclosure.text)
-          : "I have heard the account.",
+      text: id === speaker ? disclosure.text : "I have heard the account.",
+      ...(id === speaker && {
+        disclosed: { factId, speaker, listener, eventSeq },
+      }),
     })),
   });
 }

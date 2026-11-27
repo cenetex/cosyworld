@@ -22,7 +22,8 @@ import {
   installConversations,
   validConversations,
 } from "./conversation.mjs";
-import { expressionOf } from "./expression.mjs";
+import { authoredKnowledgeTopics, talkKnowledge } from "./world/talk-knowledge.mjs";
+export { applyTalkDisclosure } from "./world/talk-knowledge.mjs";
 import {
   pressureBeforeGive,
   validHandover,
@@ -88,8 +89,6 @@ import { applyHeldChoice, chooseHeldItem, handSnapshot, settleHeldItems, validHe
 import {
   installKnowledge,
   witnessKnowledge,
-  reserveKnowledge,
-  reserveLaneKnowledge,
   witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
@@ -156,7 +155,6 @@ import {
   departureWaits,
   packTalkChoice,
   choiceText,
-  conditionsMet,
   packDefinition,
   packPeople,
   packPlaces,
@@ -214,7 +212,6 @@ import {
   callTransport,
   VOYAGE,
   laneEdges,
-  learnLane,
 } from "./pack-transport.mjs";
 import { SAVE_SCHEMA, upgradeSave } from "./legacy-saves.mjs";
 import { settleVisitSpeech, validVisitSpeech } from "./visit-speech.mjs";
@@ -886,51 +883,7 @@ export function addLog(s, speaker, text, detail = {}) {
   if (!offstage) trimLog(s);
 }
 
-const authoredKnowledgeTopics = () =>
-  packDefinitions.flatMap((pack) =>
-    (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id })),
-  );
-function talkKnowledge(s, action, entry) {
-  const pairs = controlledByHuman(s, action.actor)
-    ? [
-        [action.target, action.actor],
-        [action.actor, action.target],
-      ]
-    : [
-        [action.actor, action.target],
-        [action.target, action.actor],
-      ];
-  for (const [speaker, listener] of pairs) {
-    if (expressionOf(people[speaker]) !== "speech") continue;
-    // A topic is what its speaker says at the Talk that commits its choice.
-    const topics = authoredKnowledgeTopics()
-      .filter((topic) =>
-        conditionsMet(s, topic.packId, topic.requires || [], listener),
-      )
-      .map((topic) => ({
-        ...topic,
-        said:
-          listener === action.actor &&
-          speaker === action.target &&
-          s.packs[topic.packId]?.receipts[topic.choiceId] === s.turn,
-      }));
-    const lane = laneToTell(s, speaker, listener);
-    const port = lane && atPort(s, speaker) && !topics.some((t) => t.said);
-    const tellLane = () =>
-      reserveLaneKnowledge(s, speaker, listener, entry, lane) &&
-      (learnLane(s, listener, ...lane.id.slice(5).split(">")), true);
-    if (port && tellLane()) break;
-    if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
-    if (lane && !port && tellLane()) break;
-  }
-}
-import {
-  laneTalkFacts,
-  laneFact,
-  laneFactText,
-  atPort,
-  laneToTell,
-} from "./world/lanes.mjs";
+import { laneTalkFacts, laneFact, laneFactText } from "./world/lanes.mjs";
 export { laneTalkFacts, laneFact };
 
 // Rules read recent history, so generated words never shorten the authoritative
@@ -2281,6 +2234,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     a.kind === "give" && !returningLamp &&
     (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
   let text = a.text;
+  let topicChoice = null;
   let requestAccepted = false;
   let chosen = false;
   let refusal = null;
@@ -2480,8 +2434,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     case "talk": {
       // Keep a committed Talk valid when its turn crosses the subject's clock.
       const turn = s.turn - 1,
-        told = packTalkChoice(s, a, turn);
-      if (told)
+        told = packTalkChoice(s, a, { turn });
+      if (told?.topicId) topicChoice = told;
+      else if (told)
         text = choiceText(
           applyPackChoice(s, told, { mode: "talk", turn }),
           a.actor,
@@ -2592,7 +2547,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     );
   if (repair) closeRepaired(s, repair);
   settleCompany(s, entityActive);
-  if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
+  if (a.kind === "talk") talkKnowledge(s, a, event, topicChoice);
   // A human's first Talk with the world's hidden avatar unlocks it (#1936).
   const met = meetHidden(s, a, controlledByHuman(s, a.actor));
   if (met)

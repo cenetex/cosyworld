@@ -1,6 +1,6 @@
 import { accountRevision } from "./account-revision.mjs";
 import { accountStorage } from "./account-reset-storage.mjs";
-import { ELYSIUM_MODEL_IDS, elysiumNameIndex, elysiumTalk, legacyElysiumName, validElysiumName } from "./elysium-models.mjs";
+import { ELYSIUM_MODEL_IDS, elysiumNameIndex, elysiumTalk, isLegacyElysiumLine, legacyElysiumName, validElysiumName } from "./elysium-models.mjs";
 import { imageUrl } from "./images.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { packPeople } from "./pack-registry.mjs";
@@ -287,8 +287,9 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
   }
 
   function reader(read, covered = () => true) {
-    const caption = (value) => text(read(value));
+    const caption = (value, line) => text(read(value, line));
     return (value, line) => {
+      if (line?.text === value && isLegacyElysiumLine(line)) return "";
       if (line?.generated && !line.silent && line.kind === "dialogue" &&
         line.text === value && cast.get(line.actorId)?.alias) {
         const title = introductionName(line);
@@ -302,7 +303,7 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
             return caption(value.slice(0, index)) + title + caption(value.slice(index + title.length));
         }
       }
-      return caption(value);
+      return caption(value, line);
     };
   }
 
@@ -333,14 +334,22 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
         const { scatteredAt, talkedAt = scatteredAt, returnedAt, returnedBy } =
           world.elysiumEncounters?.[id] || {};
         if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
-        if (line?.actorId === id && line.generated && line.seq > talkedAt) {
-          const typed = Object.hasOwn(line, "elysiumName");
-          const raw = typed && line.silent ? world.log?.find((entry) => entry.seq === line.seq) : line;
-          const title = raw?.kind === "dialogue" && !raw.silent && introductionName(raw);
-          const named = elysiumNameIndex(line.text, title) >= 0;
-          if (personalKey && world.run && active && nearby && named && line.locationId === here &&
-            line.turn === world.turn && !personalName(id)) learn(world, actor, raw, title, talkedAt);
-          if (typed ? named : !line.silent) view.waiting = false;
+        // A saved scripted introduction can still establish identity after an interrupted read.
+        const saved = active && nearby && talkedAt && line?.actorId !== id &&
+          (view.waiting || (personalKey && !personalName(id))) && world.log?.findLast((entry) =>
+            entry.actorId === id && entry.seq > talkedAt && entry.turn === world.turn &&
+            entry.locationId === here && legacyElysiumName(entry.text));
+        const spoken = saved || line;
+        if (talkedAt && spoken?.actorId === id && spoken.generated && spoken.seq > talkedAt) {
+          const typed = Object.hasOwn(spoken, "elysiumName");
+          const raw = typed && spoken.silent ? world.log?.find((entry) =>
+            entry.seq === spoken.seq && entry.actorId === id) : spoken;
+          const title = raw?.generated && raw.kind === "dialogue" && !raw.silent && introductionName(raw);
+          // The chosen name belongs to the completed reply even if its words omit it.
+          const named = validElysiumName(title);
+          if (personalKey && world.run && active && nearby && named && spoken.locationId === here &&
+            spoken.turn === world.turn && !personalName(id)) learn(world, actor, raw, title, talkedAt);
+          if (typed ? named : !spoken.silent) view.waiting = false;
         }
         if (!talkedAt) view.waiting = false;
         view.seenTalk = Boolean(talkedAt);
