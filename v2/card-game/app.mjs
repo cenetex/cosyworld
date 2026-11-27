@@ -147,6 +147,7 @@ import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { renderStageLight } from "./stage-light-view.mjs";
+import { renderCoordinateReadout } from "./coordinate-view.mjs";
 import {
   UNPAINTED_NIGHT_TINT,
   gradeStrength,
@@ -3723,8 +3724,6 @@ $("backdrop").addEventListener("load", (event) => {
   if (width && height)
     $("stage").style.setProperty("--art-ratio", String(width / height));
 });
-// One stage draws every place. Its data only moves the painting's focus,
-// warms a dim place, and anchors a resident to the painting itself.
 function renderStage(locationId) {
   const pack = packOf(locationId);
   const stage = stageOf(world, locationId);
@@ -3925,6 +3924,7 @@ function renderScene() {
     review: reviewing || Boolean(sharedSession),
   });
   renderStage(scene.locationId);
+  renderCoordinateReadout($("keystone-coordinates"), world, currentActor(world), !reviewing && scene.locationId === placeHere() && !cardIsCovered(scene.locationId));
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
   scene.slots = revealedStage({ cast: sceneCast(world) }, cardIsCovered).cast;
   $("stage").dataset.placeCovered = String(cardIsCovered(scene.locationId));

@@ -38,6 +38,7 @@ import {
   packCompositionProblems,
 } from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
+import { coordinateEntityActive, coordinateRouteDiscovered } from "./world/elysium-coordinates.mjs";
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
 const record = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -426,7 +427,8 @@ function rootOf(world, id) {
 // rules over every exit, play and resident.
 function entityLive(world, id, lockView) {
   if (world.items?.[id]) {
-    let holder = rootOf(world, id);
+    const holder = rootOf(world, id);
+    if (!coordinateEntityActive(world, holder)) return false;
     if (
       humanAvatar(holder) &&
       !humanPresent(world, holder) &&
@@ -446,6 +448,7 @@ export const entityShown = (world, id) => entityLive(world, id, true);
 export function entityEnabled(world, id, saved = false, lockView = false) {
   if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
     return false;
+  if (!saved && !coordinateEntityActive(world, id)) return false;
   // A pack switched off sleeps where it stands (rules 98, pack-toggle.mjs).
   if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
     return false;
@@ -493,6 +496,7 @@ export function entityEnabled(world, id, saved = false, lockView = false) {
   );
 }
 const routeOpen = (world, packId, r) =>
+  coordinateRouteDiscovered(world, r.from, r.to) ||
   conditionsMet(world, packId, r.requires);
 export const packRouteOpen = (world, from, to) =>
   packDefinitions.some((pack) =>

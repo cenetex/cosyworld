@@ -1,10 +1,12 @@
 import { accountRevision } from "./account-revision.mjs";
 import { accountStorage } from "./account-reset-storage.mjs";
 import { ELYSIUM_MODEL_IDS, elysiumNameIndex, elysiumTalk, isLegacyElysiumLine, legacyElysiumName, validElysiumName } from "./elysium-models.mjs";
+import { currentActor } from "./human-cast.mjs";
 import { imageUrl } from "./images.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { packPeople } from "./pack-registry.mjs";
 import { hasSignedLocalIntroduction } from "./signed-words.mjs";
+import { isCoordinateResident } from "./world/elysium-coordinates.mjs";
 
 const resident = "elysium-resident";
 const spiral = "elysium-gold-spiral";
@@ -17,6 +19,14 @@ const maxPortraitBytes = 8 * 1024 * 1024;
 const normalName = (name) => name.trim().replace(/ +/gu, " ");
 const introductionName = (line) => Object.hasOwn(line, "elysiumName")
   ? line.elysiumName : legacyElysiumName(line.text);
+
+function coordinateTalkAt(world, actor, id) {
+  const home = packPeople[id].home;
+  return world.conversations?.find(({ actors }) => actors.includes(actor) && actors.includes(id))?.seq ??
+    world.log?.find((entry) => !entry.generated && entry.kind === "action" &&
+      entry.verb === "talk" && entry.actorId === actor && entry.targetId === id &&
+      entry.locationId === home && entry.fromLocationId === home)?.seq;
+}
 
 async function decodedPortrait(blob) {
   const reader = new FileReader();
@@ -187,12 +197,14 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     clear();
   }
 
-  for (const id of [resident, ...ELYSIUM_MODEL_IDS]) {
+  const coordinates = Object.keys(packPeople).filter(isCoordinateResident);
+  for (const id of [resident, ...ELYSIUM_MODEL_IDS, ...coordinates]) {
     if (!packPeople[id]) continue;
     const legacy = id === resident;
+    const coordinate = isCoordinateResident(id);
     const suffix = legacy ? "" : `/${encodeURIComponent(id)}`;
     const alias = packPeople[id].name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const requestPortrait = prefix
+    const requestPortrait = coordinate ? null : prefix
       ? (init) => fetch(`${prefix}/elysium-portrait${suffix}`, init)
       : personalPortraits && !legacy
         ? (init, receipt) => fetch(`/card-game/elysium-portrait${suffix}`, {
@@ -203,6 +215,7 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
           })
         : null;
     cast.set(id, {
+      coordinate,
       seenTalk: false,
       waiting: false,
       alias: legacy ? null : new RegExp(`\\b(?:the )?${alias}\\b`, "gi"),
@@ -257,9 +270,14 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
   }
 
   function personalName(id) {
+    if (!personalWorld) return null;
     const saved = personalNames[id];
-    const { scatteredAt, talkedAt = scatteredAt } = personalWorld?.elysiumEncounters?.[id] || {};
-    return talkedAt && saved?.talkedAt === talkedAt && saved.seq > talkedAt &&
+    if (!saved) return null;
+    const { scatteredAt, talkedAt = scatteredAt } = personalWorld.elysiumEncounters?.[id] || {};
+    const firstTalk = cast.get(id)?.coordinate
+      ? coordinateTalkAt(personalWorld, currentActor(personalWorld), id)
+      : talkedAt;
+    return firstTalk && saved.talkedAt === firstTalk && saved.seq > firstTalk &&
       saved.seq <= personalWorld.eventSeq && validElysiumName(saved.name) ? saved.name : null;
   }
 
@@ -290,9 +308,10 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     const caption = (value, line) => text(read(value, line));
     return (value, line) => {
       if (line?.text === value && isLegacyElysiumLine(line)) return "";
+      const view = cast.get(line?.actorId);
       if (line?.generated && !line.silent && line.kind === "dialogue" &&
-        line.text === value && cast.get(line.actorId)?.alias) {
-        const title = introductionName(line);
+        line.text === value && view?.alias) {
+        const title = view.coordinate ? line.elysiumName : introductionName(line);
         const index = elysiumNameIndex(value, title);
         if (index >= 0 && !covered(line.actorId)) {
           const deliveredByGame = prefix
@@ -331,25 +350,33 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
       const here = viewer?.place;
       for (const [id, view] of cast) {
         const nearby = Boolean(here && world.actors[id]?.place === here);
-        const { scatteredAt, talkedAt = scatteredAt, returnedAt, returnedBy } =
+        const { scatteredAt, talkedAt: tokenTalk = scatteredAt, returnedAt, returnedBy } =
           world.elysiumEncounters?.[id] || {};
+        const talkedAt = view.coordinate ? coordinateTalkAt(world, actor, id) : tokenTalk;
         if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
-        // A saved scripted introduction can still establish identity after an interrupted read.
+        // Recover a saved introduction after an interrupted read. A newly
+        // streamed coordinate reply still waits for its visible line.
+        const recover = view.coordinate
+          ? !started && personalKey && !personalName(id)
+          : view.waiting || (personalKey && !personalName(id));
         const saved = active && nearby && talkedAt && line?.actorId !== id &&
-          (view.waiting || (personalKey && !personalName(id))) && world.log?.findLast((entry) =>
+          recover && world.log?.findLast((entry) =>
             entry.actorId === id && entry.seq > talkedAt && entry.turn === world.turn &&
-            entry.locationId === here && legacyElysiumName(entry.text));
+            entry.locationId === here && (view.coordinate
+              ? validElysiumName(entry.elysiumName) : legacyElysiumName(entry.text)));
         const spoken = saved || line;
         if (talkedAt && spoken?.actorId === id && spoken.generated && spoken.seq > talkedAt) {
           const typed = Object.hasOwn(spoken, "elysiumName");
           const raw = typed && spoken.silent ? world.log?.find((entry) =>
             entry.seq === spoken.seq && entry.actorId === id) : spoken;
-          const title = raw?.generated && raw.kind === "dialogue" && !raw.silent && introductionName(raw);
+          const title = raw?.generated && raw.kind === "dialogue" && !raw.silent &&
+            (view.coordinate ? raw.elysiumName : introductionName(raw));
           // The chosen name belongs to the completed reply even if its words omit it.
           const named = validElysiumName(title);
           if (personalKey && world.run && active && nearby && named && spoken.locationId === here &&
             spoken.turn === world.turn && !personalName(id)) learn(world, actor, raw, title, talkedAt);
-          if (typed ? named : !spoken.silent) view.waiting = false;
+          if (view.coordinate ? raw?.kind === "dialogue" && !raw.silent
+            : typed ? named : !spoken.silent) view.waiting = false;
         }
         if (!talkedAt) view.waiting = false;
         view.seenTalk = Boolean(talkedAt);
@@ -357,7 +384,7 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
           id === resident ? world.opened?.[spiral]?.length : returnedAt;
         view.name?.observe(
           active && talkedAt && !view.waiting,
-          nearby || viewer?.talked?.includes(id) ||
+          view.coordinate || nearby || viewer?.talked?.includes(id) ||
             viewer?.visited?.includes(packPeople[id].place),
           world.revision,
         );

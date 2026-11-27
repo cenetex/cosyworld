@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "elysium",
   "packId": "cosyworld.elysium",
-  "revision": 3,
+  "revision": 4,
   "name": "Elysium",
   "description": "Gold in the void. Filaments join stone islands, where silver figures keep strange tokens. Beyond the Gold Spiral an unlit passage leads to an old observatory.",
   "entry": "elysium-void-001",
@@ -54,7 +54,7 @@
     },
     "elysium-observatory": {
       "name": "Still Observatory",
-      "persona": "Two immense bronze rings hang over a terrace and sight along a single star. A worn groove points back to the Gold Spiral. Another traces a near-invisible path down to Keystone Ledge.",
+      "persona": "Two immense bronze rings sight along a single star. An address register marks three keystones for the outer, middle, and inner rings. One groove leads to the Gold Spiral and another traces a near-invisible path down to Keystone Ledge. A third groove stops at the rim, waiting for the first address.",
       "exits": ["elysium-gold-spiral", "elysium-keystone-ledge"],
       "backdrop": "assets/elysium/observatory.png"
     },
@@ -92,6 +92,30 @@
       "name": "Void 007",
       "persona": "Steep jade terraces fold around a coil of pale cloud. Thin ridges run through each step like the creases of a sheet. Gold filaments leave from opposite ends of the lowest terrace.",
       "exits": ["elysium-void-006", "elysium-void-004"],
+      "backdrop": "assets/elysium/void-007.png"
+    },
+    "elysium-void-008": {
+      "name": "Void 008",
+      "persona": "In the Sum Gallery, gold strands pass through a tall stone loom. Three and five are picked out on separate bronze combs. Eight threads emerge over the open terrace. On either side of the loom is a groove for a new filament. A slim register rests by the way back to the Still Observatory.",
+      "exits": ["elysium-observatory"],
+      "backdrop": "assets/elysium/void-004.png"
+    },
+    "elysium-void-013": {
+      "name": "Void 013",
+      "persona": "In the Thirteenfold, two pale mirrors send a star back and forth over basalt steps. The near rail is engraved with five marks and the far one with eight. Thirteen pinpoints hang between them. One filament returns to the Sum Gallery. A narrow groove climbs away between the mirrors.",
+      "exits": ["elysium-void-008"],
+      "backdrop": "assets/elysium/void-003.png"
+    },
+    "elysium-void-019": {
+      "name": "Void 019",
+      "persona": "At the Prime Well, dark indigo rings step down into a shaft. Nineteen apertures cut the upper rail, with tiny gold lamps picking out the primes. A single filament crosses the lowest ring back to the Sum Gallery.",
+      "exits": ["elysium-void-008"],
+      "backdrop": "assets/elysium/void-006.png"
+    },
+    "elysium-void-021": {
+      "name": "Void 021",
+      "persona": "In the Convergence, eight jade steps rise to meet thirteen on the opposite side of a low cloud. Where the two runs join, a fixed star throws a long shadow across the stone. From the outermost terrace, a gold filament descends to the Thirteenfold.",
+      "exits": ["elysium-void-013"],
       "backdrop": "assets/elysium/void-007.png"
     }
   },
@@ -199,6 +223,46 @@
       "standoffs": false,
       "portrait": "assets/elysium/resident.png",
       "tastes": { "likes": "The quiet of its Void", "sore": "A cut filament" }
+    },
+    "elysium-coordinate-008": {
+      "name": "The Sumkeeper",
+      "seed": "A silver figure at the loom combs, tracing each pair of threads before they join.",
+      "place": "elysium-void-008",
+      "home": "elysium-void-008",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "Showing the work behind a sum", "sore": "A length cut before it is measured" }
+    },
+    "elysium-coordinate-013": {
+      "name": "The Mirror Reader",
+      "seed": "A silver figure that keeps both rails in view while a star passes from mirror to mirror.",
+      "place": "elysium-void-013",
+      "home": "elysium-void-013",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "Keeping a second record", "sore": "A mirror turned toward the wall" }
+    },
+    "elysium-coordinate-019": {
+      "name": "The Lamp Counter",
+      "seed": "A silver figure beside the well, counting the spaces between its golden lamps.",
+      "place": "elysium-void-019",
+      "home": "elysium-void-019",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "Counting from two", "sore": "A mark given to the wrong number" }
+    },
+    "elysium-coordinate-021": {
+      "name": "The Far Surveyor",
+      "seed": "A silver figure on the highest stair, letting the star's shadow pass across a bronze ruler.",
+      "place": "elysium-void-021",
+      "home": "elysium-void-021",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "Two paths meeting exactly", "sore": "A measurement made in haste" }
     }
   },
   "items": {
@@ -219,6 +283,93 @@
       "persona": "A folding bronze chart etched with a single star and a path from the ledge to the observatory. A traveler holding it can follow that filament from Keystone Ledge.",
       "holder": "elysium-observatory",
       "art": "assets/elysium/star-chart.png"
+    },
+    "elysium-ring-outer": {
+      "name": "Outer Keystone",
+      "text": "A jade stone marked with the widest of three rings.",
+      "persona": "A broad jade stone cut with the widest ring of the Observatory register. When left on the ground in a numbered Void, it sets that number on the outer ring.",
+      "holder": "elysium-observatory",
+      "art": "assets/elysium/void-007-token.png"
+    },
+    "elysium-ring-middle": {
+      "name": "Middle Keystone",
+      "text": "An indigo stone marked with the middle ring.",
+      "persona": "An indigo stone cut with the middle ring of the Observatory register. When left on the ground in a numbered Void, it sets that number on the middle ring.",
+      "holder": "elysium-gold-spiral",
+      "art": "assets/elysium/void-006-token.png"
+    },
+    "elysium-ring-inner": {
+      "name": "Inner Keystone",
+      "text": "A pale stone marked with the smallest ring.",
+      "persona": "A pale stone cut with the smallest ring of the Observatory register. When left on the ground in a numbered Void, it sets that number on the inner ring.",
+      "holder": "elysium-keystone-ledge",
+      "art": "assets/elysium/void-003-token.png"
+    },
+    "elysium-address-register": {
+      "name": "Address Register",
+      "text": "A bronze register fixed below the sighting rings. The first address is etched in a narrow margin.",
+      "persona": "A fixed bronze register for the three marked keystones. Beside the outer, middle, and inner marks are drawings of the Still Observatory, the Gold Spiral, and Keystone Ledge, where the stones were put aside.",
+      "holder": "elysium-observatory",
+      "art": "assets/elysium/star-chart.png",
+      "author": "elysium-observatory",
+      "lifecycle": "fixed",
+      "claims": [
+        {
+          "id": "address-order",
+          "text": "An address reads outer, middle, inner, and each stone sets the number of the Void where it rests on the ground."
+        },
+        {
+          "id": "first-address",
+          "text": "Lay the Outer Keystone in Void 005, the Middle Keystone in Void 003, and the Inner Keystone in Void 001.",
+          "about": "elysium-observatory"
+        },
+        {
+          "id": "kept-filament",
+          "text": "Each filament stays lit after its first alignment, even if you lift the stones and set a new address."
+        }
+      ]
+    },
+    "elysium-sum-register": {
+      "name": "The Sumkeeper's Register",
+      "text": "Five and three meet at eight in the first column. A different hand has added a small entry below the sum.",
+      "persona": "A short register fixed to one of the stone combs, with a map of the inner ring and a prime-number cipher inked below it.",
+      "holder": "elysium-void-008",
+      "art": "assets/elysium/star-chart.png",
+      "author": "elysium-coordinate-008",
+      "lifecycle": "fixed",
+      "claims": [
+        {
+          "id": "second-address",
+          "text": "Leave Outer in Void 005 and Middle in Void 003, then lay Inner here in Void 008 to light the next filament from this gallery."
+        },
+        {
+          "id": "prime-spur",
+          "text": "A second setting is marked 1,049,760, written below as 32 × 6,561 × 5."
+        },
+        {
+          "id": "prime-count",
+          "text": "Count the twos in 32 for Outer, the threes in 6,561 for Middle, and the fives in 5 for Inner."
+        }
+      ]
+    },
+    "elysium-mirror-register": {
+      "name": "Mirror Register",
+      "text": "Two columns record the same light from different rails. Their last entry gives the last alignment.",
+      "persona": "A fixed record in the Thirteenfold, filled in twice so the alignment can be read from either mirror rail.",
+      "holder": "elysium-void-013",
+      "art": "assets/elysium/star-chart.png",
+      "author": "elysium-coordinate-013",
+      "lifecycle": "fixed",
+      "claims": [
+        {
+          "id": "third-address",
+          "text": "Leave Outer in Void 005 and Inner in Void 008, then lay Middle here in Void 013 to light the last filament."
+        },
+        {
+          "id": "last-sum",
+          "text": "Five and eight led here, and eight and thirteen lead to twenty-one."
+        }
+      ]
     },
     "elysium-claude-token": {
       "name": "Amber Leaf",
@@ -332,6 +483,42 @@
           "item": "elysium-star-chart",
           "role": "actor"
         }
+      ]
+    },
+    {
+      "from": "elysium-observatory",
+      "to": "elysium-void-008",
+      "requires": [
+        { "kind": "item_at", "item": "elysium-ring-outer", "place": "elysium-void-005" },
+        { "kind": "item_at", "item": "elysium-ring-middle", "place": "elysium-void-003" },
+        { "kind": "item_at", "item": "elysium-ring-inner", "place": "elysium-void-001" }
+      ]
+    },
+    {
+      "from": "elysium-void-008",
+      "to": "elysium-void-013",
+      "requires": [
+        { "kind": "item_at", "item": "elysium-ring-outer", "place": "elysium-void-005" },
+        { "kind": "item_at", "item": "elysium-ring-middle", "place": "elysium-void-003" },
+        { "kind": "item_at", "item": "elysium-ring-inner", "place": "elysium-void-008" }
+      ]
+    },
+    {
+      "from": "elysium-void-008",
+      "to": "elysium-void-019",
+      "requires": [
+        { "kind": "item_at", "item": "elysium-ring-outer", "place": "elysium-void-005" },
+        { "kind": "item_at", "item": "elysium-ring-middle", "place": "elysium-void-008" },
+        { "kind": "item_at", "item": "elysium-ring-inner", "place": "elysium-void-001" }
+      ]
+    },
+    {
+      "from": "elysium-void-013",
+      "to": "elysium-void-021",
+      "requires": [
+        { "kind": "item_at", "item": "elysium-ring-outer", "place": "elysium-void-005" },
+        { "kind": "item_at", "item": "elysium-ring-middle", "place": "elysium-void-013" },
+        { "kind": "item_at", "item": "elysium-ring-inner", "place": "elysium-void-008" }
       ]
     }
   ]

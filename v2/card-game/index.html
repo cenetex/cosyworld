@@ -48,6 +48,7 @@
     <link rel="stylesheet" href="./card-tiers.css" />
     <link rel="stylesheet" href="./sleep.css" />
     <link rel="stylesheet" href="./character-sheet.css" />
+    <link rel="stylesheet" href="./coordinate-view.css" />
     <!-- card-image-preload:start -->
     <!-- card-image-preload:end -->
     <script type="module" src="./entry.mjs"></script>
@@ -77,6 +78,16 @@
         <div class="sr-only">
           <h1 id="place-title"></h1>
         </div>
+        <output
+          id="keystone-coordinates"
+          aria-label="Keystone coordinates"
+          hidden
+        >
+          <span data-coordinate="outer">Outer <b>?</b></span>
+          <span data-coordinate="middle">Middle <b>?</b></span>
+          <span data-coordinate="inner">Inner <b>?</b></span>
+          <span data-coordinate-status hidden>Passage aligned</span>
+        </output>
         <div id="floor-items" class="floor-items" aria-hidden="true"></div>
         <div id="stage-figures" class="stage-figures"></div>
         <div id="cast" class="cast" aria-label="Conversation cast"></div>

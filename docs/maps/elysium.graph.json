@@ -1,7 +1,7 @@
 {
   "pack": "elysium",
   "name": "Elysium",
-  "revision": 3,
+  "revision": 4,
   "entry": "elysium-void-001",
   "entries": [
     {
@@ -14,8 +14,8 @@
   "space": {
     "districts": [
       {
-        "id": "d-elysium-void-001",
-        "name": "Void 001",
+        "id": "d-elysium-observatory",
+        "name": "Still Observatory",
         "places": [
           "elysium-gold-spiral",
           "elysium-keystone-ledge",
@@ -26,7 +26,11 @@
           "elysium-void-004",
           "elysium-void-005",
           "elysium-void-006",
-          "elysium-void-007"
+          "elysium-void-007",
+          "elysium-void-008",
+          "elysium-void-013",
+          "elysium-void-019",
+          "elysium-void-021"
         ]
       }
     ],
@@ -35,61 +39,85 @@
         "id": "elysium-gold-spiral",
         "name": "Gold Spiral",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-keystone-ledge",
         "name": "Keystone Ledge",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-observatory",
         "name": "Still Observatory",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-void-001",
         "name": "Void 001",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-void-002",
         "name": "Void 002",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-void-003",
         "name": "Void 003",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-void-004",
         "name": "Void 004",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-void-005",
         "name": "Void 005",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-void-006",
         "name": "Void 006",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
       },
       {
         "id": "elysium-void-007",
         "name": "Void 007",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-observatory"
+      },
+      {
+        "id": "elysium-void-008",
+        "name": "Void 008",
+        "kind": "place",
+        "district": "d-elysium-observatory"
+      },
+      {
+        "id": "elysium-void-013",
+        "name": "Void 013",
+        "kind": "place",
+        "district": "d-elysium-observatory"
+      },
+      {
+        "id": "elysium-void-019",
+        "name": "Void 019",
+        "kind": "place",
+        "district": "d-elysium-observatory"
+      },
+      {
+        "id": "elysium-void-021",
+        "name": "Void 021",
+        "kind": "place",
+        "district": "d-elysium-observatory"
       },
       {
         "id": "station",
@@ -133,6 +161,12 @@
         "to": "elysium-keystone-ledge",
         "kind": "exit",
         "gate": null
+      },
+      {
+        "from": "elysium-observatory",
+        "to": "elysium-void-008",
+        "kind": "route",
+        "gate": "route:elysium-observatory>elysium-void-008"
       },
       {
         "from": "elysium-void-001",
@@ -233,6 +267,48 @@
       {
         "from": "elysium-void-007",
         "to": "elysium-void-006",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-008",
+        "to": "elysium-observatory",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-008",
+        "to": "elysium-void-013",
+        "kind": "route",
+        "gate": "route:elysium-void-008>elysium-void-013"
+      },
+      {
+        "from": "elysium-void-008",
+        "to": "elysium-void-019",
+        "kind": "route",
+        "gate": "route:elysium-void-008>elysium-void-019"
+      },
+      {
+        "from": "elysium-void-013",
+        "to": "elysium-void-008",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-013",
+        "to": "elysium-void-021",
+        "kind": "route",
+        "gate": "route:elysium-void-013>elysium-void-021"
+      },
+      {
+        "from": "elysium-void-019",
+        "to": "elysium-void-008",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-021",
+        "to": "elysium-void-013",
         "kind": "exit",
         "gate": null
       }
@@ -370,6 +446,158 @@
             "elysium-star-chart"
           ]
         }
+      },
+      {
+        "id": "route:elysium-observatory>elysium-void-008",
+        "kind": "route",
+        "title": "Still Observatory to Void 008",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-outer,place=elysium-void-005)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-middle,place=elysium-void-003)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-inner,place=elysium-void-001)"
+            }
+          ]
+        },
+        "words": "Outer Keystone lies at Void 005 and Middle Keystone lies at Void 003 and Inner Keystone lies at Void 001",
+        "ids": "elysium-ring-outer lies at elysium-void-005 and elysium-ring-middle lies at elysium-void-003 and elysium-ring-inner lies at elysium-void-001",
+        "latch": [],
+        "live": [
+          "item_at(item=elysium-ring-inner,place=elysium-void-001)",
+          "item_at(item=elysium-ring-middle,place=elysium-void-003)",
+          "item_at(item=elysium-ring-outer,place=elysium-void-005)"
+        ],
+        "follows": "live",
+        "prerequisites": {
+          "item": [
+            "elysium-ring-inner",
+            "elysium-ring-middle",
+            "elysium-ring-outer"
+          ]
+        }
+      },
+      {
+        "id": "route:elysium-void-008>elysium-void-013",
+        "kind": "route",
+        "title": "Void 008 to Void 013",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-outer,place=elysium-void-005)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-middle,place=elysium-void-003)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-inner,place=elysium-void-008)"
+            }
+          ]
+        },
+        "words": "Outer Keystone lies at Void 005 and Middle Keystone lies at Void 003 and Inner Keystone lies at Void 008",
+        "ids": "elysium-ring-outer lies at elysium-void-005 and elysium-ring-middle lies at elysium-void-003 and elysium-ring-inner lies at elysium-void-008",
+        "latch": [],
+        "live": [
+          "item_at(item=elysium-ring-inner,place=elysium-void-008)",
+          "item_at(item=elysium-ring-middle,place=elysium-void-003)",
+          "item_at(item=elysium-ring-outer,place=elysium-void-005)"
+        ],
+        "follows": "live",
+        "prerequisites": {
+          "item": [
+            "elysium-ring-inner",
+            "elysium-ring-middle",
+            "elysium-ring-outer"
+          ]
+        }
+      },
+      {
+        "id": "route:elysium-void-008>elysium-void-019",
+        "kind": "route",
+        "title": "Void 008 to Void 019",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-outer,place=elysium-void-005)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-middle,place=elysium-void-008)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-inner,place=elysium-void-001)"
+            }
+          ]
+        },
+        "words": "Outer Keystone lies at Void 005 and Middle Keystone lies at Void 008 and Inner Keystone lies at Void 001",
+        "ids": "elysium-ring-outer lies at elysium-void-005 and elysium-ring-middle lies at elysium-void-008 and elysium-ring-inner lies at elysium-void-001",
+        "latch": [],
+        "live": [
+          "item_at(item=elysium-ring-inner,place=elysium-void-001)",
+          "item_at(item=elysium-ring-middle,place=elysium-void-008)",
+          "item_at(item=elysium-ring-outer,place=elysium-void-005)"
+        ],
+        "follows": "live",
+        "prerequisites": {
+          "item": [
+            "elysium-ring-inner",
+            "elysium-ring-middle",
+            "elysium-ring-outer"
+          ]
+        }
+      },
+      {
+        "id": "route:elysium-void-013>elysium-void-021",
+        "kind": "route",
+        "title": "Void 013 to Void 021",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-outer,place=elysium-void-005)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-middle,place=elysium-void-013)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-ring-inner,place=elysium-void-008)"
+            }
+          ]
+        },
+        "words": "Outer Keystone lies at Void 005 and Middle Keystone lies at Void 013 and Inner Keystone lies at Void 008",
+        "ids": "elysium-ring-outer lies at elysium-void-005 and elysium-ring-middle lies at elysium-void-013 and elysium-ring-inner lies at elysium-void-008",
+        "latch": [],
+        "live": [
+          "item_at(item=elysium-ring-inner,place=elysium-void-008)",
+          "item_at(item=elysium-ring-middle,place=elysium-void-013)",
+          "item_at(item=elysium-ring-outer,place=elysium-void-005)"
+        ],
+        "follows": "live",
+        "prerequisites": {
+          "item": [
+            "elysium-ring-inner",
+            "elysium-ring-middle",
+            "elysium-ring-outer"
+          ]
+        }
       }
     ],
     "acts": [],
@@ -418,6 +646,63 @@
         "readBy": [
           "route:elysium-keystone-ledge>elysium-observatory"
         ]
+      },
+      {
+        "id": "elysium-ring-outer",
+        "name": "Outer Keystone",
+        "holder": "elysium-observatory",
+        "consumedBy": [],
+        "readBy": [
+          "route:elysium-observatory>elysium-void-008",
+          "route:elysium-void-008>elysium-void-013",
+          "route:elysium-void-008>elysium-void-019",
+          "route:elysium-void-013>elysium-void-021"
+        ]
+      },
+      {
+        "id": "elysium-ring-middle",
+        "name": "Middle Keystone",
+        "holder": "elysium-gold-spiral",
+        "consumedBy": [],
+        "readBy": [
+          "route:elysium-observatory>elysium-void-008",
+          "route:elysium-void-008>elysium-void-013",
+          "route:elysium-void-008>elysium-void-019",
+          "route:elysium-void-013>elysium-void-021"
+        ]
+      },
+      {
+        "id": "elysium-ring-inner",
+        "name": "Inner Keystone",
+        "holder": "elysium-keystone-ledge",
+        "consumedBy": [],
+        "readBy": [
+          "route:elysium-observatory>elysium-void-008",
+          "route:elysium-void-008>elysium-void-013",
+          "route:elysium-void-008>elysium-void-019",
+          "route:elysium-void-013>elysium-void-021"
+        ]
+      },
+      {
+        "id": "elysium-address-register",
+        "name": "Address Register",
+        "holder": "elysium-observatory",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "elysium-sum-register",
+        "name": "The Sumkeeper's Register",
+        "holder": "elysium-void-008",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "elysium-mirror-register",
+        "name": "Mirror Register",
+        "holder": "elysium-void-013",
+        "consumedBy": [],
+        "readBy": []
       },
       {
         "id": "elysium-claude-token",
@@ -477,6 +762,14 @@
       "route:elysium-keystone-ledge>elysium-observatory": [
         "item:elysium-star-chart"
       ],
+      "route:elysium-observatory>elysium-void-008": [
+        "item:elysium-ring-inner",
+        "item:elysium-ring-middle",
+        "item:elysium-ring-outer",
+        "place:elysium-void-001",
+        "place:elysium-void-003",
+        "place:elysium-void-005"
+      ],
       "route:elysium-void-001>elysium-gold-spiral": [
         "item:elysium-keystone",
         "place:elysium-void-001"
@@ -484,6 +777,30 @@
       "route:elysium-void-001>elysium-keystone-ledge": [
         "item:elysium-wayfinder",
         "resident:undefined"
+      ],
+      "route:elysium-void-008>elysium-void-013": [
+        "item:elysium-ring-inner",
+        "item:elysium-ring-middle",
+        "item:elysium-ring-outer",
+        "place:elysium-void-003",
+        "place:elysium-void-005",
+        "place:elysium-void-008"
+      ],
+      "route:elysium-void-008>elysium-void-019": [
+        "item:elysium-ring-inner",
+        "item:elysium-ring-middle",
+        "item:elysium-ring-outer",
+        "place:elysium-void-001",
+        "place:elysium-void-005",
+        "place:elysium-void-008"
+      ],
+      "route:elysium-void-013>elysium-void-021": [
+        "item:elysium-ring-inner",
+        "item:elysium-ring-middle",
+        "item:elysium-ring-outer",
+        "place:elysium-void-005",
+        "place:elysium-void-008",
+        "place:elysium-void-013"
       ],
       "want:elysium-resident": [
         "item:elysium-keystone",
@@ -508,6 +825,36 @@
       "kind": "item_at",
       "class": "live",
       "words": "elysium-keystone lies at elysium-void-001"
+    },
+    "item_at(item=elysium-ring-inner,place=elysium-void-001)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "elysium-ring-inner lies at elysium-void-001"
+    },
+    "item_at(item=elysium-ring-inner,place=elysium-void-008)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "elysium-ring-inner lies at elysium-void-008"
+    },
+    "item_at(item=elysium-ring-middle,place=elysium-void-003)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "elysium-ring-middle lies at elysium-void-003"
+    },
+    "item_at(item=elysium-ring-middle,place=elysium-void-008)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "elysium-ring-middle lies at elysium-void-008"
+    },
+    "item_at(item=elysium-ring-middle,place=elysium-void-013)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "elysium-ring-middle lies at elysium-void-013"
+    },
+    "item_at(item=elysium-ring-outer,place=elysium-void-005)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "elysium-ring-outer lies at elysium-void-005"
     },
     "item_at(item=elysium-wayfinder,place=elysium-gold-spiral)": {
       "kind": "item_at",

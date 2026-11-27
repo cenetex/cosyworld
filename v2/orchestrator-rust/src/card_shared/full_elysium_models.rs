@@ -1,3 +1,4 @@
+use super::super::elysium_coordinate::{self as coordinate, Coordinate};
 use super::super::store::{sql_error, Result};
 use crate::{
     ai_gateway::{request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability},
@@ -288,6 +289,12 @@ pub(super) fn talk_target(work: &Value) -> Option<&'static str> {
     spoken_to(work, work["actor"].as_str()?).map(|resident| resident.id)
 }
 
+pub(super) fn scene_talk_target(work: &Value, actor: &str) -> Option<String> {
+    spoken_to(work, actor)
+        .map(|resident| resident.id.to_owned())
+        .or_else(|| coordinate::talk_target(work, actor))
+}
+
 pub(super) fn returned_to(work: &Value, actor: &str) -> Option<&'static Resident> {
     actions(work, actor).find_map(|event| {
         let resident = resident(event["portraitModel"].as_str()?)?;
@@ -329,23 +336,33 @@ pub(super) fn mark_known_introduction(
     work: &mut Value,
     actor: &str,
 ) -> Result<()> {
-    if let Some(resident) = spoken_to(work, actor) {
-        let known = introduced(c, world, resident).map_err(sql_error)?;
-        work["context"]["elysiumIntroduced"] = json!(known.then_some(resident.id));
+    if let Some(target) = scene_talk_target(work, actor) {
+        let room = work["room"].as_str().ok_or("The scene needs a place.")?;
+        let known = introduced_at(c, world, room, &target).map_err(sql_error)?;
+        work["context"]["elysiumIntroduced"] = json!(known.then_some(target));
     }
     Ok(())
 }
 
 fn introduced(c: &Connection, world: &str, resident: &Resident) -> rusqlite::Result<bool> {
+    introduced_at(c, world, resident.room, resident.id)
+}
+
+fn introduced_at(
+    c: &Connection,
+    world: &str,
+    room: &str,
+    resident: &str,
+) -> rusqlite::Result<bool> {
     c.query_row(
         "SELECT EXISTS(SELECT 1 FROM card_full_scenes s, json_each(s.content,'$.lines') l
            WHERE s.world=? AND s.room=? AND json_extract(l.value,'$.actorId')=?
              AND json_extract(l.value,'$.kind')='dialogue'
              AND json_extract(l.value,'$.generated')=1
              AND (json_type(l.value,'$.elysiumName')='text'
-               OR (json_type(l.value,'$.elysiumName') IS NULL
+               OR (NOT ?4 AND json_type(l.value,'$.elysiumName') IS NULL
                  AND json_extract(l.value,'$.text') LIKE 'I call myself %. My token has slipped into the world beyond this Void.')))",
-        params![world, resident.room, resident.id],
+        params![world, room, resident, coordinate::is_resident(resident)],
         |row| row.get(0),
     )
 }
@@ -363,13 +380,12 @@ fn earned(
     )
 }
 
-fn entitled(
+fn with_member<T>(
     state: &AppState,
     world: &str,
     headers: &HeaderMap,
-    resident: &Resident,
-    portrait: bool,
-) -> std::result::Result<(), StatusCode> {
+    read: impl FnOnce(&Connection) -> std::result::Result<T, StatusCode>,
+) -> std::result::Result<T, StatusCode> {
     super::valid_id(world).map_err(|_| StatusCode::NOT_FOUND)?;
     let account = super::user(state, headers, false).map_err(|_| StatusCode::UNAUTHORIZED)?;
     let database = state
@@ -386,17 +402,55 @@ fn entitled(
     if super::super::store::member(&tx, world, &account)
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
         .is_none()
-        || !earned(&tx, world, resident, portrait).map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
-        || (!portrait
-            && !introduced(&tx, world, resident).map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?)
     {
         return Err(StatusCode::NOT_FOUND);
     }
-    Ok(())
+    read(&tx)
+}
+
+fn entitled(
+    state: &AppState,
+    world: &str,
+    headers: &HeaderMap,
+    resident: &Resident,
+    portrait: bool,
+) -> std::result::Result<(), StatusCode> {
+    with_member(state, world, headers, |tx| {
+        if !earned(tx, world, resident, portrait).map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+            || (!portrait
+                && !introduced(tx, world, resident).map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?)
+        {
+            return Err(StatusCode::NOT_FOUND);
+        }
+        Ok(())
+    })
+}
+
+fn coordinate_identity(
+    state: &AppState,
+    world: &str,
+    headers: &HeaderMap,
+    id: &str,
+) -> std::result::Result<String, StatusCode> {
+    let template = coordinate::template(id).ok_or(StatusCode::NOT_FOUND)?;
+    with_member(state, world, headers, |tx| {
+        if !introduced_at(tx, world, &template.room, id)
+            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+        {
+            return Err(StatusCode::NOT_FOUND);
+        }
+        let key = coordinate::key(Some(world), "", template.address);
+        read_name(&coordinate_directory(&state.generated_asset_dir, &key))
+            .ok_or(StatusCode::NOT_FOUND)
+    })
 }
 
 fn directory(root: &Path, resident: &Resident) -> PathBuf {
     root.join("elysium-models").join(resident.id)
+}
+
+fn coordinate_directory(root: &Path, key: &str) -> PathBuf {
+    root.join("elysium-coordinates").join(key)
 }
 
 fn open_lock(dir: &Path, key: &str) -> io::Result<File> {
@@ -552,13 +606,24 @@ async fn request_name(state: &AppState, resident: &Resident) -> Result<String> {
     Err("elysium_name_unavailable".into())
 }
 
-async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<String> {
-    let dir = directory(&state.generated_asset_dir, resident);
+async fn choose_name(
+    state: &AppState,
+    resident: &Resident,
+    dir: PathBuf,
+    scoped: bool,
+) -> Result<String> {
     let path = dir.clone();
+    let root = state.generated_asset_dir.clone();
+    let budget = root.clone();
     let (_lease, existing) = tokio::task::spawn_blocking(move || {
         if let Some(name) = read_name(&path) {
             return Ok((None, Some(name)));
         }
+        // Coordinate names can exist in many runs, unlike the six static names.
+        let _budget = scoped
+            .then(|| GeneratedAssetWriteGuard::acquire(&budget, 180))
+            .transpose()
+            .map_err(|error| TryLockError::Error(io::Error::other(error)))?;
         let lease = open_lock(&path, ".name.lock").map_err(TryLockError::Error)?;
         lease.try_lock()?;
         Ok::<_, TryLockError>((Some(lease), read_name(&path)))
@@ -576,6 +641,10 @@ async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<St
     let copy = name.clone();
     tokio::task::spawn_blocking(move || {
         let _lease = _lease;
+        let _budget = scoped
+            .then(|| GeneratedAssetWriteGuard::acquire(&root, copy.len() as u64))
+            .transpose()
+            .map_err(io::Error::other)?;
         atomic_write(&dir, &dir.join("name.txt"), copy.as_bytes())
     })
     .await
@@ -584,8 +653,18 @@ async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<St
     Ok(name)
 }
 
-async fn name_for_talk(state: &AppState, resident: &'static Resident) -> Option<String> {
-    match tokio::time::timeout(Duration::from_secs(18), choose_name(state, resident)).await {
+async fn name_for_talk(
+    state: &AppState,
+    resident: &Resident,
+    dir: PathBuf,
+    scoped: bool,
+) -> Option<String> {
+    match tokio::time::timeout(
+        Duration::from_secs(18),
+        choose_name(state, resident, dir, scoped),
+    )
+    .await
+    {
         Ok(Ok(name)) => Some(name),
         Ok(Err(code)) => {
             if code == "elysium_name_storage" {
@@ -616,14 +695,45 @@ pub(crate) async fn elysium_name(
     can_choose: bool,
 ) -> Option<String> {
     let resident = resident(id).filter(|resident| resident.room == room)?;
+    let dir = directory(&state.generated_asset_dir, resident);
     if can_choose {
         let state = state.clone();
-        return tokio::spawn(async move { name_for_talk(&state, resident).await })
+        return tokio::spawn(async move { name_for_talk(&state, resident, dir, false).await })
             .await
             .ok()
             .flatten();
     }
-    let dir = directory(&state.generated_asset_dir, resident);
+    tokio::task::spawn_blocking(move || read_name(&dir))
+        .await
+        .ok()
+        .flatten()
+}
+
+pub(crate) async fn coordinate_name(
+    state: &AppState,
+    coordinate: &Coordinate,
+    shared_world: Option<&str>,
+    can_choose: bool,
+) -> Option<String> {
+    let template = coordinate.template()?;
+    let resident = Resident {
+        id: &template.resident,
+        room: &template.room,
+        token: "",
+        model: coordinate.model()?,
+        setting: &template.setting,
+    };
+    let dir = coordinate_directory(
+        &state.generated_asset_dir,
+        &coordinate.name_key(shared_world),
+    );
+    if can_choose {
+        let state = state.clone();
+        return tokio::spawn(async move { name_for_talk(&state, &resident, dir, true).await })
+            .await
+            .ok()
+            .flatten();
+    }
     tokio::task::spawn_blocking(move || read_name(&dir))
         .await
         .ok()
@@ -775,12 +885,13 @@ pub(super) async fn identity(
     RoutePath((world, id)): RoutePath<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let Some(resident) = resident(&id) else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
     let result = tokio::task::spawn_blocking(move || {
-        entitled(&state, &world, &headers, resident, false)?;
-        read_name(&directory(&state.generated_asset_dir, resident)).ok_or(StatusCode::NOT_FOUND)
+        if let Some(resident) = resident(&id) {
+            entitled(&state, &world, &headers, resident, false)?;
+            read_name(&directory(&state.generated_asset_dir, resident)).ok_or(StatusCode::NOT_FOUND)
+        } else {
+            coordinate_identity(&state, &world, &headers, &id)
+        }
     })
     .await
     .unwrap_or(Err(StatusCode::SERVICE_UNAVAILABLE));

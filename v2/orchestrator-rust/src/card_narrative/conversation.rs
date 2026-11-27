@@ -60,7 +60,7 @@ impl Entry {
             model,
             disclosed: None,
             reflection: None,
-            elysium_name: crate::card_shared::elysium_model(id).map(|_| None),
+            elysium_name: elysium::is_resident(id).then_some(None),
         }
     }
 }
@@ -70,11 +70,14 @@ pub(super) async fn prepare_resident<'a>(
     introduction: Option<&'a Introduction>,
     deadline: tokio::time::Instant,
 ) -> Option<(&'a str, Option<String>)> {
-    let (state, target) = introduction?;
-    let name = tokio::time::timeout_at(deadline, elysium::prepare_name(state, context, target))
-        .await
-        .ok()
-        .flatten();
+    let (state, target, world) = introduction?;
+    let name = tokio::time::timeout_at(
+        deadline,
+        elysium::prepare_name(state, context, target, world.as_deref()),
+    )
+    .await
+    .ok()
+    .flatten();
     Some((target, name))
 }
 
@@ -108,7 +111,7 @@ pub(super) async fn exchange(
         opener,
         prepare_resident(
             context,
-            introduction.filter(|(_, id)| id == target),
+            introduction.filter(|(_, id, _)| id == target),
             opener_deadline
         )
     );

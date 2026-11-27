@@ -268,7 +268,7 @@ pub(super) fn trusted(context: Context) -> Result<Context, ScreeningFailure> {
             &line.text,
         );
         if let Some(mut line) = keep(line, verdict)? {
-            verify_elysium_name(&mut line, &scene).ok_or(ScreeningFailure::SavedWords)?;
+            verify_elysium_name(&mut line, &scene, &context).ok_or(ScreeningFailure::SavedWords)?;
             conversation.push(line);
         }
     }
@@ -365,13 +365,13 @@ pub(super) fn trusted(context: Context) -> Result<Context, ScreeningFailure> {
     Ok(context)
 }
 
-fn verify_elysium_name(line: &mut SpokenLine, scene: &Scene) -> Option<()> {
+fn verify_elysium_name(line: &mut SpokenLine, scene: &Scene, context: &Context) -> Option<()> {
     let Some(Some(name)) = &line.elysium_name else {
         return line.elysium_name_signed.is_none().then_some(());
     };
     let proof = line.elysium_name_signed.as_ref()?;
     let words = line.signed.as_ref()?;
-    if crate::card_shared::elysium_model(&line.actor_id).is_none()
+    if !super::elysium::is_resident(&line.actor_id)
         || !crate::card_shared::valid_elysium_name(name)
         || !words.claims.rules.ends_with(ELYSIUM_LINE_RULES_SUFFIX)
         || proof.claims.rules != words.claims.rules
@@ -380,9 +380,16 @@ fn verify_elysium_name(line: &mut SpokenLine, scene: &Scene) -> Option<()> {
     {
         return None;
     }
+    let scope_is_current = !crate::card_shared::elysium_coordinate::is_resident(&line.actor_id)
+        || super::elysium::coordinate_proof(context, &line.actor_id).is_some_and(|scope| {
+            words
+                .claims
+                .rules
+                .ends_with(&format!("{scope}{ELYSIUM_LINE_RULES_SUFFIX}"))
+        });
     match check(Some(proof), scene, "elysium-name", &line.actor_id, name) {
-        Check::Keep => {}
-        Check::Drop => {
+        Check::Keep if scope_is_current => {}
+        Check::Keep | Check::Drop => {
             line.elysium_name = Some(None);
             line.elysium_name_signed = None;
         }
@@ -411,7 +418,10 @@ pub(super) fn sign_lines(value: &mut Value, context: &Context) {
         if let (Some(id), Some(text)) = (entry["id"].as_str(), entry["text"].as_str()) {
             let mut words = claims(context, "line", id, text);
             let mut identity = None;
-            if crate::card_shared::elysium_model(id).is_some() {
+            if super::elysium::is_resident(id) {
+                if let Some(scope) = super::elysium::coordinate_proof(context, id) {
+                    words.rules.push_str(&scope);
+                }
                 words.rules.push_str(ELYSIUM_LINE_RULES_SUFFIX);
                 if let Some(name) = entry["elysiumName"].as_str() {
                     let mut proof = claims(context, "elysium-name", id, name);

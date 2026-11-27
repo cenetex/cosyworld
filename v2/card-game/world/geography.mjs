@@ -21,12 +21,14 @@ import { reflectionOpen, sensesFor, reflectionsFrom } from "./senses.mjs";
 import { nameOf, places } from "./catalog.mjs";
 import { baseExits, stationCandidates, limitedExits } from "./station.mjs";
 import { wayfinderExit } from "./elysium-travel.mjs";
+import { coordinateScenery } from "./elysium-coordinates.mjs";
 
 export const placeText = (s, place) =>
   [
     place === "attic" && reflectionOpen(s, place)
       ? "A tall mirror opens onto a black shore. A path leads through the glass."
       : places[place].text,
+    coordinateScenery(s, place),
     ...crossingScenery(s, place, sensesFor(s),
       place === "station" ? stationCandidates(s).filter((id) =>
         !stationExits(s, stationCandidates(s)).includes(id)) : []),

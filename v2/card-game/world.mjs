@@ -414,7 +414,7 @@ export function installPacks(s) {
       mounted.push(pack);
     }
     for (const [id, a] of Object.entries(pack.avatars)) {
-      if (extendElysium && (!isElysiumModel(id) || s.actors[id])) continue;
+      if (extendElysium && s.actors[id]) continue;
       if (s.actors[id]) throw new Error("A pack resident is already present.");
       s.actors[id] = {
         place: a.place,
