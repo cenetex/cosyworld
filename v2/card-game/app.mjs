@@ -9,7 +9,11 @@ import { pondSignalBeat, pondSignalNote } from "./pond-signal-view.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
 import { createElysiumPortrait, UNNAMED_ELYSIUM_RESIDENT } from "./elysium-portrait.mjs";
 import { heldItem } from "./held-item.mjs";
-import { renderCardDescriptor } from "./card-descriptor.mjs";
+import {
+  playButtonLabel,
+  renderCardDescriptor,
+  renderPlayButtons,
+} from "./card-descriptor.mjs";
 import {
   nameTitleWaker,
   onTitleWake,
@@ -2762,8 +2766,18 @@ function renderActions() {
   )
     sharedRefusal = null;
   shownPhase = presentPhase();
+  const prompt = packPrompt();
+  // A folded row lies low even with a choice in it. Settings stands raised.
+  document.querySelector(".play-dock").dataset.selected = String(
+    (selected.length > 0 && !rowCollapsed) || Boolean(prompt),
+  );
+  document.body.dataset.handExpanded = String(
+    dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
+  );
+  syncLayering();
+  if (borrowedBeat) return showBorrowedBeat();
   const rested = shownPhase !== "choosing";
-  const packAsk = !rested && !borrowedBeat ? packPrompt() : null;
+  const packAsk = !rested ? prompt : null;
   const chosen = packAsk ? [] : selected;
   const { actions: offered, hint } = cardActions(world, chosen);
   const ready = restPlays(
@@ -2892,43 +2906,21 @@ function renderActions() {
         .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
   $("action-beat").dataset.tier = rarest.id;
   $("action-beat").style.setProperty("--tier-color", rarest.color);
-  // A folded row lies low even with a choice in it.
-  document.querySelector(".play-dock").dataset.selected = String(
-    (selected.length > 0 && !rowCollapsed) || Boolean(packPrompt()),
-  );
-  // Settings' hand of cards stands raised (settings-cards.mjs).
-  document.body.dataset.handExpanded = String(
-    dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
-  );
-  syncLayering();
-  if (borrowedBeat) {
-    return showBorrowedBeat();
-  }
   const revision = world.revision;
-  row.replaceChildren(
-    ...actions.map((action, index) => {
+  renderPlayButtons(
+    row,
+    actions.map((action) => {
       const refused = refusedPlay(action);
-      const button = node(
-        "button",
-        elysiumPortrait.text(refused ? refusalLabel(refused) : playLabel(action, world)),
-        index === 0 ? "card-primary" : "card-action",
-      );
-      button.type = "button";
-      button.dataset.action = action.kind;
-      // Discarding a quest is destructive: the usual button, red words.
-      if (action.kind === "drop" && !action.item)
-        button.dataset.destructive = "";
-      button.title = elysiumPortrait.text(refused || playText(action));
-      button.disabled = !refused && selectionBlocked();
-      if (refused) blockPlay(button, "refused");
-      if (action.choiceId) {
-        button.dataset.choice = action.choiceId;
-        button.dataset.pack = action.packId;
-      }
-      const renderedAt = performance.now();
-      button.onclick = () => commitAction(action, revision, renderedAt);
-      return button;
+      return {
+        action,
+        refused,
+        disabled: !refused && selectionBlocked(),
+        label: elysiumPortrait.text(refused ? refusalLabel(refused) : playLabel(action, world)),
+        title: elysiumPortrait.text(refused || playText(action)),
+      };
     }),
+    elysiumPortrait.text(sentence),
+    (action, renderedAt) => commitAction(action, revision, renderedAt),
   );
   if (packAsk) {
     const reveal = node("button", packAsk.label, "card-primary");
@@ -3041,7 +3033,8 @@ function renderActions() {
     !row.firstElementChild.dataset.blocked &&
     (only || packAsk || openingBox || row.firstElementChild.dataset.look)
   ) {
-    const button = row.firstElementChild;
+    const button = row.firstElementChild,
+      label = playButtonLabel(button);
     panel.setAttribute("data-card-tap", "");
     if (only?.kind === "wait" && !only.label && !only.guards)
       button.dataset.waitSentence = "";
@@ -3051,8 +3044,8 @@ function renderActions() {
         ? PACK_REVEAL_ONE
         : packAsk
           ? packAsk.label
-          : actionTapVerb(only, button.textContent),
-      only?.label === "Wake" ? sentence : button.textContent,
+          : actionTapVerb(only, label),
+      only?.label === "Wake" ? sentence : label,
     );
     message = button;
     heading.hidden = true;
@@ -6017,12 +6010,12 @@ function syncSharedLine() {
   storyStatus = "ready";
   renderScene();
 }
-function adoptShared(value) {
+function adoptShared(value, { clockOnly = false } = {}) {
   if (!value.actor || !value.world?.actors?.[value.actor]) {
     leavePage(() => location.reload());
     return;
   }
-  const key = JSON.stringify([value.world, value.present, value.claimed]);
+  const key = clockOnly ? sharedWorldKey : JSON.stringify([value.actor, value.world, value.present, value.claimed]);
   if (key !== sharedWorldKey) {
     const previousActor = currentActor(world);
     const from = world.actors[previousActor].place;
@@ -6098,7 +6091,7 @@ function adoptShared(value) {
     if (alreadyOpen) {
       queueDiscoveries();
     }
-  } else {
+  } else if (!clockOnly) {
     renderActions();
     renderScene();
   }

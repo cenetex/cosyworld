@@ -243,10 +243,14 @@ export async function connectSharedWorld(id) {
     if (next === state) return state;
     if (next.now < state.now || next.world?.revision < state.world?.revision)
       return state;
+    const fields = Object.keys(next);
+    const clockOnly =
+      fields.length === Object.keys(state).length &&
+      fields.every((key) => key === "now" || next[key] === state[key]);
     lastSynced = Date.now();
     state = next;
     offset = next.now - Date.now();
-    listener(next);
+    listener(next, { clockOnly });
     if (
       playError?.key &&
       (next.queue?.some((entry) => entry.id === playError.key) ||

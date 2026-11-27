@@ -48,6 +48,13 @@ Reviewed 2026-11-27. This audit covers the playable card table, mounted packs, s
 
 ## Browser and devices
 
+The UI cleanup covered four ways the table could show or rebuild an earlier view.
+
+- Startup kept the shell's old Character and Settings buttons visible while the account and world resolved. The controls now appear in the active toolbar, and a saved-world redirect leaves the title and arrival fade to the destination page. [Entry](../../v2/card-game/entry.mjs)
+- A shared poll with no events cloned the saved view and rebuilt scene and action controls. A verified clock-only reply now retains the view, while reading and connection clocks continue to update. Real turns still reach both renderers. An unchanged action retains its button, focus and caption while its handler takes the new world revision. [Sync](../../v2/card-game/shared-sync.mjs) · [Play buttons](../../v2/card-game/card-descriptor.mjs)
+- An instant cut could leave an outgoing painting or crossing overlay visible. Each layer now owns its current transition and invalidates pending decode work when an instant cut takes over. [Transitions](../../v2/card-game/transitions.mjs)
+- A menu preview redrew the game's action card underneath itself, then replaced its own images on refresh. The menu now owns the action card while open and reuses its images when the visible art stays the same. [Action renderer](../../v2/card-game/app.mjs) · [Card descriptor](../../v2/card-game/card-descriptor.mjs)
+
 | Case | Current behavior and direction |
 | --- | --- |
 | **English refusal strings** | The exact “Your play is already at the table.” text triggers read-only recovery. Two stale phrases also control which notices show. Use structured duplicate, stale and uncertain statuses with a compatibility reader for the old copy. Keep request keys and the GET-only path after an uncertain write. [Shared send](../../v2/card-game/shared.mjs#L311) · [Presentation notices](../../v2/card-game/presentation.mjs#L93) |
