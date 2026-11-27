@@ -13,13 +13,15 @@ use axum::{
     Json,
 };
 use rusqlite::{params, Connection, OpenFlags};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::BTreeMap,
     fs::{self, File, OpenOptions, TryLockError},
     io::{self, Read, Write},
     path::{Path, PathBuf},
+    sync::Mutex,
     time::{Duration, SystemTime},
 };
 
@@ -31,6 +33,46 @@ const PORTRAIT_RETRY: Duration = Duration::from_secs(300);
 const MAX_RECEIPT_SEQUENCE: u64 = (1 << 53) - 1;
 const GROK: &str = "x-ai/grok-4.7";
 const GROK_REVISION: &str = "x-ai/grok-4.7-20260916";
+const GEMINI: &str = "google/gemini-4-hydrogen";
+const GEMINI_REVISION: &str = "google/gemini-4-hydrogen-20261112";
+
+#[derive(Clone, Copy, Serialize)]
+struct PortraitActivity {
+    state: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    failure: Option<&'static str>,
+}
+
+static PORTRAITS: Mutex<BTreeMap<&'static str, PortraitActivity>> = Mutex::new(BTreeMap::new());
+
+fn record_portrait(resident: &Resident, state: &'static str, failure: Option<&'static str>) {
+    if let Ok(mut portraits) = PORTRAITS.lock() {
+        portraits.insert(resident.id, PortraitActivity { state, failure });
+    }
+}
+
+pub(crate) fn portrait_activity() -> Value {
+    PORTRAITS
+        .lock()
+        .map(|portraits| json!(*portraits))
+        .unwrap_or_else(|_| json!({}))
+}
+
+fn portrait_pending(resident: &Resident, status: StatusCode) -> Response {
+    let state = PORTRAITS
+        .lock()
+        .ok()
+        .and_then(|portraits| portraits.get(resident.id).map(|activity| activity.state))
+        .unwrap_or("pending");
+    (
+        [(
+            header::HeaderName::from_static("x-cosyworld-portrait-status"),
+            state,
+        )],
+        status,
+    )
+        .into_response()
+}
 
 pub(super) struct Resident {
     id: &'static str,
@@ -52,7 +94,7 @@ const RESIDENTS: [Resident; 6] = [
         id: "elysium-gemini",
         room: "elysium-void-003",
         token: "elysium-gemini-token",
-        model: "google/gemini-4-hydrogen",
+        model: GEMINI,
         setting: "a chamber of twin silver mirrors",
     },
     Resident {
@@ -94,16 +136,26 @@ pub(crate) fn elysium_model(id: &str) -> Option<&'static str> {
 }
 
 pub(crate) fn elysium_model_mismatch(bound: Option<&str>, resolved: &str) -> bool {
-    bound.is_some_and(|bound| bound != resolved && !(bound == GROK && resolved == GROK_REVISION))
+    bound.is_some_and(|bound| {
+        bound != resolved
+            && !matches!(
+                (bound, resolved),
+                (GROK, GROK_REVISION) | (GEMINI, GEMINI_REVISION)
+            )
+    })
 }
 
 fn elysium_reasoning_effort(bound: &str) -> Option<&'static str> {
-    (bound == GROK).then_some("low")
+    matches!(bound, GROK | GEMINI).then_some("low")
 }
 
 pub(crate) fn tune_elysium_voice(config: &mut AiConfig, bound: Option<&str>) {
-    if let Some(effort) = bound.and_then(elysium_reasoning_effort) {
-        config.reasoning_effort = config.reasoning_effort.as_ref().map(|_| effort.to_owned());
+    if let Some(effort) = bound.and_then(elysium_reasoning_effort).filter(|_| {
+        config
+            .pin_model(ModelCapability::WorldContent)
+            .is_ok_and(|selection| selection.candidate().supported_parameters().reasoning)
+    }) {
+        config.reasoning_effort = Some(effort.to_owned());
     }
 }
 
@@ -327,26 +379,20 @@ async fn model_words(
     stage: &str,
     task: &str,
     max_tokens: u32,
-) -> Result<String> {
+) -> std::result::Result<String, &'static str> {
     let mut config = state.ai_config.as_ref().clone().ok_or_else(|| {
         voice_issue(resident, stage, "elysium_model_unavailable", None);
-        "elysium_model_unavailable".to_owned()
+        "elysium_model_unavailable"
     })?;
     config
         .capability_models
         .insert(ModelCapability::WorldContent, resident.model.into());
-    if stage == "name" {
-        config.reasoning_effort = elysium_reasoning_effort(resident.model)
-            .filter(|_| {
-                config
-                    .pin_model(ModelCapability::WorldContent)
-                    .is_ok_and(|selection| selection.candidate().supported_parameters().reasoning)
-            })
-            .map(str::to_owned);
-    }
+    config.reasoning_effort = None;
+    tune_elysium_voice(&mut config, Some(resident.model));
     let context = format!("Your Void is {}. {task}", resident.setting);
-    let timeout = if stage == "name" { 8 } else { 22 };
-    let output = request_chat_completion(&config, ChatCompletionRequest {
+    let timeout = Duration::from_secs(if stage == "name" { 8 } else { 22 });
+    let deadline = tokio::time::Instant::now() + timeout;
+    let mut request = ChatCompletionRequest {
         feature: "elysium_identity",
         prompt_version: "elysium-identity/1",
         capability: ModelCapability::WorldContent,
@@ -354,14 +400,27 @@ async fn model_words(
         user: &context,
         temperature: 0.8,
         max_tokens,
-        timeout: Duration::from_secs(timeout),
+        timeout,
         max_attempts: 1,
         referer: "https://lonelyforest.com",
         response_format: None,
         room_id: None,
-    }).await.map_err(|error| {
+    };
+    let mut result = request_chat_completion(&config, request).await;
+    if stage == "appearance"
+        && result
+            .as_ref()
+            .is_err_and(|error| error.retryable_chat_response())
+    {
+        request.timeout = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if !request.timeout.is_zero() {
+            request.max_tokens = 2048;
+            result = request_chat_completion(&config, request).await;
+        }
+    }
+    let output = result.map_err(|error| {
         voice_issue(resident, stage, error.code(), error.provider_http_status());
-        error.code().to_string()
+        error.response_detail().unwrap_or(error.code())
     })?;
     let invalid = if elysium_model_mismatch(Some(resident.model), &output.resolved_model_id) {
         Some("elysium_model_mismatch")
@@ -373,7 +432,7 @@ async fn model_words(
     };
     if let Some(code) = invalid {
         voice_issue(resident, stage, code, None);
-        return Err(code.into());
+        return Err(code);
     }
     Ok(output.text.trim().to_string())
 }
@@ -485,11 +544,12 @@ fn read_portrait(dir: &Path) -> Option<Vec<u8>> {
             continue;
         }
         let mut bytes = Vec::new();
-        File::open(&path)
-            .ok()?
-            .take(MAX_PORTRAIT + 1)
-            .read_to_end(&mut bytes)
-            .ok()?;
+        let Ok(file) = File::open(&path) else {
+            continue;
+        };
+        if file.take(MAX_PORTRAIT + 1).read_to_end(&mut bytes).is_err() {
+            continue;
+        }
         if bytes.len() as u64 <= MAX_PORTRAIT
             && path.file_stem().and_then(|s| s.to_str()) == Some(hash(&bytes).as_str())
         {
@@ -529,8 +589,9 @@ async fn render(state: &AppState, resident: &'static Resident) -> Result<()> {
         Ok::<_, io::Error>(drawing_lease(&path)?.map(|lease| (read_name(&path), lease)))
     })
     .await
-    .map_err(|error| error.to_string())?
-    .map_err(|error| error.to_string())?
+    .map_err(|error| error.to_string())
+    .and_then(|result| result.map_err(|error| error.to_string()))
+    .inspect_err(|_| record_portrait(resident, "retrying", Some("portrait_storage")))?
     else {
         return Ok(());
     };
@@ -539,17 +600,25 @@ async fn render(state: &AppState, resident: &'static Resident) -> Result<()> {
         Some(name) => format!("Your name is {name}. {description}"),
         None => description.to_string(),
     };
-    let words = model_words(state, resident, "appearance", &task, 400).await?;
+    record_portrait(resident, "describing", None);
+    let words = model_words(state, resident, "appearance", &task, 1024)
+        .await
+        .inspect_err(|code| record_portrait(resident, "retrying", Some(*code)))?;
     let appearance = words.split_whitespace().collect::<Vec<_>>().join(" ");
     if words.chars().any(|c| c.is_control() && !c.is_whitespace())
         || appearance.is_empty()
         || appearance.chars().count() > 400
         || !human_message_is_cozy_safe(&appearance)
     {
+        record_portrait(resident, "retrying", Some("invalid_appearance"));
         return Err("Elysium's resident has not settled on an appearance.".into());
     }
     let styled = format!("{appearance} Fine silver etching, deep graphite and restrained gold, strong contours, black-paper texture on the full figure only.");
-    let bytes = draw_model_void_portrait(state, resident.id, &styled).await?;
+    record_portrait(resident, "drawing", None);
+    let bytes = draw_model_void_portrait(state, resident.id, &styled)
+        .await
+        .inspect_err(|code| record_portrait(resident, "retrying", Some(*code)))?;
+    record_portrait(resident, "saving", None);
     tokio::task::spawn_blocking(move || {
         let _lease = lease;
         let _budget = GeneratedAssetWriteGuard::acquire(&root, bytes.len() as u64)?;
@@ -557,7 +626,11 @@ async fn render(state: &AppState, resident: &'static Resident) -> Result<()> {
         atomic_write(&dir, &file, &bytes).map_err(|error| error.to_string())
     })
     .await
-    .map_err(|error| error.to_string())?
+    .map_err(|error| error.to_string())
+    .and_then(|result| result)
+    .inspect_err(|_| record_portrait(resident, "retrying", Some("portrait_storage")))?;
+    record_portrait(resident, "ready", None);
+    Ok(())
 }
 
 pub(super) fn draw(state: AppState, resident: &'static Resident) {
@@ -568,6 +641,11 @@ pub(super) fn draw(state: AppState, resident: &'static Resident) {
             }
         });
     }
+}
+
+fn portrait_image(resident: &Resident, bytes: Vec<u8>) -> Response {
+    record_portrait(resident, "ready", None);
+    ([(header::CONTENT_TYPE, "image/png")], bytes).into_response()
 }
 
 pub(super) async fn identity(
@@ -609,10 +687,10 @@ pub(super) async fn portrait(
     .await
     .unwrap_or(Err(StatusCode::SERVICE_UNAVAILABLE));
     private(match result {
-        Ok(Some(bytes)) => ([(header::CONTENT_TYPE, "image/png")], bytes).into_response(),
+        Ok(Some(bytes)) => portrait_image(resident, bytes),
         Ok(None) => {
             draw(state, resident);
-            StatusCode::NOT_FOUND.into_response()
+            portrait_pending(resident, StatusCode::NOT_FOUND)
         }
         Err(status) => status.into_response(),
     })
@@ -663,13 +741,13 @@ pub(super) async fn personal_portrait(
     let dir = directory(&state.generated_asset_dir, resident);
     private(
         match tokio::task::spawn_blocking(move || read_portrait(&dir)).await {
-            Ok(Some(bytes)) => ([(header::CONTENT_TYPE, "image/png")], bytes).into_response(),
+            Ok(Some(bytes)) => portrait_image(resident, bytes),
             Ok(None) if state.ai_config.is_none() => {
                 StatusCode::SERVICE_UNAVAILABLE.into_response()
             }
             Ok(None) => {
                 draw(state, resident);
-                StatusCode::ACCEPTED.into_response()
+                portrait_pending(resident, StatusCode::ACCEPTED)
             }
             Err(_) => StatusCode::SERVICE_UNAVAILABLE.into_response(),
         },
@@ -785,7 +863,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn personal_twin_lens_portrait_renders_without_a_name() {
+    async fn personal_twin_lens_portrait_retries_empty_appearance_without_a_name() {
         let resident = resident("elysium-gemini").unwrap();
         let model = resident.model;
         let mut silhouette = image::RgbaImage::new(2, 3);
@@ -799,11 +877,14 @@ mod tests {
         let captured = seen.clone();
         let provider = Router::new().route("/{*path}", post(move |uri: Uri, Json(body): Json<Value>| {
             let is_image = uri.path() == "/images";
-            captured.lock().unwrap().push((uri.path().to_string(), body));
+            let mut calls = captured.lock().unwrap();
+            calls.push((uri.path().to_string(), body));
             let reply = if is_image {
-                json!({"model":"openai/gpt-image-2.6-flare","data":[{"b64_json":picture,"media_type":"image/png"}]})
+                json!({"model":"openai/gpt-image-2.6-flare-20261104","data":[{"b64_json":picture,"media_type":"image/png"}]})
+            } else if calls.len() == 1 {
+                json!({"model":GEMINI_REVISION,"choices":[{"message":{"content":null,"reasoning":"Private reflection"},"finish_reason":"length"}]})
             } else {
-                json!({"model":model,"choices":[{"message":{"content":"A long silver coat.\n\nA round glass face."},"finish_reason":"stop"}]})
+                json!({"model":GEMINI_REVISION,"choices":[{"message":{"content":"A long silver coat.\n\nA round glass face."},"finish_reason":"stop"}]})
             };
             async move { Json(reply) }
         }));
@@ -813,7 +894,7 @@ mod tests {
         let registry = json!({"schema_version":1,"snapshot_version":"elysium-portrait-fixture",
             "declared":[{"requested_model_id":model,"provider":"openai_compatible","concrete_model":{"model_id":model},
             "input_modalities":["text"],"output_modalities":["text"],"capabilities":["world_content"],
-            "supported_parameters":{"structured_output":true,"json_mode":true},
+            "supported_parameters":{"structured_output":true,"json_mode":true,"reasoning":true},
             "data_policy":{"retention":"none","training":"prohibited"},"prompt_adapter":{"id":"openai-chat","version":"1"}}]});
         let mut state = crate::test_support::test_app_state(None);
         state.ai_config = Arc::new(Some(AiConfig {
@@ -831,7 +912,11 @@ mod tests {
         let receipt = twin_lens_return();
         let id = resident.id;
         let request = || request_personal(&app, id, &receipt, "http://localhost");
-        assert_eq!(request().await.status(), StatusCode::ACCEPTED);
+        let pending = request().await;
+        assert_eq!(pending.status(), StatusCode::ACCEPTED);
+        assert!(pending
+            .headers()
+            .contains_key("x-cosyworld-portrait-status"));
         let response = tokio::time::timeout(Duration::from_secs(10), async {
             loop {
                 let response = request().await;
@@ -856,18 +941,22 @@ mod tests {
         assert_eq!((figure.width(), figure.height()), (1024, 1536));
         assert!(!directory(&root, resident).join("name.txt").exists());
         let calls = seen.lock().unwrap();
-        assert_eq!(calls.len(), 2);
+        assert_eq!(calls.len(), 3);
         assert_eq!(calls[0].0, "/chat/completions");
         assert_eq!(calls[0].1["model"], model);
         assert!(calls[0].1["messages"][1]["content"]
             .as_str()
             .unwrap()
             .contains(resident.setting));
-        assert_eq!(calls[1].0, "/images");
-        assert!(calls[1].1["prompt"]
-            .as_str()
-            .unwrap()
-            .contains("A long silver coat. A round glass face."));
+        assert_eq!(calls[1].0, "/chat/completions");
+        assert_eq!(calls[1].1["model"], model);
+        assert_eq!(calls[0].1["reasoning"]["effort"], "low");
+        assert_eq!(calls[1].1["max_tokens"], 2048);
+        assert_eq!(calls[2].0, "/images");
+        let prompt = calls[2].1["prompt"].as_str().unwrap();
+        assert!(prompt.contains("A long silver coat. A round glass face."));
+        assert!(!prompt.contains("Private reflection"));
+        assert_eq!(portrait_activity()[id]["state"], "ready");
         server.abort();
         fs::remove_dir_all(root).unwrap();
     }

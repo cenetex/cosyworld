@@ -93,10 +93,9 @@ try {
       await requests
         .at(-1)
         .route.fulfill({ status: 503, json: { error: "fixture" } });
-    // Words that failed are "…" on the speaker's beat; there is no Retry,
-    // and the next play is available at once.
+    // A failed reply is a status on the speaker's beat. The next play is available.
     await page.waitForFunction(
-      () => document.querySelector("#dialogue-text").textContent.trim() === "…",
+      () => document.querySelector("#dialogue-text").textContent.trim() === "Reply unavailable",
     );
     assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
     const failed = await snapshot();

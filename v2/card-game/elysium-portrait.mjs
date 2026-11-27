@@ -56,11 +56,18 @@ function clearImage(id, source) {
 }
 
 function createResource(send, read, changed, {
-  revoke, forget = () => {}, delays,
+  revoke, forget = () => {}, delays, redrawStatus, pendingStatus,
 }) {
   let value = null,
     checkedRevision = null,
+    note = "",
     request = null;
+
+  function setNote(text, notify = true) {
+    if (!redrawStatus || note === text) return;
+    note = text;
+    if (notify) queueMicrotask(redrawStatus);
+  }
 
   function stop() {
     clearTimeout(request?.timer);
@@ -71,6 +78,7 @@ function createResource(send, read, changed, {
   function clear() {
     stop();
     checkedRevision = null;
+    setNote("", false);
     if (value === null) return;
     forget(value);
     value = null;
@@ -78,7 +86,7 @@ function createResource(send, read, changed, {
   }
 
   async function probe(active, attempt) {
-    let source;
+    let source, waiting = false;
     try {
       const response = await send({
         credentials: "same-origin",
@@ -93,9 +101,12 @@ function createResource(send, read, changed, {
       if (request !== active) return;
       if ([401, 403, 409].includes(response.status)) {
         stop();
-        revoke?.();
+        if (revoke) revoke();
+        else setNote("Portrait unavailable.");
         return;
       }
+      waiting = response.status === pendingStatus &&
+        response.headers?.get("X-Cosyworld-Portrait-Status") !== "retrying";
       if (response.ok) source = await read(response);
     } catch {
       // Keep the authored art or anonymous title during a provider delay.
@@ -104,20 +115,28 @@ function createResource(send, read, changed, {
     if (source) {
       value = source;
       request = null;
+      setNote("", false);
       changed(true);
       return;
     }
-    if (attempt === delays.length) request = null;
-    else
+    if (attempt === delays.length) {
+      request = null;
+      setNote("Portrait unavailable.");
+    } else {
+      setNote(waiting ? "Portrait pending." : "Retrying portrait.");
       active.timer = setTimeout(
         () => void probe(active, attempt + 1),
         delays[attempt],
       );
+    }
   }
 
   return {
     get value() {
       return value;
+    },
+    get note() {
+      return note;
     },
     clear,
     observe(earned, available, revision, data) {
@@ -125,9 +144,11 @@ function createResource(send, read, changed, {
       else if (!available) {
         stop();
         checkedRevision = null;
+        setNote("", false);
       } else if (!value && !request && checkedRevision !== revision) {
         checkedRevision = revision;
         request = { controller: new AbortController(), timer: null, data };
+        setNote("Portrait pending.");
         void probe(request, 0);
       }
     },
@@ -202,6 +223,8 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
               revoke: prefix ? revoke : null,
               forget: (source) => clearImage(id, source),
               delays: portraitRetryDelays,
+              redrawStatus: redraw,
+              pendingStatus: prefix ? 404 : 202,
             },
           )
         : null,
@@ -297,6 +320,7 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
         : context;
     },
     source: (id, sleeping) => (sleeping ? null : cast.get(id)?.portrait?.value),
+    note: (id) => cast.get(id)?.portrait?.note || "",
     text,
     reader,
     observe(world, actor, line) {

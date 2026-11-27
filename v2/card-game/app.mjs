@@ -250,7 +250,7 @@ import {
 } from "./dialogue.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
 import { createPagedReveal } from "./speech-pages.mjs";
-import { createSpeechText } from "./speech-text.mjs";
+import { createSpeechText, REPLY_UNAVAILABLE } from "./speech-text.mjs";
 import {
   currentActor,
   places,
@@ -1229,10 +1229,8 @@ const reveal = createPagedReveal({
     if (value.complete && !reviewing && announcedBeat !== value.key) {
       announcedBeat = value.key;
       $("speech-announcement").textContent = [
-        expressionLabel(
-          { ...people[value.speaker], name: voidSpeaker(value.speaker) || visibleText(nameOf(value.speaker)) },
-          value.text,
-        ),
+        shownSceneLine?.silent ? REPLY_UNAVAILABLE : expressionLabel(
+          { ...people[value.speaker], name: voidSpeaker(value.speaker) || visibleText(nameOf(value.speaker)) }, value.text),
         ...frontCaptions,
       ].join(" ");
     }
@@ -2533,7 +2531,7 @@ function showBeatCards(
       here,
       verb,
       ids,
-      ids.map(beatPortrait),
+      ids.map(beatPortraitKey),
       actionView,
       asScene,
     ]);
@@ -3072,7 +3070,8 @@ function renderActions() {
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = !rested && !packAsk && !lockShown && !picked && !pipPrelude()
-    ? (only?.label === "Return Lamp" ? "" : pondSignalNote(world, known, selected)) || firstFoolNote(world, known)
+    ? (!closed && elysiumPortrait.note(viewed)) ||
+      (only?.label === "Return Lamp" ? "" : pondSignalNote(world, known, selected)) || firstFoolNote(world, known)
     : "";
   if (abandonQuest) {
     panel.dataset.tier = "danger";
@@ -3337,8 +3336,7 @@ function card(id) {
   const img = node("img");
   img.decoding = "async";
   img.fetchPriority = "low";
-  const drawn = !hidden && type === "avatar" && elysiumPortrait.source(id, world.actors[id]?.sleeping);
-  img.src = drawn || imageUrl(
+  img.src = imageUrl(
     locked
       ? LOCKED_BACK
       : type === "item"
@@ -3526,7 +3524,9 @@ function shownQuestCaption(quest, includeLevel = true) {
   const shown = includeLevel ? quest : { ...quest, level: null };
   return elysiumPortrait.text(questCaption(shown, hidden, questVerb(world, quest, hidden), known));
 }
-const tablePortrait = (id) => portrait(id, null, asleepWorld(world), !listenerCardHeld);
+const drawnPortrait = (id, sleeping = world.actors[id]?.sleeping || sleepView.sleeper === id) =>
+  !cardIsClosed(id) && elysiumPortrait.source(id, sleeping);
+const tablePortrait = (id) => drawnPortrait(id) || portrait(id, null, asleepWorld(world), !listenerCardHeld);
 const questArt = {
   url: (src) => imageUrl(src, "card"),
   portrait: tablePortrait,
@@ -3779,7 +3779,7 @@ function renderStage(locationId) {
   figure.style.setProperty("--sprite-top", `${sprite.top}%`);
   figure.style.setProperty("--sprite-width", `${sprite.width}%`);
   const mood = variantOf(world, stage.resident);
-  const source = imageUrl(portrait(stage.resident, null, world));
+  const source = imageUrl(drawnPortrait(stage.resident) || portrait(stage.resident, null, world));
   if (figure.getAttribute("src") !== source) figure.src = source;
   figure.dataset.state = mood?.name || "present";
   figure.alt = coveredCards.has(stage.resident)
@@ -4059,7 +4059,7 @@ function renderScene() {
       "--lean",
       actor.facing === "right" ? ".35deg" : "-.35deg",
     );
-    const image = figure.querySelector("img"), drawn = elysiumPortrait.source(id, sleeping),
+    const image = figure.querySelector("img"), drawn = drawnPortrait(id, sleeping),
       source = drawn || imageUrl(actor.cutout), previous = image.getAttribute("src"),
       from = shownStageLevels.get(id);
     const level = cardLevel(view, id);
@@ -4304,7 +4304,7 @@ function renderScene() {
   const line = front?.line || null;
   shownSceneLine = line;
   elysiumPortrait.observe(world, viewer, line && completedSpeech.has(lineKey(line, scene.locationId)) ? line : null);
-  const text = line ? line.text : "";
+  const text = line?.silent && !reviewing ? REPLY_UNAVAILABLE : line?.text || "";
   $("speaker").textContent = voidSpeaker(front?.speakerId) || visibleText(
     front ? line?.speaker || front.label ||
         (front.speakerId ? nameOf(front.speakerId) : "")
@@ -4349,13 +4349,12 @@ function renderScene() {
     );
   const portraitId = (ownAction ? actionView?.actor : front?.speakerId) || null;
   const portraitBox = $("speaker-portrait");
-  // Key on the resolved art too, so a changed pose, scarf or backdrop repaints.
   const portraitSource = beatPortrait(portraitId);
   const portraitKey = JSON.stringify([
-    portraitSource,
+    beatPortraitKey(portraitId),
     actionView,
     actionView?.here && placeArt(actionView.here),
-    actionView && beatPortrait(actionView.to || actionView.target),
+    actionView && beatPortraitKey(actionView.to || actionView.target),
   ]);
   if (
     portraitBox.dataset.entity !== (portraitId || "") ||
@@ -4451,7 +4450,7 @@ function renderScene() {
     // already read; it stays whole instead of being written again.
     reveal.show(key, text, speaker, {
       instant:
-        completedSpeech.has(key) ||
+        line.silent || completedSpeech.has(key) ||
         (!sharedSession && !reviewing && line.turn !== world.turn),
     });
   } else {
@@ -4487,7 +4486,7 @@ function renderScene() {
       summary.text,
       summary.speaker,
       behind.speakerId,
-      beatPortrait(behind.speakerId),
+      beatPortraitKey(behind.speakerId),
     ]);
     if (behindButton.dataset.key !== behindKey) {
       behindButton.dataset.key = behindKey;
@@ -4591,6 +4590,7 @@ function beatPortrait(id) {
     "card",
   );
 }
+const beatPortraitKey = (id) => id && drawnPortrait(id) ? [id, elysiumPortrait.key] : beatPortrait(id);
 let stackView = { beats: [], frontIndex: -1, liveIndex: -1, pending: null };
 let stackRendered = { key: null, speaker: null, place: null };
 // A ready or pending play, or words the player must see, are a beat in

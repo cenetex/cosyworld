@@ -4,6 +4,7 @@
 //! Nothing here stores or logs prompt or reply text. Reasons are the
 //! validator's own static labels, so the counters stay bounded.
 use super::{Context, Entity, Part};
+use crate::ai_gateway::AiGatewayError;
 use serde_json::{json, Map, Value};
 use std::{collections::BTreeMap, sync::Mutex, time::Instant};
 
@@ -209,6 +210,11 @@ struct Mix {
     rejections: BTreeMap<&'static str, u64>,
 }
 
+struct ProviderFailure {
+    code: &'static str,
+    response_detail: Option<&'static str>,
+}
+
 /// The tally for a registry label. The registry is small; past 24 labels the
 /// rest share "other", so the map stays bounded whatever the config holds.
 fn mix<'m>(map: &'m mut BTreeMap<String, Mix>, key: &str) -> &'m mut Mix {
@@ -234,6 +240,7 @@ pub(super) struct Totals {
     models: BTreeMap<String, Mix>,
     providers: BTreeMap<String, Mix>,
     provider_failures: BTreeMap<&'static str, u64>,
+    provider_response_details: BTreeMap<&'static str, u64>,
     flagged: BTreeMap<&'static str, u64>,
 }
 
@@ -251,18 +258,19 @@ impl Totals {
             models: BTreeMap::new(),
             providers: BTreeMap::new(),
             provider_failures: BTreeMap::new(),
+            provider_response_details: BTreeMap::new(),
             flagged: BTreeMap::new(),
         }
     }
 
     /// Count a call under the model and provider it last tried, and each
-    /// gateway failure code it met.
+    /// gateway failure code and response category it met.
     fn record_route(
         &mut self,
         (model, provider): (&str, &str),
         attempts: u8,
         outcome: Outcome,
-        failures: &[&'static str],
+        failures: &[ProviderFailure],
         flags: &[&'static str],
         fell_back: bool,
     ) {
@@ -279,8 +287,11 @@ impl Totals {
                 Outcome::Cancelled => &mut tally.cancelled,
             } += 1;
         }
-        for code in failures {
-            *self.provider_failures.entry(code).or_default() += 1;
+        for failure in failures {
+            *self.provider_failures.entry(failure.code).or_default() += 1;
+            if let Some(detail) = failure.response_detail {
+                *self.provider_response_details.entry(detail).or_default() += 1;
+            }
         }
         for reason in flags {
             *self.flagged.entry(reason).or_default() += 1;
@@ -342,6 +353,7 @@ impl Totals {
             "by_model": self.models,
             "by_provider": self.providers,
             "provider_failures": self.provider_failures,
+            "provider_response_details": self.provider_response_details,
             "flagged": self.flagged,
             "benches": crate::ai_bench::bench_count(),
             "scenes": super::voice_scenes::snapshot(),
@@ -369,7 +381,7 @@ struct State {
     attempts: u8,
     reasons: Vec<&'static str>,
     rejected_on: Vec<String>,
-    failures: Vec<&'static str>,
+    failures: Vec<ProviderFailure>,
     flags: Vec<&'static str>,
     outcome: Option<Outcome>,
     model: String,
@@ -475,12 +487,15 @@ impl<'a> Call<'a> {
         });
     }
 
-    /// The gateway failed this attempt; `code` is its static failure code.
-    pub(super) fn reject_provider(&self, code: &'static str) {
+    /// Count only the gateway's static code and optional response category.
+    pub(super) fn reject_provider(&self, error: &AiGatewayError) {
         self.reject("provider");
         self.with(|state| {
             if state.failures.len() < 8 {
-                state.failures.push(code);
+                state.failures.push(ProviderFailure {
+                    code: error.code(),
+                    response_detail: error.response_detail(),
+                });
             }
         });
     }
@@ -538,7 +553,7 @@ impl Drop for Call<'_> {
             model = %state.model,
             provider = %state.provider,
             fell_back = state.fell_back,
-            failures = %state.failures.join(","),
+            failures = %state.failures.iter().map(|failure| failure.code).collect::<Vec<_>>().join(","),
             flags = %state.flags.join(","),
             ms,
             tokens = b.total(),
@@ -646,7 +661,16 @@ mod tests {
             route,
             2,
             Outcome::Silent,
-            &["inference_timeout"],
+            &[
+                ProviderFailure {
+                    code: "inference_timeout",
+                    response_detail: None,
+                },
+                ProviderFailure {
+                    code: "inference_invalid_response",
+                    response_detail: Some("reasoning_only"),
+                },
+            ],
             &[],
             false,
         );
@@ -656,6 +680,11 @@ mod tests {
         assert_eq!(value["by_model"]["openai/gpt-6-luna"]["silent"], 1);
         assert_eq!(value["by_provider"]["openrouter"]["attempts"], 3);
         assert_eq!(value["provider_failures"]["inference_timeout"], 1);
+        assert_eq!(value["provider_failures"]["inference_invalid_response"], 1);
+        assert_eq!(
+            value["provider_response_details"],
+            json!({"reasoning_only": 1})
+        );
         assert_eq!(value["by_model"]["openai/gpt-6-luna"]["fallbacks"], 1);
         // A flagged line is spoken, and its flag is counted apart.
         assert_eq!(value["by_model"]["openai/gpt-6-luna"]["spoken"], 1);

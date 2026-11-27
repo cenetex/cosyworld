@@ -3,6 +3,8 @@ import { nameLetters } from "./card-names.mjs";
 import { createRevealPainter, letterSpans } from "./dialogue.mjs";
 import { speechPages } from "./speech-pages.mjs";
 
+export const REPLY_UNAVAILABLE = "Reply unavailable";
+
 export function createSpeechText({
   row,
   text,

@@ -40,7 +40,7 @@ const state = (page) =>
       ].map((c) => c.dataset.card),
     };
   });
-// Words that fail are a silent "…" line (#2008's note and Retry are gone).
+// Unavailable replies use the dialogue status without a retry control.
 async function noFailureUi(page) {
   assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
   assert.equal(await page.locator("[data-retry-words]").count(), 0);
@@ -214,17 +214,16 @@ async function local(width, questAfterWait = false) {
   mode = "hold";
   await readyActionButton(t.page).click();
   await until(t.page, (s) => s.thinking && !s.panel, "Thinking at once", 16);
-  // Words that fail are "…" on the speaker's beat, and a choice comes
-  // forward with no failure note and no Retry.
+  // A failed reply shows a status on the speaker's beat before the next choice.
   mode = "fail";
   await until(t.page, () => held.length, "the pending play requested words");
   await held.shift()();
   await until(
     t.page,
     (s) => s.front === "silent" && !s.thinking && !s.typing,
-    "… after a failure",
+    "unavailable reply after a failure",
   );
-  assert.equal(await t.page.locator("#dialogue-text").innerText(), "…");
+  assert.equal(await t.page.locator("#dialogue-text").innerText(), "Reply unavailable");
   await noFailureUi(t.page);
   await t.choose("pond");
   const failed = await until(t.page, (s) => s.panel, "a choice after failure");
@@ -327,7 +326,7 @@ async function shared(width) {
 }
 
 // A reload shows a line already begun in full (D8) and never asks again for
-// words it interrupted (#2951). A reply over 400 characters is "…" at once.
+// words it interrupted (#2951). A reply over 400 characters is unavailable.
 async function reloads(width) {
   const world = W.createWorld();
   world.actors.vale.place = world.actors.moth.place = "pond";
@@ -386,7 +385,7 @@ async function reloads(width) {
   held.length = 0;
   await play();
   await held.shift()();
-  await until(t.page, (s) => s.front === "silent", "… for a long reply");
+  await until(t.page, (s) => s.front === "silent", "unavailable reply over the character limit");
   await noFailureUi(t.page);
   assert.deepEqual(t.page.errors, []);
   await t.page.close();

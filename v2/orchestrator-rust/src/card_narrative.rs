@@ -2187,14 +2187,11 @@ async fn speak(
                     } else {
                         (1.0 - 0.1 * f64::from(attempt)).max(0.7)
                     },
-                    // Leave reasoning models space before their visible words.
-                    // The usual line and memory limits still apply.
-                    max_tokens: if bound.is_some() {
-                        1024
-                    } else if part == Part::Persona {
-                        160
-                    } else {
-                        96
+                    max_tokens: match (bound.is_some(), part) {
+                        (true, _) if attempt == 0 => 1024,
+                        (true, _) => 2048,
+                        (false, Part::Persona) => 160,
+                        _ => 96,
                     },
                     timeout,
                     max_attempts: 1,
@@ -2208,7 +2205,7 @@ async fn speak(
                         if error.code() == "inference_invalid_response" {
                             tier.fetch_max(1, Ordering::Relaxed);
                         }
-                        call.reject_provider(error.code());
+                        call.reject_provider(&error);
                         tracing::info!(
                             feature = "card_voice",
                             entity = id,
@@ -2219,9 +2216,10 @@ async fn speak(
                             fallback = n,
                             reason = "provider",
                             failure = error.code(),
+                            response_detail = error.response_detail(),
                             "card voice rejected"
                         );
-                        fallback::Miss::Failed
+                        fallback::Miss::provider(&error, bound.is_some() && part == Part::Line)
                     })?;
                 if elysium_model_mismatch(bound, &completion.resolved_model_id) {
                     tier.fetch_max(1, Ordering::Relaxed);
@@ -5034,7 +5032,7 @@ pub(crate) mod tests {
             .any(|fact| fact.starts_with("I received")));
     }
 
-    fn request(context: &Context) -> Request<Body> {
+    pub(super) fn request(context: &Context) -> Request<Body> {
         let mut request = Request::post("/card-game/text")
             .header("content-type", "application/json")
             .header("host", "localhost")

@@ -1,7 +1,7 @@
-// A reply speaker whose words do not come shows "…", unvoiced and unsaved.
+// An unavailable reply is shown as status and kept out of the save.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { holdItem } from "./card-browser-helpers.mjs";
+import { holdItem, readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
@@ -13,14 +13,12 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 let fixture = enableMotives(createWorld({ opening: true }));
-// The opening starts lit: put the lamp out to open the mirror, then hold it
-// again at the pond (#1653, #2580).
+// Put the lamp away to open the mirror and leave Talk available at the pond.
 fixture = holdItem(fixture, null);
 fixture = play(
   fixture,
   legalActions(fixture).find((a) => a.kind === "move" && a.target === "pond"),
 ).state;
-fixture = holdItem(fixture, "lamp");
 const save = encodeSave(fixture),
   key = "cosyworld.reflected-shore.v1.silent-reply";
 const server = createServer();
@@ -70,15 +68,15 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=silent-reply`,
     );
-    await page.locator('#hand [data-card="moth"]').click();
-    await page.locator("#card-actions .card-primary").click();
+    await selectCard(page, "moth");
+    await readyActionButton(page, "talk").click();
     const shown = new Set();
     for (let i = 0; i < 250; i++) {
       shown.add((await page.textContent("#dialogue-text"))?.trim());
       if (
         (await page.locator("#hand").getAttribute("data-cooling")) ===
           "false" &&
-        shown.has("…")
+        shown.has("Reply unavailable")
       )
         break;
       if (await page.locator("#dialogue-advance").isVisible())
@@ -86,25 +84,24 @@ try {
       await page.waitForTimeout(40);
     }
     assert.equal(quiet, "moth");
-    assert(shown.has("…"), `The stage never showed "…": ${[...shown]}`);
-    await page.evaluate(() =>
-      document.querySelector("#history-button").click(),
-    );
-    assert.match(await page.textContent("#messages"), /Pip\s*…/u);
-    await page.evaluate(() =>
-      document.querySelector("#history-dialog").close(),
-    );
+    assert(shown.has("Reply unavailable"), `The stage never showed the reply status: ${[...shown]}`);
+    assert.equal(await page.locator("#hand").getAttribute("data-cooling"), "false");
+    await page.evaluate(() => document.querySelector("#history-button").click());
+    const memories = await page.textContent("#messages");
+    assert.match(memories, /Spoke with Pip/u);
+    assert.doesNotMatch(memories, /Reply unavailable/u);
+    await page.evaluate(() => document.querySelector("#history-dialog").close());
     await page.screenshot({ path: `output/silent-reply/silent-${width}.png` });
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
     assert.equal(
-      saved.log.some((entry) => entry.silent || entry.text === "…"),
+      saved.log.some((entry) => entry.silent || ["…", "Reply unavailable"].includes(entry.text)),
       false,
     );
     assert.deepEqual(errors, []);
-    console.log(`A silent reply showed "…" without saving at ${width}px.`);
+    console.log(`An unavailable reply showed a live status and stayed out of the save at ${width}px.`);
     await page.close();
   }
 } finally {

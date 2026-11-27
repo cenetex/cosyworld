@@ -308,7 +308,7 @@ try {
       await page.close();
     }
   }
-  // When the model gives no opening line, Vale is silent ("…"); nothing
+  // When the model gives no opening line, Vale stays silent. Nothing
   // asks again and no Retry shows.
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
@@ -363,12 +363,12 @@ try {
     await page.waitForFunction(
       () => document.querySelector("#dialogue-text")?.textContent.length > 0,
     );
-    // No scripted line (#1600): a failed first line is the silent "…".
+    // A failed first line shows a status (#1600).
     await page.waitForFunction(
-      () => document.querySelector("#dialogue-text").textContent.trim() === "…",
+      () => document.querySelector("#dialogue-text").textContent.trim() === "Reply unavailable",
     );
     assert.ok(requests.length >= 1);
-    // The "…" is the whole failure: no note, no Retry, and nothing asks again.
+    // The status stays visible without an extra note or Retry control.
     assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
     assert.doesNotMatch(
       await page.locator("body").innerText(),
@@ -382,7 +382,7 @@ try {
     assert.equal(requests.length, asked, "a failed first line is not re-asked");
     assert.equal(
       await page.locator("#dialogue-text").textContent(),
-      "…",
+      "Reply unavailable",
       "the silent beat stays",
     );
     assert.deepEqual(errors, []);
