@@ -81,6 +81,12 @@ try {
       await page.route("**/card-game/text", (route) =>
         route.fulfill({ status: 503, body: "" }),
       );
+      const heldBoot = name === "fresh" ? Promise.withResolvers() : null;
+      if (heldBoot)
+        await page.route("**/auth/account", async (route) => {
+          await heldBoot.promise;
+          return route.continue();
+        });
       if (spec.lock) {
         let attempts = 0;
         await page.route("**/auth/account", (route) => {
@@ -92,7 +98,29 @@ try {
           );
         });
       }
-      await page.goto(`http://127.0.0.1:${server.address().port}/?table=${table}`);
+      const accountRequest = heldBoot && page.waitForRequest("**/auth/account");
+      await page.goto(
+        `http://127.0.0.1:${server.address().port}/?table=${table}`,
+        {
+          waitUntil: heldBoot ? "commit" : "load",
+        },
+      );
+      if (heldBoot) {
+        try {
+          await accountRequest;
+          assert.equal(await page.locator(".top-actions").isVisible(), false);
+          assert.equal(await page.locator(".top-actions > button").count(), 0);
+          assert.equal(
+            await page.locator(".topbar .brand strong").textContent(),
+            "",
+          );
+        } finally {
+          heldBoot.resolve();
+        }
+        const menu = page.locator("#toolbar-menu-button");
+        await menu.waitFor({ state: "visible" });
+        assert.equal(await menu.count(), 1);
+      }
       const bootedApp = () => requested.indexOf("/card-game/app.mjs");
       if (spec.lock) {
         await page.locator("#members-lock").waitFor();

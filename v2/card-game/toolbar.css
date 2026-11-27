@@ -15,6 +15,9 @@ body.local-app #shared-worlds-button {
   gap: 6px;
   padding: 0;
 }
+.topbar .top-actions[hidden] {
+  display: none;
+}
 .topbar .top-actions :is(button, a) {
   display: inline-flex;
   box-sizing: border-box;

@@ -56,13 +56,10 @@
     <audio id="room-music" preload="none" hidden></audio>
     <header class="topbar">
       <div class="brand">
-        <strong>COSYWORLD</strong>
-        <span>…</span>
+        <strong></strong>
+        <span></span>
       </div>
-      <div class="top-actions">
-        <button id="history-button">Character</button
-        ><button id="menu-button">Settings</button>
-      </div>
+      <div class="top-actions" hidden></div>
     </header>
     <main>
       <section id="stage" class="stage" aria-label="Current scene">
@@ -238,6 +235,8 @@
       <div id="messages" class="messages"></div>
     </dialog>
     <dialog id="menu-dialog" aria-labelledby="settings-title">
+      <button id="history-button" type="button">Character</button>
+      <button id="menu-button" type="button">Settings</button>
       <div class="modal-heading">
         <h2 id="settings-title">Settings</h2>
         <button data-close="menu-dialog">Close</button>

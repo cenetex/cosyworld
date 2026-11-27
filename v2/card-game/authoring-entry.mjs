@@ -332,6 +332,9 @@ async function start() {
     designer.chooseTool("maker-seed");
   void accounts.refresh();
   if (!record.draft.pack) designer.chooseTool("source");
+  document.querySelector(".top-actions").append(
+    $("history-button"), $("menu-button"),
+  );
 }
 try {
   await start();
