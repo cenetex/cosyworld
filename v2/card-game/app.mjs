@@ -9,7 +9,11 @@ import { pondSignalBeat, pondSignalNote } from "./pond-signal-view.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
 import { createElysiumPortrait, UNNAMED_ELYSIUM_RESIDENT } from "./elysium-portrait.mjs";
 import { heldItem } from "./held-item.mjs";
-import { renderCardDescriptor } from "./card-descriptor.mjs";
+import {
+  playButtonLabel,
+  renderCardDescriptor,
+  renderPlayButtons,
+} from "./card-descriptor.mjs";
 import {
   nameTitleWaker,
   onTitleWake,
@@ -2903,30 +2907,20 @@ function renderActions() {
   $("action-beat").dataset.tier = rarest.id;
   $("action-beat").style.setProperty("--tier-color", rarest.color);
   const revision = world.revision;
-  row.replaceChildren(
-    ...actions.map((action, index) => {
+  renderPlayButtons(
+    row,
+    actions.map((action) => {
       const refused = refusedPlay(action);
-      const button = node(
-        "button",
-        elysiumPortrait.text(refused ? refusalLabel(refused) : playLabel(action, world)),
-        index === 0 ? "card-primary" : "card-action",
-      );
-      button.type = "button";
-      button.dataset.action = action.kind;
-      // Discarding a quest is destructive: the usual button, red words.
-      if (action.kind === "drop" && !action.item)
-        button.dataset.destructive = "";
-      button.title = elysiumPortrait.text(refused || playText(action));
-      button.disabled = !refused && selectionBlocked();
-      if (refused) blockPlay(button, "refused");
-      if (action.choiceId) {
-        button.dataset.choice = action.choiceId;
-        button.dataset.pack = action.packId;
-      }
-      const renderedAt = performance.now();
-      button.onclick = () => commitAction(action, revision, renderedAt);
-      return button;
+      return {
+        action,
+        refused,
+        disabled: !refused && selectionBlocked(),
+        label: elysiumPortrait.text(refused ? refusalLabel(refused) : playLabel(action, world)),
+        title: elysiumPortrait.text(refused || playText(action)),
+      };
     }),
+    elysiumPortrait.text(sentence),
+    (action, renderedAt) => commitAction(action, revision, renderedAt),
   );
   if (packAsk) {
     const reveal = node("button", packAsk.label, "card-primary");
@@ -3039,7 +3033,8 @@ function renderActions() {
     !row.firstElementChild.dataset.blocked &&
     (only || packAsk || openingBox || row.firstElementChild.dataset.look)
   ) {
-    const button = row.firstElementChild;
+    const button = row.firstElementChild,
+      label = playButtonLabel(button);
     panel.setAttribute("data-card-tap", "");
     if (only?.kind === "wait" && !only.label && !only.guards)
       button.dataset.waitSentence = "";
@@ -3049,8 +3044,8 @@ function renderActions() {
         ? PACK_REVEAL_ONE
         : packAsk
           ? packAsk.label
-          : actionTapVerb(only, button.textContent),
-      only?.label === "Wake" ? sentence : button.textContent,
+          : actionTapVerb(only, label),
+      only?.label === "Wake" ? sentence : label,
     );
     message = button;
     heading.hidden = true;

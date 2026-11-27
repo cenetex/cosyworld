@@ -10,6 +10,53 @@ function node(tag, text, className) {
   return el;
 }
 const artwork = new WeakMap();
+const nativeActions = new WeakMap();
+const actionButton = (label, index) =>
+  node("button", label, index ? "card-action" : "card-primary");
+export const playButtonLabel = (button) =>
+  nativeActions.get(button)?.label ?? button.textContent;
+
+export function renderPlayButtons(row, actions, sentence, commit) {
+  const buttons = actions.map(({ action, label, title, disabled, refused }, index) => {
+    const key = JSON.stringify([action, label, title, disabled, refused, sentence]);
+    const previous = row.children[index];
+    const retained = nativeActions.get(previous)?.key === key;
+    const button = retained
+      ? previous
+      : actionButton(label, index);
+    if (!retained) {
+      nativeActions.set(button, { key, label, shownAt: performance.now() });
+      button.type = "button";
+      button.dataset.action = action.kind;
+      if (action.kind === "drop" && !action.item) button.dataset.destructive = "";
+      button.title = title;
+      button.disabled = disabled;
+      if (refused) {
+        button.dataset.blocked = "refused";
+        button.setAttribute("aria-disabled", "true");
+      }
+      if (action.choiceId) {
+        button.dataset.choice = action.choiceId;
+        button.dataset.pack = action.packId;
+      }
+    }
+    const { shownAt } = nativeActions.get(button);
+    button.onclick = () => {
+      if (button.parentElement === row) commit(action, shownAt);
+    };
+    return button;
+  });
+  updateButtons(row, buttons);
+}
+
+function updateButtons(row, buttons) {
+  if (
+    buttons.length !== row.children.length ||
+    buttons.some((button, i) => row.children[i] !== button)
+  )
+    row.replaceChildren(...buttons);
+}
+
 function drawArt(cards, beat, placeArt) {
   const faces = beat.cards.map(({ src, level, color, lit, ground }) => ({
     src, level: level || null, color: color || null, lit: lit !== false,
@@ -86,7 +133,7 @@ export function renderCardDescriptor(
     const button =
       previous?.dataset.keepMenu === "true" && previous.id === (id ?? "")
         ? previous
-        : node("button", label, index ? "card-action" : "card-primary");
+        : actionButton(label, index);
     button.textContent = label;
     button.type = "button";
     button.id = id ?? "";
@@ -99,9 +146,5 @@ export function renderCardDescriptor(
   });
   // A blur may save source text during a button press. Keep that button in
   // place through the redraw so the same press reaches its click handler.
-  if (
-    buttons.length !== row.children.length ||
-    buttons.some((button, i) => row.children[i] !== button)
-  )
-    row.replaceChildren(...buttons);
+  updateButtons(row, buttons);
 }
