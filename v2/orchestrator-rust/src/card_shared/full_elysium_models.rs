@@ -13,6 +13,7 @@ use axum::{
     Json,
 };
 use rusqlite::{params, Connection, OpenFlags};
+use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -24,8 +25,10 @@ use std::{
 
 pub(super) const NAME_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-identity/{resident}";
 pub(super) const PORTRAIT_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-portrait/{resident}";
+pub(super) const PERSONAL_PORTRAIT_ROUTE: &str = "/card-game/elysium-portrait/{resident}";
 const MAX_PORTRAIT: u64 = 8 * 1024 * 1024;
 const PORTRAIT_RETRY: Duration = Duration::from_secs(300);
+const MAX_RECEIPT_SEQUENCE: u64 = (1 << 53) - 1;
 const GROK: &str = "x-ai/grok-4.7";
 const GROK_REVISION: &str = "x-ai/grok-4.7-20260916";
 
@@ -523,10 +526,7 @@ async fn render(state: &AppState, resident: &'static Resident) -> Result<()> {
     let dir = directory(&root, resident);
     let path = dir.clone();
     let Some((name, lease)) = tokio::task::spawn_blocking(move || {
-        let Some(name) = read_name(&path) else {
-            return Ok(None);
-        };
-        Ok::<_, io::Error>(drawing_lease(&path)?.map(|lease| (name, lease)))
+        Ok::<_, io::Error>(drawing_lease(&path)?.map(|lease| (read_name(&path), lease)))
     })
     .await
     .map_err(|error| error.to_string())?
@@ -534,12 +534,17 @@ async fn render(state: &AppState, resident: &'static Resident) -> Result<()> {
     else {
         return Ok(());
     };
-    let task = format!("Your name is {name}. Describe how you would draw yourself as one complete, original fantasy figure. Give only visible physical features and clothing, in no more than 400 characters.");
-    let appearance = model_words(state, resident, "appearance", &task, 400).await?;
-    if appearance.is_empty()
+    let description = "Describe how you would draw yourself as one complete, original fantasy figure. Give only visible physical features and clothing, in no more than 400 characters.";
+    let task = match name {
+        Some(name) => format!("Your name is {name}. {description}"),
+        None => description.to_string(),
+    };
+    let words = model_words(state, resident, "appearance", &task, 400).await?;
+    let appearance = words.split_whitespace().collect::<Vec<_>>().join(" ");
+    if words.chars().any(|c| c.is_control() && !c.is_whitespace())
+        || appearance.is_empty()
         || appearance.chars().count() > 400
         || !human_message_is_cozy_safe(&appearance)
-        || appearance.chars().any(char::is_control)
     {
         return Err("Elysium's resident has not settled on an appearance.".into());
     }
@@ -613,6 +618,64 @@ pub(super) async fn portrait(
     })
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct PersonalReturn {
+    scattered_at: u64,
+    #[serde(default, deserialize_with = "present_sequence")]
+    talked_at: Option<u64>,
+    returned_at: u64,
+    returned_by: String,
+}
+
+fn present_sequence<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<u64>, D::Error> {
+    u64::deserialize(deserializer).map(Some)
+}
+
+impl PersonalReturn {
+    fn valid(&self) -> bool {
+        let talked_at = self.talked_at.unwrap_or(self.scattered_at);
+        self.scattered_at > 0
+            && self.scattered_at <= talked_at
+            && talked_at < self.returned_at
+            && self.returned_at <= MAX_RECEIPT_SEQUENCE
+            && super::actor_index(&self.returned_by).is_ok()
+    }
+}
+
+pub(super) async fn personal_portrait(
+    State(state): State<AppState>,
+    RoutePath(id): RoutePath<String>,
+    headers: HeaderMap,
+    Json(receipt): Json<PersonalReturn>,
+) -> Response {
+    if !crate::routes::card_game::narrative::same_origin(&headers) {
+        return private(StatusCode::FORBIDDEN.into_response());
+    }
+    let Some(resident) = resident(&id) else {
+        return private(StatusCode::NOT_FOUND.into_response());
+    };
+    if !receipt.valid() {
+        return private(StatusCode::BAD_REQUEST.into_response());
+    }
+    let dir = directory(&state.generated_asset_dir, resident);
+    private(
+        match tokio::task::spawn_blocking(move || read_portrait(&dir)).await {
+            Ok(Some(bytes)) => ([(header::CONTENT_TYPE, "image/png")], bytes).into_response(),
+            Ok(None) if state.ai_config.is_none() => {
+                StatusCode::SERVICE_UNAVAILABLE.into_response()
+            }
+            Ok(None) => {
+                draw(state, resident);
+                StatusCode::ACCEPTED.into_response()
+            }
+            Err(_) => StatusCode::SERVICE_UNAVAILABLE.into_response(),
+        },
+    )
+}
+
 fn private(mut response: Response) -> Response {
     response
         .headers_mut()
@@ -623,7 +686,191 @@ fn private(mut response: Response) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::card_shared::full_store as store;
+    use crate::{ai_gateway::CapabilityRegistrySnapshot, card_shared::full_store as store};
+    use axum::{
+        body::{to_bytes, Body},
+        http::{Request, Uri},
+        routing::post,
+        Router,
+    };
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+    use std::{
+        io::Cursor,
+        sync::{Arc, Mutex},
+    };
+    use tower::ServiceExt;
+
+    fn twin_lens_return() -> Value {
+        json!({"scatteredAt":7,"talkedAt":9,"returnedAt":21,"returnedBy":"vale"})
+    }
+
+    async fn request_personal(app: &Router, id: &str, receipt: &Value, origin: &str) -> Response {
+        app.clone()
+            .oneshot(
+                Request::post(format!("/card-game/elysium-portrait/{id}"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::HOST, "localhost")
+                    .header(header::ORIGIN, origin)
+                    .body(Body::from(receipt.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn personal_portrait_checks_receipt_origin_size_and_resident() {
+        let mut state = crate::test_support::test_app_state(None);
+        state.generated_asset_dir = Arc::new(
+            std::env::temp_dir().join(format!("elysium-receipt-{}", crate::random_hex(8))),
+        );
+        let app = super::super::router().with_state(state);
+        let id = "elysium-gemini";
+        let origin = "http://localhost";
+        let valid = twin_lens_return();
+        assert_eq!(
+            request_personal(&app, id, &valid, "https://elsewhere.example")
+                .await
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            request_personal(&app, "elysium-resident", &valid, origin)
+                .await
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        for (field, value, expected) in [
+            ("scatteredAt", json!(0), StatusCode::BAD_REQUEST),
+            ("talkedAt", json!(6), StatusCode::BAD_REQUEST),
+            ("talkedAt", Value::Null, StatusCode::UNPROCESSABLE_ENTITY),
+            ("returnedAt", json!(9), StatusCode::BAD_REQUEST),
+            (
+                "returnedAt",
+                json!(MAX_RECEIPT_SEQUENCE + 1),
+                StatusCode::BAD_REQUEST,
+            ),
+            ("returnedBy", json!(id), StatusCode::BAD_REQUEST),
+            (
+                "prompt",
+                json!("invent a new picture"),
+                StatusCode::UNPROCESSABLE_ENTITY,
+            ),
+            (
+                "prompt",
+                json!("a".repeat(256)),
+                StatusCode::PAYLOAD_TOO_LARGE,
+            ),
+        ] {
+            let mut receipt = valid.clone();
+            receipt[field] = value;
+            assert_eq!(
+                request_personal(&app, id, &receipt, origin).await.status(),
+                expected,
+                "{field}"
+            );
+        }
+        let mut legacy = valid.clone();
+        legacy.as_object_mut().unwrap().remove("talkedAt");
+        let mut legacy_equal = valid.clone();
+        legacy_equal["talkedAt"] = valid["scatteredAt"].clone();
+        for receipt in [valid, legacy, legacy_equal] {
+            let response = request_personal(&app, id, &receipt, origin).await;
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+            assert_eq!(
+                response.headers()[header::CACHE_CONTROL],
+                "private, no-store"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn personal_twin_lens_portrait_renders_without_a_name() {
+        let resident = resident("elysium-gemini").unwrap();
+        let model = resident.model;
+        let mut silhouette = image::RgbaImage::new(2, 3);
+        silhouette.put_pixel(0, 1, image::Rgba([195, 190, 202, 255]));
+        let mut png = Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(silhouette)
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        let picture = BASE64.encode(png.into_inner());
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let captured = seen.clone();
+        let provider = Router::new().route("/{*path}", post(move |uri: Uri, Json(body): Json<Value>| {
+            let is_image = uri.path() == "/images";
+            captured.lock().unwrap().push((uri.path().to_string(), body));
+            let reply = if is_image {
+                json!({"model":"openai/gpt-image-2.6-flare","data":[{"b64_json":picture,"media_type":"image/png"}]})
+            } else {
+                json!({"model":model,"choices":[{"message":{"content":"A long silver coat.\n\nA round glass face."},"finish_reason":"stop"}]})
+            };
+            async move { Json(reply) }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base_url = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async { axum::serve(listener, provider).await.unwrap() });
+        let registry = json!({"schema_version":1,"snapshot_version":"elysium-portrait-fixture",
+            "declared":[{"requested_model_id":model,"provider":"openai_compatible","concrete_model":{"model_id":model},
+            "input_modalities":["text"],"output_modalities":["text"],"capabilities":["world_content"],
+            "supported_parameters":{"structured_output":true,"json_mode":true},
+            "data_policy":{"retention":"none","training":"prohibited"},"prompt_adapter":{"id":"openai-chat","version":"1"}}]});
+        let mut state = crate::test_support::test_app_state(None);
+        state.ai_config = Arc::new(Some(AiConfig {
+            base_url,
+            model: model.into(),
+            api_key: "fixture".into(),
+            registry: Some(Arc::new(
+                CapabilityRegistrySnapshot::from_json(&registry.to_string()).unwrap(),
+            )),
+            ..AiConfig::default()
+        }));
+        let root = std::env::temp_dir().join(format!("elysium-draw-{}", crate::random_hex(8)));
+        state.generated_asset_dir = Arc::new(root.clone());
+        let app = super::super::router().with_state(state);
+        let receipt = twin_lens_return();
+        let id = resident.id;
+        let request = || request_personal(&app, id, &receipt, "http://localhost");
+        assert_eq!(request().await.status(), StatusCode::ACCEPTED);
+        let response = tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let response = request().await;
+                if response.status() == StatusCode::OK {
+                    break response;
+                }
+                assert_eq!(response.status(), StatusCode::ACCEPTED);
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("the returned Twin Lens should earn a portrait");
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "image/png");
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "private, no-store"
+        );
+        let bytes = to_bytes(response.into_body(), MAX_PORTRAIT as usize)
+            .await
+            .unwrap();
+        let figure = image::load_from_memory(&bytes).unwrap();
+        assert_eq!((figure.width(), figure.height()), (1024, 1536));
+        assert!(!directory(&root, resident).join("name.txt").exists());
+        let calls = seen.lock().unwrap();
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].0, "/chat/completions");
+        assert_eq!(calls[0].1["model"], model);
+        assert!(calls[0].1["messages"][1]["content"]
+            .as_str()
+            .unwrap()
+            .contains(resident.setting));
+        assert_eq!(calls[1].0, "/images");
+        assert!(calls[1].1["prompt"]
+            .as_str()
+            .unwrap()
+            .contains("A long silver coat. A round glass face."));
+        server.abort();
+        fs::remove_dir_all(root).unwrap();
+    }
 
     fn play(resident: &Resident, action: Value) -> Value {
         let mut event = json!({

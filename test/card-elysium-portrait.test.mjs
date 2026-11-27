@@ -4,12 +4,38 @@ import { createElysiumPortrait } from "../v2/card-game/elysium-portrait.mjs";
 import { forgetSigned, rememberSigned, signedEnvelopes, withSignatures } from "../v2/card-game/signed-words.mjs";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   forgetSigned();
 });
 
 const resident = "elysium-claude";
 const room = "elysium-void-002";
+
+const portraitSource = "data:image/png;base64,AA==";
+const portraitResponse = () => new Response(new Uint8Array([0]), {
+  headers: { "content-type": "image/png" },
+});
+
+function stubPortraitDecoder() {
+  vi.stubGlobal("FileReader", class {
+    readAsDataURL() {
+      this.result = portraitSource;
+      this.onload();
+    }
+  });
+  vi.stubGlobal("Image", class { async decode() {} });
+}
+
+function returnedWorld(encounter) {
+  return {
+    actors: { vale: { place: room }, [resident]: { place: room } },
+    elysiumEncounters: { [resident]: encounter },
+    eventSeq: 14,
+    revision: 2,
+    run: { seed: 440 },
+  };
+}
 
 it("accepts a spoken name more than once and ignores partial matches", () => {
   const name = "Echo Thread";
@@ -94,6 +120,96 @@ it.each([
   expect(visitor.name(resident)).toBe("???");
   expect(fetch.mock.calls.map(([url]) => url))
     .toEqual([`/card-game/shared/worlds/world/elysium-identity/${resident}`]);
+});
+
+it("loads the portrait from a saved personal return when the resident is nearby", async () => {
+  const fetch = vi.fn().mockImplementation(async () => portraitResponse());
+  vi.stubGlobal("fetch", fetch);
+  stubPortraitDecoder();
+  const redraw = vi.fn();
+  const display = createElysiumPortrait(null, redraw, "table-one");
+  const world = returnedWorld({ scatteredAt: 10, talkedAt: 11 });
+  display.observe(world, "vale", null);
+  expect(fetch).not.toHaveBeenCalled();
+
+  world.actors.vale.place = "pond";
+  world.elysiumEncounters[resident] = { scatteredAt: 10, returnedAt: 14, returnedBy: "vale" };
+  world.revision++;
+  const restored = createElysiumPortrait(null, redraw, "table-one");
+  restored.observe(world, "vale", null);
+  expect(fetch).not.toHaveBeenCalled();
+
+  world.actors.vale.place = room;
+  restored.observe(world, "vale", null);
+  restored.observe(world, "vale", null);
+  expect(fetch).toHaveBeenCalledExactlyOnceWith(`/card-game/elysium-portrait/${resident}`, expect.objectContaining({
+    credentials: "same-origin",
+    method: "POST",
+    headers: expect.objectContaining({ "Content-Type": "application/json" }),
+  }));
+  expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+    scatteredAt: 10, talkedAt: 10, returnedAt: 14, returnedBy: "vale",
+  });
+  await vi.waitFor(() => expect(restored.source(resident, false)).toBe(portraitSource));
+  expect(restored.source(resident, true)).toBeNull();
+  expect(redraw).toHaveBeenCalledOnce();
+});
+
+it("aborts a personal portrait request on departure and pagehide", () => {
+  const events = new Map();
+  vi.stubGlobal("window", { addEventListener: (event, callback) => events.set(event, callback) });
+  const fetch = vi.fn((_, { signal }) => new Promise((resolve) => {
+    signal.addEventListener("abort", () => resolve(new Response(null, { status: 404 })), { once: true });
+  }));
+  vi.stubGlobal("fetch", fetch);
+  const display = createElysiumPortrait(null, () => {}, "table-one");
+  const world = returnedWorld({ scatteredAt: 10, talkedAt: 11, returnedAt: 14, returnedBy: "vale" });
+  display.observe(world, "vale", null);
+  const departed = fetch.mock.calls[0][1].signal;
+  world.actors.vale.place = "pond";
+  display.observe(world, "vale", null);
+  expect(departed.aborted).toBe(true);
+  expect(fetch).toHaveBeenCalledOnce();
+
+  world.actors.vale.place = room;
+  display.observe(world, "vale", null);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  const hidden = fetch.mock.calls[1][1].signal;
+  events.get("pagehide")();
+  expect(hidden.aborted).toBe(true);
+  display.observe(world, "vale", null);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  events.get("pageshow")({ persisted: true });
+  display.observe(world, "vale", null);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  events.get("pagehide")();
+});
+
+it.each([null, "world"])("waits for a second portrait render in table %s", async (worldId) => {
+  vi.useFakeTimers();
+  vi.setSystemTime(0);
+  stubPortraitDecoder();
+  const portraitRequests = [];
+  let retryStartedAt;
+  vi.stubGlobal("fetch", async (url, init) => {
+    if (url.includes("elysium-identity")) return Response.json({ name: "Amber Thread" });
+    portraitRequests.push({ url, method: init.method });
+    const now = Date.now();
+    if (now >= 300_000) retryStartedAt ??= now;
+    return retryStartedAt !== undefined && now - retryStartedAt >= 172_000
+      ? portraitResponse()
+      : new Response(null, { status: worldId ? 404 : 202 });
+  });
+  const display = createElysiumPortrait(worldId, () => {}, "table-one");
+  const world = returnedWorld({ scatteredAt: 10, talkedAt: 11, returnedAt: 14, returnedBy: "vale" });
+  display.observe(world, "vale", null);
+  await vi.advanceTimersByTimeAsync(500_000);
+  expect(display.source(resident, false)).toBeNull();
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect(display.source(resident, false)).toBe(portraitSource);
+  expect(portraitRequests.at(-1)).toEqual(worldId
+    ? { url: `/card-game/shared/worlds/${worldId}/elysium-portrait/${resident}`, method: undefined }
+    : { url: `/card-game/elysium-portrait/${resident}`, method: "POST" });
 });
 
 it.each([false, true])("learns a signed personal introduction and remembers its save (typed %s)", async (typed) => {
