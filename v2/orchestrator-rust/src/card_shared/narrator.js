@@ -1770,6 +1770,24 @@
     );
   }
 
+  // v2/card-game/legacy-elysium-lines.json
+  var legacy_elysium_lines_default = {
+    introStart: "I call myself ",
+    introEnd: ". My token has slipped into the world beyond this Void.",
+    waiting: {
+      all: [
+        "My name is still taking shape. Ask me again, traveler.",
+        "Stay a moment. This Void has more to say if you listen."
+      ],
+      "elysium-claude": ["The amber leaves turn so slowly here. Stay a moment while I find the right words."],
+      "elysium-gemini": ["The mirrors return every echo. I'm listening for the one that sounds like me."],
+      "elysium-chatgpt": ["I'm still looking for the right thread. Gold and teal cross so many times on this loom."],
+      "elysium-grok": ["Wait with me on this ledge. You can hear the thunder change without feeling a drop of rain."],
+      "elysium-deepseek": ["The well holds on to our voices a little longer. Let's hear what comes back."],
+      "elysium-qwen": ["Follow the warm filament with your eyes. You can almost see how it holds these jade terraces together."]
+    }
+  };
+
   // v2/card-game/elysium-models.mjs
   var ELYSIUM_PACK = "elysium";
   var ELYSIUM_ENTRY = "elysium-void-001";
@@ -1783,8 +1801,7 @@
   ]);
   var models = new Set(ELYSIUM_MODEL_IDS);
   var tokens = new Set(ELYSIUM_MODEL_IDS.map((id) => `${id}-token`));
-  var introductionStart = "I call myself ";
-  var introductionEnd = ". My token has slipped into the world beyond this Void.";
+  var { introStart: introductionStart, introEnd: introductionEnd, waiting: oldWaitingLines } = legacy_elysium_lines_default;
   var isElysiumModel = (id) => models.has(id);
   var isElysiumModelToken = (id) => tokens.has(id);
   var elysiumModelToken = (id) => `${id}-token`;
@@ -1798,12 +1815,8 @@
     const name = text2.slice(introductionStart.length, -introductionEnd.length);
     return validElysiumName(name) ? name : null;
   }
-  function elysiumNameIndex(text2, name) {
-    if (typeof text2 !== "string" || !validElysiumName(name)) return -1;
-    if (legacyElysiumName(text2) === name) return introductionStart.length;
-    const first = new RegExp(`(^|[^\\p{Alphabetic}-])${name}(?![\\p{Alphabetic}-])`, "u").exec(text2);
-    return first ? first.index + first[1].length : -1;
-  }
+  var isLegacyElysiumSpeech = (id, text2) => typeof text2 === "string" && isElysiumModel(id) && (legacyElysiumName(text2) !== null || oldWaitingLines.all.includes(text2) || oldWaitingLines[id]?.includes(text2));
+  var isLegacyElysiumLine = (line) => line?.kind === "dialogue" && isLegacyElysiumSpeech(line.actorId, line.text);
   function validElysiumEncounters(s) {
     const records = s.elysiumEncounters;
     if (records === void 0) return true;
@@ -1821,7 +1834,7 @@
     });
   }
   function validElysiumEncounterEvent(s, e, people2) {
-    if (Object.hasOwn(e, "elysiumName") && (!e.generated || e.kind !== "dialogue" || !isElysiumModel(e.actorId) || e.entityId !== e.actorId || e.elysiumName !== null && (e.locationId !== people2[e.actorId]?.home || elysiumNameIndex(e.text, e.elysiumName) < 0)))
+    if (Object.hasOwn(e, "elysiumName") && (!e.generated || e.kind !== "dialogue" || !isElysiumModel(e.actorId) || e.entityId !== e.actorId || e.elysiumName !== null && (e.locationId !== people2[e.actorId]?.home || !validElysiumName(e.elysiumName))))
       return false;
     if (e.elysiumArrival === void 0 && e.elysiumModel === void 0 && e.portraitModel === void 0) return true;
     const resident = e.elysiumArrival ?? e.elysiumModel ?? e.portraitModel;
@@ -11388,7 +11401,7 @@
               "willows-camp"
             ],
             backdrop: "assets/willows/landing.webp",
-            voice: 'I am the landing, and I speak in the first person, in one to three very short sentences. I notice one small change and find an ordinary reason for it. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "Wind in the reeds. Only \u2014 the reeds are not moving. Wind, then." "An otter. Its eyes were yellow because the sun was low." "The paddle lies nearer the water than I left it. The wind." "The boatman crossed himself. Boatmen do."',
+            voice: "Speak as the landing in the first person, in one to three very short sentences. Notice one small change in the reeds, the light, or the things left by the water, using details from the scene. Explain it calmly at first. As discoveries accumulate, let the same ordinary habits of thought sound less convincing. Eventually leave the detail without an explanation.",
             backdrops: [
               {
                 backdrop: "assets/willows/landing-boatman.webp",
@@ -11431,7 +11444,7 @@
               "willows-thicket"
             ],
             backdrop: "assets/willows/camp.webp",
-            voice: 'I am the camp, and I speak in the first person, in one to three very short sentences. I measure, count and explain, and I count in the paces I have walked. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "The fire leans away from the willows. A draught off the river." "The island is smaller tonight. The river takes sand. It takes. That is all rivers do." "I paced it at supper. Eleven paces to the nearest willow. Nine now." "Count the willows if it helps. I counted them at supper and there were \u2014"',
+            voice: "Speak as the camp in the first person, in one to three very short sentences. Attend to the fire, the sand, and the distance to the nearest willow. When a measurement is known, count in walked paces and use the recorded number. As discoveries accumulate, let a practical explanation give way to a recheck or a halted count. In the last stage leave the discrepancy unresolved.",
             stage: {
               focus: {
                 x: 82,
@@ -11517,7 +11530,7 @@
                 ]
               }
             ],
-            voice: 'We are the willows, many together, and we speak as we, us and our, in one to three very short sentences. We rustle, lean, chatter and count: the travellers, the paces, the leaves. We give no reasons. "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."',
+            voice: "Speak as the willows together, using we, us and our in one to three very short sentences. Use terse fragments and the rhythm of a count repeated. Draw on the number of travellers, the recorded paces, or the leaves in the current scene. Let leaning, rustling, or a change in distance carry the unease. Give no reasons.",
             road: [
               "willows-camp",
               "willows-bank"
@@ -11584,7 +11597,7 @@
                 ]
               }
             ],
-            voice: 'I am the bank, and I speak in the first person, in one to three very short sentences. I listen, and I explain what I hear. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "A humming across the water. A steamer, far off. There are no steamers here." "Something turns below the roots. A log. It is a log." "The current turns him over. The marks are \u2014"'
+            voice: "Speak as the bank in the first person, in one to three very short sentences. Listen for what carries across the water and attend to any recorded disturbance below the roots. At first assign an ordinary source to an unfamiliar sound or shape. As discoveries accumulate, let those explanations falter and finally give way to a bare observation. Keep separate discoveries for separate moments."
           }
         },
         avatars: {
@@ -15017,7 +15030,7 @@
   }
   function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
     const pending = (world.knowledge?.pending || []).filter(
-      (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && p.turn === world.turn
+      (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && (p.commitChoice || !knowsFact(world, p.listener, p.factId)) && p.turn === world.turn
     );
     pending.sort(
       (a, b) => Number(b.eventSeq === eventSeq) - Number(a.eventSeq === eventSeq) || b.eventSeq - a.eventSeq || a.factId.localeCompare(b.factId)
@@ -15027,7 +15040,8 @@
       speaker: p.speaker,
       listener: p.listener,
       eventSeq: p.eventSeq,
-      text: world.knowledge.facts[p.factId].text
+      text: world.knowledge.facts[p.factId].text,
+      deferred: true
     }));
   }
   function knowledgeFacts(world, actor, nameOf3 = (id) => id, priority = [], limit = 2, scene = []) {
@@ -18758,6 +18772,40 @@
     (id) => !roads.includes(id) && targets.includes(id)
   );
 
+  // v2/card-game/world/lanes.mjs
+  var atPort = (s, actor) => Object.values(transports).some(
+    (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
+  );
+  function laneTalkFacts(s, actor) {
+    if (!s.actors[actor] || !atPort(s, actor)) return [];
+    const here2 = s.actors[actor].place;
+    const ship = Object.entries(transports).find(([, t]) => t.place === here2);
+    const near = ship ? s.transports[ship[0]].dock : here2;
+    const known = laneEdges().map(laneOfEdge).filter(
+      ([from, to]) => from === near && entityActive(s, to) && knowsLane(s, actor, from, to)
+    ).map(([, to]) => nameOf2(to));
+    return known.length ? [`I know ships sail from ${nameOf2(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf2(near)}.`];
+  }
+  var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
+  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf2(c.item) : c.home ? `something from ${nameOf2(c.home)}` : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
+  var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
+  var laneFact = (from, to) => {
+    const gate = laneConditions(from, to);
+    return {
+      id: `lane:${from}>${to}`,
+      text: gate ? `Ships for ${nameOf2(to)} leave from ${nameOf2(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf2(to)} leave from ${nameOf2(from)}.`
+    };
+  };
+  var laneFactText = (id) => {
+    const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
+    return from && to && laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`) ? laneFact(from, to).text : null;
+  };
+
+  // v2/card-game/world/talk-knowledge.mjs
+  var authoredKnowledgeTopics = () => packDefinitions.flatMap(
+    (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
+  );
+
   // v2/card-game/handover.mjs
   var sourceMatches = (s, seq, challenger, defender, item, turn, location) => {
     const e = s.log.find((e2) => e2.seq === seq);
@@ -20931,35 +20979,6 @@
     );
   }
 
-  // v2/card-game/world/lanes.mjs
-  var atPort = (s, actor) => Object.values(transports).some(
-    (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
-  );
-  function laneTalkFacts(s, actor) {
-    if (!s.actors[actor] || !atPort(s, actor)) return [];
-    const here2 = s.actors[actor].place;
-    const ship = Object.entries(transports).find(([, t]) => t.place === here2);
-    const near = ship ? s.transports[ship[0]].dock : here2;
-    const known = laneEdges().map(laneOfEdge).filter(
-      ([from, to]) => from === near && entityActive(s, to) && knowsLane(s, actor, from, to)
-    ).map(([, to]) => nameOf2(to));
-    return known.length ? [`I know ships sail from ${nameOf2(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf2(near)}.`];
-  }
-  var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
-  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf2(c.item) : c.home ? `something from ${nameOf2(c.home)}` : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
-  var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
-  var laneFact = (from, to) => {
-    const gate = laneConditions(from, to);
-    return {
-      id: `lane:${from}>${to}`,
-      text: gate ? `Ships for ${nameOf2(to)} leave from ${nameOf2(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf2(to)} leave from ${nameOf2(from)}.`
-    };
-  };
-  var laneFactText = (id) => {
-    const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
-    return from && to && laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`) ? laneFact(from, to).text : null;
-  };
-
   // v2/card-game/world.mjs
   var homeGates = forest_default.homeGates;
   var lifeProblems = lifeDataProblems(places, people);
@@ -21151,9 +21170,6 @@
   }
   var REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
   var REFUSED_VERBS = ["give", "trade", "ask", "accompany", "eat"];
-  var authoredKnowledgeTopics = () => packDefinitions.flatMap(
-    (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
-  );
   var LOG_LIMIT = 100;
   var LAMP_FUEL = 12;
   var GENERATED_LOG_LIMIT = 100;
@@ -21515,6 +21531,9 @@
   }
 
   // v2/card-game/scene-cast.mjs
+  var elysiumSpeakers = new Map(ELYSIUM_MODEL_IDS.flatMap(
+    (id) => profiles[id] ? [[profiles[id].name, id]] : []
+  ));
   function sceneChanges(world) {
     const here2 = world.actors[currentActor(world)].place;
     return world.log.filter(
@@ -21530,7 +21549,14 @@
     const concrete = (e) => e.kind === "event" && !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
     const recent = memory.events.filter(concrete).slice(-4);
     const lasting = (memory.landmarks || []).filter(concrete).filter((e) => !recent.some((r) => r.seq === e.seq)).slice(-2);
-    const said = expressions ? memory.events.filter((e) => e.kind === "expression").slice(-2) : [];
+    const said = expressions ? memory.events.filter((e) => {
+      if (e.kind !== "expression") return false;
+      const separator = e.text.indexOf(": ");
+      return separator < 0 || !isLegacyElysiumSpeech(
+        elysiumSpeakers.get(e.text.slice(0, separator)),
+        e.text.slice(separator + 2)
+      );
+    }).slice(-2) : [];
     return [...lasting, ...recent, ...said].sort((a, b) => a.seq - b.seq).map(({ seq, turn, kind, text: text2 }) => ({ seq, turn, kind, text: text2 }));
   }
   function defeatedBy(world, location) {
@@ -21967,11 +21993,10 @@
       `\\b(?:(?:the|an?) )??(${names2.join("|")})\\b`,
       "gi"
     );
-    return (text2) => text2?.replace(pattern, (word, name, at, whole6) => {
-      const full = unknown.get(name.toLowerCase());
-      if (full) return full;
-      const bare = word === name && opensSentence(whole6, at);
-      return !bare && short.get(name) || word;
+    return (text2, clue) => text2?.replace(pattern, (word, name, at, whole6) => {
+      const hidden = unknown.get(name.toLowerCase()) || (word !== name || !opensSentence(whole6, at)) && short.get(name);
+      const revealed2 = hidden && clue && new RegExp(`\\b${escape(name)}\\b`, "iu").test(clue);
+      return hidden && !revealed2 ? hidden : word;
     }) ?? text2;
   }
   function questTargets(world, id) {
@@ -22086,7 +22111,7 @@
       ),
       ...context.disclosures && {
         disclosures: context.disclosures.filter(
-          (fact) => speakers.includes(fact.speaker) && keepEntity(fact.listener) && keptLine(fact)
+          (fact) => speakers.includes(fact.speaker) && keepEntity(fact.listener) && (fact.deferred || keptLine(fact))
         )
       },
       entities: context.entities.filter(({ id }) => keepEntity(id)).map((entity) => ({
@@ -22222,7 +22247,7 @@
     );
   };
   var lastSaid = (world, from, to) => world.log.filter(
-    (e) => e.generated && e.kind === "dialogue" && !e.silent && e.actorId === from && e.turn < world.turn && e.text.length <= 400 && [...e.witnesses || [], ...e.cast || []].includes(to)
+    (e) => e.generated && e.kind === "dialogue" && !e.silent && !isLegacyElysiumLine(e) && e.actorId === from && e.turn < world.turn && e.text.length <= 400 && [...e.witnesses || [], ...e.cast || []].includes(to)
   ).map(({ actorId, text: text2, turn }) => ({ actorId, text: text2, turn })).at(-1);
   function betweenUs(world, id, speakers, nameOf3) {
     if (!speakers.includes(id)) return { entries: [], retold: [] };
@@ -22713,7 +22738,7 @@
     if (state.scenery || state.speakers.length !== 1 || state.speakers[0] !== actor || !["action", "first_wait"].includes(state.occasion) || !["move", "wait"].includes(played?.verb))
       return false;
     const last = world.log.findLast(
-      (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar"
+      (entry) => entry.generated && entry.kind === "dialogue" && !isLegacyElysiumLine(entry) && profiles[entry.actorId]?.kind === "avatar"
     );
     if (last?.actorId !== actor) return false;
     const noticed = perception(world, actor, {
@@ -22734,7 +22759,7 @@
     const helpers = Object.entries(world.actors[id].trust).filter(([other, n]) => n > 0 && (!among || among.includes(other))).map(([other]) => nameOf2(other));
     return helpers.length ? `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.` : null;
   }
-  var talkKnowledge = (world, id, telling, retold, limit, scene) => knowledgeFacts(pastDeedsAside(world, id, telling, retold), id, nameOf2, telling, limit, scene);
+  var talkKnowledge2 = (world, id, telling, retold, limit, scene) => knowledgeFacts(pastDeedsAside(world, id, telling, retold), id, nameOf2, telling, limit, scene);
   function residentKnowledge(world, id) {
     const place = world.actors[id].place;
     const scene = [
@@ -22742,7 +22767,7 @@
       ...Object.keys(world.actors).filter((other) => world.actors[other].place === place),
       ...Object.keys(world.items).filter((item) => itemPlace(world, item) === place)
     ];
-    return talkKnowledge(world, id, [], [], Math.max(2, 16 - ownFacts(world, id).length), scene);
+    return talkKnowledge2(world, id, [], [], Math.max(2, 16 - ownFacts(world, id).length), scene);
   }
   function residentScene(world, id) {
     const place = world.actors[id].place;
@@ -22809,7 +22834,7 @@
     const wayLines = wayFacts(world, location);
     const ways2 = (id) => wayLines.filter(({ to }) => waySaid(world, id, to)).map(({ line }) => line);
     const conversation = beforeFirstLight ? [] : world.log.filter(
-      (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && (entry.turn < world.turn || remaining && entry.turn === world.turn)
+      (entry) => entry.generated && entry.kind === "dialogue" && (!isLegacyElysiumLine(entry) || legacyElysiumName(entry.text)) && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && (entry.turn < world.turn || remaining && entry.turn === world.turn)
     ).slice(-6).map(({ actorId, text: text2, cast: cast2, witnesses, elysiumName }) => ({
       actorId,
       text: text2,
@@ -22981,7 +23006,7 @@
         facts.splice(
           facts.indexOf(null),
           1,
-          ...talkKnowledge(world, id, told(id), between.retold, Math.max(2, 17 - facts.length), scene)
+          ...talkKnowledge2(world, id, told(id), between.retold, Math.max(2, 17 - facts.length), scene)
         );
         return {
           id,
@@ -22991,7 +23016,7 @@
           memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight
           }),
-          previous: beforeFirstLight ? null : world.memories[id].text,
+          previous: beforeFirstLight || isLegacyElysiumSpeech(id, world.memories[id].text) ? null : world.memories[id].text,
           ...kind === "avatar" ? {
             inner_life: groundedLife(world, id),
             hope: null
@@ -23977,7 +24002,7 @@
   function sceneLines(world) {
     const here2 = world.actors[currentActor(world)].place;
     return world.log.map((entry, index) => ({ ...entry, index })).filter(
-      (e) => e.generated === true && (!e.locationId || e.locationId === here2)
+      (e) => e.generated === true && !isLegacyElysiumLine(e) && (!e.locationId || e.locationId === here2)
     );
   }
   function visitStart(world, through = world.log.length - 1) {

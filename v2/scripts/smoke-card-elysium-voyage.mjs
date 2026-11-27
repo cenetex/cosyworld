@@ -19,6 +19,7 @@ const entry = "elysium-void-001";
 const encounterRoom = "elysium-void-002";
 const resident = "elysium-claude";
 const identity = "Vesper Silver-Lens";
+const sharedReply = "The amber leaves remember every visitor.";
 const token = `${resident}-token`;
 const id = "elysium-voyage-smoke";
 const actors = ["vale", "mara"];
@@ -53,12 +54,12 @@ async function personalIntroduction(browser, origin) {
       question: "What do I call you?",
       answer: "Listen first. The mirrors have never agreed on dawn.",
       model: boundModel,
+      name,
     },
     {
-      question: "Have you settled on a name?",
-      answer: `You may call me ${name}.`,
+      question: "What do the mirrors show you?",
+      answer: "Sometimes they show the same star twice.",
       model: boundModel,
-      name,
     },
     {
       question: "What do you see here?",
@@ -165,13 +166,14 @@ async function personalIntroduction(browser, origin) {
   const title = page.locator(`#hand [data-card="${resident}"] .name`);
   const speech = page.locator("#dialogue-text");
   const speaker = page.locator("#speaker");
-  const talk = async ({ question, answer }) => {
+  const talk = async ({ question, answer }, first = false) => {
     await settleHand(page);
     await clearSelection(page);
     await selectCard(page, resident, { touch: true });
     await readyActionButton(page, "talk").tap();
     await speech.filter({ hasText: question }).waitFor();
     assert.equal(await speaker.textContent(), "Vale");
+    if (first) assert.equal(await title.textContent(), "???");
     await page.locator("#dialogue-advance").click();
     await speech.filter({ hasText: answer }).waitFor();
   };
@@ -192,11 +194,11 @@ async function personalIntroduction(browser, origin) {
     });
     return seen;
   });
-  await talk(exchanges[0]);
-  assert.equal(await speaker.textContent(), "???");
-  await title.filter({ hasText: /^\?\?\?$/u }).waitFor();
-  await talk(exchanges[1]);
+  await talk(exchanges[0], true);
   await title.filter({ hasText: name }).waitFor();
+  assert.equal(await speaker.textContent(), name);
+  assert.equal(await speech.textContent(), exchanges[0].answer);
+  await talk(exchanges[1]);
   assert.equal(await speaker.textContent(), name);
   await settleHand(page);
   assert.deepEqual(await quiet.evaluate((seen) => [...seen]), []);
@@ -204,9 +206,9 @@ async function personalIntroduction(browser, origin) {
   await title.filter({ hasText: name }).waitFor();
   await talk(exchanges[2]);
   assert.equal(await speaker.textContent(), name);
-  assert.deepEqual(attempts.map(({ elysiumIntroduced }) => elysiumIntroduced), [undefined, undefined, resident]);
+  assert.deepEqual(attempts.map(({ elysiumIntroduced }) => elysiumIntroduced), [undefined, resident, resident]);
   assert(attempts.every(({ elysiumTokenScattered }) => elysiumTokenScattered));
-  assert.equal(attempts[1].conversation.find((line) => line.actorId === resident)?.elysiumName, null);
+  assert.equal(attempts[1].conversation.find((line) => line.actorId === resident)?.elysiumName, name);
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
   assert(saved.log.some((line) => line.actorId === resident && line.elysiumName === name));
   assert(!attempts[2].conversation.some((line) => line.text.includes("Lens")));
@@ -349,7 +351,7 @@ try {
         if (result.events?.some((event) => event.elysiumModel === resident)) {
           const speech = dispatch(actor, {
             op: "speech",
-            lines: [{ actorId: resident, elysiumName: identity, text: `You may call me ${identity}.` }],
+            lines: [{ actorId: resident, elysiumName: identity, text: sharedReply }],
           });
           world = speech.world;
           const starts_at = Date.now();
@@ -561,6 +563,7 @@ try {
   await settleHand(vale);
   await name.filter({ hasText: identity }).waitFor();
   await vale.locator("#speaker").filter({ hasText: identity }).waitFor();
+  await vale.locator("#dialogue-text").filter({ hasText: sharedReply }).waitFor();
   await vale.waitForFunction(
     ({ stageResident, identity }) =>
       document.querySelector(stageResident)?.getAttribute("aria-label") ===

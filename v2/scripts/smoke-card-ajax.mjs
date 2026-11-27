@@ -11,11 +11,15 @@ import { recitalPoem } from "../card-game/pack-recital.mjs";
 import { ajaxStart } from "../../test/helpers/greek-ajax.mjs";
 import {
   clearSelection,
+  readyActionButton,
   selectCard,
   smokeWidths,
   topicForChoice,
   wordsFellSilent,
 } from "./card-browser-helpers.mjs";
+
+const shieldClue = "greek-ajax-shield-teucer";
+const tecmessa = "greek-ajax-tecmessa";
 
 function steps(route) {
   const move = (target) => ({ kind: "move", target });
@@ -94,7 +98,7 @@ export async function checkAjax(browser, origin) {
         )
           failedAssets.push(`${response.status()} ${response.url()}`);
       });
-      let current;
+      let current, clueRequest;
       try {
         await page.addInitScript(
           ({ key, save, seen }) => {
@@ -106,28 +110,36 @@ export async function checkAjax(browser, origin) {
               JSON.stringify({ enabled: false }),
             );
           },
-          { key, save: encodeSave(ajaxStart()), seen: Object.keys(profiles) },
+          { key, save: encodeSave(ajaxStart()), seen: Object.keys(profiles).filter((id) => id !== tecmessa) },
         );
         await page.route("**/card-game/text", async (request) => {
           const input = request.request().postDataJSON();
-          await request.fulfill({
-            json: {
-              revision: input.revision,
-              model: "ajax-browser-fixture",
-              entries: input.entities.map(({ id }) => ({
-                id,
-                text:
-                  input.disclosures?.find((fact) => fact.speaker === id)
-                    ?.text || "I will keep your words in mind.",
-              })),
-            },
+          const entries = input.entities.map(({ id }) => {
+            const disclosure = input.disclosures?.find((fact) => fact.speaker === id);
+            if (!disclosure) return { id, text: "I will keep your words in mind." };
+            const { factId, listener, speaker, eventSeq, text } = disclosure;
+            return { id, text, disclosed: { factId, listener, speaker, eventSeq } };
+          });
+          const complete = { revision: input.revision, model: "ajax-browser-fixture", entries };
+          if (!input.disclosures?.some((fact) => fact.factId === shieldClue))
+            return request.fulfill({ json: complete });
+          clueRequest = input;
+          const frames = [
+            ...entries.map((entry) => ({ type: "delta", text: `${JSON.stringify(entry)}\n` })),
+            { type: "complete", ...complete },
+          ];
+          return request.fulfill({
+            contentType: "text/event-stream",
+            body: frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join(""),
           });
         });
         const state = () =>
           page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
-        const settle = async () => {
+        const settle = async (expected = "") => {
           await page.waitForSelector("#hand .card");
+          let seen = false;
           for (let turn = 0; turn < 250; turn++) {
+            if (expected) seen ||= (await page.locator("#dialogue-text").textContent()).includes(expected);
             if (await page.locator("#dialogue-advance").isVisible())
               await page.locator("#dialogue-advance").click();
             assert.equal(
@@ -137,12 +149,14 @@ export async function checkAjax(browser, origin) {
             );
             if (
               (await page.locator("#hand").getAttribute("data-cooling")) ===
-              "false"
+              "false" && (!expected || seen)
             )
               return;
             await page.waitForTimeout(40);
           }
-          throw new Error(`Ajax stayed busy: ${route} ${width}px`);
+          throw new Error(expected && !seen
+            ? `Ajax never showed the clue containing ${expected}`
+            : `Ajax stayed busy: ${route} ${width}px`);
         };
         const photographed = new Set();
         const scene = async () => {
@@ -240,7 +254,6 @@ export async function checkAjax(browser, origin) {
           );
           if (kind === "give" || kind === "drop")
             await selectCard(page, fields.target, { touch: width === 390 });
-          const selector = `[data-action="${topic ? "talk" : kind}"]`;
           // Choosing the same cards after Wait offers Sleep: choose them
           // afresh so each wait is one turn.
           const wait = page
@@ -252,10 +265,16 @@ export async function checkAjax(browser, origin) {
                 touch: width === 390,
               });
           if (kind === "wait") await wait.click();
-          else await page.locator(`#card-actions ${selector}`).first().click();
-          await settle();
+          else await readyActionButton(page, topic ? "talk" : kind).first().click();
+          const learningShield = topic?.id === shieldClue;
+          await settle(learningShield ? "Tecmessa" : "");
           const after = await state();
           assert.equal(after.turn, before.turn + 1, "Each action commits once");
+          if (learningShield) {
+            assert(clueRequest.concealed.includes(tecmessa));
+            assert(clueRequest.disclosures[0].text.includes("Tecmessa"));
+            assert(after.log.some((line) => line.generated && line.disclosedFactId === shieldClue));
+          }
           if (choiceId)
             assert.equal(
               after.packs["greek-drama"].receipts[choiceId],

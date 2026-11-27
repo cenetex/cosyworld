@@ -22,6 +22,7 @@ import {
   carried,
   seedRun,
   fillSeatWants,
+  applyTalkDisclosure,
 } from "./world.mjs";
 import {
   humanAvatars,
@@ -361,7 +362,9 @@ export function dispatchShared(request) {
         locationId: room,
         ...(typed && { elysiumName: line.elysiumName }),
       });
-      lines.push(world.log.at(-1));
+      const spoken = world.log.at(-1);
+      if (speaker) applyTalkDisclosure(world, line.disclosed, spoken);
+      lines.push(spoken);
     }
     world.revision += 1;
     validateTransition(world);

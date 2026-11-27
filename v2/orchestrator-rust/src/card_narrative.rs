@@ -550,8 +550,7 @@ struct Context {
     /// "long" when the resting avatar wakes from a long rest at a sanctuary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rest: Option<String>,
-    /// What that long rest dreamed by the rules (rules 133): "glimpse".
-    /// Only then is a dream due.
+    /// "glimpse" when a long rest produces a dream.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     dream: Option<String>,
     #[serde(default)]
@@ -577,8 +576,7 @@ struct Context {
     outcome: Option<TurnOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     disclosures: Vec<knowledge::Disclosure>,
-    /// A new game's first line: the player's avatar wakes knowing only what
-    /// its player has uncovered (waking.rs).
+    /// On the first line, the player's avatar knows only what its player uncovered.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     waking: bool,
     /// The speaker's own card or place, while its player has not uncovered it.
@@ -598,6 +596,8 @@ struct Context {
     channel: bool,
     #[serde(skip)]
     no_fresh_opener: bool,
+    #[serde(skip)]
+    elysium_introducer: Option<String>,
 }
 fn valid(context: &Context) -> bool {
     let ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
@@ -2116,6 +2116,9 @@ async fn speak(
     id: &str,
     part: Part,
 ) -> Result<(String, String), ()> {
+    let prompt_context = elysium::prompt_context(context);
+    let prompt_context = prompt_context.as_ref().unwrap_or(context);
+    let prompt_entity = entity(prompt_context, id);
     let entity = entity(context, id);
     let bound = crate::card_shared::elysium_model(id);
     let own_model = bound.or_else(|| {
@@ -2126,12 +2129,8 @@ async fn speak(
     });
     let mut own = tier_config(config, own_model);
     tune_elysium_voice(&mut own, bound);
-    let fallbacks = if bound.is_some() {
-        &[]
-    } else {
-        settings.fallbacks()
-    };
-    let system = waking::system(context, entity, part);
+    let fallbacks = bound.map_or_else(|| settings.fallbacks(), |_| &[]);
+    let system = waking::system(prompt_context, prompt_entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
         check.limit = settings.line_limit;
@@ -2144,7 +2143,7 @@ async fn speak(
     let call = voice_metrics::Call::new(
         id,
         part,
-        voice_metrics::Budget::measure(&system, context, entity, part),
+        voice_metrics::Budget::measure(&system, prompt_context, prompt_entity, part),
     )
     .labelled(context);
     let Some(links) = fallback::chain(config, own, fallbacks) else {
@@ -2160,7 +2159,7 @@ async fn speak(
         links.len(),
         |n: usize, attempt: u8, timeout: Duration| {
             let link = &links[n];
-            let prompt = messages(context, entity, part);
+            let prompt = messages(prompt_context, prompt_entity, part);
             let view = crate::ai_gateway::led(&prompt.lead, &prose(&prompt.assistant));
             let images = context.images.as_slice();
             let check = &check;
@@ -2268,7 +2267,7 @@ pub(super) fn prose(view: &str) -> String {
 fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     let mut prompt = scene_messages(context, entity, part);
     if !context.concealed.is_empty() {
-        // Profiles and held cards add words after the scene reaches Rust.
+        let disclosed = knowledge::reserved_names(context, &entity.id, part);
         let Prompt {
             system,
             lead,
@@ -2277,7 +2276,7 @@ fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
         } = &mut prompt;
         for text in [system, lead, assistant, user] {
             for (span, id) in named_spans(text).into_iter().rev() {
-                if context.concealed.contains(id) {
+                if context.concealed.contains(id) && !disclosed.contains(&id) {
                     text.replace_range(span, "something unnamed");
                 }
             }
@@ -2853,16 +2852,17 @@ impl<'a> Check<'a> {
         })
     }
 
-    /// Whether a text names someone or something the scene does not know.
     fn names_unknown(&self, text: &str) -> bool {
+        let disclosed = knowledge::reserved_names(self.context, &self.entity.id, self.part);
         named_spans(text).into_iter().any(|(span, id)| {
             let label = &profiles()[id]["name"];
-            self.context.concealed.contains(id)
-                || (label.as_str() == Some(&text[span])
-                    && !self
-                        .known
-                        .iter()
-                        .any(|known| profiles()[known]["name"] == *label))
+            !disclosed.contains(&id)
+                && (self.context.concealed.contains(id)
+                    || (label.as_str() == Some(&text[span])
+                        && !self
+                            .known
+                            .iter()
+                            .any(|known| profiles()[known]["name"] == *label)))
         })
     }
 }

@@ -564,12 +564,17 @@ function hear(world, speaker, fact) {
   const context = narrativeContext(world);
   const disclosure = context.disclosures?.[0];
   expect(disclosure?.factId).toBe(fact);
+  const { factId, listener, eventSeq } = disclosure;
+  expect(state(world).flags["forest-walkers-heard"]).toBeUndefined();
   return applyGeneratedText(world, context, {
     revision: context.revision,
     model: "forest-walkers-test",
     entries: context.entities.map(({ id }) => ({
       id,
       text: id === speaker ? disclosure.text : "I will remember that.",
+      ...(id === speaker && {
+        disclosed: { factId, listener, speaker, eventSeq },
+      }),
     })),
   });
 }
@@ -586,7 +591,6 @@ describe("Three walkers, one old root", () => {
       for (const target of road) world = move(world, target);
       world = hear(world, speaker, fact);
       expect(state(world).flags["forest-walkers-heard"]).toBe(true);
-      // The Talk committed it; no pressed button offered it (#2605).
       expect(
         state(world).receipts[`forest-hear-walkers-${speaker}`],
       ).toBeTruthy();

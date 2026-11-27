@@ -6,7 +6,11 @@ import {
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import {
+  packDefinition,
+  packFacts,
+  packSceneFacts,
+} from "../v2/card-game/pack-registry.mjs";
 import {
   createLandingWorld,
   landingPack,
@@ -179,8 +183,18 @@ describe("Hoppy Cat refresh", () => {
   });
 
   it("lets Mira offer a draft reading and keeps the chosen piece", () => {
-    let world = visit(createLandingWorld(pack), id("meraki-atelier"));
-    world = act(world, "talk", { target: id("mira-meraki") });
+    const atelier = id("meraki-atelier");
+    const mira = id("mira-meraki");
+    let world = visit(createLandingWorld(pack), atelier);
+    world = act(world, "talk", { target: mira });
+    expect(world.packs[pack.id].receipts[id("table-mira-offer")]).toBe(
+      world.turn,
+    );
+    const offer = expect.stringContaining(
+      "Mira offers a choice: give her draft to Fable",
+    );
+    expect(packFacts(world, mira)).toContainEqual(offer);
+    expect(packSceneFacts(world, atelier)).toContainEqual(offer);
     world = act(world, "take", { item: id("draft-page") });
     world = act(world, "give", { item: id("draft-page"), target: id("fable") });
     world = act(world, "wait");

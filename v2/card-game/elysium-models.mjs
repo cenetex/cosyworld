@@ -1,3 +1,5 @@
+import legacyLines from "./legacy-elysium-lines.json" with { type: "json" };
+
 export const ELYSIUM_PACK = "elysium";
 export const ELYSIUM_ENTRY = "elysium-void-001";
 
@@ -11,8 +13,7 @@ export const ELYSIUM_MODEL_IDS = Object.freeze([
 ]);
 const models = new Set(ELYSIUM_MODEL_IDS);
 const tokens = new Set(ELYSIUM_MODEL_IDS.map((id) => `${id}-token`));
-const introductionStart = "I call myself ";
-const introductionEnd = ". My token has slipped into the world beyond this Void.";
+const { introStart: introductionStart, introEnd: introductionEnd, waiting: oldWaitingLines } = legacyLines;
 export const isElysiumModel = (id) => models.has(id);
 export const isElysiumModelToken = (id) => tokens.has(id);
 export const elysiumModelToken = (id) => `${id}-token`;
@@ -37,6 +38,15 @@ export function legacyElysiumName(text) {
   const name = text.slice(introductionStart.length, -introductionEnd.length);
   return validElysiumName(name) ? name : null;
 }
+
+// These exact replies were written into saves before Void dialogue used inference.
+export const isLegacyElysiumSpeech = (id, text) =>
+  typeof text === "string" && isElysiumModel(id) && (
+    legacyElysiumName(text) !== null || oldWaitingLines.all.includes(text) || oldWaitingLines[id]?.includes(text)
+  );
+
+export const isLegacyElysiumLine = (line) =>
+  line?.kind === "dialogue" && isLegacyElysiumSpeech(line.actorId, line.text);
 
 export function elysiumNameIndex(text, name) {
   if (typeof text !== "string" || !validElysiumName(name)) return -1;
@@ -109,7 +119,7 @@ export function validElysiumEncounterEvent(s, e, people) {
   if (Object.hasOwn(e, "elysiumName") &&
     (!e.generated || e.kind !== "dialogue" || !isElysiumModel(e.actorId) ||
       e.entityId !== e.actorId || (e.elysiumName !== null &&
-        (e.locationId !== people[e.actorId]?.home || elysiumNameIndex(e.text, e.elysiumName) < 0))))
+        (e.locationId !== people[e.actorId]?.home || !validElysiumName(e.elysiumName)))))
     return false;
   if (e.elysiumArrival === undefined && e.elysiumModel === undefined &&
       e.portraitModel === undefined) return true;

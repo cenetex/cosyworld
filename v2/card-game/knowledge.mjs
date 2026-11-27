@@ -390,8 +390,10 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
   if (world.actors[listener].place !== local) return null;
   const authored = topics
     .filter((t) => t.said && t.speaker === speaker && t.at === local)
-    .map((topic) => topicFact(world, topic, entry))
-    .filter(Boolean);
+    .map((topic) => ({
+      fact: topicFact(world, topic, entry),
+      commitChoice: topic.commitChoice === true,
+    }));
   const known = world.knowledge.known[speaker] || {};
   const fresh = (fact) =>
     (fact.source.kind !== "topic" || topics.some((t) => t.id === fact.id)) &&
@@ -407,8 +409,11 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
     if (fact.source.kind === "claim") return topics.length + 1;
     return topics.length + 2;
   };
+  const selected = authored.find(
+    ({ fact, commitChoice }) => fact && (commitChoice || fresh(fact)),
+  );
   const fact =
-    authored.find(fresh) ||
+    selected?.fact ||
     Object.keys(known)
       .map((id) => world.knowledge.facts[id])
       .filter((fact) => fact && fresh(fact))
@@ -419,13 +424,14 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
       p.factId === fact.id &&
       p.speaker === speaker &&
       p.listener === listener &&
+      p.turn === entry.turn &&
       p.locationId === local,
   );
   if (prior) return prior;
-  return tell(world, fact, speaker, listener, entry);
+  return reserve(world, fact, speaker, listener, entry, selected?.commitChoice);
 }
-function tell(world, fact, speaker, listener, entry) {
-  remember(world, listener, fact, "heard", speaker, entry.seq, entry.turn);
+
+function reserve(world, fact, speaker, listener, entry, commitChoice = false) {
   const disclosure = {
     factId: fact.id,
     speaker,
@@ -433,13 +439,40 @@ function tell(world, fact, speaker, listener, entry) {
     eventSeq: entry.seq,
     turn: entry.turn,
     locationId: world.actors[speaker].place,
-    commitChoice: false,
+    commitChoice,
   };
   world.knowledge.pending = [
     ...world.knowledge.pending.filter((p) => p.turn === entry.turn),
     disclosure,
   ].slice(-KNOWLEDGE_PENDING_LIMIT);
   return disclosure;
+}
+
+export function commitDisclosure(world, marker, speaker, location) {
+  if (!marker || marker.speaker !== speaker) return null;
+  const knowledge = world.knowledge;
+  const pending = knowledge?.pending.find(
+    (candidate) =>
+      candidate.factId === marker.factId &&
+      candidate.speaker === speaker &&
+      candidate.listener === marker.listener &&
+      candidate.eventSeq === marker.eventSeq &&
+      candidate.turn === world.turn &&
+      candidate.locationId === location,
+  );
+  if (
+    !pending ||
+    world.actors[speaker]?.place !== location ||
+    world.actors[pending.listener]?.place !== location
+  )
+    return null;
+  const fact = knowledge.facts[pending.factId];
+  const learned = remember(
+    world, pending.listener, fact, "heard", speaker, pending.eventSeq, pending.turn,
+  );
+  if (!learned && !pending.commitChoice) return null;
+  knowledge.pending = knowledge.pending.filter((candidate) => candidate !== pending);
+  return pending;
 }
 
 export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
@@ -494,7 +527,7 @@ export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
     )
   )
     return null;
-  return tell(world, fact, speaker, listener, entry);
+  return reserve(world, fact, speaker, listener, entry);
 }
 
 export function knowledgeDisclosures(
@@ -510,6 +543,7 @@ export function knowledgeDisclosures(
       speakers.includes(p.speaker) &&
       entities.includes(p.speaker) &&
       entities.includes(p.listener) &&
+      (p.commitChoice || !knowsFact(world, p.listener, p.factId)) &&
       p.turn === world.turn,
   );
   pending.sort(
@@ -524,6 +558,7 @@ export function knowledgeDisclosures(
     listener: p.listener,
     eventSeq: p.eventSeq,
     text: world.knowledge.facts[p.factId].text,
+    deferred: true,
   }));
 }
 

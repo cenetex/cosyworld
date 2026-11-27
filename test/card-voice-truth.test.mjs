@@ -46,6 +46,7 @@ const NO_DESIRE = { items: [], location: null, avatars: [] };
 function seed() {
   const world = enableMotives(createWorld());
   for (const id of Object.values(CAST)) world.actors[id].place = PLACES.home;
+  world.items["elysium-wayfinder"].holder = PLACES.away;
   world.items[ITEMS.offered].holder = CAST.player;
   world.items[ITEMS.kept].holder = CAST.near;
   world.items[ITEMS.spare].holder = CAST.far;
@@ -66,7 +67,7 @@ const TABLES = {
       applyGeneratedText(world, context, {
         revision: context.revision,
         model: "fixture",
-        entries: lines.map(([id, text]) => ({ id, text })),
+        entries: lines.map(([id, text, disclosed]) => ({ id, text, disclosed })),
         omitted: context.entities.map((e) => e.id).filter((id) => !lines.some(([s]) => s === id)),
       }),
     reload: (world) => decodeSave(encodeSave(world)),
@@ -80,8 +81,7 @@ const TABLES = {
     speak: (world, context, lines) =>
       dispatchShared({
         ...{ op: "speech", world, ...seat, room: context.location },
-        disclosures: context.disclosures || [],
-        lines: lines.map(([actorId, text]) => ({ actorId, text })),
+        lines: lines.map(([actorId, text, disclosed]) => ({ actorId, text, disclosed })),
       }).world,
     reload: (world) =>
       dispatchShared({ op: "validate", world: structuredClone(world), ...seat }).world,
@@ -89,7 +89,10 @@ const TABLES = {
 };
 const voiced = ({ speakers, disclosures: [told] = [] }, step, tell = true) =>
   speakers.map((id) => {
-    if (tell && told?.speaker === id) return [id, told.text];
+    if (tell && told?.speaker === id) {
+      const { factId, speaker, listener, eventSeq, text } = told;
+      return [id, text, { factId, speaker, listener, eventSeq }];
+    }
     return [id, id !== CAST.player && CLAIM[step] ? CLAIM[step]() : FILLER];
   });
 function run(mode) {
@@ -309,11 +312,12 @@ describe.each(["local", "shared"])("voice truth in %s play", (mode) => {
         listener: CAST.far,
         eventSeq: told.entry.seq,
         text: fact.text,
+        deferred: true,
       },
     ]);
-    expect(told.world.knowledge.known[CAST.far][fact.id].kind).toBe("heard");
+    expect(told.world.knowledge.known[CAST.far]?.[fact.id]).toBeUndefined();
     expect(told.unheard.knowledge).toEqual(told.world.knowledge);
-    expect(told.spoken.knowledge).toEqual(told.world.knowledge);
+    expect(told.spoken.knowledge.known[CAST.far][fact.id].kind).toBe("heard");
   });
   it("marks a story heard secondhand as told by its teller, never witnessed", () => {
     const fact = eventFact(snaps.exchange);

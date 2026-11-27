@@ -34,6 +34,7 @@ import {
   ajaxBuried,
   ajaxJourney,
   ajaxChoice,
+  ajaxTalk,
   ajaxMove,
   ajaxState,
 } from "./helpers/greek-ajax.mjs";
@@ -147,9 +148,7 @@ describe("Earth Beside the Ships", () => {
     expect(verses(world).at(-1).id).toBe("greek-ajax-bury-appeal");
   });
 
-  // The seven Ajax story choices were pressed buttons; each now fires from
-  // the Talk with its speaker and is never offered as a `choose` play (#2605).
-  it("commits the seven testimony and record choices at Talk, not as buttons", () => {
+  it("commits each of the seven testimony and record choices after its speaker's line", () => {
     const talkIds = [
       "learn-shield-teucer",
       "learn-shield-odysseus",
@@ -165,35 +164,40 @@ describe("Earth Beside the Ships", () => {
       pack.choices.filter((c) => !c.archived && c.on === undefined),
     ).toEqual([]);
     const chooses = (w) => legalActions(w).filter((a) => a.kind === "choose");
-    const talkTo = (world, target) => {
+    const talkTo = (world, target, topic) => {
       expect(chooses(world)).toEqual([]);
-      const next = playOpenDoor(world, "talk", { target });
+      const next = ajaxTalk(world, `greek-ajax-${topic}`, { target });
       expect(chooses(next)).toEqual([]);
       return next;
     };
-    // Each speaker's Talk alone commits the shield testimony.
     const camp = ajaxCamp();
-    for (const [speaker, place, id] of [
-      ["greek-ajax-teucer", "greek-greek-camp", "learn-shield-teucer"],
-      ["greek-ajax-odysseus", "greek-greek-camp", "learn-shield-odysseus"],
-      ["greek-ajax-tecmessa", "greek-ajax-household", "learn-shield-tecmessa"],
+    for (const [speaker, place] of [
+      ["teucer", "greek-greek-camp"],
+      ["odysseus", "greek-greek-camp"],
+      ["tecmessa", "greek-ajax-household"],
     ]) {
-      const world = talkTo(ajaxMove(camp, place), speaker);
-      expect(ajaxState(world).receipts[`greek-ajax-${id}`]).toBe(world.turn);
+      const world = talkTo(
+        ajaxMove(camp, place),
+        `greek-ajax-${speaker}`,
+        `shield-${speaker}`,
+      );
+      expect(
+        ajaxState(world).receipts[`greek-ajax-learn-shield-${speaker}`],
+      ).toBe(world.turn);
       expect(ajaxState(world).flags["greek-ajax-shield-keeper-heard"]).toBe(
         true,
       );
     }
     // Teucer's Talk commits the plea, then the signed record for each route.
     let world = ajaxMove(shieldDelivered(), "greek-greek-camp");
-    world = talkTo(world, "greek-ajax-teucer");
+    world = talkTo(world, "greek-ajax-teucer", "plea");
     expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
     expect(ajaxState(world).flags["greek-ajax-plea-heard"]).toBe(true);
     for (const route of ["public", "household", "appeal"]) {
       let signed = ajaxMove(ajaxBuried(route), "greek-greek-camp");
       if (signed.items["greek-ajax-plea"].holder !== "vale")
         signed = playOpenDoor(signed, "take", { item: "greek-ajax-plea" });
-      signed = talkTo(signed, "greek-ajax-teucer");
+      signed = talkTo(signed, "greek-ajax-teucer", `account-${route}`);
       expect(ajaxState(signed).receipts[`greek-ajax-record-${route}`]).toBe(
         signed.turn,
       );
@@ -218,7 +222,7 @@ describe("Earth Beside the Ships", () => {
     });
     expect(graveRite(world)).toBe("greek-ajax-bury-public");
   });
-  it("records the plea at Teucer's Talk even when his words never arrive", () => {
+  it("keeps the plea unavailable through a missed reply and opens it after a later disclosure", () => {
     let world = shieldDelivered();
     const talk = legalActions(world).find(
       (a) => a.kind === "talk" && a.target === "greek-ajax-teucer",
@@ -226,8 +230,6 @@ describe("Earth Beside the Ships", () => {
     world = play(world, talk).state;
     const context = narrativeContext(world, talk);
     expect(context.disclosures[0].factId).toBe("greek-ajax-plea");
-    // The choice's World line logs after the Talk; the Talk stays the play,
-    // so its told fact leads a resident's newer one.
     expect(context.outcome.card).toMatchObject({
       kind: "talk",
       target: "greek-ajax-teucer",
@@ -248,8 +250,8 @@ describe("Earth Beside the Ships", () => {
     expect(
       narrativeContext(later, talk).disclosures.map((d) => d.factId),
     ).toEqual(["greek-ajax-plea"]);
-    expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
-    expect(entityActive(world, "greek-ajax-plea")).toBe(true);
+    expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBeUndefined();
+    expect(entityActive(world, "greek-ajax-plea")).toBe(false);
     const response = (text) => ({
       revision: context.revision,
       model: "fixture",
@@ -263,10 +265,16 @@ describe("Earth Beside the Ships", () => {
       context,
       response("The tide is turning."),
     );
-    expect(knowsFact(world, "vale", "greek-ajax-plea")).toBe(true);
+    expect(knowsFact(missed, "vale", "greek-ajax-plea")).toBe(false);
     expect(missed.knowledge).toEqual(world.knowledge);
-    expect(ajaxState(missed).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
-    expect(reload(world).knowledge).toEqual(world.knowledge);
+    expect(ajaxState(missed).receipts["greek-ajax-hear-plea"]).toBeUndefined();
+    expect(entityActive(missed, "greek-ajax-plea")).toBe(false);
+    const recovered = ajaxTalk(reload(missed), "greek-ajax-plea");
+    expect(ajaxState(recovered).receipts["greek-ajax-hear-plea"]).toBe(
+      recovered.turn,
+    );
+    expect(knowsFact(recovered, "vale", "greek-ajax-plea")).toBe(true);
+    expect(entityActive(recovered, "greek-ajax-plea")).toBe(true);
   });
   it("uses local paths inside the camp and a ship stop between its shores", () => {
     const world = ajaxPlea();
@@ -320,13 +328,18 @@ describe("shared Ajax testimony", () => {
     const receipt = ajaxState(world).receipts["greek-ajax-record-public"];
     for (const topic of ["greek-ajax-plea", "greek-ajax-account-public"]) {
       const { context } = act("mara", "talk", { target: "greek-ajax-teucer" });
-      expect(context.disclosures[0].factId).toBe(topic);
+      const { factId, listener, speaker, eventSeq, text } =
+        context.disclosures[0];
+      expect(factId).toBe(topic);
       request("speech", "mara", {
         room: "greek-greek-camp",
-        disclosures: context.disclosures,
         lines: [
           { actorId: "mara", text: "Tell me your account for Dione." },
-          { actorId: "greek-ajax-teucer", text: context.disclosures[0].text },
+          {
+            actorId: speaker,
+            text,
+            disclosed: { factId, listener, speaker, eventSeq },
+          },
         ],
       });
     }

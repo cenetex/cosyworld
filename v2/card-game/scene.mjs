@@ -32,6 +32,7 @@ import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
 import { listenerDeal, listenerOffer } from "./world/arcana.mjs";
 import { preferredLocations } from "./preferred-locations.mjs";
+import { isLegacyElysiumLine } from "./elysium-models.mjs";
 export { sceneChanges };
 
 // The lamp lights a place only while it shines there: held by someone in that
@@ -744,7 +745,8 @@ export function sceneLines(world) {
   return world.log
     .map((entry, index) => ({ ...entry, index }))
     .filter(
-      (e) => e.generated === true && (!e.locationId || e.locationId === here),
+      (e) => e.generated === true && !isLegacyElysiumLine(e) &&
+        (!e.locationId || e.locationId === here),
     );
 }
 function visitStart(world, through = world.log.length - 1) {
@@ -920,7 +922,7 @@ export function isSignalEcho(entry) {
 
 export function isSceneText(entry, shared = false) {
   return Boolean(
-    entry && !isSignalEcho(entry) &&
+    entry && !isSignalEcho(entry) && !isLegacyElysiumLine(entry) &&
       (entry.kind === "dialogue" ||
         (entry.generated === true &&
           entry.kind === "narration" &&

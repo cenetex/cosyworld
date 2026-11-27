@@ -1,9 +1,11 @@
 import { expect, it } from "vitest";
 import { cardPlay } from "../v2/card-game/cards.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import { shipDock } from "../v2/card-game/pack-transport.mjs";
 import { pondSignalBeat } from "../v2/card-game/pond-signal-view.mjs";
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   decodeSave,
@@ -12,6 +14,7 @@ import {
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
+import { pipClue, publishPipReply } from "./helpers/pip-clue.mjs";
 
 const vale = "vale",
   rue = "rue",
@@ -58,6 +61,7 @@ function table(shared = false) {
       : play(world, action, world.revision, actor);
     expect(result.ok, result.error).toBe(true);
     world = shared ? result.world : result.state;
+    return action;
   };
   return {
     get world() {
@@ -70,6 +74,29 @@ function table(shared = false) {
     find,
     act,
     request,
+    pipReplies(action, withClue) {
+      const context = shared
+        ? sharedContext({
+            world,
+            actor: vale,
+            claimed: [vale, rue],
+            present: [vale, rue],
+            action,
+          })
+        : narrativeContext(world, action);
+      const clue = pipClue(context);
+      const reply = withClue ? clue : { text: "The air has turned cool." };
+      if (shared) {
+        const result = request(vale, "speech", {
+          room: context.location,
+          lines: [{ actorId: "moth", ...reply }],
+        });
+        expect(result.ok, result.error).toBe(true);
+        world = result.world;
+      } else {
+        world = publishPipReply(world, context, reply);
+      }
+    },
     join() {
       world = request(rue, "join").world;
     },
@@ -97,14 +124,22 @@ const enterPond = (t) => {
 };
 function preparePipSignal(t) {
   enterPond(t);
-  t.act(vale, { kind: "talk", target: "moth" });
+  const talk = () => t.act(vale, { kind: "talk", target: "moth" });
+  const first = talk();
+  expect(knowsFact(t.world, vale, fact)).toBe(false);
+  t.pipReplies(first, false);
+  expect(knowsFact(t.world, vale, fact)).toBe(false);
+  t.hold("lamp");
+  give(t, "lamp");
+  ask(t, "cloth");
+  expect(t.actions(vale).some((action) => action.label === "Borrow Lamp")).toBe(
+    false,
+  );
+  t.pipReplies(talk(), true);
   expect(t.world.knowledge.known.vale[fact]).toMatchObject({
     kind: "heard",
     teller: "moth",
   });
-  t.hold("lamp");
-  give(t, "lamp");
-  ask(t, "cloth");
   t.act(vale, { label: "Borrow Lamp" }, ["lamp", "moth"]);
   t.hold("cloth");
   expect(t.world.items.lamp.holder).toBe(vale);

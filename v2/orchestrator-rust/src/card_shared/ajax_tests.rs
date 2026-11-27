@@ -56,28 +56,28 @@ fn talk(c: &rusqlite::Connection, id: &str, world: &mut World, actor: usize, top
         actor,
         &[("kind", "talk"), ("target", "greek-ajax-teucer")],
     );
-    let disclosures = result["context"]["disclosures"].clone();
-    assert_eq!(disclosures[0]["factId"], topic);
+    let actor = if actor == 0 { "vale" } else { "mara" };
+    let disclosure = &result["context"]["disclosures"][0];
+    assert_eq!(disclosure["factId"], topic);
+    assert!(world.game["knowledge"]["known"][actor].get(topic).is_none());
+    let confirmed = json!({"factId":topic,"speaker":"greek-ajax-teucer",
+        "listener":actor,"eventSeq":disclosure["eventSeq"]});
     full_store::commit(
         c,
         id,
         world,
         json!({
-            "op":"speech", "actor":if actor == 0 {"vale"} else {"mara"},
-            "room":"greek-greek-camp", "disclosures":disclosures,
+            "op":"speech", "actor":actor,
+            "room":"greek-greek-camp",
             "lines":[
-                {"actorId":if actor == 0 {"vale"} else {"mara"}, "text":"Tell me your account for Dione."},
-                {"actorId":"greek-ajax-teucer", "text":disclosures[0]["text"]}
+                {"actorId":actor, "text":"Tell me your account for Dione."},
+                {"actorId":"greek-ajax-teucer", "text":disclosure["text"], "disclosed":confirmed}
             ]
         }),
         now(),
     )
     .unwrap();
-    assert!(
-        world.game["knowledge"]["known"][if actor == 0 { "vale" } else { "mara" }]
-            .get(topic)
-            .is_some()
-    );
+    assert!(world.game["knowledge"]["known"][actor].get(topic).is_some());
 }
 
 // The source-model fixture reaches this saved vigil through every earlier

@@ -20,6 +20,7 @@ import {
 } from "../v2/card-game/motives.mjs";
 import {
   GRIEVANCE_DORMANT_TURNS,
+  commitDisclosure,
   knowsFact,
   reserveKnowledge,
 } from "../v2/card-game/knowledge.mjs";
@@ -235,7 +236,8 @@ describe("shore wants and grievances", () => {
           generated: true,
           actorId: "keeper",
         });
-        reserveKnowledge(s, "keeper", "moth", s.log.at(-1));
+        const disclosure = reserveKnowledge(s, "keeper", "moth", s.log.at(-1));
+        commitDisclosure(s, disclosure, "keeper", s.actors.keeper.place);
       }
       expect(s.knowledge.known.moth[repair.id].kind).toBe(how);
       expect(s.motives.grievances.moth[0].repaired).toBe(false);

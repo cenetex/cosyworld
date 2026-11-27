@@ -1,10 +1,91 @@
-use super::{untrusted::ELYSIUM_LINE_RULES_SUFFIX, Context};
+use super::{conversation, untrusted::ELYSIUM_LINE_RULES_SUFFIX, Context, Memory};
 use crate::{
     card_shared::{
         cast, elysium_name, elysium_resident_at, elysium_setting, is_legacy_elysium_introduction,
     },
     AppState,
 };
+use std::{collections::BTreeMap, sync::OnceLock};
+
+fn retired_utterances() -> &'static BTreeMap<String, Vec<String>> {
+    #[derive(serde::Deserialize)]
+    struct LegacyLines {
+        waiting: BTreeMap<String, Vec<String>>,
+    }
+    static LINES: OnceLock<LegacyLines> = OnceLock::new();
+    &LINES
+        .get_or_init(|| {
+            serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+                "card-game/legacy-elysium-lines.json",
+            ))
+            .expect("retired Elysium dialogue")
+        })
+        .waiting
+}
+
+fn retired_utterance(actor: &str, text: &str) -> bool {
+    if crate::card_shared::elysium_model(actor).is_none() {
+        return false;
+    }
+    let text = text.trim();
+    is_legacy_elysium_introduction(text)
+        || ["all", actor].iter().any(|key| {
+            retired_utterances()
+                .get(*key)
+                .is_some_and(|lines| lines.iter().any(|line| line == text))
+        })
+}
+
+fn retired_memory(memory: &Memory) -> bool {
+    let Some((speaker, text)) = memory.text.split_once(": ") else {
+        return false;
+    };
+    match &memory.signed {
+        Some(proof) => retired_utterance(&proof.claims.entity, text),
+        // Shared memories use the pack name and need no browser signature.
+        None => retired_utterances().keys().any(|id| {
+            super::profiles()[id]["name"].as_str() == Some(speaker) && retired_utterance(id, text)
+        }),
+    }
+}
+
+/// Earlier releases wrote introductions and waiting lines as dialogue. Keep
+/// receipts and history intact, but leave those utterances out of model input.
+pub(super) fn prompt_context(context: &Context) -> Option<Context> {
+    let retired = |id: &str, text: Option<&str>| text.is_some_and(|t| retired_utterance(id, t));
+    let has_retired = context
+        .conversation
+        .iter()
+        .any(|line| retired_utterance(&line.actor_id, &line.text))
+        || context.entities.iter().any(|entity| {
+            retired(&entity.id, entity.previous.as_deref())
+                || entity.memories.iter().any(retired_memory)
+                || entity
+                    .between
+                    .iter()
+                    .flat_map(|b| &b.said)
+                    .any(|line| retired_utterance(&line.actor_id, &line.text))
+        });
+    if !has_retired {
+        return None;
+    }
+    let mut copy = conversation::copy_context(context)?;
+    copy.conversation
+        .retain(|line| !retired_utterance(&line.actor_id, &line.text));
+    for entity in &mut copy.entities {
+        if retired(&entity.id, entity.previous.as_deref()) {
+            entity.previous = None;
+            entity.previous_signed = None;
+        }
+        entity.memories.retain(|memory| !retired_memory(memory));
+        for between in &mut entity.between {
+            between
+                .said
+                .retain(|line| !retired_utterance(&line.actor_id, &line.text));
+        }
+    }
+    Some(copy)
+}
 
 pub(super) fn personal_talk(context: &Context, voiced: &[String]) -> Option<(String, String)> {
     let outcome = context.outcome.as_ref()?;
@@ -56,10 +137,14 @@ pub(super) async fn prepare_name(
     .await
 }
 
+pub(super) const SELF_INTRODUCTION: &str =
+    "Introduce yourself to the traveler in your own words using your chosen name.";
+
 pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&str>) {
     let Some(setting) = elysium_setting(target, &context.location) else {
         return;
     };
+    let introducing = name.is_some() && needs_introduction(context, target);
     let Some(resident) = context
         .entities
         .iter_mut()
@@ -81,20 +166,9 @@ pub(super) fn add_talk_facts(context: &mut Context, target: &str, name: Option<&
     resident
         .facts
         .push("Personal information can emerge over several conversations.".into());
-}
-
-pub(super) fn revealed_name(text: &str, name: Option<&str>) -> Option<String> {
-    let name = name?;
-    let inside_name = |ch: char| ch.is_alphabetic() || ch == '-';
-    text.match_indices(name)
-        .any(|(start, _)| {
-            !text[..start].chars().next_back().is_some_and(inside_name)
-                && !text[start + name.len()..]
-                    .chars()
-                    .next()
-                    .is_some_and(inside_name)
-        })
-        .then(|| name.to_string())
+    if introducing {
+        context.elysium_introducer = Some(target.to_owned());
+    }
 }
 
 #[cfg(test)]
@@ -192,24 +266,6 @@ mod tests {
     }
 
     #[test]
-    fn a_whole_spoken_name_earns_reveal_evidence() {
-        let name = Some("Echo Thread");
-        assert_eq!(revealed_name(REVEAL, name).as_deref(), name);
-        assert_eq!(
-            revealed_name("They call me Echo Thread. Echo Thread will do.", name).as_deref(),
-            name
-        );
-        for line in [
-            EARLY,
-            "I heard Echo Thread-Eater.",
-            "They call me echo thread.",
-        ] {
-            assert_eq!(revealed_name(line, name), None);
-        }
-        assert_eq!(revealed_name(REVEAL, None), None);
-    }
-
-    #[test]
     fn token_facts_require_a_scatter_in_the_scene() {
         let mut context = talk();
         context.elysium_token_scattered = false;
@@ -220,7 +276,60 @@ mod tests {
             .all(|fact| !fact.contains("Token history")));
     }
 
-    fn assert_signed(entry: &Value, id: &str, line: &str, model: Option<&str>) {
+    #[test]
+    fn old_void_lines_keep_their_signed_evidence_but_leave_the_prompt() {
+        use super::super::{messages, untrusted, Part};
+
+        let mut context = talk();
+        let wait = &retired_utterances()[ID][0];
+        for text in [REVEAL, LINE, wait] {
+            context.conversation.push(
+                serde_json::from_value(json!({
+                    "actorId":ID,"witnesses":["vale",ID],"text":text
+                }))
+                .unwrap(),
+            );
+        }
+        context.entities[2].previous = Some(wait.clone());
+        let vale = &mut context.entities[1];
+        vale.memories.push(
+            serde_json::from_value(json!({
+                "turn":30,"kind":"expression","text":format!("{}: {wait}", super::super::name(ID))
+            }))
+            .unwrap(),
+        );
+        vale.between.push(
+            serde_json::from_value(json!({
+                "with":ID,"said":[{"actorId":ID,"turn":30,"text":LINE}]
+            }))
+            .unwrap(),
+        );
+
+        let signed = untrusted::signed(&context);
+        let clean = prompt_context(&signed).unwrap();
+        assert!(!needs_introduction(&signed, ID));
+        assert_eq!(signed.conversation.len(), 3);
+        assert_eq!(clean.conversation.len(), 1);
+        assert_eq!(clean.conversation[0].text, REVEAL);
+        assert!(clean.entities[2].previous.is_none());
+        assert!(clean.entities[1].memories.is_empty());
+        assert!(clean.entities[1].between[0].said.is_empty());
+        for part in [Part::Line, Part::Thought, Part::Dream] {
+            let prompt = format!("{:?}", messages(&clean, &clean.entities[1], part));
+            assert!(!prompt.contains(LINE));
+            assert!(!prompt.contains(wait));
+        }
+        assert!(!retired_utterance("vale", wait));
+        assert!(prompt_context(&clean).is_none());
+    }
+
+    fn assert_signed(
+        entry: &Value,
+        id: &str,
+        line: &str,
+        model: Option<&str>,
+        identity: Option<&str>,
+    ) {
         assert_eq!(entry["id"], id);
         assert_eq!(entry["text"], line);
         if let Some(model) = model {
@@ -234,20 +343,17 @@ mod tests {
         assert_eq!(envelope.claims.seq, 31);
         if id == ID {
             assert!(envelope.claims.rules.ends_with(ELYSIUM_LINE_RULES_SUFFIX));
-            assert_eq!(
-                entry.get("elysiumName"),
-                Some(&if line == REVEAL {
-                    json!("Echo Thread")
-                } else {
-                    Value::Null
-                })
-            );
-            if line == REVEAL {
+            assert_eq!(entry.get("elysiumName"), Some(&json!(identity)));
+            if let Some(identity) = identity {
                 let proof: Envelope =
                     serde_json::from_value(entry["elysiumNameSigned"].clone()).unwrap();
                 assert_eq!(keys().verify(&proof), Verdict::Valid);
                 assert_eq!(proof.claims.kind, "elysium-name");
-                assert_eq!(proof.claims.content, content_hash("Echo Thread"));
+                assert_eq!(proof.claims.content, content_hash(identity));
+                assert_eq!(proof.claims.entity, envelope.claims.entity);
+                assert_eq!(proof.claims.turn, envelope.claims.turn);
+                assert_eq!(proof.claims.seq, envelope.claims.seq);
+                assert_eq!(proof.claims.rules, envelope.claims.rules);
             } else {
                 assert!(entry.get("elysiumNameSigned").is_none());
             }
@@ -255,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn only_legacy_signed_captions_or_verified_typed_names_restore_introduction() {
+    fn only_legacy_signed_lines_or_verified_typed_names_restore_introduction() {
         use super::super::untrusted::{sign_lines, signed, trusted, ScreeningFailure};
 
         let mut legacy = talk();
@@ -290,7 +396,7 @@ mod tests {
             ID
         ));
 
-        let mut intro = json!({"entries":[{"id":ID,"text":"You may know me as Echo Thread.","elysiumName":"Echo Thread"}]});
+        let mut intro = json!({"entries":[{"id":ID,"text":EARLY,"elysiumName":"Echo Thread"}]});
         sign_lines(&mut intro, &talk());
         assert!(!needs_introduction(
             &restored(&intro["entries"][0]).unwrap(),
@@ -304,7 +410,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn personal_talk_uses_bound_model_and_signs_json_and_sse() {
+    async fn void_talk_signs_and_shares_the_model_identity_independently_of_speech() {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let attempts = Arc::new(AtomicUsize::new(0));
         let replies = Arc::new(AtomicUsize::new(0));
@@ -317,10 +423,8 @@ mod tests {
                 && !prompt.contains("Give yourself an original fantasy name")
             {
                 return match replies.fetch_add(1, Ordering::Relaxed) {
-                    0 => LATER,
-                    1 => EARLY,
-                    3 => LATER,
-                    _ => REVEAL,
+                    1 | 4 => EARLY,
+                    _ => LATER,
                 }
                 .into();
             }
@@ -364,11 +468,11 @@ mod tests {
             Ok(VoiceSettings::hosted()),
         )
         .layer(Extension(state.clone()));
-        for (index, (accept, expected)) in [
-            ("application/json", LATER),
-            ("application/json", EARLY),
-            ("text/event-stream", REVEAL),
-            ("application/json", LATER),
+        for (index, (accept, expected, identity)) in [
+            ("application/json", LATER, None),
+            ("application/json", EARLY, Some("Echo Thread")),
+            ("text/event-stream", LATER, Some("Echo Thread")),
+            ("application/json", LATER, None),
         ]
         .into_iter()
         .enumerate()
@@ -397,14 +501,17 @@ mod tests {
                     .map(|line| serde_json::from_str(line).unwrap())
                     .collect();
                 assert_eq!(frames.len(), 3, "{frames:?}");
-                for (frame, id, text) in [(&frames[0], "vale", OPENING), (&frames[1], ID, expected)]
-                {
+                for (frame, id, text, name) in [
+                    (&frames[0], "vale", OPENING, None),
+                    (&frames[1], ID, expected, identity),
+                ] {
                     assert_eq!(frame["type"], "delta");
                     assert_signed(
                         &serde_json::from_str(frame["text"].as_str().unwrap()).unwrap(),
                         id,
                         text,
                         None,
+                        name,
                     );
                 }
                 assert_eq!(frames[2]["type"], "complete");
@@ -412,8 +519,14 @@ mod tests {
             } else {
                 serde_json::from_slice(&body).unwrap()
             };
-            assert_signed(&result["entries"][0], "vale", OPENING, Some(TRAVELER_MODEL));
-            assert_signed(&result["entries"][1], ID, expected, Some(MODEL));
+            assert_signed(
+                &result["entries"][0],
+                "vale",
+                OPENING,
+                Some(TRAVELER_MODEL),
+                None,
+            );
+            assert_signed(&result["entries"][1], ID, expected, Some(MODEL), identity);
             if index == 0 {
                 assert!(!root
                     .join("elysium-models")
@@ -434,7 +547,7 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(shared["entries"][0]["text"], OPENING);
-        assert_eq!(shared["entries"][1]["text"], REVEAL);
+        assert_eq!(shared["entries"][1]["text"], EARLY);
         assert_eq!(shared["entries"][1]["elysiumName"], "Echo Thread");
         assert!(shared["entries"][1].get("elysiumNameSigned").is_none());
         let seen = seen.lock().unwrap();
@@ -456,10 +569,24 @@ mod tests {
             .collect();
         assert_eq!(resident_replies.len(), 5);
         for (index, body) in resident_replies.into_iter().enumerate() {
+            let messages = body["messages"].as_array().unwrap();
             assert_eq!(
-                body["messages"].as_array().unwrap().last().unwrap()["content"],
+                messages.last().unwrap()["content"],
                 format!("Vale says, “{OPENING}”")
             );
+            let contains_instruction = |message: &Value| {
+                message["content"]
+                    .as_str()
+                    .is_some_and(|content| content.contains(SELF_INTRODUCTION))
+            };
+            assert_eq!(
+                messages.iter().any(contains_instruction),
+                matches!(index, 1 | 2 | 4)
+            );
+            assert!(messages
+                .iter()
+                .filter(|message| contains_instruction(message))
+                .all(|message| message["role"] == "system"));
             let prompt = body.to_string();
             assert!(prompt.contains("an indigo well"));
             assert!(prompt.contains("Token history: scattered beyond this Void"));
@@ -472,6 +599,7 @@ mod tests {
                 let prompt = body.to_string();
                 !prompt.contains("Token history: scattered beyond this Void")
                     && !prompt.contains("Echo Thread")
+                    && !prompt.contains(SELF_INTRODUCTION)
             }));
         std::fs::remove_dir_all(root).unwrap();
         server.abort();

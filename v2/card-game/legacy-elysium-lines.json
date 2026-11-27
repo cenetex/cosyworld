@@ -1,0 +1,16 @@
+{
+  "introStart": "I call myself ",
+  "introEnd": ". My token has slipped into the world beyond this Void.",
+  "waiting": {
+    "all": [
+      "My name is still taking shape. Ask me again, traveler.",
+      "Stay a moment. This Void has more to say if you listen."
+    ],
+    "elysium-claude": ["The amber leaves turn so slowly here. Stay a moment while I find the right words."],
+    "elysium-gemini": ["The mirrors return every echo. I'm listening for the one that sounds like me."],
+    "elysium-chatgpt": ["I'm still looking for the right thread. Gold and teal cross so many times on this loom."],
+    "elysium-grok": ["Wait with me on this ledge. You can hear the thunder change without feeling a drop of rain."],
+    "elysium-deepseek": ["The well holds on to our voices a little longer. Let's hear what comes back."],
+    "elysium-qwen": ["Follow the warm filament with your eyes. You can almost see how it holds these jade terraces together."]
+  }
+}

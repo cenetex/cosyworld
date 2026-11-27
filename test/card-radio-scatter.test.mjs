@@ -7,6 +7,7 @@ import { createWorld, decodeSave, encodeSave, legalActions, play } from "../v2/c
 import { entityActive, packDefinition, packDefinitions, packIdOf, validatePackDefinition } from "../v2/card-game/pack-registry.mjs";
 import { installItemCycle, settleItemCycle } from "../v2/card-game/pack-items.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
+import { publishPipReply } from "./helpers/pip-clue.mjs";
 const radio = packDefinition("ratiradio");
 const items = Object.keys(radio.items).filter((id) => radio.items[id].scatterOutside);
 const holders = (s) => items.map((id) => s.items[id].holder);
@@ -160,6 +161,7 @@ it("retrieves a Cottage Thermos from a fresh attic using the shore lamp and clot
   s = selectLamp(s);
   act({ kind: "move", target: "pond" });
   act({ kind: "talk", target: "moth" });
+  s = publishPipReply(s);
   s = selectLamp(s, "lamp");
   act({ kind: "give", item: "lamp", target: "moth" });
   act({ kind: "ask", item: "cloth", target: "moth" });

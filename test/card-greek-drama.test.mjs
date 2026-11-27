@@ -545,8 +545,23 @@ describe("incompatible histories become playable branches", () => {
     commit(arrived, "move", { target: HARBOR });
 
     const eventFact = `event:${chosen.seq}`;
-    for (let i = 0; i < 5 && !world.knowledge.known[arrived]?.[eventFact]; i++)
+    for (let i = 0; i < 5 && !world.knowledge.known[arrived]?.[eventFact]; i++) {
       commit(chooser, "talk", { target: arrived });
+      const context = narrativeContext(load(scene(chooser)));
+      const disclosure = context.disclosures?.[0];
+      if (!disclosure) continue;
+      const { factId, speaker, listener, eventSeq } = disclosure;
+      world = dispatchShared({
+        ...scene(chooser),
+        op: "speech",
+        room: context.location,
+        lines: [{
+          actorId: speaker,
+          text: disclosure.text,
+          disclosed: { factId, speaker, listener, eventSeq },
+        }],
+      }).world;
+    }
     expect(world.knowledge.known[arrived][eventFact]?.kind).toBe("heard");
     expect(facts(arrived)).toContain(account);
 

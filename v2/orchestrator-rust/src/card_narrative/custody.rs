@@ -60,7 +60,7 @@ pub(super) fn carrying(context: &Context, entity: &Entity) -> Option<String> {
     Some(format!("I'm carrying {}.", person::list(&things)))
 }
 
-pub(super) fn hand(context: &Context, speaker: &str) -> Option<String> {
+pub(super) fn hand_item<'a>(context: &'a Context, speaker: &str) -> Option<&'a str> {
     let outcome = context.outcome.as_ref()?;
     let avatar = outcome.avatars.iter().find(|a| a.id == speaker)?;
     let item = avatar.held_item.as_ref()?;
@@ -70,7 +70,11 @@ pub(super) fn hand(context: &Context, speaker: &str) -> Option<String> {
             .items
             .iter()
             .any(|i| &i.id == item && i.holder == speaker))
-    .then(|| format!("I'm holding {}.", person::the(&name(item))))
+    .then_some(item.as_str())
+}
+
+pub(super) fn hand(context: &Context, speaker: &str) -> Option<String> {
+    hand_item(context, speaker).map(|item| format!("I'm holding {}.", person::the(&name(item))))
 }
 
 pub(super) fn visible_holder<'a>(

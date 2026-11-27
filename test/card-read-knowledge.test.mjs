@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   KNOWLEDGE_FACT_LIMIT,
   PROTECTED_FACT_LIMIT,
+  commitDisclosure,
   knowledgeDisclosures,
   knowledgeFacts,
   newKnowledge,
@@ -56,7 +57,10 @@ const read = (w, reader, at = entry(w)) =>
   );
 const talk = (w, speaker, listener, topics) => {
   reserveKnowledge(w, speaker, listener, entry(w), topics);
-  return knowledgeDisclosures(w, [speaker], [speaker, listener], "station");
+  const disclosures = knowledgeDisclosures(w, [speaker], [speaker, listener], "station");
+  for (const disclosure of disclosures)
+    commitDisclosure(w, disclosure, speaker, "station");
+  return disclosures;
 };
 const news = (w, text, actorId = "moth") =>
   witnessKnowledge(w, {

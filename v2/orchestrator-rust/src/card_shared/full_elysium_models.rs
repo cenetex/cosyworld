@@ -1226,7 +1226,7 @@ mod tests {
         line["elysiumName"] = Value::Null;
         write_scene(&line);
         assert!(!introduced(&c, "world", resident).unwrap());
-        line["text"] = json!("You may know me as Amber Thread.");
+        line["text"] = json!("I hear your voice beside the well.");
         line["elysiumName"] = json!("Amber Thread");
         write_scene(&line);
         assert!(introduced(&c, "world", resident).unwrap());
