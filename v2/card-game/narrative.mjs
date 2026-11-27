@@ -1205,12 +1205,7 @@ export function createNarrator({
             { code: "mismatch" },
           );
         preview(null);
-        const silent = silentSpeakers(context, next);
-        apply(next, {
-          silent: Array.isArray(response.silent)
-            ? silent.filter((id) => response.silent.includes(id))
-            : silent,
-        });
+        apply(next, { silent: silentSpeakers(context, next) });
         status("ready");
         reflectScene(context, version);
         return;

@@ -18,7 +18,7 @@ const wayfinder = "elysium-wayfinder";
 const entry = "elysium-void-001";
 const encounterRoom = "elysium-void-002";
 const resident = "elysium-claude";
-const identity = "Vesper Ink";
+const identity = "Vesper Silver-Lens";
 const token = `${resident}-token`;
 const id = "elysium-voyage-smoke";
 const actors = ["vale", "mara"];
@@ -43,19 +43,33 @@ function ordinaryStart() {
 }
 
 async function personalIntroduction(browser, origin) {
-  const resident = "elysium-deepseek";
-  const room = "elysium-void-006";
-  const name = "Indigo Reed";
-  const pending = "My name is still taking shape. Ask me again, traveler.";
-  const introduced = `I call myself ${name}. My token has slipped into the world beyond this Void.`;
+  const resident = "elysium-gemini";
+  const room = "elysium-void-003";
+  const name = "Vaelen Silver-Lens";
+  const boundModel = "google/gemini-4-hydrogen";
+  const exchanges = [
+    {
+      question: "What do I call you?",
+      answer: "My name is still taking shape. Ask me again, traveler.",
+      model: "elysium-authored",
+    },
+    {
+      question: "Have you settled on a name?",
+      answer: `I call myself ${name}. My token has slipped into the world beyond this Void.`,
+      model: boundModel,
+    },
+    {
+      question: "What do you see here?",
+      answer: "The two mirrors never catch the same star.",
+      model: boundModel,
+    },
+  ];
   const key = "cosyworld.reflected-shore.v1.elysium-personal-smoke";
   const initial = createWorld({ seed: 17 });
   initial.turn = initial.revision = DAYLIGHT_TURNS;
   initial.actors.vale.place = "station";
   initial.items[wayfinder].holder = "station";
-  const route = [
-    entry, encounterRoom, "elysium-void-003", "elysium-void-005", room,
-  ];
+  const route = [entry, encounterRoom, room];
   let world = initial;
   for (const [kind, target] of [
     ["take", wayfinder], ...route.map((place) => ["move", place]), ["talk", resident],
@@ -81,7 +95,7 @@ async function personalIntroduction(browser, origin) {
     localStorage.setItem(`${key}.seen`, JSON.stringify(known));
     localStorage.setItem("cosyworld.dialogue.sound", "off");
     localStorage.setItem("cosyworld.room-music", JSON.stringify({ enabled: false }));
-  }, { key, save: encodeSave(world), known: Object.keys(profiles) });
+  }, { key, save: encodeSave(world), known: Object.keys(profiles).filter((id) => id !== `${resident}-token`) });
   await page.route("**/auth/account", (route) =>
     route.fulfill({ json: { authenticated: false } }),
   );
@@ -90,18 +104,23 @@ async function personalIntroduction(browser, origin) {
     const { revision, turn, outcome, elysiumIntroduced } = route.request().postDataJSON();
     if (outcome?.card?.kind !== "talk" || outcome.card.target !== resident)
       return route.fulfill({ status: 503 });
+    const exchange = exchanges[attempts.length];
     attempts.push(elysiumIntroduced);
-    const text = attempts.length === 1 ? pending : introduced;
-    const model = attempts.length === 1 ? "elysium-authored" : "deepseek/deepseek-v4.1-flash";
-    const entry = {
-      id: resident, text, model, signed: {
-        sig: "fixture-introduction",
-        claims: { kind: "line", entity: resident, world: "local", seq: revision, turn },
+    if (!exchange) return route.fulfill({ status: 503 });
+    const { question, answer, model } = exchange;
+    const entries = [
+      { id: "vale", text: question, model: "google/gemma-4-26b-a4b-it" },
+      { id: resident, text: answer, model },
+    ].map((entry) => ({
+      ...entry,
+      signed: {
+        sig: `fixture-${revision}-${entry.id}`,
+        claims: { kind: "line", entity: entry.id, world: "local", seq: revision, turn },
       },
-    };
+    }));
     const frames = [
-      { type: "delta", text: `${JSON.stringify(entry)}\n` },
-      { type: "complete", revision, model, entries: [entry], silent: [] },
+      ...entries.map((entry) => ({ type: "delta", text: `${JSON.stringify(entry)}\n` })),
+      { type: "complete", revision, model: "card-voices-v1", entries },
     ];
     return route.fulfill({
       contentType: "text/event-stream",
@@ -111,11 +130,16 @@ async function personalIntroduction(browser, origin) {
   await page.goto(`${origin}/?table=elysium-personal-smoke`);
   const title = page.locator(`#hand [data-card="${resident}"] .name`);
   const speech = page.locator("#dialogue-text");
-  const talk = async () => {
+  const speaker = page.locator("#speaker");
+  const talk = async ({ question, answer }) => {
     await settleHand(page);
     await clearSelection(page);
     await selectCard(page, resident, { touch: true });
     await readyActionButton(page, "talk").tap();
+    await speech.filter({ hasText: question }).waitFor();
+    assert.equal(await speaker.textContent(), "Vale");
+    await page.locator("#dialogue-advance").click();
+    await speech.filter({ hasText: answer }).waitFor();
   };
   await title.filter({ hasText: /^\?\?\?$/u }).waitFor();
   await settleHand(page);
@@ -134,17 +158,19 @@ async function personalIntroduction(browser, origin) {
     });
     return seen;
   });
-  await talk();
-  await speech.filter({ hasText: pending }).waitFor();
+  await talk(exchanges[0]);
+  assert.equal(await speaker.textContent(), "???");
   await title.filter({ hasText: /^\?\?\?$/u }).waitFor();
-  await talk();
-  await speech.filter({ hasText: introduced }).waitFor();
-  await settleHand(page);
+  await talk(exchanges[1]);
   await title.filter({ hasText: name }).waitFor();
+  assert.equal(await speaker.textContent(), name);
+  await settleHand(page);
   assert.deepEqual(await quiet.evaluate((seen) => [...seen]), []);
   await page.reload();
   await title.filter({ hasText: name }).waitFor();
-  assert.deepEqual(attempts, [undefined, undefined]);
+  await talk(exchanges[2]);
+  assert.equal(await speaker.textContent(), name);
+  assert.deepEqual(attempts, [undefined, undefined, resident]);
   assert.deepEqual(errors, []);
   await page.close();
 }
@@ -195,7 +221,7 @@ try {
       },
       {
         key: `cosyworld.reflected-shore.v1.shared.${id}.${actor}`,
-        known: Object.keys(profiles).filter((card) => card !== wayfinder),
+        known: Object.keys(profiles).filter((card) => card !== wayfinder && card !== "elysium-gemini-token"),
       },
     );
     await page.route("**/auth/account", (route) =>
@@ -233,7 +259,7 @@ try {
         if (result.events?.some((event) => event.elysiumModel === resident)) {
           const speech = dispatch(actor, {
             op: "speech",
-            lines: [{ actorId: resident, text: `I am ${identity}.` }],
+            lines: [{ actorId: resident, text: `I call myself ${identity}. My token has slipped into the world beyond this Void.` }],
           });
           world = speech.world;
           const starts_at = Date.now();
@@ -440,6 +466,7 @@ try {
   await play("talk", resident);
   await settleHand(vale);
   await name.filter({ hasText: identity }).waitFor();
+  await vale.locator("#speaker").filter({ hasText: identity }).waitFor();
   await vale.waitForFunction(
     ({ stageResident, identity }) =>
       document.querySelector(stageResident)?.getAttribute("aria-label") ===
@@ -504,7 +531,7 @@ try {
   );
   await Promise.all([vale.close(), mara.close()]);
   await personalIntroduction(browser, origin);
-  console.log("Elysium personal table: an anonymous reply can recover on the next Talk and keep its name.");
+  console.log("Elysium personal table: Vale speaks, the Void resident answers, and its learned name survives reload.");
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));

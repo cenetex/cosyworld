@@ -954,7 +954,7 @@ async fn generate(
             );
         }
     }
-    let Some(context) = screened(context).await else {
+    let Some(mut context) = screened(context).await else {
         return refused("envelope");
     };
     let Some(config) = state.ai.as_ref().as_ref() else {
@@ -985,6 +985,11 @@ async fn generate(
     // Only an admitted scene replaces this client's queued reflections: a
     // refused request must not cancel work, and other clients keep theirs.
     state.background.cancel.send_replace(Some(client));
+    let introduction = app.and_then(|Extension(state)| {
+        let (actor, target) = elysium::personal_talk(&context, &voiced(&context))?;
+        context.acting_avatar = Some(actor);
+        elysium::needs_introduction(&context, &target).then_some((state, target))
+    });
     if headers
         .get("accept")
         .is_some_and(|value| value == "text/event-stream")
@@ -1000,7 +1005,7 @@ async fn generate(
             let emit = |text: &str| untrusted::send_signed_delta(&deltas, &context, text);
             tokio::select! {
                 _ = sender.closed() => {},
-                result = elysium::complete(app.as_deref(), &config, &context, &character_models, &settings, Some(&emit)) => {
+                result = table_lines(&config, &context, &character_models, &settings, Some(&emit), introduction.as_ref()) => {
                     let event = match result {
                         Ok(mut value) => {
                             untrusted::sign_lines(&mut value, &context);
@@ -1022,13 +1027,13 @@ async fn generate(
         )
             .into_response();
     }
-    match elysium::complete(
-        app.as_deref(),
+    match table_lines(
         config,
         &context,
         character_models,
         settings,
         None,
+        introduction.as_ref(),
     )
     .await
     {
@@ -1051,15 +1056,16 @@ async fn generate(
 /// still waiting when the scene deadline passes, stays silent and is listed
 /// under `omitted`; the others are published. The scene fails only when none
 /// of its speakers (or, with no speakers, none of its voices) has words.
-async fn complete(
+async fn table_lines(
     config: &AiConfig,
     context: &Context,
     character_models: &BTreeMap<String, String>,
     settings: &VoiceSettings,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    introduction: Option<&Introduction>,
 ) -> Result<Value, Box<Response>> {
     let voiced = voiced(context);
-    let scene = complete_selected(
+    let scene = complete_with_introduction(
         config,
         context,
         character_models,
@@ -1067,9 +1073,23 @@ async fn complete(
         &voiced,
         false,
         on_delta,
+        introduction,
     );
     voice_scenes::run("table", context, &voiced, on_delta.is_some(), scene).await
 }
+
+#[cfg(test)]
+async fn complete(
+    config: &AiConfig,
+    context: &Context,
+    models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+) -> Result<Value, Box<Response>> {
+    table_lines(config, context, models, settings, on_delta, None).await
+}
+
+pub(crate) type Introduction = (crate::AppState, String);
 
 async fn complete_selected(
     config: &AiConfig,
@@ -1079,6 +1099,30 @@ async fn complete_selected(
     voiced: &[String],
     reflections: bool,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+) -> Result<Value, Box<Response>> {
+    complete_with_introduction(
+        config,
+        context,
+        character_models,
+        settings,
+        voiced,
+        reflections,
+        on_delta,
+        None,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn complete_with_introduction(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    voiced: &[String],
+    reflections: bool,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    introduction: Option<&Introduction>,
 ) -> Result<Value, Box<Response>> {
     for model in settings.reflection_model.iter().chain(settings.fallbacks()) {
         if let Err(failure) =
@@ -1099,7 +1143,7 @@ async fn complete_selected(
     // else speaks alongside them until the scene's deadline.
     match conversation::reply_target(context, voiced) {
         None => {
-            voice_lines(
+            conversation::voice_lines(
                 config,
                 context,
                 character_models,
@@ -1119,7 +1163,7 @@ async fn complete_selected(
                 .collect();
             let mut talk = BTreeMap::new();
             let (left, right) = tokio::join!(
-                voice_lines(
+                conversation::voice_lines(
                     config,
                     context,
                     character_models,
@@ -1129,7 +1173,7 @@ async fn complete_selected(
                     on_delta,
                     &mut lines,
                 ),
-                exchange(
+                conversation::exchange(
                     config,
                     context,
                     character_models,
@@ -1138,6 +1182,7 @@ async fn complete_selected(
                     (&actor, &target),
                     on_delta,
                     &mut talk,
+                    introduction,
                 ),
             );
             left?;
@@ -1216,110 +1261,6 @@ async fn complete_selected(
     Ok(json!({"revision":context.revision,"entries":entries,"omitted":omitted,"model":model}))
 }
 
-/// A Talk's two turns. The actor speaks within the first 55% of the scene,
-/// so the target always keeps the rest to answer it; with no line from the
-/// actor this turn there is nothing to answer, and an earlier turn's line is
-/// not this conversation.
-#[allow(clippy::too_many_arguments)]
-async fn exchange(
-    config: &AiConfig,
-    context: &Context,
-    character_models: &BTreeMap<String, String>,
-    settings: &VoiceSettings,
-    deadline: tokio::time::Instant,
-    (actor, target): (&str, &str),
-    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-    lines: &mut BTreeMap<String, (String, String)>,
-) -> Result<(), SceneClosed> {
-    let reserve = conversation::reply_reserve(settings.scene_timeout);
-    voice_lines(
-        config,
-        context,
-        character_models,
-        settings,
-        deadline - reserve,
-        &[actor.to_string()],
-        on_delta,
-        lines,
-    )
-    .await?;
-    let Some(heard) = lines
-        .get(actor)
-        .and_then(|(text, _)| conversation::with_line(context, actor, text))
-    else {
-        return Ok(());
-    };
-    voice_lines(
-        config,
-        &heard,
-        character_models,
-        settings,
-        deadline,
-        &[target.to_string()],
-        on_delta,
-        lines,
-    )
-    .await
-}
-
-/// Voice `ids` side by side until the scene deadline, adding each validated
-/// line to `lines`. Past the deadline, what has been validated is kept and
-/// the rest stay silent; dropping the stream cancels their requests.
-#[allow(clippy::too_many_arguments)]
-async fn voice_lines(
-    config: &AiConfig,
-    context: &Context,
-    character_models: &BTreeMap<String, String>,
-    settings: &VoiceSettings,
-    deadline: tokio::time::Instant,
-    ids: &[String],
-    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-    lines: &mut BTreeMap<String, (String, String)>,
-) -> Result<(), SceneClosed> {
-    // Each job owns its id: a borrowed one makes the scene future too
-    // general for `tokio::spawn`.
-    #[allow(clippy::unnecessary_to_owned)]
-    let jobs = ids.to_vec().into_iter().map(|id| async move {
-        let result = speak(
-            config,
-            context,
-            character_models,
-            settings,
-            deadline,
-            &id,
-            Part::Line,
-        )
-        .await;
-        (id, result)
-    });
-    let mut results = futures_util::StreamExt::buffer_unordered(
-        futures_util::stream::iter(jobs),
-        settings.parallel.max(1),
-    );
-    let collected = tokio::time::timeout_at(deadline, async {
-        while let Some((id, result)) = futures_util::StreamExt::next(&mut results).await {
-            let Ok((text, model)) = result else {
-                continue;
-            };
-            if context.speakers.contains(&id) {
-                if let Some(emit) = on_delta {
-                    if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
-                        return Err(SceneClosed);
-                    }
-                }
-            }
-            lines.insert(id, (text, model));
-        }
-        Ok(())
-    })
-    .await;
-    drop(results);
-    match collected {
-        Ok(Err(closed)) => Err(closed),
-        _ => Ok(()),
-    }
-}
-
 /// The viewer left mid-scene, so no further line can be streamed.
 struct SceneClosed;
 
@@ -1368,19 +1309,40 @@ fn shared_scene(
 }
 
 /// Generate only the voices chosen by the authenticated shared scene.
-pub(crate) async fn shared_lines(
+pub(crate) async fn shared_lines_with_introduction(
+    config: &AiConfig,
+    scene: &Value,
+    actor: &str,
+    ids: &[String],
+    models: &BTreeMap<String, String>,
+    introduction: Option<&Introduction>,
+) -> Result<Value, String> {
+    let (context, settings) = shared_scene(scene, actor, ids)?;
+    // Reflections follow in their own journal op (reflections::shared).
+    let scene = complete_with_introduction(
+        config,
+        &context,
+        models,
+        &settings,
+        ids,
+        false,
+        None,
+        introduction,
+    );
+    voice_scenes::run("shared", &context, ids, false, scene)
+        .await
+        .map_err(|_| "The play is saved. Its words need another moment.".into())
+}
+
+#[cfg(test)]
+async fn shared_lines(
     config: &AiConfig,
     scene: &Value,
     actor: &str,
     ids: &[String],
     models: &BTreeMap<String, String>,
 ) -> Result<Value, String> {
-    let (context, settings) = shared_scene(scene, actor, ids)?;
-    // Reflections follow in their own journal op (reflections::shared).
-    let scene = complete_selected(config, &context, models, &settings, ids, false, None);
-    voice_scenes::run("shared", &context, ids, false, scene)
-        .await
-        .map_err(|_| "The play is saved. Its words need another moment.".into())
+    shared_lines_with_introduction(config, scene, actor, ids, models, None).await
 }
 
 /// What one call asks an entity to say or keep privately.
@@ -2161,8 +2123,8 @@ fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
     config
 }
 
-/// Generate a validated part on its selected model, then on each fallback
-/// model in turn while the earlier ones fail (`fallback::run`).
+/// Generate a validated part. Ordinary voices can fall back through their
+/// configured tiers. Each Elysium resident always speaks with its own model.
 async fn speak(
     config: &AiConfig,
     context: &Context,
@@ -2173,11 +2135,19 @@ async fn speak(
     part: Part,
 ) -> Result<(String, String), ()> {
     let entity = entity(context, id);
-    let own_model = (part == Part::Persona)
-        .then_some(settings.reflection_model.as_deref())
-        .flatten()
-        .or_else(|| character_models.get(id).map(String::as_str));
+    let bound = crate::card_shared::elysium_model(id);
+    let own_model = bound.or_else(|| {
+        (part == Part::Persona)
+            .then_some(settings.reflection_model.as_deref())
+            .flatten()
+            .or_else(|| character_models.get(id).map(String::as_str))
+    });
     let own = tier_config(config, own_model);
+    let fallbacks = if bound.is_some() {
+        &[]
+    } else {
+        settings.fallbacks()
+    };
     let system = waking::system(context, entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
@@ -2194,7 +2164,7 @@ async fn speak(
         voice_metrics::Budget::measure(&system, context, entity, part),
     )
     .labelled(context);
-    let Some(links) = fallback::chain(config, own, settings.fallbacks()) else {
+    let Some(links) = fallback::chain(config, own, fallbacks) else {
         call.reject("unroutable");
         call.finish(voice_metrics::Outcome::Silent);
         tracing::warn!(
@@ -2234,7 +2204,15 @@ async fn speak(
                     } else {
                         (1.0 - 0.1 * f64::from(attempt)).max(0.7)
                     },
-                    max_tokens: if part == Part::Persona { 160 } else { 96 },
+                    // A reasoning model may spend some tokens before it has
+                    // visible words. The usual line and memory limits still apply.
+                    max_tokens: if bound.is_some() {
+                        1024
+                    } else if part == Part::Persona {
+                        160
+                    } else {
+                        96
+                    },
                     timeout,
                     max_attempts: 1,
                     referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
@@ -2262,6 +2240,20 @@ async fn speak(
                         );
                         fallback::Miss::Failed
                     })?;
+                if bound.is_some_and(|model| completion.resolved_model_id != model) {
+                    tier.fetch_max(1, Ordering::Relaxed);
+                    call.reject("model_mismatch");
+                    tracing::warn!(
+                        feature = "card_voice",
+                        entity = id,
+                        part = ?part,
+                        model = %link.model,
+                        resolved_model = %completion.resolved_model_id,
+                        reason = "model_mismatch",
+                        "card voice rejected"
+                    );
+                    return Err(fallback::Miss::Failed);
+                }
                 let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
                 let said = check.verdict(&completion.text, finished);
                 said.map(|(text, flags)| {

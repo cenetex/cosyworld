@@ -10,6 +10,127 @@ use super::{
     SpokenLine,
 };
 
+use super::{elysium, speak, AiConfig, Introduction, SceneClosed, VoiceSettings};
+use serde_json::json;
+use std::collections::BTreeMap;
+
+/// Reserve 45% of the scene for the reply. Prepare an introduction alongside
+/// the opener so naming can finish without delaying the first line.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn exchange(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
+    (actor, target): (&str, &str),
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, (String, String)>,
+    introduction: Option<&Introduction>,
+) -> Result<(), SceneClosed> {
+    let reserve = reply_reserve(settings.scene_timeout);
+    let opener_ids = [actor.to_string()];
+    let opener = voice_lines(
+        config,
+        context,
+        character_models,
+        settings,
+        deadline - reserve,
+        &opener_ids,
+        on_delta,
+        lines,
+    );
+    if let Some((state, _)) = introduction.filter(|(_, id)| id == target) {
+        let reply = tokio::time::timeout_at(deadline, elysium::reply(state, context, target));
+        let (said, reply) = tokio::join!(opener, reply);
+        said?;
+        if let Ok(Some((text, model))) = reply {
+            if let Some(emit) = on_delta {
+                if !emit(&json!({"id": target, "text": text, "model": model}).to_string()) {
+                    return Err(SceneClosed);
+                }
+            }
+            lines.insert(target.to_string(), (text, model));
+        }
+        return Ok(());
+    }
+    opener.await?;
+    let Some(heard) = lines
+        .get(actor)
+        .and_then(|(text, _)| with_line(context, actor, text))
+    else {
+        return Ok(());
+    };
+    voice_lines(
+        config,
+        &heard,
+        character_models,
+        settings,
+        deadline,
+        &[target.to_string()],
+        on_delta,
+        lines,
+    )
+    .await
+}
+
+/// Keep validated lines up to the scene deadline. Dropping the stream cancels
+/// the pending requests.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn voice_lines(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
+    ids: &[String],
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, (String, String)>,
+) -> Result<(), SceneClosed> {
+    // Each job owns its id: a borrowed one makes the scene future too
+    // general for `tokio::spawn`.
+    #[allow(clippy::unnecessary_to_owned)]
+    let jobs = ids.to_vec().into_iter().map(|id| async move {
+        let result = speak(
+            config,
+            context,
+            character_models,
+            settings,
+            deadline,
+            &id,
+            Part::Line,
+        )
+        .await;
+        (id, result)
+    });
+    let mut results = futures_util::StreamExt::buffer_unordered(
+        futures_util::stream::iter(jobs),
+        settings.parallel.max(1),
+    );
+    let collected = tokio::time::timeout_at(deadline, async {
+        while let Some((id, result)) = futures_util::StreamExt::next(&mut results).await {
+            let Ok((text, model)) = result else {
+                continue;
+            };
+            if context.speakers.contains(&id) {
+                if let Some(emit) = on_delta {
+                    if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
+                        return Err(SceneClosed);
+                    }
+                }
+            }
+            lines.insert(id, (text, model));
+        }
+        Ok(())
+    })
+    .await;
+    drop(results);
+    match collected {
+        Ok(Err(closed)) => Err(closed),
+        _ => Ok(()),
+    }
+}
+
 pub(super) const CHAT_LINES: usize = 6;
 /// And at most about this many characters (about 100 tokens), so a
 /// conversation prompt stays near #1537's 350 tokens.
