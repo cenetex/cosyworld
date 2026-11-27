@@ -355,10 +355,9 @@ const expectedTrustKeys = Object.fromEntries(
   ]),
 );
 import { createWorld, seedRun } from "./world/create.mjs";
-import { elysiumScatterLandings, settleStrandedWayfinder, wayfinderPassage } from "./world/elysium-travel.mjs";
+import { elysiumTokenLanding, settleStrandedWayfinder, wayfinderPassage } from "./world/elysium-travel.mjs";
 export { createWorld, seedRun };
-// Mount every pack missing from this save: its crossings, its state, and its
-// residents with fresh relationships. Earlier saves keep their own history.
+// Mount missing packs while preserving the save's history.
 export function installPacks(s) {
   const added = [],
     mounted = [];
@@ -976,9 +975,8 @@ function scatterElysiumToken(s, actor) {
   if (!target || s.elysiumEncounters?.[target] || !entityActive(s, target)) return;
   const token = elysiumModelToken(target);
   if (s.items[token]?.holder !== target) return;
-  const landings = elysiumScatterLandings(s, actor);
-  if (!landings.length) return;
-  const place = landings[runHash(s, token) % landings.length];
+  const place = elysiumTokenLanding(s, actor, token);
+  if (!place) return;
   const text = `The silver figure opens a hand. ${nameOf(token)} slips along a gold filament into the ordinary world and vanishes.`;
   transfer(s, token, place, text);
   setWant(s.actors[target], newWant("item", token, s.turn));

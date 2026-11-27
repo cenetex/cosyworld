@@ -1,5 +1,5 @@
 import { heldItem } from "../held-item.mjs";
-import { ELYSIUM_ENTRY, ELYSIUM_PACK } from "../elysium-models.mjs";
+import { ELYSIUM_ENTRY, ELYSIUM_PACK, isElysiumModelToken } from "../elysium-models.mjs";
 import { currentActor, humanAvatarIds, humanPresent } from "../human-cast.mjs";
 import { entityActive, packIdOf } from "../pack-registry.mjs";
 import { DAYLIGHT_TURNS, runHash } from "../pack-rules.mjs";
@@ -44,6 +44,25 @@ export function elysiumScatterLandings(world, actor = currentActor(world)) {
       )
         reachable.add(neighbor);
   return [...reachable].sort();
+}
+
+export function elysiumTokenLanding(world, actor, token) {
+  const landings = elysiumScatterLandings(world, actor);
+  if (!landings.length) return null;
+  const occupancy = new Map(
+    landings.map((place) => [place, { place, tokens: 0, loose: 0 }]),
+  );
+  for (const [id, { holder }] of Object.entries(world.items)) {
+    const room = occupancy.get(holder);
+    if (!room || !entityActive(world, id)) continue;
+    room.loose++;
+    if (isElysiumModelToken(id)) room.tokens++;
+  }
+  const compare = (a, b) => a.tokens - b.tokens || a.loose - b.loose;
+  const rooms = [...occupancy.values()];
+  const best = rooms.reduce((least, room) => (compare(room, least) < 0 ? room : least));
+  const tied = rooms.filter((room) => compare(room, best) === 0);
+  return tied[runHash(world, token) % tied.length].place;
 }
 
 export function scatterWayfinder(world) {
