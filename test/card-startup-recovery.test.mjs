@@ -1,4 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import {
+  beginBrowserReset,
+  clearBrowserAccountData,
+  createAccountStorage,
+  finishBrowserReset,
+} from "../v2/card-game/account-reset-storage.mjs";
+import { PLAYING_KEY } from "../v2/card-game/avatar-world.mjs";
 const mocks = vi.hoisted(() => ({
   local: vi.fn(),
   intro: vi.fn(),
@@ -55,6 +62,7 @@ beforeEach(() => {
     pathname: "/",
     search: "?table=test",
     reload,
+    replace: vi.fn(),
   });
   vi.stubGlobal("navigator", { webdriver: true });
   vi.stubGlobal("localStorage", { getItem: () => null });
@@ -93,4 +101,35 @@ it("releases a successful boot without cancelling its title", async () => {
   expect(document.body.inert).toBe(false);
   expect(mocks.intro.mock.calls[0][0].signal.aborted).toBe(false);
   expect(elements.get("speech-row").hidden).toBe(true);
+});
+
+it("resumes the last shared world from the current account reset epoch", async () => {
+  const values = new Map();
+  const storage = {
+    get length() {
+      return values.size;
+    },
+    key: (index) => [...values.keys()][index],
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+  };
+  const reset = "reset-1";
+  beginBrowserReset({ id: reset }, storage);
+  await clearBrowserAccountData(reset, storage, { databases: async () => [] });
+  finishBrowserReset(reset, storage);
+  createAccountStorage(storage).setItem(
+    PLAYING_KEY,
+    JSON.stringify({ world: "current-world" }),
+  );
+  storage.setItem(PLAYING_KEY, JSON.stringify({ world: "old-world" }));
+  vi.stubGlobal("localStorage", storage);
+  Object.assign(location, { href: "http://localhost/", search: "" });
+
+  await import("../v2/card-game/entry.mjs");
+
+  expect(location.replace).toHaveBeenCalledExactlyOnceWith(
+    "/?world=current-world",
+  );
+  expect(mocks.app).not.toHaveBeenCalled();
 });

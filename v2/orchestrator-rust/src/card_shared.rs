@@ -23,7 +23,8 @@ pub(crate) fn rules_version() -> &'static str {
 pub(crate) use engine::check_rules;
 mod full;
 pub(crate) use full::elysium_models::{
-    elysium_model, is_elysium_introduction, resident_introduction,
+    elysium_model, elysium_resident_at, is_legacy_elysium_introduction, resident_introduction,
+    valid_elysium_name,
 };
 mod full_floor;
 #[cfg(test)]

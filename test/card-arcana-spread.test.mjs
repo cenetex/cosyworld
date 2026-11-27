@@ -140,6 +140,7 @@ describe("the Listener's first visit", () => {
     expect(accept).toMatchObject({ kind: "accept", target: "listener", label: "Accept card" });
     expect(accept.key).not.toContain(FOOL);
     const accepted = acceptOffer(pending);
+    expect(accepted.log.at(-1).listenerEvent).toEqual({ kind: "handover", offer: "fool" });
     expect(spreadOf(accepted, "vale")).toMatchObject([{ card: FOOL, face: "down", turnable: true }]);
     expect(firstFoolProgress(accepted, "vale")).toEqual({ count: 3, target: 3, phase: "dealt" });
     expect(slotsUsed(accepted.actors.vale)).toBe(1);
@@ -147,6 +148,35 @@ describe("the Listener's first visit", () => {
     expect(play(accepted, accept, accepted.revision, "vale").ok).toBe(false);
     expect(entityActive(accepted, "listener")).toBe(false);
     expect(validateWorld(reload(accepted))).toBeTruthy();
+  });
+
+  it("links the reading to its Talk independently of the caption", () => {
+    const s = firstVisit();
+    const reading = listenerDeal(s, "vale");
+    const source = s.log.find((entry) => entry.seq === reading.listenerEvent.sourceSeq);
+    expect(reading.listenerEvent).toEqual({ kind: "reading", offer: "fool", sourceSeq: source.seq });
+    expect(source).toMatchObject({ verb: "talk", actorId: "vale", targetId: "listener" });
+    reading.text = "A short reading at the water's edge.";
+    const restored = reload(s);
+    expect(listenerDeal(restored, "vale")).toMatchObject({ text: reading.text });
+    expect(listenerDeal(restored, "mara")).toBeNull();
+    expect(narrativeContext(restored).events).toContain(
+      "The Listener gives a short reading and offers a face-down card. Its face stays hidden.",
+    );
+
+    reading.text = "The Listener offers Vale a face-down card.";
+    reading.listenerEvent.sourceSeq = source.seq - 1;
+    expect(listenerDeal(s, "vale")).toBeNull();
+    reading.listenerEvent.offer = "spread";
+    expect(() => validateWorld(s)).toThrow(expect.objectContaining({
+      check: `log:${reading.seq}:listener-event`,
+    }));
+
+    delete reading.listenerEvent;
+    for (const verb of ["offers", "gives"]) {
+      reading.text = `The Listener ${verb} Vale a face-down card.`;
+      expect(listenerDeal(reload(s), "vale")).toMatchObject({ text: reading.text });
+    }
   });
 
   it("accepts the Listener's reading in shared play and waits for its last line", () => {

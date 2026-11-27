@@ -3,7 +3,8 @@ import { LEVEL_CAP } from "../level-tiers.mjs";
 import { humanPresent } from "../human-cast.mjs";
 
 const cardIds = new Set(data.cards.map((card) => card.id));
-const FOOL = data.cards.find((card) => card.number === 0).id;
+export const STARTER = data.starterId;
+export const LISTENER = data.visit.match.targetId;
 export const isArcanum = (id) => cardIds.has(id);
 export const CALLS = data.calls;
 const didsOf = (c) =>
@@ -50,8 +51,8 @@ export const rewardPending = (s, traveler) =>
   recordOf(s, traveler).spread.some((slot) => slot.face === "reward");
 
 export function firstFoolSlot(s, traveler, record = recordOf(s, traveler)) {
-  if ((record.level ?? record.proved.length) > 0 || !record.need.includes(FOOL)) return null;
-  return record.spread.find((entry) => entry.card === FOOL &&
+  if ((record.level ?? record.proved.length) > 0 || !record.need.includes(STARTER)) return null;
+  return record.spread.find((entry) => entry.card === STARTER &&
     ["down", "reward"].includes(entry.face)) ?? null;
 }
 

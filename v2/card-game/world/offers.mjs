@@ -1,7 +1,7 @@
 import { entityActive, neverBack, packOf, transports } from "../pack-registry.mjs";
 import { packDiscovered, runHash } from "../pack-rules.mjs";
 import { usedUp } from "../item-use.mjs";
-import { arcanaLevel, owesGiving, recordOf, selling } from "./arcana-record.mjs";
+import { arcanaLevel, LISTENER, owesGiving, recordOf, selling } from "./arcana-record.mjs";
 import { rootHolder } from "./items.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
@@ -21,7 +21,6 @@ import { boxWant, shutBoxesAt } from "./boxes.mjs";
 import { nameOf, people, places, things } from "./catalog.mjs";
 
 export const OFFER_KINDS = ["box", "resident", "home", "listener", "place"];
-const LISTENER = "listener";
 export const offerId = (kind, source) =>
   kind === "place" ? `${PLACE_FROM}${source}` : `quest:${kind === "resident" ? "from" : kind}:${source}`;
 export const isOfferId = (id) => typeof id === "string" && id.startsWith("quest:");

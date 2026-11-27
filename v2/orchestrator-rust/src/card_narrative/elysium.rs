@@ -1,6 +1,8 @@
-use super::{conversation, name, Context};
+use super::{conversation, untrusted::ELYSIUM_LINE_RULES_SUFFIX, Context};
 use crate::{
-    card_shared::{cast, elysium_model, is_elysium_introduction, resident_introduction},
+    card_shared::{
+        cast, elysium_resident_at, is_legacy_elysium_introduction, resident_introduction,
+    },
     AppState,
 };
 
@@ -8,17 +10,11 @@ pub(super) fn personal_talk(context: &Context, voiced: &[String]) -> Option<(Str
     let outcome = context.outcome.as_ref()?;
     let (actor, target) =
         conversation::reply_target_for(context, voiced, &outcome.avatars.first()?.id)?;
-    let action = format!(
-        "{} has a conversation with {}.",
-        name(&actor),
-        name(&target)
-    );
-    (elysium_model(&target).is_some()
+    (elysium_resident_at(&target, &context.location)
         && cast()["avatars"]
             .as_array()?
             .iter()
             .any(|seat| seat["id"] == actor)
-        && context.action.as_deref() == Some(&action)
         && [&actor, &target].iter().all(|id| {
             outcome
                 .avatars
@@ -30,26 +26,34 @@ pub(super) fn personal_talk(context: &Context, voiced: &[String]) -> Option<(Str
 
 pub(super) fn needs_introduction(context: &Context, target: &str) -> bool {
     context.elysium_introduced.as_deref() != Some(target)
-        && !context
-            .conversation
-            .iter()
-            .any(|line| line.actor_id == target && is_elysium_introduction(&line.text))
+        && !context.conversation.iter().any(|line| {
+            line.actor_id == target
+                && match &line.elysium_name {
+                    Some(name) => name.is_some(),
+                    None => {
+                        line.signed.as_ref().is_some_and(|proof| {
+                            !proof.claims.rules.ends_with(ELYSIUM_LINE_RULES_SUFFIX)
+                        }) && is_legacy_elysium_introduction(&line.text)
+                    }
+                }
+        })
 }
 
 pub(super) async fn reply(
     state: &AppState,
     context: &Context,
     target: &str,
-) -> Option<(String, String)> {
+) -> Option<conversation::Entry> {
     let previous = context
         .conversation
         .iter()
         .rev()
         .find(|line| line.actor_id == target)
         .map(|line| line.text.as_str());
-    resident_introduction(state, target, &context.location, previous)
-        .await
-        .map(|(text, model)| (text, model.to_owned()))
+    let reply = resident_introduction(state, target, &context.location, previous).await?;
+    let mut entry = conversation::Entry::spoken(target, reply.text, reply.model.to_owned());
+    entry.elysium_name = Some(reply.name);
+    Some(entry)
 }
 
 #[cfg(test)]
@@ -117,6 +121,7 @@ mod tests {
             let pair = personal_talk(context, &voiced(context))?;
             needs_introduction(context, &pair.1).then_some(pair)
         };
+        context.action = None;
         assert_eq!(selected(&context), Some(("vale".into(), ID.into())));
         context.elysium_introduced = Some("elysium-qwen".into());
         assert!(selected(&context).is_some());
@@ -153,6 +158,72 @@ mod tests {
         assert_eq!(envelope.claims.kind, "line");
         assert_eq!(envelope.claims.content, content_hash(line));
         assert_eq!(envelope.claims.seq, 31);
+        if id == ID {
+            assert!(envelope.claims.rules.ends_with(ELYSIUM_LINE_RULES_SUFFIX));
+            assert_eq!(
+                entry.get("elysiumName"),
+                Some(&if line == LINE {
+                    json!("Echo Thread")
+                } else {
+                    Value::Null
+                })
+            );
+            if line == LINE {
+                let proof: Envelope =
+                    serde_json::from_value(entry["elysiumNameSigned"].clone()).unwrap();
+                assert_eq!(keys().verify(&proof), Verdict::Valid);
+                assert_eq!(proof.claims.kind, "elysium-name");
+                assert_eq!(proof.claims.content, content_hash("Echo Thread"));
+            } else {
+                assert!(entry.get("elysiumNameSigned").is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn only_legacy_signed_captions_or_verified_typed_names_restore_introduction() {
+        use super::super::untrusted::{sign_lines, signed, trusted};
+
+        let mut legacy = talk();
+        legacy
+            .conversation
+            .push(serde_json::from_value(json!({"actorId":ID,"text":LINE})).unwrap());
+        assert!(!needs_introduction(&trusted(signed(&legacy)).unwrap(), ID));
+
+        let restored = |entry: &Value| {
+            let mut context = talk();
+            let mut line = entry.clone();
+            let fields = line.as_object_mut().unwrap();
+            fields.remove("id");
+            fields.insert("actorId".into(), json!(ID));
+            context
+                .conversation
+                .push(serde_json::from_value(line).unwrap());
+            trusted(context)
+        };
+        let mut modern = json!({"entries":[{"id":ID,"text":LINE,"elysiumName":null}]});
+        sign_lines(&mut modern, &talk());
+        assert!(needs_introduction(
+            &restored(&modern["entries"][0]).unwrap(),
+            ID
+        ));
+        modern["entries"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("elysiumName");
+        assert!(needs_introduction(
+            &restored(&modern["entries"][0]).unwrap(),
+            ID
+        ));
+
+        let mut intro = json!({"entries":[{"id":ID,"text":"You may know me as Echo Thread.","elysiumName":"Echo Thread"}]});
+        sign_lines(&mut intro, &talk());
+        assert!(!needs_introduction(
+            &restored(&intro["entries"][0]).unwrap(),
+            ID
+        ));
+        intro["entries"][0]["elysiumName"] = json!("A Different Name");
+        assert!(restored(&intro["entries"][0]).is_none());
     }
 
     #[tokio::test]
@@ -282,6 +353,8 @@ mod tests {
         .unwrap();
         assert_eq!(shared["entries"][0]["text"], OPENING);
         assert_eq!(shared["entries"][1]["text"], LINE);
+        assert_eq!(shared["entries"][1]["elysiumName"], "Echo Thread");
+        assert!(shared["entries"][1].get("elysiumNameSigned").is_none());
         let seen = seen.lock().unwrap();
         let naming: Vec<_> = seen
             .iter()

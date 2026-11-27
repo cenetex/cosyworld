@@ -36,6 +36,7 @@ import { endStandoff } from "./helpers/standoff.mjs";
 import { SAVE_SCHEMA } from "../v2/card-game/legacy-saves.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
+import { dispatchShared, load } from "../v2/card-game/shared-world.mjs";
 const PACK = "greek-drama";
 const HARBOR = "greek-harbor";
 const COURTYARD = "greek-courtyard";
@@ -491,6 +492,68 @@ describe("Before the Burial", () => {
 });
 
 describe("incompatible histories become playable branches", () => {
+  it("keeps a committed account out of an arriving traveler's facts until it is learned", () => {
+    const tablet = "greek-helen-accounts";
+    const egypt = "greek-egypt-tomb";
+    const chooser = "mara";
+    const witness = "rue";
+    const arrived = "vale";
+    const seats = [chooser, witness, arrived];
+    let world = createWorld({ seed: 17, packScopes: { [PACK]: "full" } });
+    world.sharedVersion = 1;
+    world.crossings["pond-greek-harbor"].discovered = true;
+    world.actors[chooser].place = world.actors[witness].place = HARBOR;
+    world.actors[arrived].place = "greek-road-thebes";
+    const scene = (actor) => ({ world, actor, claimed: seats, present: seats });
+    const commit = (actor, kind, field) => {
+      const request = scene(actor);
+      const { actions } = dispatchShared({ ...request, op: "view" });
+      const action = actions.find(
+        (a) => a.kind === kind &&
+          Object.entries(field).every(([key, value]) => a[key] === value),
+      );
+      expect(action, `${actor} ${kind}`).toBeDefined();
+      const result = dispatchShared({ ...request, op: "play", action });
+      expect(result.ok, result.error).toBe(true);
+      world = result.world;
+      return result.events.find((e) => e.actorId === actor && e.verb === kind);
+    };
+    const facts = (actor, id = actor) =>
+      narrativeContext(load(scene(actor)), null, () => false).entities
+        .find((entity) => entity.id === id)?.facts ?? [];
+
+    commit(chooser, "take", { item: tablet });
+    const chosen = commit(chooser, "give", { item: tablet, target: "greek-shipmaster" });
+    const account = `Established account: ${chosen.text}`;
+    expect(chosen.witnesses).toContain(witness);
+    commit(arrived, "move", { target: HARBOR });
+    expect(stateOf(world).choices["greek-helen-account"]).toBe("egypt");
+    expect(exits(load(scene(arrived)), HARBOR, arrived)).toContain(egypt);
+    expect(facts(arrived, HARBOR)).toContain(account);
+    expect(facts(chooser)).toContain(account);
+    expect(facts(witness)).toContain(account);
+    expect(facts(arrived).join(" ")).not.toContain(chosen.text);
+
+    commit(arrived, "take", { item: tablet });
+    commit(arrived, "read", { item: tablet });
+    expect(facts(arrived).join(" ")).toContain("Helen spent the war in Egypt");
+    expect(facts(arrived).join(" ")).not.toContain(chosen.text);
+
+    commit(arrived, "move", { target: egypt });
+    expect(facts(arrived).join(" ")).toContain("Proteus's Tomb in Egypt");
+    expect(facts(arrived).join(" ")).not.toContain(chosen.text);
+    commit(arrived, "move", { target: HARBOR });
+
+    const eventFact = `event:${chosen.seq}`;
+    for (let i = 0; i < 5 && !world.knowledge.known[arrived]?.[eventFact]; i++)
+      commit(chooser, "talk", { target: arrived });
+    expect(world.knowledge.known[arrived][eventFact]?.kind).toBe("heard");
+    expect(facts(arrived)).toContain(account);
+
+    world = reload(world);
+    expect(facts(arrived)).toContain(account);
+  });
+
   it.each([
     [
       "a player in an unchosen branch",

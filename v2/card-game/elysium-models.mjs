@@ -11,6 +11,8 @@ export const ELYSIUM_MODEL_IDS = Object.freeze([
 ]);
 const models = new Set(ELYSIUM_MODEL_IDS);
 const tokens = new Set(ELYSIUM_MODEL_IDS.map((id) => `${id}-token`));
+const introductionStart = "I call myself ";
+const introductionEnd = ". My token has slipped into the world beyond this Void.";
 export const isElysiumModel = (id) => models.has(id);
 export const isElysiumModelToken = (id) => tokens.has(id);
 export const elysiumModelToken = (id) => `${id}-token`;
@@ -22,6 +24,33 @@ export const elysiumModelTalked = (s, id) =>
 
 export const keepsElysiumToken = (resident, item) =>
   isElysiumModel(resident) && elysiumModelToken(resident) === item;
+
+export function validElysiumName(name) {
+  return typeof name === "string" && [...name].length <= 40 &&
+    /\p{Alphabetic}/u.test(name) && !/[^\p{Alphabetic} -]/u.test(name) &&
+    name.trim().split(/ +/u).length <= 3;
+}
+
+export function legacyElysiumName(text) {
+  if (typeof text !== "string" || !text.startsWith(introductionStart) ||
+    !text.endsWith(introductionEnd)) return null;
+  const name = text.slice(introductionStart.length, -introductionEnd.length);
+  return validElysiumName(name) ? name : null;
+}
+
+export function elysiumNameIndex(text, name) {
+  if (typeof text !== "string" || !validElysiumName(name)) return -1;
+  if (legacyElysiumName(text) === name) return introductionStart.length;
+  const matches = text.matchAll(new RegExp(`(^|[^\\p{Alphabetic}-])${name}(?![\\p{Alphabetic}-])`, "gu"));
+  const first = matches.next().value;
+  return first && matches.next().done ? first.index + first[1].length : -1;
+}
+
+export function elysiumTalk(world, actor, resident, place, turn, before = Infinity) {
+  return world.log.some((entry) => entry.seq < before && entry.turn === turn &&
+    entry.kind === "action" && entry.verb === "talk" && entry.actorId === actor &&
+    entry.targetId === resident && entry.locationId === place && entry.fromLocationId === place);
+}
 
 export function recordElysiumEncounter(s, event) {
   if (event.elysiumArrival) {
@@ -45,6 +74,7 @@ export function resetImportedElysiumEncounters(s) {
     delete event.elysiumArrival;
     delete event.elysiumModel;
     delete event.portraitModel;
+    if (Object.hasOwn(event, "elysiumName")) event.elysiumName = null;
   }
   for (const resident of ELYSIUM_MODEL_IDS) {
     const token = elysiumModelToken(resident);
@@ -77,6 +107,11 @@ export function validElysiumEncounters(s) {
 }
 
 export function validElysiumEncounterEvent(s, e, people) {
+  if (Object.hasOwn(e, "elysiumName") &&
+    (!e.generated || e.kind !== "dialogue" || !isElysiumModel(e.actorId) ||
+      e.entityId !== e.actorId || (e.elysiumName !== null &&
+        (e.locationId !== people[e.actorId]?.home || elysiumNameIndex(e.text, e.elysiumName) < 0))))
+    return false;
   if (e.elysiumArrival === undefined && e.elysiumModel === undefined &&
       e.portraitModel === undefined) return true;
   const resident = e.elysiumArrival ?? e.elysiumModel ?? e.portraitModel;

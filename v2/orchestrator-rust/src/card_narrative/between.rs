@@ -203,6 +203,7 @@ mod tests {
             actor_id: "moth".into(),
             text: "Bring the lamp next time.".into(),
             signed: None,
+            ..Default::default()
         });
         assert!(!section(&c).unwrap().contains("Pip said"));
         // Someone Vale is not facing has no say.

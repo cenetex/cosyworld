@@ -6,13 +6,61 @@
 //! reach it, so a chat-tuned model answers a person, the view stays out of
 //! the reply, and the words are stable across attempts.
 use super::{
-    answered, custody, kind, name, names, waking, witnessed, Context, Entity, Part, Section,
-    SpokenLine,
+    answered, custody, kind, name, names, waking, witnessed, Context, Entity, Envelope, Part,
+    Reflection, Section,
 };
 
 use super::{elysium, speak, AiConfig, Introduction, SceneClosed, VoiceSettings};
-use serde_json::json;
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(super) struct SpokenLine {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) witnesses: Option<Vec<String>>,
+    pub(super) actor_id: String,
+    pub(super) text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) signed: Option<Envelope>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_name"
+    )]
+    pub(super) elysium_name: Option<Option<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) elysium_name_signed: Option<Envelope>,
+}
+
+fn present_name<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error> {
+    Option::deserialize(deserializer).map(Some)
+}
+
+#[derive(Serialize)]
+pub(super) struct Entry {
+    pub(super) id: String,
+    text: String,
+    pub(super) model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) reflection: Option<Reflection>,
+    #[serde(rename = "elysiumName", skip_serializing_if = "Option::is_none")]
+    pub(super) elysium_name: Option<Option<String>>,
+}
+
+impl Entry {
+    pub(super) fn spoken(id: &str, text: String, model: String) -> Self {
+        Self {
+            id: id.to_owned(),
+            text,
+            model,
+            reflection: None,
+            elysium_name: crate::card_shared::elysium_model(id).map(|_| None),
+        }
+    }
+}
 
 /// Reserve 45% of the scene for the reply. Prepare an introduction alongside
 /// the opener so naming can finish without delaying the first line.
@@ -25,7 +73,7 @@ pub(super) async fn exchange(
     deadline: tokio::time::Instant,
     (actor, target): (&str, &str),
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-    lines: &mut BTreeMap<String, (String, String)>,
+    lines: &mut BTreeMap<String, Entry>,
     introduction: Option<&Introduction>,
 ) -> Result<(), SceneClosed> {
     let reserve = reply_reserve(settings.scene_timeout);
@@ -44,20 +92,15 @@ pub(super) async fn exchange(
         let reply = tokio::time::timeout_at(deadline, elysium::reply(state, context, target));
         let (said, reply) = tokio::join!(opener, reply);
         said?;
-        if let Ok(Some((text, model))) = reply {
-            if let Some(emit) = on_delta {
-                if !emit(&json!({"id": target, "text": text, "model": model}).to_string()) {
-                    return Err(SceneClosed);
-                }
-            }
-            lines.insert(target.to_string(), (text, model));
+        if let Ok(Some(reply)) = reply {
+            publish_line(context, on_delta, lines, reply)?;
         }
         return Ok(());
     }
     opener.await?;
     let Some(heard) = lines
         .get(actor)
-        .and_then(|(text, _)| with_line(context, actor, text))
+        .and_then(|line| with_line(context, actor, &line.text))
     else {
         return Ok(());
     };
@@ -85,7 +128,7 @@ pub(super) async fn voice_lines(
     deadline: tokio::time::Instant,
     ids: &[String],
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-    lines: &mut BTreeMap<String, (String, String)>,
+    lines: &mut BTreeMap<String, Entry>,
 ) -> Result<(), SceneClosed> {
     // Each job owns its id: a borrowed one makes the scene future too
     // general for `tokio::spawn`.
@@ -112,14 +155,7 @@ pub(super) async fn voice_lines(
             let Ok((text, model)) = result else {
                 continue;
             };
-            if context.speakers.contains(&id) {
-                if let Some(emit) = on_delta {
-                    if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
-                        return Err(SceneClosed);
-                    }
-                }
-            }
-            lines.insert(id, (text, model));
+            publish_line(context, on_delta, lines, Entry::spoken(&id, text, model))?;
         }
         Ok(())
     })
@@ -129,6 +165,21 @@ pub(super) async fn voice_lines(
         Ok(Err(closed)) => Err(closed),
         _ => Ok(()),
     }
+}
+
+fn publish_line(
+    context: &Context,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, Entry>,
+    line: Entry,
+) -> Result<(), SceneClosed> {
+    if context.speakers.contains(&line.id)
+        && on_delta.is_some_and(|emit| !emit(&serde_json::json!(line).to_string()))
+    {
+        return Err(SceneClosed);
+    }
+    lines.insert(line.id.clone(), line);
+    Ok(())
 }
 
 pub(super) const CHAT_LINES: usize = 6;
@@ -460,6 +511,7 @@ pub(super) fn with_line(context: &Context, actor: &str, text: &str) -> Option<Co
         actor_id: actor.to_string(),
         text: text.to_string(),
         signed: None,
+        ..Default::default()
     });
     Some(next)
 }
@@ -532,6 +584,7 @@ mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into()]),
             actor_id: "moth".into(),
             text: "You can borrow my lamp.".into(),
+            ..Default::default()
         }];
         for verb in ["ask", "give", "trade"] {
             let card = &mut c.outcome.as_mut().unwrap().card;
@@ -686,6 +739,7 @@ mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into()]),
             actor_id: "vale".into(),
             text: "An old question from yesterday.".into(),
+            ..Default::default()
         }];
         let ids = vec!["vale".to_string(), "moth".into()];
         let started = tokio::time::Instant::now();
@@ -764,12 +818,14 @@ mod tests {
                 witnesses: all.clone(),
                 actor_id: "keeper".into(),
                 text: "The night boats for the far shore are late again.".into(),
+                ..Default::default()
             },
             SpokenLine {
                 signed: None,
                 witnesses: all,
                 actor_id: "vale".into(),
                 text: "Which boats for the far shore leave from the east quay, Pip?".into(),
+                ..Default::default()
             },
         ];
         let pip = &c.entities[3];

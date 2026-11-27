@@ -8,8 +8,10 @@ import {
   packThings,
 } from "./pack-registry.mjs";
 import {
+  authoredQuestStages,
   knowsFact,
   learnQuest,
+  legacyQuestFactId,
   questFactId,
   readClaim,
   validFactText,
@@ -90,11 +92,14 @@ export function readableBook(world, book, reader) {
   return holder === reachable && claimsIn(book, world).length > 0;
 }
 
-export function bookQuestId(book) {
+export function bookQuestId(book, legacy = false) {
   const item = itemOf(bookPack(book), book);
-  return item?.teachesQuest
-    ? questFactId(item.author, { target: item.teachesQuest })
-    : null;
+  if (!item.teachesQuest) return null;
+  const { author, teachesQuest } = item;
+  if (legacy) return legacyQuestFactId(author, teachesQuest);
+  const stages = authoredQuestStages(author, teachesQuest);
+  if (stages.length > 1) return null;
+  return questFactId(author, stages[0]?.want ?? { target: teachesQuest });
 }
 
 function bookQuest(world, book, reader) {

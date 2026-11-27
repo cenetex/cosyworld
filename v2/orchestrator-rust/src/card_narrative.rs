@@ -34,6 +34,7 @@ mod between;
 mod channel;
 #[path = "card_narrative/conversation.rs"]
 mod conversation;
+use conversation::SpokenLine;
 #[path = "card_narrative/custody.rs"]
 mod custody;
 #[path = "card_narrative/dream.rs"]
@@ -480,17 +481,6 @@ struct Reflection {
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-struct SpokenLine {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    witnesses: Option<Vec<String>>,
-    actor_id: String,
-    text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    signed: Option<Envelope>,
-}
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 struct CardOutcome {
     kind: String,
     target: Option<String>,
@@ -599,16 +589,6 @@ struct Context {
     images: Vec<String>,
     #[serde(skip)]
     channel: bool,
-}
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Entry {
-    id: String,
-    text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    model: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    reflection: Option<Reflection>,
 }
 fn valid(context: &Context) -> bool {
     let ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
@@ -1137,7 +1117,7 @@ async fn complete_with_introduction(
         }
     }
     let deadline = tokio::time::Instant::now() + settings.scene_timeout;
-    let mut lines: BTreeMap<String, (String, String)> = BTreeMap::new();
+    let mut lines = BTreeMap::new();
     // A Talk is two turns of one conversation: the target answers the
     // actor's line from this turn, so it speaks after the actor. Everyone
     // else speaks alongside them until the scene's deadline.
@@ -1218,16 +1198,11 @@ async fn complete_with_introduction(
     }
     let mut entries = Vec::new();
     for id in voiced {
-        let Some((text, model)) = lines.remove(id) else {
+        let Some(mut line) = lines.remove(id) else {
             continue;
         };
-        let reflection = private.remove(id);
-        entries.push(Entry {
-            id: id.clone(),
-            text,
-            model: Some(model),
-            reflection,
-        });
+        line.reflection = private.remove(id);
+        entries.push(line);
     }
     // Someone the scene needed has to have words, or nothing is published.
     let needed: &[String] = if context.speakers.is_empty() {
@@ -1248,7 +1223,7 @@ async fn complete_with_introduction(
         .filter(|e| !entries.iter().any(|entry| entry.id == e.id))
         .map(|e| e.id.clone())
         .collect();
-    let models: BTreeSet<_> = entries.iter().filter_map(|e| e.model.as_deref()).collect();
+    let models: BTreeSet<_> = entries.iter().map(|e| e.model.as_str()).collect();
     let model = if models.len() == 1 {
         models
             .into_iter()
@@ -3366,6 +3341,7 @@ pub(crate) mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "moth".into(),
             text: "Bring that lamp to the pond.".into(),
+            ..Default::default()
         });
         c.entities[3].previous = Some("My sleeves are dry.".into());
         c.entities[3].memories.push(Memory {
@@ -4924,6 +4900,7 @@ pub(crate) mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "vale".into(),
             text: "I am sorry. I will ask gently.".into(),
+            ..Default::default()
         });
         c.outcome = Some(solo_departure());
         for (verb, mine, theirs) in [
@@ -5121,6 +5098,7 @@ pub(crate) mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into()]),
             actor_id: "vale".into(),
             text: "Would you stay here with me, Pip?".into(),
+            ..Default::default()
         }];
         assert!(valid(&c));
         assert_eq!(voiced(&c), ["moth"]);
@@ -5143,6 +5121,7 @@ pub(crate) mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "vale".into(),
             text: "Where are you going?".into(),
+            ..Default::default()
         }];
         let mut keeper = context().entities.remove(3);
         keeper.id = "keeper".into();
@@ -6329,6 +6308,7 @@ pub(crate) mod tests {
             actor_id: "vale".into(),
             text: "A secret between us.".into(),
             witnesses: Some(vec!["vale".into()]),
+            ..Default::default()
         }];
         let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
         assert!(!transcript(&c, moth, Part::Line).contains("A secret between us."));
@@ -6448,6 +6428,7 @@ pub(crate) mod tests {
             witnesses: Some(all.clone()),
             actor_id: actor.into(),
             text: text.into(),
+            ..Default::default()
         };
         c.conversation = vec![
             said("vale", "Where does the pond lead?"),

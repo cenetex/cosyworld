@@ -1,9 +1,9 @@
 import { accountRevision } from "./account-revision.mjs";
 import { accountStorage } from "./account-reset-storage.mjs";
-import { ELYSIUM_MODEL_IDS } from "./elysium-models.mjs";
+import { ELYSIUM_MODEL_IDS, elysiumNameIndex, elysiumTalk, legacyElysiumName, validElysiumName } from "./elysium-models.mjs";
 import { imageUrl } from "./images.mjs";
 import { packPeople } from "./pack-registry.mjs";
-import { hasSignedLocalLine } from "./signed-words.mjs";
+import { hasSignedLocalIntroduction } from "./signed-words.mjs";
 
 const resident = "elysium-resident";
 const spiral = "elysium-gold-spiral";
@@ -13,27 +13,9 @@ const retryDelays = [
   1500, 3500, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 135000,
 ];
 const maxPortraitBytes = 8 * 1024 * 1024;
-const introductionStart = "I call myself ";
-const introductionEnd = ". My token has slipped into the world beyond this Void.";
-
-function validPersonalName(name) {
-  return (
-    typeof name === "string" &&
-    [...name].length <= 40 &&
-    /\p{Alphabetic}/u.test(name) &&
-    !/[^\p{Alphabetic} -]/u.test(name) &&
-    name.trim().split(/ +/u).length <= 3
-  );
-}
-
-function introductionName(value) {
-  if (typeof value !== "string" || !value.startsWith(introductionStart) ||
-    !value.endsWith(introductionEnd)) return null;
-  const name = value.slice(introductionStart.length, -introductionEnd.length);
-  return validPersonalName(name) ? name : null;
-}
-
 const normalName = (name) => name.trim().replace(/ +/gu, " ");
+const introductionName = (line) => Object.hasOwn(line, "elysiumName")
+  ? line.elysiumName : legacyElysiumName(line.text);
 
 async function decodedPortrait(blob) {
   const reader = new FileReader();
@@ -237,15 +219,12 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     const saved = personalNames[id];
     const { scatteredAt, talkedAt = scatteredAt } = personalWorld?.elysiumEncounters?.[id] || {};
     return talkedAt && saved?.talkedAt === talkedAt && saved.seq > talkedAt &&
-      saved.seq <= personalWorld.eventSeq && validPersonalName(saved.name) ? saved.name : null;
+      saved.seq <= personalWorld.eventSeq && validElysiumName(saved.name) ? saved.name : null;
   }
 
-  function learn(world, actor, line, talkedAt) {
-    const title = introductionName(line.text);
-    if (line.kind !== "dialogue" || !title ||
-      !hasSignedLocalLine(line, world.revision, storage) ||
-      !world.log.some((entry) => entry.seq < line.seq && entry.turn === line.turn &&
-        entry.verb === "talk" && entry.actorId === actor && entry.targetId === line.actorId)) return;
+  function learn(world, actor, line, title, talkedAt) {
+    if (!hasSignedLocalIntroduction(line, world.revision, storage) ||
+      !elysiumTalk(world, actor, line.actorId, line.locationId, line.turn, line.seq)) return;
     personalNames[line.actorId] = { name: normalName(title), talkedAt, seq: line.seq };
     try {
       storage.setItem(personalKey, JSON.stringify({ seed: world.run.seed, names: personalNames }));
@@ -271,13 +250,15 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
     return (value, line) => {
       if (line?.generated && !line.silent && line.kind === "dialogue" &&
         line.text === value && cast.get(line.actorId)?.alias) {
-        const title = introductionName(value);
-        if (title && !covered(line.actorId)) {
+        const title = introductionName(line);
+        const index = elysiumNameIndex(value, title);
+        if (index >= 0 && !covered(line.actorId)) {
           const deliveredByGame = prefix
             ? authorized && !suspended
             : personalName(line.actorId) === normalName(title) ||
-              hasSignedLocalLine(line, personalWorld?.revision, storage);
-          if (deliveredByGame) return caption(introductionStart) + title + caption(introductionEnd);
+              hasSignedLocalIntroduction(line, personalWorld?.revision, storage);
+          if (deliveredByGame)
+            return caption(value.slice(0, index)) + title + caption(value.slice(index + title.length));
         }
       }
       return caption(value);
@@ -311,11 +292,16 @@ export function createElysiumPortrait(worldId, redraw, saveKey, storage = accoun
           world.elysiumEncounters?.[id] || {};
         // An in-room title waits for the introduction to finish.
         if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
-        const replied =
-          line?.actorId === id && line.generated && !line.silent && line.seq > talkedAt;
-        if (personalKey && world.run && active && nearby && replied && line.locationId === here &&
-          line.turn === world.turn && !personalName(id)) learn(world, actor, line, talkedAt);
-        if (!talkedAt || replied) view.waiting = false;
+        if (line?.actorId === id && line.generated && line.seq > talkedAt) {
+          const typed = Object.hasOwn(line, "elysiumName");
+          const raw = typed && line.silent ? world.log?.find((entry) => entry.seq === line.seq) : line;
+          const title = raw?.kind === "dialogue" && !raw.silent && introductionName(raw);
+          const named = elysiumNameIndex(line.text, title) >= 0;
+          if (personalKey && world.run && active && nearby && named && line.locationId === here &&
+            line.turn === world.turn && !personalName(id)) learn(world, actor, raw, title, talkedAt);
+          if (typed ? named : !line.silent) view.waiting = false;
+        }
+        if (!talkedAt) view.waiting = false;
         view.seenTalk = Boolean(talkedAt);
         const ready =
           id === resident ? world.opened?.[spiral]?.length : returnedAt;

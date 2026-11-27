@@ -25,6 +25,7 @@ pub(super) async fn screened(context: Context) -> Option<Context> {
 const LOCAL_WORLD: &str = "local";
 /// The build family that signs local words.
 pub(super) const ISSUER: &str = "cosyworld-orchestrator/";
+pub(super) const ELYSIUM_LINE_RULES_SUFFIX: &str = "/elysium-v1";
 /// Clock skew allowed between machines that share a key.
 const SKEW_SECS: u64 = 300;
 
@@ -239,7 +240,10 @@ pub(super) fn trusted(context: Context) -> Option<Context> {
             &line.actor_id,
             &line.text,
         );
-        conversation.extend(keep(line, verdict)?);
+        if let Some(mut line) = keep(line, verdict)? {
+            verify_elysium_name(&mut line, &scene)?;
+            conversation.push(line);
+        }
     }
     context.conversation = conversation;
     for entity in &mut context.entities {
@@ -334,6 +338,32 @@ pub(super) fn trusted(context: Context) -> Option<Context> {
     Some(context)
 }
 
+fn verify_elysium_name(line: &mut SpokenLine, scene: &Scene) -> Option<()> {
+    let Some(Some(name)) = &line.elysium_name else {
+        return line.elysium_name_signed.is_none().then_some(());
+    };
+    let proof = line.elysium_name_signed.as_ref()?;
+    let words = line.signed.as_ref()?;
+    if crate::card_shared::elysium_model(&line.actor_id).is_none()
+        || !crate::card_shared::valid_elysium_name(name)
+        || !words.claims.rules.ends_with(ELYSIUM_LINE_RULES_SUFFIX)
+        || proof.claims.rules != words.claims.rules
+        || proof.claims.seq != words.claims.seq
+        || proof.claims.turn != words.claims.turn
+    {
+        return None;
+    }
+    match check(Some(proof), scene, "elysium-name", &line.actor_id, name) {
+        Check::Keep => {}
+        Check::Drop => {
+            line.elysium_name = Some(None);
+            line.elysium_name_signed = None;
+        }
+        Check::Reject => return None,
+    }
+    Some(())
+}
+
 fn claims(context: &Context, kind: &str, entity: &str, text: &str) -> Claims {
     Claims {
         content: content_hash(text),
@@ -352,8 +382,20 @@ fn claims(context: &Context, kind: &str, entity: &str, text: &str) -> Claims {
 pub(super) fn sign_lines(value: &mut Value, context: &Context) {
     for entry in value["entries"].as_array_mut().into_iter().flatten() {
         if let (Some(id), Some(text)) = (entry["id"].as_str(), entry["text"].as_str()) {
-            let envelope = keys().sign(claims(context, "line", id, text));
-            entry["signed"] = json!(envelope);
+            let mut words = claims(context, "line", id, text);
+            let mut identity = None;
+            if crate::card_shared::elysium_model(id).is_some() {
+                words.rules.push_str(ELYSIUM_LINE_RULES_SUFFIX);
+                if let Some(name) = entry["elysiumName"].as_str() {
+                    let mut proof = claims(context, "elysium-name", id, name);
+                    proof.rules.clone_from(&words.rules);
+                    identity = Some(keys().sign(proof));
+                }
+            }
+            entry["signed"] = json!(keys().sign(words));
+            if let Some(identity) = identity {
+                entry["elysiumNameSigned"] = json!(identity);
+            }
         }
     }
 }

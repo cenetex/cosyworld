@@ -55,8 +55,9 @@ async function personalIntroduction(browser, origin) {
     },
     {
       question: "Have you settled on a name?",
-      answer: `I call myself ${name}. My token has slipped into the world beyond this Void.`,
+      answer: `You may call me ${name}.`,
       model: boundModel,
+      name,
     },
     {
       question: "What do you see here?",
@@ -101,23 +102,30 @@ async function personalIntroduction(browser, origin) {
   );
   const attempts = [];
   await page.route("**/card-game/text", (route) => {
-    const { revision, turn, outcome, elysiumIntroduced } = route.request().postDataJSON();
+    const { revision, turn, outcome, conversation, elysiumIntroduced } = route.request().postDataJSON();
     if (outcome?.card?.kind !== "talk" || outcome.card.target !== resident)
       return route.fulfill({ status: 503 });
     const exchange = exchanges[attempts.length];
-    attempts.push(elysiumIntroduced);
+    attempts.push({ elysiumIntroduced, conversation });
     if (!exchange) return route.fulfill({ status: 503 });
     const { question, answer, model } = exchange;
     const entries = [
       { id: "vale", text: question, model: "google/gemma-4-26b-a4b-it" },
       { id: resident, text: answer, model },
-    ].map((entry) => ({
-      ...entry,
-      signed: {
+    ].map((entry) => {
+      const claims = { entity: entry.id, world: "local", seq: revision, turn,
+        ...(entry.id === resident && { rules: "fixture/elysium-v1" }) };
+      const signed = {
         sig: `fixture-${revision}-${entry.id}`,
-        claims: { kind: "line", entity: entry.id, world: "local", seq: revision, turn },
-      },
-    }));
+        claims: { kind: "line", ...claims },
+      };
+      if (entry.id !== resident) return { ...entry, signed };
+      return { ...entry, signed, elysiumName: exchange.name ?? null,
+        ...(exchange.name && { elysiumNameSigned: {
+          sig: `fixture-name-${revision}`, claims: { kind: "elysium-name", ...claims },
+        } }),
+      };
+    });
     const frames = [
       ...entries.map((entry) => ({ type: "delta", text: `${JSON.stringify(entry)}\n` })),
       { type: "complete", revision, model: "card-voices-v1", entries },
@@ -170,7 +178,11 @@ async function personalIntroduction(browser, origin) {
   await title.filter({ hasText: name }).waitFor();
   await talk(exchanges[2]);
   assert.equal(await speaker.textContent(), name);
-  assert.deepEqual(attempts, [undefined, undefined, resident]);
+  assert.deepEqual(attempts.map(({ elysiumIntroduced }) => elysiumIntroduced), [undefined, undefined, resident]);
+  assert.equal(attempts[1].conversation.find((line) => line.actorId === resident)?.elysiumName, null);
+  const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+  assert(saved.log.some((line) => line.actorId === resident && line.elysiumName === name));
+  assert(!attempts[2].conversation.some((line) => line.text.includes("Lens")));
   assert.deepEqual(errors, []);
   await page.close();
 }
@@ -259,7 +271,7 @@ try {
         if (result.events?.some((event) => event.elysiumModel === resident)) {
           const speech = dispatch(actor, {
             op: "speech",
-            lines: [{ actorId: resident, text: `I call myself ${identity}. My token has slipped into the world beyond this Void.` }],
+            lines: [{ actorId: resident, elysiumName: identity, text: `You may call me ${identity}.` }],
           });
           world = speech.world;
           const starts_at = Date.now();

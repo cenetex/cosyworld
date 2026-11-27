@@ -231,13 +231,17 @@ describe("the Listener", () => {
     );
     expect(neverBack(world, "bell")).toBe(true);
     expect(spreadOf(world, "vale")).toEqual([]);
-    expect(listenerOffer(reload(world), "vale")).toMatchObject({ kind: "spread", ready: true });
+    const restored = reload(world);
+    expect(restored.log.findLast((entry) => entry.verb === "give")?.listenerEvent)
+      .toEqual({ kind: "offer", offer: "spread" });
+    expect(listenerOffer(restored, "vale")).toMatchObject({ kind: "spread", ready: true });
     // Older saves could retain payment without a saved offer location.
     delete world.actors.vale.arcana.offer;
     world = reload(world);
     const ready = legalActions(world, "vale").find((a) => a.tarot === "offer");
     expect(ready).toMatchObject({ kind: "accept", target: ID, label: "Accept spread" });
     world = accept(world);
+    expect(world.log.at(-1).listenerEvent).toEqual({ kind: "handover", offer: "spread" });
     const record = world.actors.vale.arcana;
     expect(record.sale).toBeUndefined();
     expect(record.paid).toBeUndefined();

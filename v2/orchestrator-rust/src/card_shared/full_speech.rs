@@ -62,7 +62,11 @@ pub(super) fn parse(text: &str, work: &Value, ids: &[String]) -> Result<Value> {
         if text.is_empty() || text.chars().count() > 240 || text.chars().any(char::is_control) {
             continue;
         }
-        lines.push(json!({"reflection":entry["reflection"],"model":entry["model"],"speaker":name,"text":text,"entityId":id,"actorId":if profile["kind"]=="avatar"{Some(id)}else{None}}));
+        let mut line = json!({"reflection":entry["reflection"],"model":entry["model"],"speaker":name,"text":text,"entityId":id,"actorId":if profile["kind"]=="avatar"{Some(id)}else{None}});
+        if let Some(name) = entry.get("elysiumName") {
+            line["elysiumName"] = name.clone();
+        }
+        lines.push(line);
     }
     Ok(json!(lines))
 }

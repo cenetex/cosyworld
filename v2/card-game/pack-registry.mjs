@@ -948,7 +948,7 @@ export function committedChoiceText(world, pack, choice) {
   return choiceText(choice, actor);
 }
 
-export function packFacts(world, id) {
+export function packFacts(world, id, known = () => true) {
   const e = packEntity(id);
   if (!e) return [];
   const pack = packDefinition(e.packId),
@@ -961,7 +961,8 @@ export function packFacts(world, id) {
         (c.subject === id ||
           (c.at === id && c.on !== "hold") ||
           e.records?.includes(c.id) ||
-          c.effects.some((effect) => effect.item === id)),
+          c.effects.some((effect) => effect.item === id)) &&
+        known(pack, c),
     )
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-3)
@@ -983,7 +984,7 @@ export function packNarration(world, id) {
   ).length;
   return [`Discoveries recorded so far: ${count}.`];
 }
-export function packSceneFacts(world, location) {
+export function packSceneFacts(world, location, known = () => true) {
   const e = packEntity(location);
   if (!e) return [];
   const pack = packDefinition(e.packId),
@@ -1004,11 +1005,12 @@ export function packSceneFacts(world, location) {
   );
   const local = committed
     // A hold choice happens wherever its holder stands, not at its `at`.
-    .filter((c) => c.at === location && c.on !== "hold" && !canon.includes(c))
+    .filter((c) => c.at === location && c.on !== "hold" &&
+      !canon.includes(c) && known(pack, c))
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-2);
   return [
-    ...canon.map(
+    ...canon.filter((c) => known(pack, c)).map(
       (c) => `Established account: ${committedChoiceText(world, pack, c)}`,
     ),
     ...local.map((c) => committedChoiceText(world, pack, c)),

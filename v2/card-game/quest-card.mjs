@@ -25,6 +25,7 @@ import {
   rootHolder,
 } from "./world.mjs";
 import { placeWant } from "./world/offers.mjs";
+import { legacyQuestFactId, questFactId } from "./knowledge.mjs";
 
 export const QUEST_CARD = "quest";
 const HOLLOW = "greek-polynices-hollow";
@@ -79,10 +80,13 @@ export function ownerCard(world, viewer, owner) {
   const place = places[owner] && placeWant(world, owner),
     want = place || ownerWant(world, owner),
     card = want && (place || revealed(world, owner, want, viewer)) && questFor(world, owner, want);
+  const factId = !place && want ? questFactId(owner, want) : null;
+  const staged = factId && factId !== legacyQuestFactId(owner, want.target);
   return card
     ? {
         ...questShape(world, viewer, card, `offer:${viewer}:${owner}:${card.kind}:${card.target}`, -1),
         offer: owner,
+        ...(staged ? { factId } : {}),
         ...(!place && !world.actors[owner].want ? { completed: world.actors[owner].completedQuest } : {}),
         ...(place ? { lies: rootHolder(world, card.step.items[0]) } : {}),
       }

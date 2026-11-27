@@ -27,9 +27,11 @@ import {
   CALLS,
   firstFoolSlot,
   isArcanum,
+  LISTENER,
   owesGiving,
   recordOf,
   rewardPending,
+  STARTER,
   unlockedOf,
 } from "./arcana-record.mjs";
 import { boxDefs } from "./boxes.mjs";
@@ -273,30 +275,64 @@ const risingIn = (card) =>
   card.proof.flatMap(countsIn).filter((c) => c.min !== undefined);
 const cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
 
-const FOOL = 0;
 const WORLD = 21;
-const LISTENER = data.visit.match.targetId;
 const listenerCardLine = (traveler) =>
   `${nameOf(LISTENER)} offers ${nameOf(traveler)} a face-down card.`;
+const legacyReading = (entry, traveler) =>
+  entry.text === listenerCardLine(traveler) ||
+  entry.text === `${nameOf(LISTENER)} gives ${nameOf(traveler)} a face-down card.`;
+const listenerTalk = (entry) =>
+  entry.kind === "action" && !entry.generated &&
+  entry.verb === "talk" && entry.targetId === LISTENER;
+const followsReadingTalk = (entry, talk) =>
+  entry.turn === talk.turn && entry.seq > talk.seq &&
+  entry.locationId === talk.locationId && entry.witnesses?.includes(talk.actorId);
 
 export function listenerDeal(world, traveler) {
   const talk = world.log.findLast(
     (entry) => entry.turn === world.turn && entry.kind === "action" &&
       !entry.generated && entry.actorId === traveler &&
-      (entry.verb === "accept" || (entry.verb === "talk" && entry.targetId === LISTENER)),
+      (entry.verb === "accept" || listenerTalk(entry)),
   );
   if (talk?.verb !== "talk") return null;
   return world.log.findLast(
-    (entry) => entry.turn === talk.turn && entry.seq > talk.seq &&
+    (entry) => followsReadingTalk(entry, talk) &&
       entry.kind === "narration" && !entry.generated && entry.consequence &&
-      entry.actorId === LISTENER && entry.locationId === talk.locationId &&
-      entry.witnesses?.includes(traveler) &&
-      [listenerCardLine(traveler), `${nameOf(LISTENER)} gives ${nameOf(traveler)} a face-down card.`].includes(entry.text),
+      entry.actorId === LISTENER &&
+      (entry.listenerEvent === undefined
+        ? legacyReading(entry, traveler)
+        : entry.listenerEvent?.kind === "reading" && entry.listenerEvent.sourceSeq === talk.seq),
   ) ?? null;
 }
+
+export function validListenerEvent(world, entry) {
+  const event = entry.listenerEvent;
+  if (event === undefined) return true;
+  if (entry.generated || !plainObject(event) ||
+    !["fool", "spread"].includes(event.offer) ||
+    Object.keys(event).some((key) => !["kind", "offer", "sourceSeq"].includes(key)))
+    return false;
+  if (event.kind === "reading") {
+    if (event.offer !== "fool" || entry.kind !== "narration" ||
+      entry.actorId !== LISTENER || entry.consequence !== true ||
+      !Number.isSafeInteger(event.sourceSeq) || event.sourceSeq <= 0 ||
+      event.sourceSeq >= entry.seq || !entry.witnesses?.includes(LISTENER) ||
+      !entry.witnesses?.some(humanAvatar)) return false;
+    const talk = world.log.find((line) => line.seq === event.sourceSeq);
+    return !talk || (listenerTalk(talk) && humanAvatar(talk.actorId) && followsReadingTalk(entry, talk));
+  }
+  if (event.sourceSeq !== undefined || entry.kind !== "action" ||
+    entry.targetId !== LISTENER || !humanAvatar(entry.actorId))
+    return false;
+  if (event.kind === "offer")
+    return event.offer === "spread" && entry.verb === "give" && entry.accepted === true &&
+      Array.isArray(entry.gone) && entry.gone.includes(entry.itemId);
+  return event.kind === "handover" && entry.verb === "accept" && entry.consequence === true;
+}
+
 const numberOf = (id) => cardOf(id)?.number;
 const isMiddle = (id) =>
-  Boolean(cardOf(id)) && numberOf(id) !== FOOL && numberOf(id) !== WORLD;
+  Boolean(cardOf(id)) && id !== STARTER && numberOf(id) !== WORLD;
 const numbered = (n) => deck.cards.find((card) => card.number === n)?.id;
 const sorted = (ids) => [...new Set(ids)].sort();
 const collect = (actor, ids) =>
@@ -317,7 +353,7 @@ export function deckOrder(s, traveler, level = 0) {
     deck.cards.filter((card) => isMiddle(card.id)).map((card) => card.id),
   );
   return [
-    ...ids(deck.cards.filter((card) => card.number === FOOL)),
+    ...ids(deck.cards.filter((card) => card.id === STARTER)),
     ...middle,
     ...ids(deck.cards.filter((card) => card.number === WORLD)),
   ];
@@ -507,24 +543,23 @@ export function dealSpread(s, traveler) {
 }
 
 function giveFool(s, traveler) {
-  const fool = numbered(FOOL);
-  const slot = firstOfferSlot(s, traveler, fool);
+  const slot = firstOfferSlot(s, traveler);
   if (!slot) return false;
   const record = recordFor(s, traveler);
   const a = s.actors[traveler];
   while (slotsUsed(a) >= MAX_HELD && heldOf(a).length)
     releaseQuest(a, heldOf(a).at(-1));
   record.spread = [...(record.spread || []), place(s, traveler, slot)];
-  record.need = [fool];
+  record.need = [STARTER];
   delete record.done;
   delete record.offer;
   return true;
 }
 
-function firstOfferSlot(s, traveler, fool = numbered(FOOL)) {
+function firstOfferSlot(s, traveler) {
   const { spread } = recordOf(s, traveler);
-  return fool && spread.length < MAX_HELD && spread.every((slot) => slot.card !== fool)
-    ? makeSlot(s, traveler, fool, "down") : null;
+  return cardOf(STARTER) && spread.length < MAX_HELD && spread.every((slot) => slot.card !== STARTER)
+    ? makeSlot(s, traveler, STARTER, "down") : null;
 }
 
 export function acceptTarot(s, traveler, index, say = () => {}) {
@@ -542,7 +577,10 @@ export function acceptTarot(s, traveler, index, say = () => {}) {
     const offer = listenerOffer(s, traveler);
     if (!offer?.ready) return false;
     if (!(offer.kind === "fool" ? giveFool(s, traveler) : dealSpread(s, traveler))) return false;
-    act(listenerAcceptLine(traveler, offer.kind), { targetId: LISTENER });
+    act(listenerAcceptLine(traveler, offer.kind), {
+      targetId: LISTENER,
+      listenerEvent: { kind: "handover", offer: offer.kind },
+    });
     return true;
   }
   if (slot?.face === "down" && slot === firstFoolSlot(s, traveler)) {
@@ -568,18 +606,19 @@ function leave(record, slot) {
   if (!record.spread.length) delete record.spread;
 }
 
-function visit(s, traveler, location, tell) {
+function visit(s, traveler, talk, tell) {
   const record = recordFor(s, traveler);
   if (record.offer) return;
-  const fool = numbered(FOOL);
   if (
     arcanaLevel(s, traveler) === 0 &&
-    !(record.spread || []).some((slot) => slot.card === fool) &&
-    !(record.done || []).includes(fool)
+    !(record.spread || []).some((slot) => slot.card === STARTER) &&
+    !(record.done || []).includes(STARTER)
   ) {
-    if (!firstOfferSlot(s, traveler, fool)) return;
-    record.offer = location;
-    tell(listenerCardLine(traveler));
+    if (!firstOfferSlot(s, traveler)) return;
+    record.offer = talk.locationId ?? s.actors[LISTENER].place;
+    tell(listenerCardLine(traveler), {
+      listenerEvent: { kind: "reading", offer: "fool", sourceSeq: talk.seq },
+    });
   }
   delete record.calls;
   delete record.callers;
@@ -804,19 +843,21 @@ export function settleArcana(s, actor = null, since = 0, say = null, before = s)
       const record = recordFor(s, traveler);
       record.paid = true;
       record.offer = events.price.locationId ?? s.actors[LISTENER].place;
+      events.price.listenerEvent = { kind: "offer", offer: "spread" };
     }
     settleSlots(s, traveler);
-    const tell = (by) => (text) =>
+    const tell = (text, detail) =>
       say?.(text, {
         kind: "narration",
-        actorId: by,
-        cast: [...new Set([by, traveler])],
-        witnesses: [...new Set([by, traveler])],
+        actorId: LISTENER,
+        cast: [LISTENER, traveler],
+        witnesses: [LISTENER, traveler],
         consequence: true,
+        ...detail,
       });
     if (unlocks(s, traveler)) turnOver(s, traveler);
     else if (events?.visit && called(s, traveler))
-      visit(s, traveler, events.visit.locationId ?? s.actors[LISTENER].place, tell(LISTENER));
+      visit(s, traveler, events.visit, tell);
   }
   return s;
 }
@@ -900,7 +941,7 @@ export function installArcana(s) {
     const needed = Array.isArray(record.need) ? record.need : [];
     for (const slot of Array.isArray(record.spread) ? record.spread : []) {
       if (!plainObject(slot)) continue;
-      const firstFool = slot.card === numbered(FOOL) &&
+      const firstFool = slot.card === STARTER &&
         (record.level ?? proved.length) === 0 && needed.includes(slot.card);
       if (slot.face === "up" && firstFool && !proved.includes(slot.card))
         slot.face = "reward";
@@ -986,4 +1027,4 @@ export function validArcana(s) {
 const validOffer = (record) => record.offer === undefined ||
   (typeof record.offer === "string" && Object.hasOwn(places, record.offer) &&
     (record.paid === true || ((record.level ?? record.proved?.length) === 0 &&
-      !(Array.isArray(record.spread) && record.spread.some((slot) => slot.card === numbered(FOOL))))));
+      !(Array.isArray(record.spread) && record.spread.some((slot) => slot.card === STARTER)))));
