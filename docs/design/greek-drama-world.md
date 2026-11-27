@@ -4,6 +4,10 @@ Give each play a distinct problem at its authored location. The player hears a c
 
 The world uses one set of rules for these scenes. The 44 plays supply the places, people, disputes and compatible accounts. The map supplies the cost and opportunity of moving between them. The existing card actions, commitments, custody and journal supply the state. The catalog remains the record of which plays and scenes make up the repertoire. [Play catalog](../../v2/content/greek-drama/card-world.json#L7899) · [Route map](../maps/greek-drama.graph.json)
 
+## Revision 44
+
+Earlier saves retain their traveled routes, and passengers transferred to Scylla at berth can disembark. A traveler without an available course can return to the dock. Thaleia appears after either Acharnae settlement and still checks the evidence for each order. The posted Witness Order names Cilissa and Agamemnon’s tomb. Iphigenia’s original letter can be delivered to Electra at the Argive Jury Yard, where it records her acknowledgment. Leave room in hand before receiving the letter or Jocasta’s summons. [Save upgrades](../../v2/card-game/legacy-saves.mjs) · [Tauris and Argos](../../v2/content/greek-drama/situations/euripides-shores.json)
+
 ## Revision 43
 
 Four scenes offer direct choices on the original residents’ cards after the opening Talk. In _Prometheus Bound_, send Io with the directions or mark the fork. In _Rhesus_, hear the charioteer or count the surviving horses. In _Birds_, build the smoke gate or call the council. In _Assemblywomen_, open the pot or reserve grain. The scene text still shows the crag tablet, lantern, peg and scoop. Each choice keeps its outcome ID and leaves a local record of its result. [Encounter catalog](../../v2/content/greek-drama/situations/00-encounters.json) · [Encounter compiler](../../v2/card-game/card-pack-situations.mjs)

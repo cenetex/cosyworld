@@ -1,6 +1,5 @@
 // Item lookups: who holds what and whether it is carried or lit.
 import { entityActive } from "../pack-registry.mjs";
-import { ids } from "../world.mjs";
 
 // Holder chains are a few links deep, so the walk tracks visits only when a
 // chain runs long enough to hide a loop: the common case allocates nothing.
@@ -21,10 +20,24 @@ export function rootHolder(s, id) {
   }
   return holder;
 }
-export const itemPlace = (s, id) =>
-  s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
-export const carried = (s, actor) =>
-  ids.filter((id) => rootHolder(s, id) === actor);
+export function itemPlace(s, id) {
+  const holder = rootHolder(s, id);
+  return s.actors[holder]?.place || holder;
+}
+export const carried = (s, actor, itemIds = Object.keys(s.items)) =>
+  itemIds.filter((id) => rootHolder(s, id) === actor);
+export const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
+export function hasSpace(s, actor, id, itemIds) {
+  const added = rootHolder(s, id) === actor ? 0 : loadOf(s, id);
+  return carried(s, actor, itemIds).length + added <= 3;
+}
+export function hasSpaceForItems(s, actor, items) {
+  if (items.length === 1) return hasSpace(s, actor, items[0]);
+  const incoming = new Set(items);
+  if (incoming.has(s.items.cloth.holder)) incoming.add("cloth");
+  const added = [...incoming].filter((id) => rootHolder(s, id) !== actor);
+  return carried(s, actor).length + added.length <= 3;
+}
 export const shining = (s) =>
   entityActive(s, "lamp") &&
   s.items.lamp.lit &&

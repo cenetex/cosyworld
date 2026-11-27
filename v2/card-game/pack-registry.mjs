@@ -18,6 +18,7 @@ import {
   bringBack,
 } from "./item-use.mjs";
 import { restForGood } from "./world/for-good.mjs";
+import { hasSpaceForItems } from "./world/items.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -636,6 +637,14 @@ function choiceFeasible(
     ![actor, choice.at].includes(world.items[subject].holder)
   )
     return false;
+  if (choice.effects.some(({ kind }) => kind === "give_item")) {
+    const presents = choice.effects.filter(({ kind }) => kind === "give_item");
+    if (
+      presents.some(({ item }) => !entityActive(atTurn, item)) ||
+      !hasSpaceForItems(world, actor, presents.map(({ item }) => item))
+    )
+      return false;
+  }
   return choice.effects.every((e) =>
     e.kind === "choose"
       ? !owns(state.choices, e.key)
@@ -654,9 +663,10 @@ function choiceFeasible(
 }
 export function packChoices(world, actor = "vale") {
   if (!controlledByHuman(world, actor)) return [];
+  const here = world.actors[actor]?.place;
   return packDefinitions.flatMap((pack) =>
     (pack.choices || [])
-      .filter((c) => choiceFeasible(world, pack, c, actor))
+      .filter((c) => !c.on && c.at === here && choiceFeasible(world, pack, c, actor))
       .map((c) => ({
         kind: "choose",
         actor,
@@ -1090,6 +1100,23 @@ const restGated = (requires = [], id) =>
 export function validatePackStates(world) {
   return !packStatesFault(world);
 }
+
+function isProgressionRequirement(condition) {
+  if (condition.kind === "not")
+    return isProgressionRequirement(condition.condition);
+  if (condition.kind === "any")
+    return condition.conditions.every(isProgressionRequirement);
+  return ["choice", "choice_unset", "flag", "receipt"].includes(condition.kind);
+}
+
+export function progressionRequirementsMet(world, packId, requires = []) {
+  return conditionsMet(
+    world,
+    packId,
+    requires.filter(isProgressionRequirement),
+  );
+}
+
 export function packStatesFault(world) {
   if (
     !record(world.packs) ||
@@ -1156,21 +1183,19 @@ export function packStatesFault(world) {
     const events = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
     const choices = {},
       flags = {},
+      receipts = {},
       seenTurns = new Set();
     const projection = {
       ...world,
-      packs: { ...world.packs, [pack.id]: { ...state, choices, flags } },
+      packs: {
+        ...world.packs,
+        [pack.id]: { ...state, choices, flags, receipts },
+      },
     };
     // Custody can change after a choice; permanent progression prerequisites
     // can be checked exactly from the ordered receipts without replaying text.
-    const progressionMet = (requirements = []) =>
-      conditionsMet(
-        projection,
-        pack.id,
-        requirements.filter((c) =>
-          ["choice", "choice_unset", "flag"].includes(c.kind),
-        ),
-      );
+    const progressionMet = (requires) =>
+      progressionRequirementsMet(projection, pack.id, requires);
     for (const [id, turn] of events) {
       const c = pack.choices?.find((c) => c.id === id);
       if (
@@ -1203,6 +1228,7 @@ export function packStatesFault(world) {
         }
         if (effect.kind === "set_flag") flags[effect.key] = effect.value;
       }
+      receipts[id] = turn;
     }
     const equals = (a, b) =>
       Object.keys(a).length === Object.keys(b).length &&
@@ -1211,24 +1237,24 @@ export function packStatesFault(world) {
       return `pack:${pack.id}:flags`;
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
-        !entityEnabled(world, id, true) &&
-        !departed(pack, state, id) &&
         ((world.actors[id]?.place !== actor.place &&
           !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||
           world.actors[id]?.lastTalk !== -9 ||
-          owns(state.met, id))
+          owns(state.met, id)) &&
+        !entityEnabled(world, id, true) &&
+        !departed(pack, state, id)
       )
         return `pack:${pack.id}:actor:${id}`;
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
+        (world.items[id]?.holder !== item.holder ||
+          (world.items[id]?.history?.length !== 0 &&
+            !restGated(item.requires, id))) &&
         !entityEnabled(world, id, true) &&
         !(waitingAtHome(world, id) && world.items[id].history.length === 0) &&
         !(gone(world, id) && world.items[id]?.holder === restForGood(id)) &&
-        !(item.home !== undefined && world.items[id]?.holder === item.home) &&
-        (world.items[id]?.holder !== item.holder ||
-          (world.items[id]?.history?.length !== 0 &&
-            !restGated(item.requires, id)))
+        !(item.home !== undefined && world.items[id]?.holder === item.home)
       )
         return `pack:${pack.id}:item:${id}`;
   }

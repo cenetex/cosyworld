@@ -102,6 +102,38 @@ describe("the Scylla takes the Charybdis's far ports", () => {
     expect(decodeSave(encodeSave(world))).toEqual(world);
   });
 
+  it.each(["docked", "arrived"])(
+    "lets a boarder disembark after Sicily's former lane is removed from a save with the ship %s",
+    (phase) => {
+      const riders = phase === "arrived" ? ["moth"] : [];
+      const previous = previousSave(sicily, { phase, riders });
+      if (riders.length) previous.actors.moth.place = charybdis;
+      previous.routeKnowledge.vale = [];
+      rememberRoutes(previous, "vale", [
+        [sicily, charybdis],
+        [`sea:${piraeus}`, `sea:${sicily}`],
+        [`sea:${sicily}`, `sea:${piraeus}`],
+      ]);
+
+      const world = load(previous);
+      expect(world.actors.vale.place).toBe(scylla);
+      expect(world.transports[scylla]).toMatchObject({
+        phase: "arrived",
+        dock: sicily,
+        riders: [...riders, "vale"],
+      });
+      expect(world.routeKnowledge.vale).toEqual([]);
+      expect(legalActions(world).filter(({ kind }) => kind === "course")).toEqual([]);
+      expect(world.items.bell.holder).toBe(scylla);
+      expect(world.items.cloth.holder).toBe("bell");
+
+      const ashore = act(world, "move", sicily);
+      expect(ashore.actors.vale.place).toBe(sicily);
+      expect(ashore.items.oil.holder).toBe("vale");
+      expect(ashore.items.bell.holder).toBe(scylla);
+    },
+  );
+
   it("continues a voyage whose lane remains on the Scylla", () => {
     const previous = previousSave(lemnos, {
       phase: "sea",

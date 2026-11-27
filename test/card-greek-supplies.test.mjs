@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cardPlay } from "../v2/card-game/cards.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   itemCopies,
   packGiveChoice,
@@ -64,6 +65,43 @@ const revision40 = (state) => {
 };
 
 describe("Greek supplies", () => {
+  it("locks a direct supply choice for everyone in a shared battle room", () => {
+    const t = settle(at(traveler(greekStart()), MARKET), ACHARNAE, "first");
+    const { world } = dispatchShared({
+      op: "create",
+      save: encodeSave(t.s),
+      seed: 21,
+    });
+    const present = ["vale", "mara", "ash"];
+    for (const actor of ["mara", "ash"]) {
+      world.actors[actor].place = MARKET;
+      world.actors[actor].visited.push(MARKET);
+    }
+    const request = (world, op, actor, action) =>
+      dispatchShared({ world, op, actor, present, claimed: present, action });
+    const threat = request(world, "view", "mara").actions.find(
+      (a) => a.kind === "threaten" && a.target === "vale",
+    );
+    expect(threat).toBeDefined();
+    const battle = request(world, "play", "mara", threat);
+    expect(battle.ok).toBe(true);
+    expect(battle.world.standoffs).toHaveLength(1);
+
+    for (const actor of ["vale", "ash"]) {
+      const choice = request(world, "view", actor).actions.find(
+        (a) => a.choiceId === PRIVATE_SUPPLY,
+      );
+      expect(choice?.label).toBe("Set out Bread");
+      expect(request(battle.world, "view", actor).actions).not.toContainEqual(
+        expect.objectContaining({ choiceId: PRIVATE_SUPPLY }),
+      );
+      const denied = request(battle.world, "play", actor, choice);
+      expect(denied.ok).toBe(false);
+      expect(denied.world.usedUp).toContain(BREAD);
+      expect(denied.world.packs[PACK].receipts[PRIVATE_SUPPLY]).toBeUndefined();
+    }
+  });
+
   it("lets the guard accept Acharnae Bread for his ordinary want and for the decree", () => {
     const t = stock(
       settle(at(traveler(greekStart()), MARKET), ACHARNAE, "second").move(

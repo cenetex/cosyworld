@@ -22,6 +22,8 @@ const PHERAE = "greek-pherae";
 const COLONUS = "greek-colonus";
 const URN = "greek-ash-urn";
 const ELECTRA = "greek-electra-aeschylus";
+const REFUSAL = "greek-atreid-aeschylus-refusal";
+const TOMB_OFFERING = "greek-electra-tomb-offering";
 const ALC = "greek-story-euripides-alcestis";
 const EUM = "greek-story-aeschylus-eumenides";
 const PILOT = "greek-piraeus-pilot";
@@ -94,6 +96,27 @@ describe("Greek Honey offerings", () => {
     expect(t.s.packs[PACK].flags["greek-polynices-honey-offered"]).toBe(true);
     t.act("choose", { choiceId: `${HONEY}-supply` });
     expect(reload(t.s).items[HONEY].holder).toBe(GRAVE);
+  });
+
+  it("replays receipt prerequisites before accepting a saved offering", () => {
+    const t = meetElectra().talk(ELECTRA).act("wait");
+    const offeringTurn = receipts(t)[TOMB_OFFERING];
+    expect(receipts(t)[REFUSAL]).toBeLessThan(offeringTurn);
+    expect(reload(t.s).packs[PACK].receipts[TOMB_OFFERING]).toBe(offeringTurn);
+
+    const old = structuredClone(t.s);
+    old.packs[PACK].revision = 42;
+    expect(
+      decodeSave(JSON.stringify(old)).packs[PACK].receipts[TOMB_OFFERING],
+    ).toBe(offeringTurn);
+
+    receipts(t)[REFUSAL] = t.s.turn;
+    expect(() => decodeSave(JSON.stringify(t.s))).toThrow(/fresh start/);
+
+    old.packs[PACK].receipts[REFUSAL] = old.turn;
+    const upgraded = decodeSave(JSON.stringify(old)).packs[PACK];
+    expect(upgraded.receipts[REFUSAL]).toBe(old.turn);
+    expect(upgraded.receipts[TOMB_OFFERING]).toBeUndefined();
   });
 
   it("upgrades a carried revision 42 Honey portion when the original was dormant", () => {

@@ -11,11 +11,16 @@ import {
   decodeSave,
   encodeSave,
   legalActions,
+  play,
 } from "../v2/card-game/world.mjs";
 import { greekStart, landRoad, traveler } from "./helpers/open-door.mjs";
 import "./helpers/still-cast.mjs";
 
 const PACK = "greek-drama";
+const COURTYARD = "greek-courtyard";
+const GATE = "greek-gate";
+const GUARD = "greek-guard";
+const WHEAT = "greek-wheat";
 const MARKET = "greek-acharnae";
 const STALL = "greek-acharnae-stall";
 const PIREAUS = "greek-piraeus";
@@ -70,6 +75,36 @@ function expectReply(world, id, words, actor = "vale") {
   return talk.text;
 }
 
+function reachAcharnaeAfterWheatRecovery() {
+  const t = traveler(greekStart())
+    .move("well")
+    .take("water-jar")
+    .move(COURTYARD)
+    .give("water-jar", "baker")
+    .take(BREAD)
+    .act("eat", { item: BREAD, target: null })
+    .act("talk", { target: "greek-baker" });
+  expect(packState(t.s).receipts["greek-dione-recover-wheat"]).toBe(t.s.turn);
+  expect(t.s.items[WHEAT].holder).toBe(COURTYARD);
+
+  // Leave the wheat for Dione and take the gate's standoff route.
+  t.move(GATE).act("threaten", { target: GUARD });
+  for (let i = 0; i < 24 && t.s.actors[GUARD].place === GATE; i++) {
+    const actions = legalActions(t.s);
+    const step =
+      actions.find((a) => a.kind === "attack" && a.target === GUARD) ??
+      actions.find((a) => a.kind === "wait" && !a.guards && !a.sleep);
+    const result = play(t.s, step, t.s.revision);
+    expect(result.ok, result.error).toBe(true);
+    t.s = result.state;
+  }
+  expect(t.s.actors[GUARD].place).not.toBe(GATE);
+  t.move("battlefield", "cithaeron", "eleusis", "attic-farm", MARKET);
+  expect(t.s.items[WHEAT].holder).toBe(COURTYARD);
+  expect(entityActive(t.s, HOST)).toBe(false);
+  return t.s;
+}
+
 function walkToQuay(t) {
   t.move(
     "attic-farm",
@@ -105,7 +140,9 @@ function expectOrder(world, branch, choice, cargo) {
 
 describe("Acharnae orders at Piraeus", () => {
   let market;
+  let marketAfterRecovery;
   beforeAll(() => {
+    marketAfterRecovery = reachAcharnaeAfterWheatRecovery();
     market = landRoad(traveler(greekStart()))
       .move("battlefield")
       .drop("shovel")
@@ -113,8 +150,8 @@ describe("Acharnae orders at Piraeus", () => {
       .move("cithaeron", "eleusis", "attic-farm", MARKET).s;
   });
 
-  it("honors a public agreement only after the traveler learns its record", () => {
-    const t = traveler(market)
+  it("honors the public agreement after a Read with the wheat still at Dione’s", () => {
+    const t = traveler(marketAfterRecovery)
       .talk(DICAEOPOLIS)
       .take(SEAL)
       .give(SEAL, MEGARIAN)
@@ -184,6 +221,7 @@ describe("Acharnae orders at Piraeus", () => {
     t.take(BREAD);
     const withRation = expectOrder(t.s, "public", PUBLIC, cargo);
     expect(withRation.items[BREAD].holder).toBe("vale");
+    expect(withRation.items[WHEAT].holder).toBe(COURTYARD);
     const eat = legalActions(withRation).find(
       ({ kind, item, target }) => kind === "eat" && item === BREAD && !target,
     );
@@ -204,13 +242,15 @@ describe("Acharnae orders at Piraeus", () => {
     });
   });
 
-  it("files Dicaeopolis’s signed bond and shares the quay host’s wine there", () => {
-    const t = traveler(market)
+  it("files Dicaeopolis’s signed bond with the wheat still at Dione’s", () => {
+    const t = traveler(marketAfterRecovery)
       .talk(DICAEOPOLIS)
       .take(SEAL)
       .give(SEAL, DICAEOPOLIS);
     expect(entityActive(t.s, BOND)).toBe(false);
     expect(supplier(legalActions(t.s), PRIVATE_PANTRY)).toBeDefined();
+    const withoutBond = walkToQuay(t.fork()).act("talk", { target: HOST });
+    expect(packState(withoutBond.s).choices[ORDER]).toBeUndefined();
     t.talk(DICAEOPOLIS).take(BOND);
     expect(packState(t.s).receipts["greek-acharnae-sign-household-bond"]).toBe(
       t.s.turn - 1,
@@ -224,6 +264,7 @@ describe("Acharnae orders at Piraeus", () => {
     expect(oldTrust).toBeLessThan(2);
     t.give(BOND, HOST);
     const saved = expectOrder(t.s, "private", PRIVATE, cargo);
+    expect(saved.items[WHEAT].holder).toBe(COURTYARD);
     expect(saved.actors[HOST].trust.vale).toBe(2);
     expect(saved.items[WINE]).toEqual(gateWine);
     expect(saved.items[OLD_QUAY_WINE]).toBeUndefined();
@@ -241,7 +282,9 @@ describe("Acharnae orders at Piraeus", () => {
     expect(migrated.items[OLD_QUAY_WINE]).toBeUndefined();
     expect(migrated.items[WINE]).toEqual(gateWine);
 
-    old.log = old.log.filter((entry) => entry.verb !== "give" || entry.itemId !== BOND);
+    old.log = old.log.filter(
+      (entry) => entry.verb !== "give" || entry.itemId !== BOND,
+    );
     const withoutHandoff = decodeSave(JSON.stringify(old));
     expect(withoutHandoff.actors[HOST].trust.vale).toBe(oldTrust);
   });

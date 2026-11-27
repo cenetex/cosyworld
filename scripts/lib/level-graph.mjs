@@ -58,6 +58,12 @@ const list = (value) => (Array.isArray(value) ? value : []);
 const factIds = (condition) => condition.topics || [condition.topic];
 const claimBook = (id) => id.startsWith("claim:") ? id.split(":")[2] : null;
 
+function requiresPlacedItem(condition, item) {
+  if (condition?.kind === "item_at") return condition.item === item;
+  return condition?.kind === "any" && condition.conditions.length > 0 &&
+    condition.conditions.every((option) => requiresPlacedItem(option, item));
+}
+
 // Stable id of a leaf condition: its kind and fields in key order.
 export const atomKey = (c) =>
   `${c.kind}(${Object.keys(c)
@@ -211,6 +217,7 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
   const places = pack.places || {};
   const avatars = pack.avatars || {};
   const items = pack.items || {};
+  const typesWithCopies = new Set(Object.values(items).map(({ type }) => type).filter(Boolean));
   const transports = pack.transports || {};
   const own = (id) => Object.hasOwn(places, id);
   const gone = (id) => own(id) && places[id].retired === true;
@@ -247,7 +254,11 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
         if (e.value) produce(`flag:${e.key}`, `act:${a.id}`);
       }
       if (e.kind === "choose") produce(`choice:${e.key}=${e.value}`, `act:${a.id}`);
-      if (e.kind === "give_item") produce(`item:${e.item}`, `act:${a.id}`);
+      if (e.kind === "give_item") {
+        const transfersExistingItem = !typesWithCopies.has(e.item) &&
+          a.requires.some((condition) => requiresPlacedItem(condition, e.item));
+        if (!transfersExistingItem) produce(`item:${e.item}`, `act:${a.id}`);
+      }
     }
   const wants = [];
   for (const [id, a] of Object.entries(avatars))

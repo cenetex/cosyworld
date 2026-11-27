@@ -58,20 +58,22 @@ export const REST_TURNS = 3;
 export const CONTENT_TURNS = 24;
 
 // A pack's residents become known once the player has found a way in.
-export const knownActors = (s) =>
-  [
-    ...new Set([
-      ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
-      ...(s.controlledActors || []),
-    ]),
-  ].filter(
-    (id) =>
-      entityActive(s, id) &&
-      (!isPackActor(id) ||
-        id === BOARDY ||
-        packDiscovered(s, packOf(id).id) ||
-        s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
-  );
+export function knownActors(s, place) {
+  const discovered = new Map();
+  const ids = new Set([
+    ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
+    ...(s.controlledActors || []),
+  ]);
+  return [...ids].filter((id) => {
+    if (place !== undefined && s.actors[id]?.place !== place) return false;
+    if (isPackActor(id) && id !== BOARDY) {
+      const pack = packPeople[id].packId;
+      if (!discovered.has(pack)) discovered.set(pack, packDiscovered(s, pack));
+      if (!discovered.get(pack) && s.packs?.[pack]?.met?.[id] === undefined) return false;
+    }
+    return entityActive(s, id);
+  });
+}
 // Pack residents keep to their own scene unless their data lets them travel.
 export const wantless = (id) => forest.people[id]?.wants === false;
 export const travels = (id, s = null) =>

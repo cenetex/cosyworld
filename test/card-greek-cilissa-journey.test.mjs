@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { claimsIn } from "../v2/card-game/claims.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
+import { readPage } from "../v2/card-game/read-view.mjs";
 import {
   entityActive,
   packPeople,
@@ -168,11 +169,18 @@ it("escorts Cilissa only with evidence and consent, resumes after a detour, and 
   };
   expect(knowsFact(shared.world, "mara", claim.id)).toBe(false);
   const view = dispatchShared({ ...request, op: "view" });
-  const action = view.actions.find(
+  const order = view.actions.find((a) => a.kind === "read" && a.item === ORDER);
+  const lateReader = dispatchShared({ ...request, op: "play", action: order });
+  expect(lateReader.ok, lateReader.error).toBe(true);
+  expect(
+    readPage(lateReader.world, "mara", shared.world.eventSeq)?.claims[0],
+  ).toContain("escort Cilissa from Agamemnon’s tomb");
+  const nextRequest = { ...request, world: lateReader.world };
+  const action = dispatchShared({ ...nextRequest, op: "view" }).actions.find(
     (a) => a.kind === "read" && a.item === TESTIMONY,
   );
   expect(action).toBeDefined();
-  const read = dispatchShared({ ...request, op: "play", action });
+  const read = dispatchShared({ ...nextRequest, op: "play", action });
   expect(read.ok, read.error).toBe(true);
   expect(read.world.knowledge.known.mara[claim.id]).toMatchObject({
     kind: "read",

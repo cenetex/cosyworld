@@ -391,6 +391,42 @@ describe("calling the empty ship", () => {
     const waiting = act(harbor, "vale", "wait");
     expect(state(waiting).dock).toBe("greek-harbor");
   });
+
+  it("lets a boarder step ashore while their only course still needs cargo", () => {
+    const piraeus = "greek-piraeus";
+    const jetty = "hoppycat-signal-jetty";
+    const deck = "greek-ship";
+    let s = setup("greek-harbor");
+    for (const actor of ["vale", "mara"]) {
+      s.actors[actor].place = piraeus;
+      learnLane(s, actor, piraeus, jetty);
+    }
+    s.items["hoppycat-red-thread-spool"].holder = "mara";
+    s = act(s, "vale", "wait");
+    expect(state(s)).toMatchObject({ phase: "docked", dock: piraeus });
+
+    s = act(s, "vale", "move", deck);
+    expect(targets(s, "vale", "course")).toEqual([]);
+    const disembark = ask(s, "vale").actions.find(
+      (action) => action.kind === "move" && action.target === piraeus,
+    );
+    expect(disembark).toBeDefined();
+    expect(playLabel(disembark)).toBe("Disembark");
+    s = act(s, "vale", "move", piraeus);
+    expect(s.actors.vale.place).toBe(piraeus);
+    expect(state(s)).toMatchObject({ phase: "docked", dock: piraeus });
+
+    s = act(s, "vale", "move", deck);
+    s = act(s, "mara", "move", deck);
+    expect(targets(s, "vale", "course")).toEqual([jetty]);
+    expect(targets(s, "vale", "move")).toEqual([]);
+    s = act(s, "mara", "course", jetty);
+    expect(state(s).phase).toBe("sea");
+    expect(targets(s, "vale", "move")).toEqual([]);
+    s = act(s, "vale", "wait");
+    expect(state(s)).toMatchObject({ phase: "arrived", dock: jetty });
+    expect(targets(s, "vale", "move")).toEqual([jetty]);
+  });
 });
 
 describe("a ship at a dock nobody showed you", () => {

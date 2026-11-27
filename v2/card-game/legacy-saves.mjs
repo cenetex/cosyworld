@@ -6,6 +6,7 @@ import {
   packEntity,
   departed,
   transports,
+  progressionRequirementsMet,
 } from "./pack-registry.mjs";
 import { boxDefs } from "./world/boxes.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
@@ -141,7 +142,10 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     if (greekRevision < 37) reconcileGreekShips(s);
     if (greekRevision < 38 && packEntity("greek-road-north")?.retired)
       reconcileNorthernRoad(s);
-    if (greekRevision < 43) reconcileGreekClaims(s);
+    if (greekRevision < 43) {
+      reconcileGreekRoutes(s);
+      reconcileGreekClaims(s);
+    }
   }
   if (reworked.has("elysium")) settleStrandedWayfinder(s);
   // A told lane keeps its id; its words follow the lane's current conditions.
@@ -201,13 +205,16 @@ function reconcileSingletonStock(s, staple) {
 
 function reconcileGreekHoney(s) {
   const honey = "greek-antigone-grave-honey";
+  const grave = "greek-polynices-hollow";
   const former = s.items?.[honey];
   // Before burial, the old grave stock was dormant even though it had a holder.
-  if (former?.holder === "greek-polynices-hollow" && !former.history.length &&
+  if (former?.holder === grave && !former.history.length &&
       !s.packs["greek-drama"].flags["greek-burial-performed"]) {
     useUp(s, honey, packEntity(honey).holder);
   }
   reconcileSingletonStock(s, honey);
+  // The grave offering still exists, but the shared Honey now belongs at the sanctuary.
+  forgetPlaceCards(s, (place, item) => place === grave && item === honey);
 }
 
 function retainGreekResponseHistory(s) {
@@ -313,13 +320,38 @@ const formerFarPorts = new Set(
 );
 
 function forgetRouteEdges(s, obsolete) {
-  for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(edges)) continue;
     s.routeKnowledge[actor] = edges.filter(
       (edge) =>
         !Array.isArray(edge) ||
         edge.length !== 2 ||
         !obsolete.has(edge.join(">")),
     );
+  }
+}
+
+// The old catalog seeded its residents with these one-way returns. Their
+// replacements lead through new roads and berths, which must be learned there.
+const formerGreekReturns = [
+  ["greek-bird-wilderness", "greek-attic-farm"],
+  ["greek-divine-heights", "greek-attic-farm"],
+  ["greek-jury-house", "greek-athens"],
+  ["greek-lemnos", "greek-piraeus"],
+  ["greek-scythian-crag", "greek-piraeus"],
+  ["greek-sicily", "greek-piraeus"],
+  ["greek-susa", "greek-troy"],
+  ["greek-tauris", "greek-piraeus"],
+  ["greek-thrace", "greek-piraeus"],
+  ["greek-underworld", "greek-colonus"],
+];
+
+function reconcileGreekRoutes(s) {
+  const live = new Set(authoredRouteEdges().map((edge) => edge.join(">")));
+  const obsolete = formerGreekReturns
+    .map((edge) => edge.join(">"))
+    .filter((edge) => !live.has(edge));
+  forgetRouteEdges(s, new Set(obsolete));
 }
 
 function reconcileNorthernRoad(s) {
@@ -390,9 +422,14 @@ function reconcileGreekShips(s) {
     s.standoffs = s.standoffs.filter((c) => c.location !== charybdis.place);
     for (const item of Object.values(s.items))
       if (item.holder === charybdis.place) item.holder = scylla.place;
-    s.transports["greek-scylla"] = canceled
-      ? stopped(dock, riders)
-      : { ...old, recall };
+    const transferred = canceled ? stopped(dock, riders) : { ...old, recall };
+    if (!canceled && (old.phase === "docked" || old.phase === "arrived")) {
+      // Everyone aboard can step onto the berth after the ship changes.
+      transferred.phase = riders.length ? "arrived" : "docked";
+      transferred.riders = riders;
+      if (!riders.length) transferred.recall = null;
+    }
+    s.transports["greek-scylla"] = transferred;
     s.transports["greek-ship"] = stopped(
       charybdis.docks.includes(old.recall) ? old.recall : charybdis.at,
     );
@@ -499,16 +536,13 @@ export function reconcilePackProgress(s, reworked) {
       flags = {};
     const projection = {
       ...s,
-      packs: { ...s.packs, [pack.id]: { ...state, choices, flags } },
+      packs: {
+        ...s.packs,
+        [pack.id]: { ...state, choices, flags, receipts: kept },
+      },
     };
-    const holds = (requires = []) =>
-      conditionsMet(
-        projection,
-        pack.id,
-        requires.filter((c) =>
-          ["choice", "choice_unset", "flag"].includes(c.kind),
-        ),
-      );
+    const holds = (requires) =>
+      progressionRequirementsMet(projection, pack.id, requires);
     const receipts = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
     for (const [id, turn] of receipts) {
       const c = pack.choices.find((choice) => choice.id === id);
@@ -638,11 +672,34 @@ function forgetFact(k, id) {
     k.pending = k.pending.filter((p) => p?.factId !== id);
 }
 
+function forgetPlaceCards(s, removed) {
+  const activeCards = s.placeCard;
+  if (activeCards && typeof activeCards === "object" && !Array.isArray(activeCards)) {
+    for (const [place, item] of Object.entries(activeCards)) {
+      if (!removed(place, item)) continue;
+      delete activeCards[place];
+      if (!Object.keys(activeCards).length) delete s.placeCard;
+    }
+  }
+  const completedCards = s.placeMet;
+  if (completedCards && typeof completedCards === "object" && !Array.isArray(completedCards)) {
+    for (const [place, items] of Object.entries(completedCards)) {
+      if (!Array.isArray(items)) continue;
+      const kept = items.filter((item) => !removed(place, item));
+      if (kept.length === items.length) continue;
+      if (kept.length) completedCards[place] = kept;
+      else delete completedCards[place];
+      if (!Object.keys(completedCards).length) delete s.placeMet;
+    }
+  }
+}
+
 // The journal keeps every moment that still names a living thing. A deed done
 // with a retired thing leaves, with what anyone learned from it; a moment it
 // only witnessed keeps the others.
 export function forgetRetiredThings(s, retired) {
   if (!retired.size) return;
+  forgetPlaceCards(s, (_place, item) => retired.has(item));
   const names = (lesson) =>
     [
       lesson?.item,

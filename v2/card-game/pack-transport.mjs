@@ -20,6 +20,7 @@ export const TRANSPORT_VERSION = 3;
 // course cards in the current hand.
 export const VOYAGE = "@voyage";
 const PHASES = ["docked", "course", "sea", "arrived"];
+const atBerth = (state) => state.phase === "docked" || state.phase === "arrived";
 
 const shipAt = (place) =>
   Object.entries(transports).find(([, t]) => t.place === place) || null;
@@ -157,7 +158,7 @@ export function shutLanes(s, place) {
   if (!found) return [];
   const [id, t] = found,
     state = read(s, id);
-  if (!["docked", "arrived"].includes(state.phase)) return [];
+  if (!atBerth(state)) return [];
   return (t.lanes || [])
     .filter(
       (lane) =>
@@ -289,15 +290,15 @@ const humanAboard = (s, t) =>
 const playerAvatar = (s, who) =>
   controlledByHuman(s, who) || Boolean(humanAvatar(who));
 
-// Riders sailed in on the last voyage. Only they can step ashore, and only
-// at the arrival port. A person who boarded here cannot step straight back.
+// Arrived riders can step ashore. A player with no available course can
+// also return to the dock.
 export function canDisembark(s, id, actor) {
   const state = read(s, id);
-  return Boolean(
-    actor &&
-      state.phase === "arrived" &&
-      s.actors[actor]?.place === transports[id].place &&
-      state.riders.includes(actor),
+  if (!atBerth(state) || s.actors[actor]?.place !== transports[id].place)
+    return false;
+  return (
+    state.riders.includes(actor) ||
+    (controlledByHuman(s, actor) && !courseOptions(s, id, actor).length)
   );
 }
 
@@ -306,7 +307,7 @@ export function canDisembark(s, id, actor) {
 export function courseOptions(s, id, actor = null) {
   const t = transports[id],
     state = read(s, id);
-  if (!["docked", "arrived"].includes(state.phase)) return [];
+  if (!atBerth(state)) return [];
   if (actor && s.actors[actor]?.place !== t.place) return [];
   if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
   return openLanes(s, t, state.dock, actor);
@@ -488,7 +489,7 @@ export function sailTransports(s) {
   return events;
 }
 
-// Card exits aboard are the Disembark port for riders plus the course cards.
+// Card exits aboard are the Disembark port when available and the course cards.
 // A planner (previous set) looks through the ship to every dock it can reach.
 export function transportExits(s, place, previous = null, actor = null) {
   const found = shipAt(place);
@@ -524,12 +525,9 @@ export function transportCrossing(s, from, to) {
       const c = crossings.find((c) => c.transport === id && c.from === from);
       return { ...c, to, travel: "aboard", travelLabel: "Board" };
     }
-    if (
-      from === t.place &&
-      t.docks.includes(to) &&
-      read(s, id).phase === "arrived" &&
-      read(s, id).dock === to
-    ) {
+    if (from === t.place && t.docks.includes(to)) {
+      const state = read(s, id);
+      if (!atBerth(state) || state.dock !== to) continue;
       const c = crossings.find((c) => c.transport === id && c.from === to);
       return {
         ...c,

@@ -279,7 +279,7 @@
       "at": "greek-tauris",
       "on": "talk",
       "humanOnly": true,
-      "text": "Iphigenia takes her letter from the altar step and puts it in your hands. She asks you to tell the household in Argos that Orestes is alive.",
+      "text": "Iphigenia takes her letter from the altar step and puts it in your hands. Give it to her sister Electra at the Jury Yard of Argos so the household will know Orestes left the altar alive.",
       "requires": [
         {
           "kind": "choice",
@@ -299,6 +299,31 @@
       ],
       "effects": [
         {"kind": "give_item", "item": "greek-story-euripides-tauris-object"}
+      ]
+    },
+    {
+      "id": "greek-tauris-deliver-letter",
+      "workId": "euripides-iphigenia-in-tauris",
+      "subject": "greek-story-euripides-orestes-first",
+      "at": "greek-argive-jury",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Electra unfolds Iphigenia’s letter and writes a receipt on the back. She thanks you for carrying her sister’s account of Orestes’s release and lays it beside the household papers.",
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-tauris-entrust-letter" },
+        {
+          "kind": "holding",
+          "item": "greek-story-euripides-tauris-object",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-story-euripides-tauris-object",
+          "place": "greek-argive-jury"
+        },
+        { "kind": "trust", "level": 2 }
       ]
     },
     {

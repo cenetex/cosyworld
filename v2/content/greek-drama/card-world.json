@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 43,
+  "revision": 44,
   "name": "The Wine-Dark Sea",
   "description": "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1762,6 +1762,16 @@
               "kind": "item_at",
               "item": "greek-wheat",
               "place": "greek-piraeus"
+            },
+            {
+              "kind": "choice",
+              "key": "greek-story-aristophanes-acharnians-outcome",
+              "value": "first"
+            },
+            {
+              "kind": "choice",
+              "key": "greek-story-aristophanes-acharnians-outcome",
+              "value": "second"
             },
             {
               "kind": "met",
@@ -4475,7 +4485,16 @@
       "name": "Letter to Argos",
       "holder": "greek-tauris",
       "art": "assets/greek-drama/burial-petition.png",
-      "seed": "The object Iphigenia asks you to bring to the dispute."
+      "seed": "Iphigenia’s letter bears Electra’s acknowledgment after it is delivered to her in Argos.",
+      "lifecycle": "kept",
+      "author": "greek-story-euripides-orestes-first",
+      "records": ["greek-tauris-deliver-letter"],
+      "recordText": {
+        "greek-tauris-deliver-letter": "Electra received Iphigenia’s account of Orestes’s release and lodged the letter with the household papers at Argos."
+      },
+      "reservedUntil": [
+        { "kind": "receipt", "choiceId": "greek-tauris-deliver-letter" }
+      ]
     },
     "greek-story-euripides-tauris-record": {
       "name": "Taurian Departure Order",
@@ -8371,7 +8390,7 @@
       "placeIds": ["greek-eleusis"],
       "premise": "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
       "status": "branching-episode",
-      "hookChoiceIds": [],
+      "hookChoiceIds": ["greek-eleusis-urn-at-altar", "greek-eleusis-urn-at-quay"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",

@@ -161,6 +161,30 @@ describe("level graph", () => {
     expect(graph.mission.needs["item:gem"]).not.toContain("act:recover");
   });
 
+  it("keeps a later handoff out of the prop's acquisition prerequisites", () => {
+    const pack = synthetic();
+    pack.items.roll = { name: "Roll", holder: "b", records: ["see", "light"] };
+    const claims = ["claim:toy:roll:see", "claim:toy:roll:light"];
+    pack.choices.push(
+      act("issue-key", "a", "su", [], [{ kind: "give_item", item: "key" }]),
+      act("entrust-key", "b", "mo", [
+        { kind: "any", conditions: [
+          { kind: "item_at", item: "key", place: "a" },
+          { kind: "item_at", item: "key", place: "b" },
+        ] },
+        { kind: "knows", topics: claims, role: "actor" },
+      ], [{ kind: "give_item", item: "key" }]),
+    );
+    const graph = buildPackGraph(pack, hub);
+    const row = (id) => graph.mission.acts.find((act) => act.id === `act:${id}`);
+    expect(graph.mission.needs["item:key"]).toEqual(["act:issue-key"]);
+    expect(row("see").prerequisites.act).toEqual(["issue-key"]);
+    expect(row("entrust-key")).toMatchObject({
+      gives: ["key"],
+      prerequisites: { act: ["issue-key", "light", "see"], topic: [...claims].sort() },
+    });
+  });
+
   it("stops on a condition kind it does not know", () => {
     const pack = synthetic();
     pack.places.b.requires = [{ kind: "moonphase" }];
