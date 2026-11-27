@@ -4,8 +4,6 @@ import { backdrop } from "../v2/card-game/scene.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import before from "./fixtures/place-backdrops.json" with { type: "json" };
 
-// The reviewed day/night baseline includes art for unmounted packs. Every
-// mounted place must have a baseline; alternates change only the states below.
 const mounted = (catalog) =>
   Object.fromEntries(Object.entries(catalog).filter(([id]) => places[id]));
 const paintings = (world) =>
