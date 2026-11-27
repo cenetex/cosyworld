@@ -1119,7 +1119,7 @@ function currentSceneOnly(context) {
   return {
     ...context,
     action: null,
-    events: [],
+    events: context.events.filter((event) => event === LISTENER_READING),
     conversation: [],
     disclosures: [],
     entities: context.entities.map(({ id, desire }) => ({

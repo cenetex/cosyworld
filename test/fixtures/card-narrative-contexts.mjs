@@ -138,6 +138,12 @@ export function narrativeContractCases() {
       `${branch} bard conversation`,
       playCard(arrival, "talk", null, "greek-rhapsode"),
     ]);
+    const earlier = structuredClone(arrival);
+    earlier.packs["greek-drama"].recitals["greek-return-water-jar"].actor = null;
+    worlds.push([
+      `${branch} bard conversation with an earlier traveler`,
+      playCard(decodeSave(encodeSave(earlier)), "talk", null, "greek-rhapsode"),
+    ]);
   }
   return worlds.map(([name, world]) => ({
     name,

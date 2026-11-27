@@ -63,6 +63,15 @@ pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
     true
 }
 
+pub(super) fn known_authors(poem: &Poem) -> bool {
+    poem.stanzas
+        .iter()
+        .all(|stanza| match stanza.author_name.as_str() {
+            "an earlier traveler" => stanza.author_id.is_none(),
+            name => super::authored::name(name),
+        })
+}
+
 pub(super) fn prompt_lines(poem: &Poem) -> Vec<String> {
     let mut names: Vec<&str> = Vec::new();
     for stanza in &poem.stanzas {

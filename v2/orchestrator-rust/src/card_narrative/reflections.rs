@@ -76,7 +76,7 @@ pub(super) async fn generate(
     }) {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     }
-    let Some(context) = super::screened(context).await else {
+    let Ok(context) = super::screened(context).await else {
         return StatusCode::BAD_REQUEST.into_response();
     };
     let (Some(config), Ok(models)) = (state.ai.as_ref(), state.character_models.as_ref()) else {

@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn only_legacy_signed_captions_or_verified_typed_names_restore_introduction() {
-        use super::super::untrusted::{sign_lines, signed, trusted};
+        use super::super::untrusted::{sign_lines, signed, trusted, ScreeningFailure};
 
         let mut legacy = talk();
         legacy
@@ -223,7 +223,10 @@ mod tests {
             ID
         ));
         intro["entries"][0]["elysiumName"] = json!("A Different Name");
-        assert!(restored(&intro["entries"][0]).is_none());
+        assert!(matches!(
+            restored(&intro["entries"][0]),
+            Err(ScreeningFailure::SavedWords)
+        ));
     }
 
     #[tokio::test]

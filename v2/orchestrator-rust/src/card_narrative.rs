@@ -899,15 +899,8 @@ async fn generate(
             "Open the card game on this site.",
         );
     }
-    let refused = |reason| {
-        refuse(
-            reason,
-            StatusCode::BAD_REQUEST,
-            "Use the current scene and its saved memories.",
-        )
-    };
     if !valid(&context) {
-        return refused("invalid");
+        return refuse("invalid", StatusCode::BAD_REQUEST, untrusted::SCENE_ERROR);
     }
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
@@ -935,8 +928,9 @@ async fn generate(
             );
         }
     }
-    let Some(mut context) = screened(context).await else {
-        return refused("envelope");
+    let mut context = match screened(context).await {
+        Ok(context) => context,
+        Err(reason) => return reason.response(),
     };
     let Some(config) = state.ai.as_ref().as_ref() else {
         return refuse(
@@ -3801,7 +3795,7 @@ pub(crate) mod tests {
     const EARNED_VERSE: &str = "I told her I would turn away. Her brother waited by the wall.";
     const POEM_FACT: &str = "My poem Before the Burial holds deeds by Vale.";
 
-    fn bard_context() -> Context {
+    pub(super) fn bard_context() -> Context {
         let mut value = serde_json::to_value(context()).unwrap();
         value["speakers"] = json!(["vale", "greek-rhapsode"]);
         value["outcome"] = serde_json::to_value(solo_departure()).unwrap();
@@ -3907,14 +3901,17 @@ pub(crate) mod tests {
                 json!({"id":verse["choice"],"turn":i+1,"authorId":null,"authorName":name})
             })
             .collect();
-        let poem: recital::Poem =
+        let mut poem: recital::Poem =
             serde_json::from_value(json!({"title":recital["title"],"stanzas":stanzas})).unwrap();
         assert!(recital::valid("greek-rhapsode", Some(&poem), 100));
+        assert!(recital::known_authors(&poem));
         let prompt = recital::prompt_lines(&poem);
         assert_eq!(
             prompt,
             ["My poem Before the Burial holds deeds by Vale, Mara, an earlier traveler."]
         );
+        poem.stanzas[2].author_id = Some("vale".into());
+        assert!(!recital::known_authors(&poem));
     }
 
     #[tokio::test]
