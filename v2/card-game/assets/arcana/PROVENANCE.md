@@ -49,7 +49,7 @@ Hanged Man were rejected. A fresh supported-handstand interpretation generated
 successfully, but the full-set review found that it changes the original
 suspension/surrender symbolism. A targeted supported-aerial edit was also
 rejected. `full-size/arcanum-12-handstand-alternate.png` is retained as a labeled
-alternate; the original owner crop for XII remains live.
+alternate. The original owner crop remained live at the time of that review.
 
 XIII and both backs use exact crops from the owner's
 `cosyworld-tarot-six-scarves.pdf`. The three crops are retained in
@@ -64,10 +64,12 @@ exact prompt references. Visual review covered titles and Marseille numerals,
 the blank XIII title plate, the cut scarf, the Devil's closed box, and the
 two backs' symbols. The normal builder supplies all smaller WebPs.
 
-The review accepts full-size art for 21 arcana and both backs. XII still needs
-a source-matching full-size replacement. Twenty cards already in `arcana.json`
-select the new paintings; XII keeps its original crop. XIII and both backs are
-published at the canonical paths expected by the separate Listener work.
-That work owns XIII's rules and the star-back/locked-back presentation. The
-wooden box art continues to serve the existing box states. The Listener's
-deck-item painting remains outside this batch.
+The November 14 review accepted full-size art for 21 arcana and both backs.
+
+## XII The Hanged Man
+
+On November 27, the original owner crop guided a full-size redraw. It keeps
+the inverted figure tied to the branch by one ankle, the dark figure in the
+water, and the original teal suit accents. `arcana.json` selects
+`full-size/arcanum-12.png`. The original crop keeps its public URL and serves
+as the reference in the [asset record](hanged-man-provenance.json).

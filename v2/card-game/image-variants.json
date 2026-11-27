@@ -197,6 +197,15 @@
       "phone": "assets/optimized/phone/png/arcana/full-size/arcanum-12-handstand-alternate.webp",
       "phoneHash": "5b49d2f96403203b174752a85d206fc8628f66cd21d3fff65b2fc6eb302f728a"
     },
+    "assets/arcana/full-size/arcanum-12.png": {
+      "sourceHash": "8a530956f3ce3ac1c6908624545b72874017ffb76f5a9fa86bb4403ff2df6f3a",
+      "stage": "assets/optimized/stage/png/arcana/full-size/arcanum-12.webp",
+      "stageHash": "d06f1544db27e60b6b7ec9e7b5f48c230da3843d754be6b66e05bb06e10373f1",
+      "card": "assets/optimized/card/png/arcana/full-size/arcanum-12.webp",
+      "cardHash": "3b754010806ddf7f37c134f41f876bde544c2064ec5f882e0bbc02e00b38e43e",
+      "phone": "assets/optimized/phone/png/arcana/full-size/arcanum-12.webp",
+      "phoneHash": "9c6fb78b218d06a653cad93fe261a449ce40c1e994248e99ff0c735a0b35daf2"
+    },
     "assets/arcana/full-size/arcanum-14.png": {
       "sourceHash": "f31d44e2aa93d874315771dc0a06203aae487857b9800619500eb3ce29f09010",
       "stage": "assets/optimized/stage/png/arcana/full-size/arcanum-14.webp",
@@ -495,13 +504,13 @@
       "phoneHash": "fee1e8f9052ac182e5f9c46cacc737eeeb33a53f36f82ae16b6af405ed36de72"
     },
     "assets/cloth-card.png": {
-      "sourceHash": "9c4a2c383eeac4abeeed6d91f13ede9d0a82576e12a421fa8a4bb5d382e1adaf",
+      "sourceHash": "1a1e88ecb3fcb11e4cb96b4fbb8bfb10254f6903c19fecf4cf8819ea8393fdf0",
       "stage": "assets/optimized/stage/png/cloth-card.webp",
-      "stageHash": "358e4584c7aa6cafa68f6d776ff8343b41168db9ff2477c2752114061b8a862c",
+      "stageHash": "49ba4d46fb6b080a51df336c489b938466e1f2f3494ec9bdd42e75e92643d228",
       "card": "assets/optimized/card/png/cloth-card.webp",
-      "cardHash": "04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59",
-      "phone": "assets/optimized/stage/png/cloth-card.webp",
-      "phoneHash": "358e4584c7aa6cafa68f6d776ff8343b41168db9ff2477c2752114061b8a862c"
+      "cardHash": "9c7ccad5a669afdffcd7923240937b7b70e7902ed59199b2a0bdc5eea817f709",
+      "phone": "assets/optimized/phone/png/cloth-card.webp",
+      "phoneHash": "ff21105cb69fb9e239c84157372e3ada211beed56d1ccb7ff8b62cd99915b614"
     },
     "assets/combat/ada-attack.webp": {
       "sourceHash": "45506784ed80e38574ba65138cb9d034bd4b22d0c2ed390b934f30841405d633",
@@ -5939,6 +5948,51 @@
       "phone": "assets/optimized/phone/webp/sleep/moth-sleeping.webp",
       "phoneHash": "6ae23677abfd123501a7fd8e96cc11674859fe7adfdfb7917b0faeeeaed1c1d6"
     },
+    "assets/sleep/residents/greek-adrastus-sleeping.webp": {
+      "sourceHash": "7012dd90a8eafdbdf7242608d1eea1b54b22dd6bf2f2b7571fd014f82fdd940e",
+      "stage": "assets/sleep/residents/greek-adrastus-sleeping.webp",
+      "stageHash": "7012dd90a8eafdbdf7242608d1eea1b54b22dd6bf2f2b7571fd014f82fdd940e",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-adrastus-sleeping.webp",
+      "cardHash": "2972bf810bcc9ebc394fb885dc4396b001e54d785b046ea769e74edaec8b346f",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-adrastus-sleeping.webp",
+      "phoneHash": "7166ac29868d2c0aeb36d5176a405f36d85d900f56cc22050e63fa1ee848f792"
+    },
+    "assets/sleep/residents/greek-aethra-sleeping.webp": {
+      "sourceHash": "c1917a0b96ffa8e7fa35dbdc247be1812fabd27e009a775ccfb28374b6ce11f4",
+      "stage": "assets/sleep/residents/greek-aethra-sleeping.webp",
+      "stageHash": "c1917a0b96ffa8e7fa35dbdc247be1812fabd27e009a775ccfb28374b6ce11f4",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-aethra-sleeping.webp",
+      "cardHash": "b311dc7d5c2896353869d04d25f247b5c2752bfaacfb1cde20dc212a9e899dca",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-aethra-sleeping.webp",
+      "phoneHash": "8d4a0f93ea1a664e282d9242b175759ec819a04531789cf1613d1200fead0784"
+    },
+    "assets/sleep/residents/greek-ajax-odysseus-sleeping.webp": {
+      "sourceHash": "f431cd9d70fc26826e19c8279be70d64129fb53298b864e28cea1f45e69b2b28",
+      "stage": "assets/sleep/residents/greek-ajax-odysseus-sleeping.webp",
+      "stageHash": "f431cd9d70fc26826e19c8279be70d64129fb53298b864e28cea1f45e69b2b28",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-ajax-odysseus-sleeping.webp",
+      "cardHash": "fc181cbf8375f1324842d5408f52f93b94ba3ca065fe07ee82c4318073b7bf1a",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-ajax-odysseus-sleeping.webp",
+      "phoneHash": "f30b9fa5cd0d243878220a19251b4409d44274102f513421c930616ffcc2f4b2"
+    },
+    "assets/sleep/residents/greek-ajax-tecmessa-sleeping.webp": {
+      "sourceHash": "a284435d47ad6141747b6ccc50d9ae9b9bf9005427814d422caa557e2aef3f9c",
+      "stage": "assets/sleep/residents/greek-ajax-tecmessa-sleeping.webp",
+      "stageHash": "a284435d47ad6141747b6ccc50d9ae9b9bf9005427814d422caa557e2aef3f9c",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-ajax-tecmessa-sleeping.webp",
+      "cardHash": "5defe833a1f32690b09c0c99c5503090a993c2b06d43fa1ef9ffc2e7a0e2e89e",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-ajax-tecmessa-sleeping.webp",
+      "phoneHash": "d2cced80b2a14a3bb5e2581104be5548b19eb738cd7f6774297e4dd58260c0ef"
+    },
+    "assets/sleep/residents/greek-ajax-teucer-sleeping.webp": {
+      "sourceHash": "6661d218fa3c8d38897f0b7bf036d00be5bd4fea5a44f154f6edc7f912cd6a69",
+      "stage": "assets/sleep/residents/greek-ajax-teucer-sleeping.webp",
+      "stageHash": "6661d218fa3c8d38897f0b7bf036d00be5bd4fea5a44f154f6edc7f912cd6a69",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-ajax-teucer-sleeping.webp",
+      "cardHash": "5a90c9a2b8f23161ba8526d75aabea898f381185f18fc207dfcdb9732d253759",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-ajax-teucer-sleeping.webp",
+      "phoneHash": "43c9bcbc67e8495956d44c217fe9877f495e318a9632c797f5bc83d0bbb8c5d5"
+    },
     "assets/sleep/residents/greek-antigone-sleeping.png": {
       "sourceHash": "848ea4359a743f157fdedc50958dcab3ba4b8f11eaa9f4cdb7999d6aaf8580c4",
       "stage": "assets/optimized/stage/png/sleep/residents/greek-antigone-sleeping.webp",
@@ -5948,6 +6002,132 @@
       "phone": "assets/optimized/phone/png/sleep/residents/greek-antigone-sleeping.webp",
       "phoneHash": "72285b4a1ee9159c3da883578f49b372fcc53412e998daceec11150e73374a37"
     },
+    "assets/sleep/residents/greek-argive-mother-sleeping.webp": {
+      "sourceHash": "c54eb03d09d8904e620f00c097cc7cc39a4331d7cae28e07d84bd8c18a685d5e",
+      "stage": "assets/sleep/residents/greek-argive-mother-sleeping.webp",
+      "stageHash": "c54eb03d09d8904e620f00c097cc7cc39a4331d7cae28e07d84bd8c18a685d5e",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-argive-mother-sleeping.webp",
+      "cardHash": "2d97ef9410f866489d6e1c72230058a1c5ae6571d31598efacbaef7b45f501b0",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-argive-mother-sleeping.webp",
+      "phoneHash": "73dfa7f606060943de64cf142f938a06eb7cfed411c653d80fedd58185cd073b"
+    },
+    "assets/sleep/residents/greek-colonus-keeper-sleeping.webp": {
+      "sourceHash": "7f54aaf48e9f97460410659f2219e559312779eb3a1c5d1cc02b0b182944057d",
+      "stage": "assets/sleep/residents/greek-colonus-keeper-sleeping.webp",
+      "stageHash": "7f54aaf48e9f97460410659f2219e559312779eb3a1c5d1cc02b0b182944057d",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-colonus-keeper-sleeping.webp",
+      "cardHash": "02371385fb75d3c2e5ef7c6441f96ee4fb7d8a011022ee721b9dc657bb1d6cb2",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-colonus-keeper-sleeping.webp",
+      "phoneHash": "1f03a617497c820e05e20763a6d0bf65cf228667d14f2121a5954748a6505ffd"
+    },
+    "assets/sleep/residents/greek-creon-sleeping.webp": {
+      "sourceHash": "6e59d98d7d29ac64f11da3e8deb911116708553980e6aaed018a86a26d442e3c",
+      "stage": "assets/sleep/residents/greek-creon-sleeping.webp",
+      "stageHash": "6e59d98d7d29ac64f11da3e8deb911116708553980e6aaed018a86a26d442e3c",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-creon-sleeping.webp",
+      "cardHash": "47055354c1f2ce0b2005f5d9e264ba9d17d12a21180152a9007752d62378eb7f",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-creon-sleeping.webp",
+      "phoneHash": "69622dbc4a9199e3542f402f29876f97d9815a4c600202896a745aeb25eafc53"
+    },
+    "assets/sleep/residents/greek-elder-sleeping.webp": {
+      "sourceHash": "0eb59d9b4fed707fbdf8ceaaebed23ee9c3e82c708fe20a01bfe929eeefdd33c",
+      "stage": "assets/sleep/residents/greek-elder-sleeping.webp",
+      "stageHash": "0eb59d9b4fed707fbdf8ceaaebed23ee9c3e82c708fe20a01bfe929eeefdd33c",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-elder-sleeping.webp",
+      "cardHash": "ef5d5c6611886627c08e2ed3c371100ad3a833c48779f34b3c210c04b1a44a8d",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-elder-sleeping.webp",
+      "phoneHash": "6ec85d6c58756e18dde4964a3bd7a2124c26eb569f6c964a1a690b8a3c1fd3ee"
+    },
+    "assets/sleep/residents/greek-electra-aeschylus-sleeping.webp": {
+      "sourceHash": "199fcaa949cd6d82528bef786a395618224ac02d94ccfe77530293ef3dbdadb0",
+      "stage": "assets/sleep/residents/greek-electra-aeschylus-sleeping.webp",
+      "stageHash": "199fcaa949cd6d82528bef786a395618224ac02d94ccfe77530293ef3dbdadb0",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-electra-aeschylus-sleeping.webp",
+      "cardHash": "3bc5120f95f6e1cc319ae850b74872c4cf1441b1c7b6512ac6c1af5c7c9b8759",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-electra-aeschylus-sleeping.webp",
+      "phoneHash": "a49f146fc3c9ed9795786361976b6c614dc9450b4d920b54ceb45a552cef53bd"
+    },
+    "assets/sleep/residents/greek-ferryman-sleeping.webp": {
+      "sourceHash": "9859e36ae86b79a194171f64f58ceab00d588e7c6cb5d5f6a0618f482630b040",
+      "stage": "assets/sleep/residents/greek-ferryman-sleeping.webp",
+      "stageHash": "9859e36ae86b79a194171f64f58ceab00d588e7c6cb5d5f6a0618f482630b040",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-ferryman-sleeping.webp",
+      "cardHash": "0e74f15bed38c7e4beec32a00fc6da19400b8af9284988195aa088bc412f025b",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-ferryman-sleeping.webp",
+      "phoneHash": "902a93b305a53311d4b26a85855e7e027846491ca9e81b1ba1a477d555560edf"
+    },
+    "assets/sleep/residents/greek-helen-egypt-sleeping.webp": {
+      "sourceHash": "1b43c6e5de795889a68ccc46dce606732792c63269bb1b79576776c8224ab91d",
+      "stage": "assets/sleep/residents/greek-helen-egypt-sleeping.webp",
+      "stageHash": "1b43c6e5de795889a68ccc46dce606732792c63269bb1b79576776c8224ab91d",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-helen-egypt-sleeping.webp",
+      "cardHash": "5889c7257d74b16d883358e809cdb5983b69a0533c2532f45dbc55d7ce60f617",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-helen-egypt-sleeping.webp",
+      "phoneHash": "c10f1ea1e89bc08ade5dea3aefb78d0f87a9573d2fc5125c5093872b06a7de3e"
+    },
+    "assets/sleep/residents/greek-household-witness-sleeping.webp": {
+      "sourceHash": "5760d1363709d1af8798c9b5d1e19c8a07c0b6dd713c6da33397a181b80de1ad",
+      "stage": "assets/sleep/residents/greek-household-witness-sleeping.webp",
+      "stageHash": "5760d1363709d1af8798c9b5d1e19c8a07c0b6dd713c6da33397a181b80de1ad",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-household-witness-sleeping.webp",
+      "cardHash": "500b44e3df7d4e09b68cc40415cefc50197b984710aa703b89355325c4e4ebef",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-household-witness-sleeping.webp",
+      "phoneHash": "78f00c6f45748f323b920d575866624cab6b577c0e804dcc6deec9c4b5799d35"
+    },
+    "assets/sleep/residents/greek-iphis-sleeping.webp": {
+      "sourceHash": "921bbf7a906894fd3c030d305f9b71f35fcd9f1501b020b339bcedb2f2085ce4",
+      "stage": "assets/sleep/residents/greek-iphis-sleeping.webp",
+      "stageHash": "921bbf7a906894fd3c030d305f9b71f35fcd9f1501b020b339bcedb2f2085ce4",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-iphis-sleeping.webp",
+      "cardHash": "6626099e77b7cfbdd75b5208aad9883ce04484f442566f947b2cab38cf70bffd",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-iphis-sleeping.webp",
+      "phoneHash": "de9e38db2e7d01a50b40025220a8709eb46892607bd2ef48a127a664be634a0c"
+    },
+    "assets/sleep/residents/greek-ismene-sleeping.webp": {
+      "sourceHash": "6f1056861bf07288416e26ab60248ba28a621316b2589e622a8889cbd0688dd2",
+      "stage": "assets/sleep/residents/greek-ismene-sleeping.webp",
+      "stageHash": "6f1056861bf07288416e26ab60248ba28a621316b2589e622a8889cbd0688dd2",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-ismene-sleeping.webp",
+      "cardHash": "651efd65e3d72cce029e9efd0a305ca9b1c246983604efe2880e47c8dbcff897",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-ismene-sleeping.webp",
+      "phoneHash": "b4985bb1cd916d6215cc5034c14a507af4d33801caa51f99ad98ecfcca7cb4a2"
+    },
+    "assets/sleep/residents/greek-marathon-keeper-sleeping.webp": {
+      "sourceHash": "c3b15a1b1ba312abe120edb62aaae3f2836d18c07ed6c58d9b125f98bb3581cf",
+      "stage": "assets/sleep/residents/greek-marathon-keeper-sleeping.webp",
+      "stageHash": "c3b15a1b1ba312abe120edb62aaae3f2836d18c07ed6c58d9b125f98bb3581cf",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-marathon-keeper-sleeping.webp",
+      "cardHash": "572f0754110924d89d9c9edacafdeb3c275161fade1fdbd52bb055a03d47183c",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-marathon-keeper-sleeping.webp",
+      "phoneHash": "09f35aa31b15f4101c8717151bb8bfb9793e82b1743b5b2e583b8c657094e170"
+    },
+    "assets/sleep/residents/greek-market-neighbor-sleeping.webp": {
+      "sourceHash": "ceece95c09618d3091393c9be7f8cce24da98ba89da65f11f0dff2353c3c0b78",
+      "stage": "assets/sleep/residents/greek-market-neighbor-sleeping.webp",
+      "stageHash": "ceece95c09618d3091393c9be7f8cce24da98ba89da65f11f0dff2353c3c0b78",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-market-neighbor-sleeping.webp",
+      "cardHash": "d33ea447342a02e5951a363a67cb10c04a8e936af9aa358dc3e2d2ff363fc995",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-market-neighbor-sleeping.webp",
+      "phoneHash": "8fa950cdbbdd91ce7998782317458ae222140cb04b17be64bfacf7ee38ff7913"
+    },
+    "assets/sleep/residents/greek-menelaus-egypt-sleeping.webp": {
+      "sourceHash": "2cff55c4905b2a1ae7ef45b90c7a176494ecdabad4bac9a8920680012954d2c5",
+      "stage": "assets/sleep/residents/greek-menelaus-egypt-sleeping.webp",
+      "stageHash": "2cff55c4905b2a1ae7ef45b90c7a176494ecdabad4bac9a8920680012954d2c5",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-menelaus-egypt-sleeping.webp",
+      "cardHash": "bf49d803f35de94f33bd0348c28bc62079d4194d9831cd66bab2c987f944bb41",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-menelaus-egypt-sleeping.webp",
+      "phoneHash": "c03cd8486c8261269a0d0b60b767d15306376e48d0e4222a08f3973c9d915b6f"
+    },
+    "assets/sleep/residents/greek-orestes-aeschylus-sleeping.webp": {
+      "sourceHash": "425532f0405822b51136ed8ed0519565ad205f4435959983ed51449fd050e2f9",
+      "stage": "assets/sleep/residents/greek-orestes-aeschylus-sleeping.webp",
+      "stageHash": "425532f0405822b51136ed8ed0519565ad205f4435959983ed51449fd050e2f9",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-orestes-aeschylus-sleeping.webp",
+      "cardHash": "c7541d012ad32c991ea22af445922d453a723f0f9a74a18687452f98654c3d74",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-orestes-aeschylus-sleeping.webp",
+      "phoneHash": "61d55e846f8a3db64799857dfdde0696941fd44c7ae69d49dff45e2935518675"
+    },
     "assets/sleep/residents/greek-patroclus-sleeping.png": {
       "sourceHash": "f43fca6438e5b9abc85d79d612d51c4c442f0902cdd2d63468abe114eea6a0bd",
       "stage": "assets/optimized/stage/png/sleep/residents/greek-patroclus-sleeping.webp",
@@ -5956,6 +6136,231 @@
       "cardHash": "3a132f296cd4ab5518d4cc7d95cb2b9f85504f6f423998a6c07c884a2e02204f",
       "phone": "assets/optimized/phone/png/sleep/residents/greek-patroclus-sleeping.webp",
       "phoneHash": "8624079afecfed2d0db6c4d72ac6d0820cc91700857de56233d6dcae2c9812e1"
+    },
+    "assets/sleep/residents/greek-quay-host-sleeping.webp": {
+      "sourceHash": "749dc89fc1a1d5a3a8851715a062cc1fc7a1d520d7bf86c33a32bd00279b88fc",
+      "stage": "assets/sleep/residents/greek-quay-host-sleeping.webp",
+      "stageHash": "749dc89fc1a1d5a3a8851715a062cc1fc7a1d520d7bf86c33a32bd00279b88fc",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-quay-host-sleeping.webp",
+      "cardHash": "39d2b6441a10b935a928825e2c2c3a2c0db6bb955bd564a16a96766754a0ab73",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-quay-host-sleeping.webp",
+      "phoneHash": "664db176441daa2c011aaa4ec1e0293095b303cc60ae5ab17179a16aa06c74f3"
+    },
+    "assets/sleep/residents/greek-shipmaster-sleeping.webp": {
+      "sourceHash": "824c1f4ac89288768e7d9c4811e099bb7878dc5dee782724fcb701baba0e6d51",
+      "stage": "assets/sleep/residents/greek-shipmaster-sleeping.webp",
+      "stageHash": "824c1f4ac89288768e7d9c4811e099bb7878dc5dee782724fcb701baba0e6d51",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-shipmaster-sleeping.webp",
+      "cardHash": "9465af0529e7c4a5a45414f3c202c573d190046602ab78804a044f151023c799",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-shipmaster-sleeping.webp",
+      "phoneHash": "e40304c25eec9afce842812b868b72071c288badb26bfd6a8f222cfa66890aaa"
+    },
+    "assets/sleep/residents/greek-temple-attendant-sleeping.webp": {
+      "sourceHash": "fbaf30a7c283efe22ac97b1a150a08abe12350a392d7750f2d6331a41dae22ed",
+      "stage": "assets/sleep/residents/greek-temple-attendant-sleeping.webp",
+      "stageHash": "fbaf30a7c283efe22ac97b1a150a08abe12350a392d7750f2d6331a41dae22ed",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-temple-attendant-sleeping.webp",
+      "cardHash": "2c8b1942edf7005c76ae422c91a3b5e62a6f551c9a96b9872543366863934eb0",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-temple-attendant-sleeping.webp",
+      "phoneHash": "12069d20900d44cb73a197afcc6eb042af8bea618912bef3df1ef84b4260a2dc"
+    },
+    "assets/sleep/residents/greek-theseus-sleeping.webp": {
+      "sourceHash": "7e05e73f70deb5ede61b3d8ab14449e60950ae8292392d750dbf6fbe5d251916",
+      "stage": "assets/sleep/residents/greek-theseus-sleeping.webp",
+      "stageHash": "7e05e73f70deb5ede61b3d8ab14449e60950ae8292392d750dbf6fbe5d251916",
+      "card": "assets/optimized/card/webp/sleep/residents/greek-theseus-sleeping.webp",
+      "cardHash": "cecd4f2e0e2f3dbbac28fdcd9ea2db15361ae9a0816dd9381b336a29d254549c",
+      "phone": "assets/optimized/phone/webp/sleep/residents/greek-theseus-sleeping.webp",
+      "phoneHash": "0bc74566c3ae4f062f837e03eed429acc8fa6a83af8585d82d50980be63b77d2"
+    },
+    "assets/sleep/residents/hoppycat-arc-sleeping.webp": {
+      "sourceHash": "447d50e01e11cbbaa0b9808beacb1db393b92eda2d1bb6311a6f48a04ff7036a",
+      "stage": "assets/sleep/residents/hoppycat-arc-sleeping.webp",
+      "stageHash": "447d50e01e11cbbaa0b9808beacb1db393b92eda2d1bb6311a6f48a04ff7036a",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-arc-sleeping.webp",
+      "cardHash": "d7b3228247d132168dae27b2e3821da97b93e740a3b169c637f4525d0afc39a4",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-arc-sleeping.webp",
+      "phoneHash": "609ad827ff11cad447c03af92408bac03a3aea276864cc30b4494808d3d5ee9f"
+    },
+    "assets/sleep/residents/hoppycat-fable-sleeping.webp": {
+      "sourceHash": "526b7f29d503cb04565a893f9e1478649dff9101292ca3c89353dc7e5c04d213",
+      "stage": "assets/sleep/residents/hoppycat-fable-sleeping.webp",
+      "stageHash": "526b7f29d503cb04565a893f9e1478649dff9101292ca3c89353dc7e5c04d213",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-fable-sleeping.webp",
+      "cardHash": "a181103c23b24591684bc7b3fdc7db7ec98fd6374655d5b9fc4594f94f21b054",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-fable-sleeping.webp",
+      "phoneHash": "2278084d7002457ea0fbed09e2e9b360cdb6b4ea8d358e7e038f88a2eb67d049"
+    },
+    "assets/sleep/residents/hoppycat-glim-twice-sleeping.webp": {
+      "sourceHash": "1fd5c6d682f01721f9f92498f0bd6422dae7d0dee48c21e7f5c914978d257934",
+      "stage": "assets/sleep/residents/hoppycat-glim-twice-sleeping.webp",
+      "stageHash": "1fd5c6d682f01721f9f92498f0bd6422dae7d0dee48c21e7f5c914978d257934",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-glim-twice-sleeping.webp",
+      "cardHash": "59e46c9beda158cd128ca6b48e6e6400505f519a2eb1079e6deb73434bfb51a4",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-glim-twice-sleeping.webp",
+      "phoneHash": "97e11b997dd08ed5004922a1058da6c290de0d7f91e871c4ac9a1cedd0e11e0f"
+    },
+    "assets/sleep/residents/hoppycat-hoppy-cat-sleeping.webp": {
+      "sourceHash": "41dd46cd63eefcd5dc3fa53775336408980651058332887a9c058052dc5b9c36",
+      "stage": "assets/sleep/residents/hoppycat-hoppy-cat-sleeping.webp",
+      "stageHash": "41dd46cd63eefcd5dc3fa53775336408980651058332887a9c058052dc5b9c36",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-hoppy-cat-sleeping.webp",
+      "cardHash": "30ef479164c9931b27052d0b6a97d00b561116246e9b8cf62dd8cd53edaefc94",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-hoppy-cat-sleeping.webp",
+      "phoneHash": "99abbb14fd08d976069d1f6a091d0708eb2bdc8fd4674844cec74fe5e97c76f3"
+    },
+    "assets/sleep/residents/hoppycat-ledger-opus-sleeping.webp": {
+      "sourceHash": "e9d0f80c8627617601744b0e5366800bee48a1be55b1dfd8ff81a5c1223cbb96",
+      "stage": "assets/sleep/residents/hoppycat-ledger-opus-sleeping.webp",
+      "stageHash": "e9d0f80c8627617601744b0e5366800bee48a1be55b1dfd8ff81a5c1223cbb96",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-ledger-opus-sleeping.webp",
+      "cardHash": "d041e12476ecae48e3cde3eccc9debf5d4717469bc1e7d81cd1aaf39c43348f6",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-ledger-opus-sleeping.webp",
+      "phoneHash": "5d73f4ff6bde2c6913fab6d49d25d31f22b6e4d12a25e88bda3f289c5835f12c"
+    },
+    "assets/sleep/residents/hoppycat-ledger-sonnet-sleeping.webp": {
+      "sourceHash": "317b8fdb128f80845ffa1406af55bef7732c605f730b7cb853a572568fc94269",
+      "stage": "assets/sleep/residents/hoppycat-ledger-sonnet-sleeping.webp",
+      "stageHash": "317b8fdb128f80845ffa1406af55bef7732c605f730b7cb853a572568fc94269",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-ledger-sonnet-sleeping.webp",
+      "cardHash": "bed54cb74a372119212c63a3a46fdbdd29e912dac377e3f40381fd730776a8f4",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-ledger-sonnet-sleeping.webp",
+      "phoneHash": "554286798fccaf0207244d8cefd747a00e17f55a7df91734f35925d05986cb39"
+    },
+    "assets/sleep/residents/hoppycat-lumen-facet-sleeping.webp": {
+      "sourceHash": "4c619f9a492b9c193fc368bd6201550e09d5820e6abd9bde826d66e3e1795261",
+      "stage": "assets/sleep/residents/hoppycat-lumen-facet-sleeping.webp",
+      "stageHash": "4c619f9a492b9c193fc368bd6201550e09d5820e6abd9bde826d66e3e1795261",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-lumen-facet-sleeping.webp",
+      "cardHash": "ffe674df21de86c4fb53df44f4e1ac4ed53c74f8100b56eb363a0b4708ad51c0",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-lumen-facet-sleeping.webp",
+      "phoneHash": "4461d8af7f1bfafef6286882edffa8d869261df1bfb3ab71477f2e3213fa2878"
+    },
+    "assets/sleep/residents/hoppycat-mira-meraki-sleeping.webp": {
+      "sourceHash": "b65e8d3dcccc5d1475d5583f1138a55e6504793b8bd763b0e7170820dc776138",
+      "stage": "assets/sleep/residents/hoppycat-mira-meraki-sleeping.webp",
+      "stageHash": "b65e8d3dcccc5d1475d5583f1138a55e6504793b8bd763b0e7170820dc776138",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-mira-meraki-sleeping.webp",
+      "cardHash": "08ba13efd167a595f7f5ef91028742bfa8096ef1d9f3285e287afe5bdeb096af",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-mira-meraki-sleeping.webp",
+      "phoneHash": "dba86483728974f6874b8a5e3ded047047bae879ceab121796a18d4198a0e2da"
+    },
+    "assets/sleep/residents/hoppycat-nix-fermata-sleeping.webp": {
+      "sourceHash": "ed1b817fc0d4d9357ce7db03987ffbaa337dfd1e6a94706cebbc31285e0b7e61",
+      "stage": "assets/sleep/residents/hoppycat-nix-fermata-sleeping.webp",
+      "stageHash": "ed1b817fc0d4d9357ce7db03987ffbaa337dfd1e6a94706cebbc31285e0b7e61",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-nix-fermata-sleeping.webp",
+      "cardHash": "29762acd2d7013f6ddc4c6ed608a327527a034e3d80df416571762b7e18394c2",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-nix-fermata-sleeping.webp",
+      "phoneHash": "27c026f2221ca1f907ec94420fea4b8f1d401f2d96eb82dc0a0cb722f29ae1ee"
+    },
+    "assets/sleep/residents/hoppycat-patch-fern-sleeping.webp": {
+      "sourceHash": "806133a6cd4da0378cde9629dc5deda3f64f1f27bdecff7cf5d3d459f0846d18",
+      "stage": "assets/sleep/residents/hoppycat-patch-fern-sleeping.webp",
+      "stageHash": "806133a6cd4da0378cde9629dc5deda3f64f1f27bdecff7cf5d3d459f0846d18",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-patch-fern-sleeping.webp",
+      "cardHash": "6d48d6c37174af1029c4910620e5df769a19fcd9fd32ce6171699335f2525a07",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-patch-fern-sleeping.webp",
+      "phoneHash": "0d46fb73a360d055217d8f0aee3a4b625448e7798f93e4a7ad8518bfbfdf6612"
+    },
+    "assets/sleep/residents/hoppycat-penny-vellum-sleeping.webp": {
+      "sourceHash": "7704444e29cd312cb1d84a1ca4ec9c05c536e33232daf1bd1f8f5e1c37de1dbd",
+      "stage": "assets/sleep/residents/hoppycat-penny-vellum-sleeping.webp",
+      "stageHash": "7704444e29cd312cb1d84a1ca4ec9c05c536e33232daf1bd1f8f5e1c37de1dbd",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-penny-vellum-sleeping.webp",
+      "cardHash": "b899582c3079ffca374c3e2ace02b4b9ccac23db1acb3213cea87005c1983663",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-penny-vellum-sleeping.webp",
+      "phoneHash": "c285ad82eb1ed02827bc0517865cef97f51f1c618f2196ece1a3907b7759f8a5"
+    },
+    "assets/sleep/residents/hoppycat-phase-two-sleeping.webp": {
+      "sourceHash": "68046d7cde9151f41580183a018c0bde1138674b9aca202d3eb64d875d3707e3",
+      "stage": "assets/sleep/residents/hoppycat-phase-two-sleeping.webp",
+      "stageHash": "68046d7cde9151f41580183a018c0bde1138674b9aca202d3eb64d875d3707e3",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-phase-two-sleeping.webp",
+      "cardHash": "33fdf1b11a54e60e2e7ee3a1e4a47f1ac23e555b1378145262385c3031f8cf24",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-phase-two-sleeping.webp",
+      "phoneHash": "a4c55dd974c2d53c2106109cc2a0f0ca41a850e957f81c1199c5d2fdf6e27a32"
+    },
+    "assets/sleep/residents/hoppycat-rill-current-sleeping.webp": {
+      "sourceHash": "5bd8768b1214c80d417c65c1951f3d2c15369732c735890bb42f82974064db11",
+      "stage": "assets/sleep/residents/hoppycat-rill-current-sleeping.webp",
+      "stageHash": "5bd8768b1214c80d417c65c1951f3d2c15369732c735890bb42f82974064db11",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-rill-current-sleeping.webp",
+      "cardHash": "7b8da33e2b42b0b4ca32c6c91d186458507475cad4f83c81449f7351ecd4ad27",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-rill-current-sleeping.webp",
+      "phoneHash": "79242d1edc6376ec634017a2fa81406684210c059493ce0d1598bcc99e391db5"
+    },
+    "assets/sleep/residents/hoppycat-solwashere-sleeping.webp": {
+      "sourceHash": "cbf69775aaa89d396638d9646dda2eef3098c007c9f517f84feda0bac378ba58",
+      "stage": "assets/sleep/residents/hoppycat-solwashere-sleeping.webp",
+      "stageHash": "cbf69775aaa89d396638d9646dda2eef3098c007c9f517f84feda0bac378ba58",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-solwashere-sleeping.webp",
+      "cardHash": "eca11378e74cdc7185c1f3c95465ce3e85975960579d9f4efec4b25ad5bdca95",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-solwashere-sleeping.webp",
+      "phoneHash": "b0d75d071a24f74b8eccb9116cda7785ba1cb4e2b31f1baf322092abbe2a4990"
+    },
+    "assets/sleep/residents/hoppycat-staticwashere-sleeping.webp": {
+      "sourceHash": "41ff9753e757d83f53f4915506176d98e719d05698f823f40c10204117fb9be0",
+      "stage": "assets/sleep/residents/hoppycat-staticwashere-sleeping.webp",
+      "stageHash": "41ff9753e757d83f53f4915506176d98e719d05698f823f40c10204117fb9be0",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-staticwashere-sleeping.webp",
+      "cardHash": "c5e467048c9abc00656e4460c76b6c4f2bb8007094deb1120f13c6e23a28eb63",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-staticwashere-sleeping.webp",
+      "phoneHash": "81ec85a13bef7c56457d1255332188a094bb30342bdf46a5c997bdb10491d254"
+    },
+    "assets/sleep/residents/hoppycat-tapi-lilt-sleeping.webp": {
+      "sourceHash": "2423b651a129941beca8a7096c4b1d1cac1af982ec5a6a306fab7ec4e44046a0",
+      "stage": "assets/sleep/residents/hoppycat-tapi-lilt-sleeping.webp",
+      "stageHash": "2423b651a129941beca8a7096c4b1d1cac1af982ec5a6a306fab7ec4e44046a0",
+      "card": "assets/optimized/card/webp/sleep/residents/hoppycat-tapi-lilt-sleeping.webp",
+      "cardHash": "b8d15001cf17073b3210fc47d91f680eddcb65647a536d57b5a36a328f05ed4d",
+      "phone": "assets/optimized/phone/webp/sleep/residents/hoppycat-tapi-lilt-sleeping.webp",
+      "phoneHash": "101bbfb30d2b37b6218750d20a9616105880892021574fc495d70b1fdd222358"
+    },
+    "assets/sleep/residents/oak-sleeping.webp": {
+      "sourceHash": "b6b7d373481b598a5125abf1223530b0455c2b90db7ea490a51a625ba718defc",
+      "stage": "assets/sleep/residents/oak-sleeping.webp",
+      "stageHash": "b6b7d373481b598a5125abf1223530b0455c2b90db7ea490a51a625ba718defc",
+      "card": "assets/optimized/card/webp/sleep/residents/oak-sleeping.webp",
+      "cardHash": "5e55895a56e4b12b89e42a085cd7f6b969199fd99f92e28b54731b9494f45337",
+      "phone": "assets/optimized/phone/webp/sleep/residents/oak-sleeping.webp",
+      "phoneHash": "062824ad3ba2f85f72205f382c606a16f1bdbca3a2294baf6703b3abdc03b196"
+    },
+    "assets/sleep/residents/rati-sleeping.webp": {
+      "sourceHash": "60a3f2b31d3814812e5cf32ad49290585ce8c7a70d0bb523f56a74b47db2cca7",
+      "stage": "assets/sleep/residents/rati-sleeping.webp",
+      "stageHash": "60a3f2b31d3814812e5cf32ad49290585ce8c7a70d0bb523f56a74b47db2cca7",
+      "card": "assets/optimized/card/webp/sleep/residents/rati-sleeping.webp",
+      "cardHash": "0050953028b661ca5d316e398292314f8488609d90eb0546cc57eafe85ed0247",
+      "phone": "assets/optimized/phone/webp/sleep/residents/rati-sleeping.webp",
+      "phoneHash": "724b36a55c654d14cb4aafe03ef77ab23fafa7795d948079a027af721ae1fb35"
+    },
+    "assets/sleep/residents/skull-sleeping.webp": {
+      "sourceHash": "4eea0b1c707c53f87b64f64238bed329b311e3954c362315ff5730ab9fbf3275",
+      "stage": "assets/sleep/residents/skull-sleeping.webp",
+      "stageHash": "4eea0b1c707c53f87b64f64238bed329b311e3954c362315ff5730ab9fbf3275",
+      "card": "assets/optimized/card/webp/sleep/residents/skull-sleeping.webp",
+      "cardHash": "17492e7a1fdb60192b3e59db69a4901e0c8165b41023a18420b536ee6259a159",
+      "phone": "assets/optimized/phone/webp/sleep/residents/skull-sleeping.webp",
+      "phoneHash": "80953a12cc041431b31bd198bc2fb9069ce8cad388af69be2f6a547b866dc72f"
+    },
+    "assets/sleep/residents/whiskerwind-sleeping.webp": {
+      "sourceHash": "5dd534aeb0c98bf5744d01444b1444dcb7827826ef930d5fbc1e8d57fb362dbe",
+      "stage": "assets/sleep/residents/whiskerwind-sleeping.webp",
+      "stageHash": "5dd534aeb0c98bf5744d01444b1444dcb7827826ef930d5fbc1e8d57fb362dbe",
+      "card": "assets/optimized/card/webp/sleep/residents/whiskerwind-sleeping.webp",
+      "cardHash": "bd2f0aa287d8546ca098ae20a1c1d381f5a1f1e8920e85583bf077838e30d65e",
+      "phone": "assets/optimized/phone/webp/sleep/residents/whiskerwind-sleeping.webp",
+      "phoneHash": "14002175a0a4737535fa9ace35b4afa0f026dd3cb6e04521e8043f2f0bcbf1d8"
+    },
+    "assets/sleep/residents/willows-swede-sleeping.webp": {
+      "sourceHash": "1f085e5c6398af4b5b81758dca2d2a4cde4e5e96c037f53603bf9a24971472ac",
+      "stage": "assets/sleep/residents/willows-swede-sleeping.webp",
+      "stageHash": "1f085e5c6398af4b5b81758dca2d2a4cde4e5e96c037f53603bf9a24971472ac",
+      "card": "assets/optimized/card/webp/sleep/residents/willows-swede-sleeping.webp",
+      "cardHash": "f21051f1f77ff2cac4823726d2731b58c1b256c75b21e02a6423e2719e5cc2d7",
+      "phone": "assets/optimized/phone/webp/sleep/residents/willows-swede-sleeping.webp",
+      "phoneHash": "6b5d9cbdb53a4075986eafbf5556d1b936c976c8e6a6522672fbc34b54058bcb"
     },
     "assets/station.png": {
       "sourceHash": "7dacf532b00c33735860d19273366188d6f759df6ad2f5429f15d287c08d1a33",
