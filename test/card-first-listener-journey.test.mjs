@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
@@ -15,6 +16,7 @@ import {
   encodeSave,
   holdChoice,
   legalActions,
+  placeText,
   play,
 } from "../v2/card-game/world.mjs";
 
@@ -106,12 +108,26 @@ it.each(["solo", "shared"])(
     expect(progress()).toEqual({ count: 2, target: 3, phase: "help" });
 
     drop(wayfinder, "elysium-void-001");
-    take("ratiradio-red-beanie");
     move("elysium-void-002");
     move("station");
+    take("ratiradio-red-beanie");
     move("pond");
-    take("ratiradio-thermos");
     take("ratiradio-station-key");
+    move("station");
+    move("ratiradio-staff-kitchen");
+    expect(placeText(table.world, "ratiradio-staff-kitchen")).toMatch(/Leave the Station Key inside/u);
+    act("read", { item: "ratiradio-station-key" });
+    expect(knowsFact(table.world, VALE, "claim:ratiradio:ratiradio-station-key:leave-key-inside")).toBe(true);
+    drop("ratiradio-station-key", "ratiradio-staff-kitchen");
+    move("station");
+    take("bell");
+    move("pond");
+    act("ring", { item: "bell" });
+    act("ring", { item: "bell" });
+    move("clearing");
+    take("ratiradio-thermos");
+    act("ring", { item: "bell" });
+    move("pond");
     move("station");
     move("ratiradio-staff-kitchen");
     move("ratiradio-dispatch-window");

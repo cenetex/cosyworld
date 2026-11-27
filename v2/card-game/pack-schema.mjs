@@ -1381,10 +1381,6 @@ export function packProblems(
       `item ${id} reservedUntil needs a condition`,
     );
     check(
-      i.scatterOutside === undefined || i.scatterOutside === true,
-      `item ${id} scatterOutside must be true`,
-    );
-    check(
       i.recoverTo === undefined || anyPlace(i.recoverTo),
       `item ${id} recoverTo needs a known place`,
     );

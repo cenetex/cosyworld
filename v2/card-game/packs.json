@@ -11945,7 +11945,7 @@
       "places": {
         "ratiradio-staff-kitchen": {
           "name": "Staff Kitchen",
-          "text": "The fridges keep the hours here. One door stands barely ajar, casting cold light across the worn tiles.",
+          "text": "The fridges keep the hours here. One door stands barely ajar. ‘Leave the Station Key inside and the staff entrance will stay open,’ reads a note by the lost-property tray.",
           "persona": "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
           "exits": [],
           "backdrop": "assets/ratiradio/staff-kitchen.webp"
@@ -12075,8 +12075,8 @@
       "items": {
         "ratiradio-station-key": {
           "name": "Station Key",
-          "text": "A brass key with a worn tag.",
-          "persona": "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station, but only while someone carries it.",
+          "text": "A brass key with a worn STAFF tag. Leaving it inside keeps the entrance open.",
+          "persona": "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station while a traveler carries it or it stays inside the station rooms.",
           "holder": "pond",
           "art": "assets/ratiradio/station-key.webp",
           "reservedUntil": [
@@ -12092,6 +12092,11 @@
             {
               "id": "staff",
               "text": "This brass key is for the station's staff.",
+              "about": "ratiradio-staff-kitchen"
+            },
+            {
+              "id": "leave-key-inside",
+              "text": "Leave the Station Key inside the Staff Kitchen and the entrance stays open.",
               "about": "ratiradio-staff-kitchen"
             }
           ]
@@ -12110,7 +12115,10 @@
             }
           ],
           "recoverTo": "pond",
-          "scatterOutside": true
+          "scatterOutside": [
+            "station",
+            "clearing"
+          ]
         },
         "ratiradio-thermos": {
           "name": "Thermos",
@@ -12126,7 +12134,10 @@
             }
           ],
           "recoverTo": "pond",
-          "scatterOutside": true
+          "scatterOutside": [
+            "clearing",
+            "forest-cottage"
+          ]
         },
         "ratiradio-raven-figurine": {
           "name": "Raven Figurine",
@@ -12142,7 +12153,14 @@
             }
           ],
           "recoverTo": "pond",
-          "scatterOutside": true
+          "scatterOutside": [
+            "clearing",
+            "greek-harbor",
+            "hoppycat-signal-jetty",
+            "willows-landing",
+            "forest-cottage",
+            "elysium-void-001"
+          ]
         },
         "ratiradio-glass": {
           "name": "Half-full Glass",
@@ -12158,7 +12176,14 @@
             }
           ],
           "recoverTo": "pond",
-          "scatterOutside": true
+          "scatterOutside": [
+            "clearing",
+            "greek-harbor",
+            "hoppycat-signal-jetty",
+            "willows-landing",
+            "forest-cottage",
+            "elysium-void-001"
+          ]
         },
         "ratiradio-request-slip": {
           "name": "Request Slip",

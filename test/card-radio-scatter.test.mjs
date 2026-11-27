@@ -3,8 +3,8 @@ import { dwellRule } from "../v2/card-game/world/dwell.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave, play } from "../v2/card-game/world.mjs";
-import { entityActive, packDefinition, packIdOf, validatePackDefinition } from "../v2/card-game/pack-registry.mjs";
+import { createWorld, decodeSave, encodeSave, legalActions, play } from "../v2/card-game/world.mjs";
+import { entityActive, packDefinition, packDefinitions, packIdOf, validatePackDefinition } from "../v2/card-game/pack-registry.mjs";
 import { installItemCycle, settleItemCycle } from "../v2/card-game/pack-items.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 const radio = packDefinition("ratiradio");
@@ -12,16 +12,21 @@ const items = Object.keys(radio.items).filter((id) => radio.items[id].scatterOut
 const holders = (s) => items.map((id) => s.items[id].holder);
 
 it("spreads keepsakes across distinct enabled external worlds, deterministically", () => {
+  const exteriorEntries = new Set(["station", ...packDefinitions.map((pack) => pack.entry)]);
   const seen = new Set();
   for (let seed = 0; seed < 40; seed++) {
-    const s = createWorld({ seed }), places = holders(s);
-    expect(places).toEqual(holders(createWorld({ seed })));
+    const s = createWorld({ opening: true, seed }), places = holders(s);
+    expect(places).toEqual(holders(createWorld({ opening: true, seed })));
     expect(new Set(places.map(packIdOf)).size).toBe(items.length);
-    for (const p of places) {
+    for (const [i, p] of places.entries()) {
       expect(packIdOf(p)).not.toBe("ratiradio");
       expect(entityActive(s, p)).toBe(true);
+      expect(exteriorEntries.has(p)).toBe(true);
+      expect(radio.items[items[i]].scatterOutside).toContain(p);
       seen.add(packIdOf(p));
     }
+    expect(places).not.toContain("attic");
+    expect(places).not.toContain("pond");
     expect(s.items["ratiradio-station-key"].holder).toBe("pond");
     expect(holders(decodeSave(encodeSave(s)))).toEqual(places);
   }
@@ -30,15 +35,30 @@ it("spreads keepsakes across distinct enabled external worlds, deterministically
 
 
 it("avoids sleeping worlds on installation and never reshuffles when they wake", () => {
-  const s = createWorld({ seed: 17 });
-  s.disabledPacks = ["sea", "cottage"];
-  for (const id of items) s.items[id] = { holder: radio.items[id].holder, history: [] };
-  installItemCycle(s);
-  for (const p of holders(s)) expect(entityActive(s, p)).toBe(true);
-  const before = holders(s);
-  delete s.disabledPacks;
-  installItemCycle(s);
-  expect(holders(s)).toEqual(before);
+  for (const seed of [0, 1, 17, 26]) {
+    const s = createWorld({ seed });
+    s.disabledPacks = ["sea", "cottage"];
+    for (const id of items) s.items[id] = { holder: radio.items[id].holder, history: [] };
+    installItemCycle(s);
+    const before = holders(s);
+    for (const p of before) expect(entityActive(s, p)).toBe(true);
+    expect(new Set(before.map(packIdOf)).size).toBe(items.length);
+    expect(s.items["ratiradio-thermos"].holder).toBe("clearing");
+    expect(s.items["ratiradio-red-beanie"].holder).toBe("station");
+    delete s.disabledPacks;
+    installItemCycle(s);
+    expect(holders(s)).toEqual(before);
+  }
+});
+
+it("keeps old Attic placements, carried keepsakes, and deliberate Radio deposits on reload", () => {
+  const s = createWorld({ opening: true, seed: 17 });
+  s.items["ratiradio-red-beanie"].holder = "attic";
+  s.items["ratiradio-thermos"].holder = "vale";
+  s.items["ratiradio-raven-figurine"].holder = "ratiradio-listening-room";
+  s.items["ratiradio-raven-figurine"].history = ["Turn 0: Vale set the figurine down."];
+  const reloaded = decodeSave(encodeSave(s));
+  for (const id of items) expect(reloaded.items[id]).toEqual(s.items[id]);
 });
 
 it("evacuates keepsakes when a destination world sleeps, without duplicating them", () => {
@@ -67,9 +87,11 @@ it("returns absent custody outside Radio and leaves intentional Listening Room d
 });
 
 it("rejects malformed scatter declarations", () => {
-  const pack = structuredClone(radio);
-  pack.items[items[0]].scatterOutside = "yes";
-  expect(() => validatePackDefinition(pack)).toThrow(/scatterOutside/u);
+  for (const bad of ["yes", [], ["station", "station"], ["lost-room"], [radio.entry]]) {
+    const pack = structuredClone(radio);
+    pack.items[items[0]].scatterOutside = bad;
+    expect(() => validatePackDefinition(pack)).toThrow(/scatterOutside/u);
+  }
 });
 
 it("agrees between browser source and bundled host for fresh shared saves", async () => {
@@ -123,13 +145,41 @@ it("keeps the Station Key at Black Pond on direct Radio landings", async () => {
   for (const p of holders(s)) expect(packIdOf(p)).not.toBe("ratiradio");
 });
 
+it("retrieves a Cottage Thermos from a fresh attic using the shore lamp and cloth", () => {
+  let s = createWorld({ opening: true, seed: 0 });
+  const thermos = "ratiradio-thermos";
+  expect(s.items[thermos].holder).toBe("forest-cottage");
+  const act = (fields) => {
+    const action = legalActions(s).find((candidate) =>
+      Object.entries(fields).every(([key, value]) => candidate[key] === value));
+    expect(action, JSON.stringify(fields)).toBeDefined();
+    const result = play(s, action);
+    expect(result.ok, result.error).toBe(true);
+    s = result.state;
+  };
+  s = selectLamp(s);
+  act({ kind: "move", target: "pond" });
+  act({ kind: "talk", target: "moth" });
+  s = selectLamp(s, "lamp");
+  act({ kind: "give", item: "lamp", target: "moth" });
+  act({ kind: "ask", item: "cloth", target: "moth" });
+  act({ label: "Borrow Lamp" });
+  s = selectLamp(s, "lamp");
+  act({ kind: "move", target: "attic" });
+  act({ kind: "move", target: "forest-cottage" });
+  act({ kind: "take", item: thermos });
+  act({ kind: "move", target: "attic" });
+  s = selectLamp(s);
+  act({ kind: "move", target: "pond" });
+  expect(s.items[thermos].holder).toBe("vale");
+});
+
 it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired shortcut", async () => {
   // A scripted route written for a cast that walks on at once (rules 132).
   dwellRule.on = false;
   onTestFinished(() => (dwellRule.on = true));
-  const { legalActions } = await import("../v2/card-game/world.mjs");
   const { endStandoff } = await import("./helpers/standoff.mjs");
-  let s = createWorld({ seed: 1 });
+  let s = createWorld({ seed: 5 });
   // This journey tests the scattered keepsake and real transport route, not gift refusal.
   s.actors.moth.trust.vale = 1;
   expect(s.items["ratiradio-raven-figurine"].holder).toBe("hoppycat-signal-jetty");
