@@ -33,7 +33,7 @@ try {
           await new Promise((resolve) => setTimeout(resolve, 250));
           await route.fulfill({
             contentType: "text/javascript",
-            body: 'throw new Error("Injected startup failure");',
+            body: 'document.querySelector(".dialogue").hidden = true; throw new Error("Injected startup failure");',
           });
         } else
           await route.fulfill({
