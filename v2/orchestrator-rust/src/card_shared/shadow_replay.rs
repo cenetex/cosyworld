@@ -10,6 +10,8 @@ mod direct;
 mod opening_quest;
 #[cfg(feature = "rules-wasm")]
 mod opening_seat;
+#[cfg(feature = "rules-wasm")]
+mod opening_wait;
 mod proof;
 
 #[derive(Debug, Default, PartialEq)]
