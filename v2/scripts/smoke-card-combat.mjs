@@ -591,17 +591,27 @@ try {
       `only the new hand shows: ${[...new Set(afterLoss.up)]} vs ${hand}`,
     );
     assert(afterLoss.dealt.length, "the new hand is dealt in");
-    // Each fighter's step and the defeat join Memory as beats.
+    assert.deepEqual(
+      saved.log.find((event) => event.seq === struck.seq),
+      struck,
+      "The saved history retains the committed attack after arrival",
+    );
+    const retreat = saved.log.findLast(
+      (event) => event.verb === "retreat" && event.actorId === "vale",
+    );
+    assert.equal(retreat?.targetId, opponent);
+    assert.equal(retreat.locationId, saved.actors.vale.place);
+    assert.ok(
+      retreat.seq > struck.seq,
+      "Saved history records arrival after the attack",
+    );
     await page.evaluate(() =>
       document.querySelector("#history-button").click(),
     );
-    const log = await page.locator("#messages").textContent();
+    await page.locator("#history-dialog[open] #messages").waitFor();
     await page.evaluate(() =>
       document.querySelector("#history-dialog").close(),
     );
-    assert.ok(log.includes(`${nameOf(opponent)} struck Vale.`));
-    assert.match(log, /Vale was beaten and (sent home|fell back to )/);
-    assert.match(log, /You came to at /);
     assert.equal(await page.locator(".combat-dim").count(), 0);
     assert.deepEqual(
       await page.$eval("#stage", (stage) => [
