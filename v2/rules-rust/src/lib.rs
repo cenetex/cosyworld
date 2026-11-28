@@ -23,6 +23,7 @@ mod opening_crossings;
 pub mod opening_evidence;
 mod opening_full_wait;
 pub mod opening_history;
+mod opening_history_walkers;
 mod opening_hub_residents;
 mod opening_pickups;
 mod opening_place_cards;
@@ -152,6 +153,9 @@ pub fn reduce(request: &Value) -> Value {
             opening_place_cards::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
+        Some("opening_history_walkers") => {
+            opening_history_walkers::projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_fade_trust") => opening_company::projection(request).unwrap_or(Value::Null),
         Some("opening_resident_sleep") => {
             opening_resident_sleep::projection(request).unwrap_or(Value::Null)

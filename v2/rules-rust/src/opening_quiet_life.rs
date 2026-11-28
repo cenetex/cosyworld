@@ -10,7 +10,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
 }
 
-fn ranged(world: &Value, geo: &Geography, id: &str, person: &Person) -> Option<bool> {
+pub(super) fn ranged(world: &Value, geo: &Geography, id: &str, person: &Person) -> Option<bool> {
     let authored = person.data;
     if person.pack == "hub"
         || id == "boardyai"
