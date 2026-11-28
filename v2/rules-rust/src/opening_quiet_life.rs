@@ -121,6 +121,7 @@ fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     let cast: &[&str] = match room.as_str() {
         "attic" => &[],
         "pond" => &["moth"],
+        "station" if opening_station_move::rue_arrived(world) => &["moth", "keeper", "rue"],
         "station" => &["moth", "keeper"],
         _ => return None,
     };

@@ -1,8 +1,14 @@
 use super::{
-    authored_order::Order, initial_wants::root_in, lamp_state, opening, opening_content,
-    opening_pickups::item_as_named, opening_pond_view::offer, opening_roster::known_actors,
-    opening_station_move, opening_view, opening_visitor_routes, pack_state::Catalog, profiles,
-    Geography,
+    authored_order::Order,
+    initial_wants::root_in,
+    lamp_state, opening, opening_content,
+    opening_pickups::item_as_named,
+    opening_pond_view::offer,
+    opening_roster::known_actors,
+    opening_station_move::{self, rue_arrived},
+    opening_view, opening_visitor_routes,
+    pack_state::Catalog,
+    profiles, Geography,
 };
 use serde_json::{json, Value};
 
@@ -49,13 +55,6 @@ fn chronology(world: &Value) -> Option<u64> {
     let seq = opening_station_move::arrival(world)?;
     (world["arrival"] == json!({"seq":seq,"fromLocationId":POND,"locationId":STATION}))
         .then_some(seq)
-}
-
-fn rue_arrived(world: &Value) -> bool {
-    world["turn"] == 2
-        && world["actors"][RUE]["place"] == STATION
-        && world["opening"]["met"][RUE] == 2
-        && world["packs"]["shared-homes"]["met"][RUE] == 2
 }
 
 fn rue_meeting(world: &Value) -> Option<()> {

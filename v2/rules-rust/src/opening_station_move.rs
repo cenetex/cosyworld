@@ -115,6 +115,13 @@ pub(super) fn arrival(world: &Value) -> Option<u64> {
     .then_some(seq)
 }
 
+pub(super) fn rue_arrived(world: &Value) -> bool {
+    world["turn"] == 2
+        && world["actors"]["rue"]["place"] == STATION
+        && world["opening"]["met"]["rue"] == 2
+        && world["packs"]["shared-homes"]["met"]["rue"] == 2
+}
+
 fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let forest = &geo.files()["v2/card-game/forest.json"];
     if !matches!(world["turn"].as_u64()?, 1 | 2)
