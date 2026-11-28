@@ -3,6 +3,7 @@ use super::{
     opening, opening_content,
     opening_pickups::item_as_named,
     opening_pond_ship_board::{arrival_event, boarding_event},
+    opening_pond_ship_wait::{docking_event, wait_event},
     opening_pond_view::offer,
     opening_station_move::quiet_opening,
     opening_view, opening_visitor_routes,
@@ -18,6 +19,15 @@ const SHIP: &str = "greek-ship";
 const HARBOR: &str = "greek-harbor";
 const CLOTH: &str = "cloth";
 const LOFT: &str = "loft";
+const POND: &str = "pond";
+const PIRAEUS: &str = "greek-piraeus";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ShipScene {
+    Boarded,
+    AtSea,
+    Arrived,
+}
 
 fn rows(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
@@ -75,16 +85,20 @@ fn cabin(world: &Value, geo: &Geography<'_>) -> Option<bool> {
     Some(aboard)
 }
 
-fn ship_paths(world: &Value, geo: &Geography<'_>, docked: bool) -> Option<()> {
+fn ship_paths(world: &Value, geo: &Geography<'_>, scene: ShipScene) -> Option<()> {
     let files = geo.files();
     if !geo.base_exits(SHIP)?.is_empty()
         || rows(&files["v2/card-game/forest.json"]["reflectionRoutes"])
             .any(|route| route["from"] == SHIP)
         || rows(&files["v2/card-game/world-life.json"]["guardable"])
             .any(|route| route["from"] == SHIP || route["to"] == SHIP)
-        || (docked && docked_courses(world, geo, VALE, SHIP)? != [HARBOR])
     {
         return None;
+    }
+    match scene {
+        ShipScene::Boarded if docked_courses(world, geo, VALE, SHIP)? != [HARBOR] => return None,
+        ShipScene::Arrived => harbor_paths(world, geo)?,
+        _ => {}
     }
     let mut loft = false;
     for pack in geo.packs() {
@@ -130,13 +144,34 @@ fn ship_paths(world: &Value, geo: &Geography<'_>, docked: bool) -> Option<()> {
     loft.then_some(())
 }
 
-fn scene(world: &Value, geo: &Geography<'_>, docked: bool) -> Option<bool> {
+fn harbor_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let pack = geo.packs().find(|pack| pack["id"] == "greek-drama")?;
+    let lanes = pack["transports"][SHIP]["lanes"].as_array()?;
+    let mut sealed = lanes
+        .iter()
+        .filter(|lane| lane["from"] == HARBOR && lane["sealed"] == true);
+    let lane = sealed.next()?;
+    if lane["to"] != PIRAEUS
+        || sealed.next().is_some()
+        || lane["opensWith"] != json!([{"kind":"item_at","item":"greek-provisions","place":SHIP}])
+        || geo.conditions_met(world, "greek-drama", &lane["opensWith"], None)?
+        || !geo.entity_active(world, PIRAEUS)?
+        || docked_courses(world, geo, VALE, SHIP)? != [POND]
+        || !world["actors"][VALE]["closed"]["quest:box:greek-piraeus"].is_null()
+        || !world["opened"][PIRAEUS].is_null()
+    {
+        return None;
+    }
+    Some(())
+}
+
+fn scene(world: &Value, geo: &Geography<'_>, scene: ShipScene) -> Option<bool> {
     let vale = &world["actors"][VALE];
     let items = world["items"].as_object()?;
-    let (turn, phase, destination) = if docked {
-        (8, "docked", None)
-    } else {
-        (9, "sea", Some(HARBOR))
+    let (turn, phase, dock, destination, waited) = match scene {
+        ShipScene::Boarded => (8, "docked", POND, None, None),
+        ShipScene::AtSea => (9, "sea", POND, Some(HARBOR), None),
+        ShipScene::Arrived => (10, "arrived", HARBOR, None, Some(10)),
     };
     if world["schema"] != 8
         || world["sharedVersion"] != 1
@@ -144,11 +179,6 @@ fn scene(world: &Value, geo: &Geography<'_>, docked: bool) -> Option<bool> {
         || world.get("began").is_some()
         || !quiet_opening(world)
         || !(turn + 1..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
-        || world["transports"][SHIP]
-            != json!({
-                "version":3,"phase":phase,"dock":"pond","destination":destination,
-                "riders":[],"since":turn,"recall":null,
-            })
         || world["opened"][SHIP] != json!([VALE])
         || world["crossings"]["pond-greek-harbor"]
             != json!({"discovered":true,"method":"pond-lamp"})
@@ -158,7 +188,7 @@ fn scene(world: &Value, geo: &Geography<'_>, docked: bool) -> Option<bool> {
         || ["want", "under", "sleeping", "offered", "guarding"]
             .iter()
             .any(|key| !vale[*key].is_null())
-        || vale["waitSpeech"] != json!({"place":SHIP,"turn":null})
+        || vale["waitSpeech"] != json!({"place":SHIP,"turn":waited})
         || !vale["closed"]["quest:box:loft"].is_null()
         || vale["heldItem"] != CLOTH
         || items.get(CLOTH)?["holder"] != VALE
@@ -172,6 +202,26 @@ fn scene(world: &Value, geo: &Geography<'_>, docked: bool) -> Option<bool> {
         return None;
     }
     let ada = cabin(world, geo)?;
+    let riders: &[&str] = match (scene, ada) {
+        (ShipScene::Arrived, true) => &[ADA, VALE],
+        (ShipScene::Arrived, false) => &[VALE],
+        _ => &[],
+    };
+    if world["transports"][SHIP]
+        != json!({
+            "version":3,"phase":phase,"dock":dock,"destination":destination,
+            "riders":riders,"since":turn,"recall":null,
+        })
+        || riders.iter().any(|id| {
+            world["routeKnowledge"][*id]
+                != json!([
+                    ["sea:greek-harbor", "sea:pond"],
+                    ["sea:pond", "sea:greek-harbor"]
+                ])
+        })
+    {
+        return None;
+    }
     for id in items.keys().filter(|id| id.as_str() != CLOTH) {
         let holder = root_in(items, id)?;
         if (matches!(holder, SHIP | VALE) || (holder == ADA && ada))
@@ -180,7 +230,7 @@ fn scene(world: &Value, geo: &Geography<'_>, docked: bool) -> Option<bool> {
             return None;
         }
     }
-    ship_paths(world, geo, docked)?;
+    ship_paths(world, geo, scene)?;
     Some(ada)
 }
 
@@ -276,6 +326,11 @@ fn course_events<'a, 'name>(
     allow_speech: bool,
 ) -> Option<&'a [Value]> {
     let (board, captions, suffix) = event(world, ada, &name, false)?;
+    let end = suffix.iter().take_while(|event| event["turn"] == 9).count();
+    if world["turn"] != 10 && end != suffix.len() {
+        return None;
+    }
+    let suffix = suffix.get(..end)?;
     let [course, cast_off, speech @ ..] = suffix else {
         return None;
     };
@@ -329,7 +384,56 @@ fn course_events<'a, 'name>(
     suffix.get(..2)
 }
 
-fn reply(mut response: Value, profiles: Value, ada: bool, docked: bool) -> Option<Value> {
+fn wait_events<'a>(
+    world: &'a Value,
+    ada: bool,
+    profiles: &Value,
+    allow_speech: bool,
+) -> Option<&'a [Value]> {
+    let course = course_events(world, ada, |id| profiles[id]["name"].as_str(), true)?;
+    let wait = wait_event(world)?;
+    let docked = docking_event(world)?;
+    let log = world["log"].as_array()?;
+    let at = log.iter().position(|event| event == wait)?;
+    let suffix = log.get(at..)?;
+    let [_, dock, speech @ ..] = suffix else {
+        return None;
+    };
+    let seq = wait["seq"].as_u64()?;
+    let vale = profiles[VALE]["name"].as_str()?;
+    let ship = profiles[SHIP]["name"].as_str()?;
+    let harbor = profiles[HARBOR]["name"].as_str()?;
+    let items = &course.first()?["items"];
+    if dock != docked
+        || wait["text"] != format!("{vale} waits one turn.")
+        || wait["witnesses"] != course.first()?["witnesses"]
+        || dock["text"] != format!("{ship} docks at {harbor}.")
+        || !dock["witnesses"].is_null()
+        || !dock["verb"].is_null()
+        || (!allow_speech && !speech.is_empty())
+        || suffix.iter().enumerate().any(|(i, event)| {
+            event["seq"].as_u64() != seq.checked_add(i as u64) || event["turn"] != 10
+        })
+    {
+        return None;
+    }
+    room_cast(&wait["cast"], ada)?;
+    for event in [wait, dock] {
+        if event["speaker"] != "World"
+            || event["cast"] != wait["cast"]
+            || &event["items"] != items
+            || event["light"] != false
+        {
+            return None;
+        }
+    }
+    for line in speech {
+        caption(line, ada, false, items, |id| profiles[id]["name"].as_str())?;
+    }
+    suffix.get(..2)
+}
+
+fn reply(mut response: Value, profiles: Value, ada: bool, scene: ShipScene) -> Option<Value> {
     let name = |id: &str| profiles[id]["name"].as_str();
     let vale = name(VALE)?;
     let ship = name(SHIP)?;
@@ -341,9 +445,47 @@ fn reply(mut response: Value, profiles: Value, ada: bool, docked: bool) -> Optio
         format!("{vale} waits one turn."),
         &[],
     )];
-    if docked {
-        let course_text = format!("{vale} sets the ship's course for {}.", name(HARBOR)?);
-        let mut course = offer("course", None, Some(HARBOR), course_text, &[HARBOR]);
+    if scene == ShipScene::Arrived {
+        let harbor = name(HARBOR)?;
+        if ada {
+            let mut accompany = offer(
+                "accompany",
+                None,
+                Some(ADA),
+                format!("{vale} asks {} to accompany them to {harbor}.", name(ADA)?),
+                &[ADA, HARBOR],
+            );
+            accompany["destination"] = json!(HARBOR);
+            accompany["key"] = json!("accompany:vale::ada:greek-harbor");
+            plans.push(accompany);
+        }
+        let mut bare = offer(
+            "move",
+            None,
+            Some(HARBOR),
+            format!("{vale} disembarks at {harbor}."),
+            &[HARBOR],
+        );
+        let mut carry = offer(
+            "move",
+            Some(CLOTH),
+            Some(HARBOR),
+            format!("{vale} carries {cloth} ashore at {harbor}."),
+            &[CLOTH, HARBOR],
+        );
+        for action in [&mut bare, &mut carry] {
+            action["label"] = json!("Disembark");
+        }
+        plans.extend([bare, carry]);
+    }
+    let exits: &[&str] = match scene {
+        ShipScene::Boarded => &[HARBOR],
+        ShipScene::AtSea => &[],
+        ShipScene::Arrived => &[HARBOR, POND],
+    };
+    if let Some(target) = exits.last().copied() {
+        let course_text = format!("{vale} sets the ship's course for {}.", name(target)?);
+        let mut course = offer("course", None, Some(target), course_text, &[target]);
         course["label"] = json!("Set course");
         plans.push(course);
     }
@@ -362,14 +504,26 @@ fn reply(mut response: Value, profiles: Value, ada: bool, docked: bool) -> Optio
         let gift = format!("{vale} gives {cloth} to {}.", name(ADA)?);
         plans.push(offer("give", Some(CLOTH), Some(ADA), gift, &[CLOTH, ADA]));
     }
-    let accept = format!("{vale} accepts the closed box's quest.");
-    let mut loft = offer("accept", None, None, accept, &[]);
-    loft["box"] = json!(LOFT);
-    loft["key"] = json!("accept:vale::box:loft");
-    plans.push(loft);
+    let boxes = if scene == ShipScene::Arrived {
+        &[PIRAEUS, LOFT][..]
+    } else {
+        &[LOFT][..]
+    };
+    for id in boxes {
+        let mut accept = offer(
+            "accept",
+            None,
+            None,
+            format!("{vale} accepts the closed box's quest."),
+            &[],
+        );
+        accept["box"] = json!(id);
+        accept["key"] = json!(format!("accept:vale::box:{id}"));
+        plans.push(accept);
+    }
     response["actor"] = json!(VALE);
     response["room"] = json!(SHIP);
-    response["exits"] = if docked { json!([HARBOR]) } else { json!([]) };
+    response["exits"] = json!(exits);
     response["actions"] = Value::Array(plans);
     response["profiles"] = profiles;
     Some(response)
@@ -389,7 +543,12 @@ pub(super) fn settled_speakers<'name>(
     name: impl Fn(&str) -> Option<&'name str>,
 ) -> Option<(bool, &'static [&'static str])> {
     let docked = world["turn"] == 8;
-    let ada = scene(world, geo, docked)?;
+    let phase = if docked {
+        ShipScene::Boarded
+    } else {
+        ShipScene::AtSea
+    };
+    let ada = scene(world, geo, phase)?;
     let speakers = voices(ada && docked);
     if world["speechVoices"][VALE] != json!(speakers) {
         return None;
@@ -408,7 +567,7 @@ pub(super) fn completed_response(
     before_seq: u64,
     profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<Value> {
-    let ada = scene(&world, geo, true)?;
+    let ada = scene(&world, geo, ShipScene::Boarded)?;
     let profiles = profile_source()?;
     let (movement, speech, _) = event(&world, ada, |id| profiles[id]["name"].as_str(), true)?;
     if movement["seq"] != before_seq.checked_add(1)? || !speech.is_empty() {
@@ -420,7 +579,7 @@ pub(super) fn completed_response(
         .insert(VALE.into(), json!(voices(ada)));
     let mut response = opening::stored_response(world)?;
     response["events"] = Value::Array(vec![movement]);
-    reply(response, profiles, ada, true)
+    reply(response, profiles, ada, ShipScene::Boarded)
 }
 
 pub(super) fn completed_course_response(
@@ -429,7 +588,7 @@ pub(super) fn completed_course_response(
     before_seq: u64,
     profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<Value> {
-    let ada = scene(&world, geo, false)?;
+    let ada = scene(&world, geo, ShipScene::AtSea)?;
     let profiles = profile_source()?;
     let events = course_events(&world, ada, |id| profiles[id]["name"].as_str(), false)?;
     if events.first()?["seq"] != before_seq.checked_add(1)?
@@ -443,7 +602,30 @@ pub(super) fn completed_course_response(
         .insert(VALE.into(), json!([VALE]));
     let mut response = opening::stored_response(world)?;
     response["events"] = Value::Array(events);
-    reply(response, profiles, ada, false)
+    reply(response, profiles, ada, ShipScene::AtSea)
+}
+
+pub(super) fn completed_wait_response(
+    mut world: Value,
+    geo: &Geography<'_>,
+    before_seq: u64,
+    profile_source: impl FnOnce() -> Option<Value>,
+) -> Option<Value> {
+    let ada = scene(&world, geo, ShipScene::Arrived)?;
+    let profiles = profile_source()?;
+    let events = wait_events(&world, ada, &profiles, false)?;
+    if events.first()?["seq"] != before_seq.checked_add(1)?
+        || geo.files()["v2/card-game/speech.json"]["first_wait"] != json!(["actor"])
+    {
+        return None;
+    }
+    let events = events.to_vec();
+    world["speechVoices"]
+        .as_object_mut()?
+        .insert(VALE.into(), json!([VALE]));
+    let mut response = opening::stored_response(world)?;
+    response["events"] = Value::Array(events);
+    reply(response, profiles, ada, ShipScene::Arrived)
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
@@ -459,10 +641,14 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let world = request.get("world")?.clone();
     let before_seq = request["beforeSeq"].as_u64()?;
     let profile_source = || profiles::project(&files);
-    if request["op"] == "opening_pond_ship_course_view" {
-        completed_course_response(world, &geo, before_seq, profile_source)
-    } else {
-        completed_response(world, &geo, before_seq, profile_source)
+    match request["op"].as_str()? {
+        "opening_pond_ship_course_view" => {
+            completed_course_response(world, &geo, before_seq, profile_source)
+        }
+        "opening_pond_ship_wait_view" => {
+            completed_wait_response(world, &geo, before_seq, profile_source)
+        }
+        _ => completed_response(world, &geo, before_seq, profile_source),
     }
 }
 
@@ -474,10 +660,24 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    let docked = world["turn"] == 8;
+    let phase = match world["turn"].as_u64()? {
+        8 => ShipScene::Boarded,
+        9 => ShipScene::AtSea,
+        10 => ShipScene::Arrived,
+        _ => return None,
+    };
     let profiles = profiles::project(&files)?;
-    let (ada, _) = settled_speakers(world, &geo, |id| profiles[id]["name"].as_str())?;
+    let ada = if phase == ShipScene::Arrived {
+        let ada = scene(world, &geo, phase)?;
+        if world["speechVoices"][VALE] != json!([VALE]) {
+            return None;
+        }
+        wait_events(world, ada, &profiles, true)?;
+        ada
+    } else {
+        settled_speakers(world, &geo, |id| profiles[id]["name"].as_str())?.0
+    };
     let mut response = json!({"ok":true});
     response["world"] = opening_view::private_world(world, request)?;
-    reply(response, profiles, ada, docked)
+    reply(response, profiles, ada, phase)
 }

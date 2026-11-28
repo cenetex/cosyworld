@@ -136,7 +136,9 @@ pub(super) fn docked_courses<'a>(
 ) -> Option<Vec<&'a str>> {
     let ship = Ship::find(geo, |_, ship| ship["place"] == place)?;
     let state = &world["transports"][ship.id];
-    if world["actors"][actor]["place"] != place || state["phase"] != "docked" {
+    if world["actors"][actor]["place"] != place
+        || !matches!(state["phase"].as_str(), Some("docked" | "arrived"))
+    {
         return None;
     }
     ship.open_lanes(world, geo, actor, state["dock"].as_str()?)
