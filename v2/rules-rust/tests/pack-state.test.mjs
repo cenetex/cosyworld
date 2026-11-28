@@ -123,7 +123,11 @@ test("fresh mounts initialize authored resident wants and starting experience", 
     assert.equal(actual.level, expected.level, id);
     assert.deepEqual(actual.visited, expected.visited, id);
     assert.deepEqual(actual.talked, expected.talked, id);
-    if (actual.want !== null) assert.deepEqual(actual.want, expected.want, id);
+    if (actual.want !== null || id === "vale" ||
+        !["mara", "ash", "nell", "tavi", "rue", "orin", "ada"].includes(id)) {
+      assert.deepEqual(actual.want, expected.want, id);
+      assert.equal(actual.heardOn, expected.heardOn, id);
+    }
   }
   for (const id of ["moth", "keeper", "greek-guard", "ratiradio-rati", "boardyai"]) {
     assert.deepEqual(world.actors[id].want, reference.actors[id].want, id);

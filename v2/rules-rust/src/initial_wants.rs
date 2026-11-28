@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(super) struct People<'a> {
     pub(super) people: BTreeMap<&'a str, Person<'a>>,
     pub(super) humans: BTreeSet<&'a str>,
+    pub(super) life: &'a Value,
 }
 
 pub(super) struct Person<'a> {
@@ -30,7 +31,12 @@ impl<'a> People<'a> {
             .iter()
             .map(|actor| actor["id"].as_str())
             .collect::<Option<_>>()?;
-        Some(Self { people, humans })
+        let life = files.get("v2/card-game/world-life.json")?;
+        Some(Self {
+            people,
+            humans,
+            life,
+        })
     }
 
     pub(super) fn install(&self, world: &mut Value, geo: &Geography) -> Option<()> {

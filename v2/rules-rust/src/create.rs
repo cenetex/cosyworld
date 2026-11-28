@@ -1,5 +1,5 @@
 use super::pack_state::{self, Catalog};
-use super::{create_geography::Geography, initial_wants::People, seed};
+use super::{create_geography::Geography, initial_wants::People, opening_candidates, seed};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -14,6 +14,7 @@ pub(super) fn mount(files: &Value) -> Option<Value> {
     let people = People::new(files, catalog.packs())?;
     world["doors"] = seed::place_doors(files, 0, None)?;
     people.install(&mut world, &geography)?;
+    opening_candidates::fill(&mut world, &geography, &people, files)?;
     Some(world)
 }
 
