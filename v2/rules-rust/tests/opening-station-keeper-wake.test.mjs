@@ -120,3 +120,154 @@ test("Keeper's scheduled wake matches the historic Station narration and memorie
     assert.equal(wasm({ ...wake, world }), null);
   }
 });
+
+function traceAwakeSleep(source) {
+  source = traceKeeper(source);
+  const frames = [
+    ["beforeLife", "    for (const id of life) {", "s", false],
+    [
+      "afterSleep",
+      "    const dawnOrDusk = s.turn % DAYLIGHT_TURNS === 0;",
+      "s",
+      false,
+    ],
+    ["beforeWake", "    wakeSleepers(next, s, voyages);", "next", false],
+    ["afterWake", "    wakeSleepers(next, s, voyages);", "next", true],
+  ];
+  for (const [field, marker, world, after] of frames) {
+    assert.equal(source.split(marker).length, 2, field);
+    const remember = `    if (${world}.turn === 482) globalThis.${field} = structuredClone(${world});`;
+    source = source.replace(
+      marker,
+      after ? `${marker}\n${remember}` : `${remember}\n${marker}`,
+    );
+  }
+  return source;
+}
+
+test("historic Station settles the awake Pip round and Keeper wake in resident order", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(traceAwakeSleep);
+  const copy = (world) => JSON.parse(JSON.stringify(world));
+  const op = "opening_station_resident_sleep";
+  const late = "opening_station_wake";
+  function run(request) {
+    const reply = pinned(request);
+    assert.equal(reply.ok, true, reply.error);
+    return reply.world;
+  }
+  function observe(world, action) {
+    const reply = JSON.parse(
+      reference.cardShared(
+        JSON.stringify({ ...seats, op: "play", world, action }),
+      ),
+    );
+    assert.equal(reply.ok, true, reply.error);
+    return reply;
+  }
+  function arriveAtPond(seed, mode) {
+    const fresh = run({ op: "create", history: true, seed });
+    let world = run({ op: "create", save: JSON.stringify(fresh) });
+    if (mode === "dry") {
+      Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+    } else {
+      world = run({
+        ...seats,
+        op: "hold",
+        world,
+        choice: { item: null, revision: world.revision },
+      });
+    }
+    return run({ ...seats, op: "play", world, action: "move:vale::pond" });
+  }
+
+  let staged;
+  for (const mode of ["stowed", "dry"]) {
+    const pond = arriveAtPond(99, mode);
+    const sorted = Object.fromEntries(Object.entries(pond.actors).toSorted());
+    for (const actors of [pond.actors, sorted]) {
+      const key =
+        mode === "dry" ? "move:vale:lamp:station" : "move:vale::station";
+      const reply = observe(
+        { ...pond, actors },
+        actors === sorted ? { key } : key,
+      );
+      assert.deepEqual(
+        reply.events.map(({ actorId }) => actorId),
+        ["vale", "moth", "keeper"],
+      );
+      const before = copy(reference.beforeLife);
+      const middle = copy(reference.afterKeeper);
+      const after = copy(reference.afterSleep);
+      const label = `${mode} ${actors === sorted ? "sorted" : "authored"}`;
+      assert.equal(before.eventSeq, before.arrival.seq + 1, label);
+      assert.equal(middle.eventSeq, before.eventSeq + 1, label);
+      const woke = Object.keys(before.actors)
+        .filter(
+          (id) => before.actors[id].sleeping && !after.actors[id].sleeping,
+        )
+        .sort();
+      assert.deepEqual(woke, [
+        "greek-baker",
+        "greek-creon",
+        "greek-marathon-keeper",
+        "greek-story-aristophanes-thesmophoria-first",
+        "keeper",
+        "rue",
+      ]);
+      staged = {
+        ...copy(before),
+        log: middle.log,
+        memories: middle.memories,
+        eventSeq: middle.eventSeq,
+      };
+      staged.actors.keeper = middle.actors.keeper;
+      for (const frame of [before, staged, middle]) {
+        const actual = wasm({ op, world: frame });
+        assert.ok(actual, `unsupported ${label}`);
+        const field = Object.keys(after).find(
+          (name) => !isDeepStrictEqual(actual.world[name], after[name]),
+        );
+        assert.ok(
+          isDeepStrictEqual(actual, { ok: true, world: after }),
+          `${label} ${field ?? "envelope"}`,
+        );
+      }
+      const beforeWake = copy(reference.beforeWake);
+      const afterWake = copy(reference.afterWake);
+      assert.ok(isDeepStrictEqual(beforeWake, afterWake), label);
+      assert.deepEqual(
+        wasm({ op: late, world: beforeWake }),
+        { ok: true, world: afterWake },
+        label,
+      );
+    }
+  }
+
+  const extra = observe(arriveAtPond(17, "stowed"), "move:vale::station");
+  assert.deepEqual(
+    extra.events.map(({ actorId }) => actorId),
+    ["vale", "moth", "orin", "keeper"],
+  );
+  assert.equal(wasm({ op, world: copy(reference.beforeLife) }), null);
+  assert.equal(wasm({ op, world: copy(reference.afterKeeper) }), null);
+  for (const mutate of [
+    (world) => {
+      world.log.at(-1).text = "The keeper waits.";
+    },
+    (world) => {
+      world.actors.keeper.sleeping = {
+        since: 481,
+        place: "station",
+        until: 482,
+      };
+    },
+    (world) => {
+      world.actors.mara.place = "station";
+    },
+  ]) {
+    const world = structuredClone(staged);
+    mutate(world);
+    assert.equal(wasm({ op, world }), null);
+  }
+});

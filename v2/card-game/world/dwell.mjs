@@ -10,8 +10,7 @@
 // bedtime), stepping off a docked ship, an accepted invitation to travel,
 // an authored journey, or anything a player does to or with the resident:
 // those moves never ask the planner's dwell test.
-// A leaf module: want.mjs reads MAX_DWELL, so it imports nothing. The caller
-// says whether world life is on and whether the resident is on a journey.
+// The caller supplies world life and journey state, so this module needs no imports.
 
 // Story and liveness suites written for a cast that walks at once turn dwell
 // off (test/helpers/no-dwell.mjs). The rules never change it.
