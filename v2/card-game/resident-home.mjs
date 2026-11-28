@@ -1,8 +1,7 @@
 // World life (rules 100): residents keep a home and a range, walk home when
 // displaced, and take a step at dawn and dusk where no player is
-// (residentRound in world.mjs). Sleep is resident-sleep.mjs and the standing
-// Guard resident-guard.mjs. There is no clock and no random: every walk is in
-// id order.
+// (residentRound in world.mjs). Sleep and the standing Guard live in
+// resident-sleep.mjs and resident-guard.mjs. Walks use deterministic id order.
 //
 // The data is `world-life.json`: defaults, per-pack defaults and per-resident
 // `range` (hops from home), `sails`, `sleep` ({from, to} in clock turns, or

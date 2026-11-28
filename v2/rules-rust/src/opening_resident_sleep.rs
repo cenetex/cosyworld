@@ -21,7 +21,7 @@ fn places(region: &Value) -> impl Iterator<Item = &Value> {
         .flat_map(|map| map.values())
 }
 
-fn ships<'a>(geo: &Geography<'a>) -> BTreeSet<&'a str> {
+pub(super) fn ships<'a>(geo: &Geography<'a>) -> BTreeSet<&'a str> {
     geo.packs()
         .flat_map(|pack| pack["transports"].as_object().into_iter().flatten())
         .filter_map(|(_, ship)| ship["place"].as_str())
