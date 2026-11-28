@@ -134,14 +134,13 @@ fn encode_request(
         Some("wait:vale::" | "drop:vale:lamp:attic" | "take:vale:lamp:")
     );
     let pond_play = matches!(play, Some("move:vale::pond" | "move:vale:lamp:pond"));
-    let pond_speech = op == Some("speech")
-        && request
-            .get("world")
-            .is_some_and(|world| world["actors"]["vale"]["place"] == "pond");
-    let station_view = op == Some("view")
-        && request
-            .get("world")
-            .is_some_and(|world| world["actors"]["vale"]["place"] == "station");
+    let room = request
+        .get("world")
+        .and_then(|world| world["actors"]["vale"]["place"].as_str());
+    let ordered_room = matches!(
+        (op, room),
+        (Some("speech"), Some("pond" | "station")) | (Some("view"), Some("station"))
+    );
     let ordered = matches!(
         op,
         Some(
@@ -158,8 +157,7 @@ fn encode_request(
         )
     ) || attic_play
         || pond_play
-        || pond_speech
-        || station_view;
+        || ordered_room;
     let ordered_cards = matches!(
         op,
         Some(
