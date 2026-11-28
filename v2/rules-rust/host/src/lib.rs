@@ -146,7 +146,13 @@ fn encode_request(
     );
     let ship_play = matches!(
         play,
-        Some("move:vale::greek-ship" | "move:vale:cloth:greek-ship" | "course:vale::greek-harbor")
+        Some(
+            "move:vale::greek-ship"
+                | "move:vale:cloth:greek-ship"
+                | "move:vale::greek-harbor"
+                | "move:vale:cloth:greek-harbor"
+                | "course:vale::greek-harbor"
+        )
     );
     let station_play = matches!(
         play,

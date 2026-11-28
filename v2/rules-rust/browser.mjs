@@ -58,6 +58,8 @@ export function browserRules(bytes) {
         request.op === "play" &&
         (key === "move:vale::greek-ship" ||
           key === "move:vale:cloth:greek-ship" ||
+          key === "move:vale::greek-harbor" ||
+          key === "move:vale:cloth:greek-harbor" ||
           key === "course:vale::greek-harbor");
       const stationPlay =
         request.op === "play" &&

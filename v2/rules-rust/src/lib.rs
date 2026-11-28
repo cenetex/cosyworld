@@ -27,6 +27,7 @@ mod opening_full_move;
 mod opening_full_pond_call;
 mod opening_full_pond_ship_board;
 mod opening_full_pond_ship_course;
+mod opening_full_pond_ship_disembark;
 mod opening_full_pond_ship_wait;
 mod opening_full_station_move;
 mod opening_full_station_read;
