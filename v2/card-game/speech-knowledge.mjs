@@ -113,9 +113,8 @@ export function unfoundBlur(world, id, scene = [], isCovered = () => false) {
   };
 }
 
-// An item's last word ("the River Map" is a map), for every item a table
-// may hold. A thought that names an item kind the speaker has never been
-// near invents it ("my compass is ready").
+// Item kinds by last word ("the River Map" is a map); a thought naming one never
+// near the speaker invents it. Plain nouns are neither inventions nor names.
 const GENERIC = new Set([
   "account", "card", "list", "record", "plea", "seed",
   "bread", "wine", "water", "milk", "honey", "watch",
@@ -165,7 +164,7 @@ function coveredCards(world, isCovered) {
   return {
     hidden,
     shown,
-    unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id))),
+    unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id)) && !GENERIC.has(lowerName(id))),
   };
 }
 const lowerName = (id) => nameOf(id).toLowerCase();

@@ -8,12 +8,12 @@ const CARDS = {
     zzLoft: { name: "Quiet loft" },
   },
   people: { zzBell: { name: "Old Bell" }, zzOrla: { name: "Orla" } },
-  things: { zzLamp: { name: "The Brass Lamp" }, zzKey: { name: "Tin Whistle" } },
+  things: { zzLamp: { name: "The Brass Lamp" }, zzKey: { name: "Tin Whistle" }, zzWater: { name: "Water" } },
 };
 const catalogs = { places, people, things };
 const world = {
   actors: { zzBell: {}, zzOrla: {} },
-  items: { zzLamp: {}, zzKey: {}, cloth: { holder: null } },
+  items: { zzLamp: {}, zzKey: {}, zzWater: {}, cloth: { holder: null } },
 };
 const ids = Object.values(CARDS).flatMap(Object.keys);
 const read = (hidden = ids) =>
@@ -50,6 +50,11 @@ describe("caption blur covers names, not ordinary words (#2740)", () => {
       "Hatchs rattle and lamps gutter.",
     ])
       expect(blur(line)).toBe(line);
+  });
+
+  it("leaves a card named by a plain noun such as water", () => {
+    const line = "Will you tell me what you saw out on the water tonight?";
+    expect(read()(line)).toBe(line);
   });
 
   it("covers a short form written as the name is", () => {

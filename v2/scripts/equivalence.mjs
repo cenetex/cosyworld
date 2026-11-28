@@ -71,7 +71,9 @@ export async function compare(
   const reports = [];
   for (const seed of seeds) {
     const a = playTrace(oldSide, { seed, steps });
+    await new Promise(setImmediate);
     const b = playTrace(newSide, { seed, steps });
+    await new Promise(setImmediate);
     if (a !== b) {
       const al = a.split("\n");
       const bl = b.split("\n");

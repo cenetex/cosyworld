@@ -33442,7 +33442,7 @@
     return {
       hidden,
       shown,
-      unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id)))
+      unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id)) && !GENERIC.has(lowerName(id)))
     };
   }
   var lowerName = (id) => nameOf2(id).toLowerCase();
