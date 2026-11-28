@@ -113,3 +113,90 @@ test("Station speech rejects an uncalled speaker, a duplicate and a different ro
     assert.equal(wasm(request), null);
   }
 });
+
+test("Rue's witnessed Station arrival publishes all four pinned lines", async () => {
+  const { pinned, wasm } = await reducers();
+  const dialogue = [
+    { actorId: "vale", text: "The station is quiet." },
+    { entityId: "rue", text: "  I have been waiting. " },
+    { actorId: "keeper", text: "The trains are late." },
+    { entityId: "station", text: "A latch rattles." },
+  ];
+  let last;
+  for (const seed of [7, 99]) {
+    for (const dry of [false, true]) {
+      const opening = arrived(pinned, seed, dry, dry);
+      assert.deepEqual(opening.world.speechVoices.vale, [
+        "vale",
+        "keeper",
+        "rue",
+      ]);
+      const meeting = opening.events.find(({ actorId }) => actorId === "rue");
+      assert.deepEqual(meeting.witnesses, ["rue", "routes"]);
+      for (const sorted of [false, true]) {
+        const world = structuredClone(opening.world);
+        if (sorted)
+          world.actors = Object.fromEntries(
+            Object.entries(world.actors).toSorted(),
+          );
+        const request = {
+          ...seats,
+          op: "speech",
+          world,
+          room: "station",
+          lines: dialogue,
+        };
+        const label = JSON.stringify({ seed, dry, sorted });
+        const actual = wasm(request);
+        assert.ok(isDeepStrictEqual(actual, run(pinned, request)), label);
+        assert.equal(actual.lines[1].speaker, "Rue");
+        assert.equal(actual.lines[1].text, "I have been waiting.");
+        const cast = sorted
+          ? ["keeper", "moth", "rue", "vale"]
+          : ["vale", "moth", "keeper", "rue"];
+        assert.ok(
+          actual.lines.every((line) => isDeepStrictEqual(line.cast, cast)),
+        );
+        const repeat = {
+          ...request,
+          world: actual.world,
+          lines: [dialogue[1]],
+        };
+        const spoken = wasm(repeat);
+        assert.ok(
+          isDeepStrictEqual(spoken, run(pinned, repeat)),
+          `repeat ${label}`,
+        );
+        const view = { ...seats, op: "view", world: spoken.world };
+        assert.ok(
+          isDeepStrictEqual(wasm(view), run(pinned, view)),
+          `view ${label}`,
+        );
+        last = request;
+      }
+    }
+  }
+
+  for (const lines of [
+    [{ actorId: "moth", text: "Pip is here too." }],
+    [dialogue[1], dialogue[1]],
+  ]) {
+    const request = { ...last, lines };
+    assert.equal(pinned(request).ok, false);
+    assert.equal(wasm(request), null);
+  }
+  const unwitnessed = structuredClone(last.world);
+  const crossing = unwitnessed.log.find(
+    (event) => event.actorId === "rue" && event.verb === "move",
+  );
+  crossing.witnesses = ["rue"];
+  assert.equal(wasm({ ...last, world: unwitnessed }), null);
+
+  const later = run(pinned, {
+    ...seats,
+    op: "play",
+    world: last.world,
+    action: "wait:vale::",
+  });
+  assert.equal(wasm({ ...last, world: later.world }), null);
+});

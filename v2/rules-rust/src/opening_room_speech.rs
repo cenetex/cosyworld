@@ -14,18 +14,13 @@ use std::collections::BTreeSet;
 
 const VALE: &str = "vale";
 const PIP: &str = "moth";
-const KEEPER: &str = "keeper";
 const POND: &str = "pond";
 const STATION: &str = "station";
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     let saved = request.get("world")?;
     let present = opening::seats(&request["present"])?;
-    let (room, respondent) = match saved["actors"][VALE]["place"].as_str()? {
-        POND => (POND, PIP),
-        STATION => (STATION, KEEPER),
-        _ => return None,
-    };
+    let room = saved["actors"][VALE]["place"].as_str()?;
     if saved["turn"] != 2
         || request["actor"] != VALE
         || request["claimed"] != json!([VALE])
@@ -33,12 +28,11 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         || (!request["room"].is_null() && request["room"] != room)
         || !(request["entries"].is_null()
             || request["entries"].as_array().is_some_and(Vec::is_empty))
-        || saved["speechVoices"][VALE] != json!([VALE, respondent])
     {
         return None;
     }
     let lines = request["lines"].as_array()?;
-    if !(1..=3).contains(&lines.len()) {
+    if !(1..=4).contains(&lines.len()) {
         return None;
     }
     let revision = saved["revision"].as_u64()?.checked_add(1)?;
@@ -55,20 +49,26 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     world["heldActors"] = json!([VALE]);
     world["controlledActors"] = json!(present);
     world["presentActors"] = json!(present);
-    let party: &[&str] = if room == POND {
-        opening_pond_view::settled_second_move(&world, &geo)?;
-        &[VALE, PIP]
-    } else {
-        opening_station_view::settled_first_arrival(&world, &geo, &order)?;
-        &[VALE, PIP, KEEPER]
+    let voices: &[&str] = match room {
+        POND => {
+            opening_pond_view::settled_second_move(&world, &geo)?;
+            &[VALE, PIP]
+        }
+        STATION => opening_station_view::settled_speech_voices(&world, &geo, &order)?,
+        _ => return None,
     };
+    if lines.len() > voices.len() + 1
+        || saved["speechVoices"][VALE] != json!(voices)
+        || (voices.len() == 3 && present != [VALE])
+    {
+        return None;
+    }
     let cast = opening_roster::known_actors(&world, &geo, &order, Some(room))?;
-    if cast.len() != party.len() || party.iter().any(|id| !cast.contains(id)) {
+    if (room == POND && cast.len() != 2) || voices.iter().any(|id| !cast.contains(id)) {
         return None;
     }
     let items = visible_items(&world, &geo, &authored, room)?;
     let forest = &files["v2/card-game/forest.json"];
-    let profiles = &files["v2/card-game/entity-profiles.json"];
     let mut spoken = BTreeSet::new();
     let mut published = Vec::with_capacity(lines.len());
     for line in lines {
@@ -84,16 +84,14 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         }
         let (name, kind, actor) = if voice == room && line["actorId"].is_null() {
             (forest["places"][room]["name"].as_str()?, "narration", None)
-        } else if [VALE, respondent].contains(&voice)
-            && profiles[voice]["kind"] == "avatar"
-            && (profiles[voice]["expression"].is_null()
-                || profiles[voice]["expression"] == "speech")
-        {
-            (
-                forest["people"][voice]["name"].as_str()?,
-                "dialogue",
-                Some(voice),
-            )
+        } else if voices.contains(&voice) {
+            let profile = evidence.profile(voice)?;
+            if profile["kind"] != "avatar"
+                || !(profile["expression"].is_null() || profile["expression"] == "speech")
+            {
+                return None;
+            }
+            (profile["name"].as_str()?, "dialogue", Some(voice))
         } else {
             return None;
         };
