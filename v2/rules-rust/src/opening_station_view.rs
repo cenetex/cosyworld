@@ -460,12 +460,31 @@ pub(super) fn settled_first_arrival(
     geo: &Geography<'_>,
     order: &[&str],
 ) -> Option<()> {
-    if world["turn"] != 2 || rue_arrived(world) {
+    (settled_speech_voices(world, geo, order)? == [VALE, KEEPER]).then_some(())
+}
+
+pub(super) fn settled_speech_voices(
+    world: &Value,
+    geo: &Geography<'_>,
+    order: &[&str],
+) -> Option<&'static [&'static str]> {
+    if world["turn"] != 2 {
         return None;
     }
-    arrival_events(world, chronology(world)?.checked_sub(1)?, true)?;
+    let events = arrival_events(world, chronology(world)?.checked_sub(1)?, true)?;
+    let named = voices(world);
+    if named.contains(&RUE)
+        && !events.iter().any(|entry| {
+            is_move(entry, RUE, "train", STATION)
+                && entry["witnesses"] == json!([RUE, "routes"])
+                && entry["light"] == false
+        })
+    {
+        return None;
+    }
     station_scene(world, geo, order)?;
-    station_paths(world, geo)
+    station_paths(world, geo)?;
+    Some(named)
 }
 
 pub fn completed_station_response(

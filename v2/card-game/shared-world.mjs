@@ -292,7 +292,6 @@ export function dispatchShared(request) {
     });
   }
   if (request.op === "speech") {
-    // Any of them may speak alone: a threat's target, or only the place.
     // From rules 93 each voice the play named, and the room, speaks at most
     // once, and no other voice speaks.
     if (

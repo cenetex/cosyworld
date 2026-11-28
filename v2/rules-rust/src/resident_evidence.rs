@@ -15,6 +15,10 @@ impl ResidentEvidence {
         Value::Object(self.0)
     }
 
+    pub(super) fn profile(&self, id: &str) -> Option<&Value> {
+        self.0.get(id)
+    }
+
     pub fn record(
         &self,
         world: &mut Value,
