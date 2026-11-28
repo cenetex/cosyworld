@@ -39,6 +39,18 @@ pub(super) fn course_world(request: &Value) -> Option<&Value> {
 }
 
 pub(super) fn event(world: &Value) -> Option<&Value> {
+    (world["turn"] == 9
+        && world["transports"][SHIP]["since"] == 9
+        && world["transports"][SHIP]["destination"] == HARBOR
+        && matches!(
+            world["transports"][SHIP]["phase"].as_str(),
+            Some("course" | "sea")
+        ))
+    .then_some(())?;
+    retained_event(world)
+}
+
+pub(super) fn retained_event(world: &Value) -> Option<&Value> {
     course_event(world, |_, _| Some(()))
 }
 
@@ -53,7 +65,10 @@ fn course_event(
     let (board, suffix) = log.get(at..)?.split_first()?;
     let mut suffix = suffix.iter().peekable();
     let mut seq = board["seq"].as_u64()?;
-    if board["turn"] != 8
+    if world["actors"][VALE]["place"] != SHIP
+        || world["arrival"]["locationId"] != SHIP
+        || world["arrival"]["fromLocationId"] != "pond"
+        || board["turn"] != 8
         || !vale_action(board)
         || board["verb"] != "move"
         || board["fromLocationId"] != "pond"
@@ -72,17 +87,7 @@ fn course_event(
         check_caption(caption, boarding_caption(board, caption)?)?;
     }
     let event = suffix.next()?;
-    (world["turn"] == 9
-        && world["actors"][VALE]["place"] == SHIP
-        && world["arrival"]["locationId"] == SHIP
-        && world["arrival"]["fromLocationId"] == "pond"
-        && world["transports"][SHIP]["since"] == 9
-        && world["transports"][SHIP]["destination"] == HARBOR
-        && matches!(
-            world["transports"][SHIP]["phase"].as_str(),
-            Some("course" | "sea")
-        )
-        && event["seq"] == seq.checked_add(1)?
+    (event["seq"] == seq.checked_add(1)?
         && vale_action(event)
         && event["turn"] == 9
         && event["verb"] == "course"
@@ -204,7 +209,8 @@ pub(super) fn sail(
     let course = course_event(world, |caption, speaker| {
         (caption["speaker"] == evidence.profile(speaker)?["name"]).then_some(())
     })?;
-    if course["seq"] != world["eventSeq"]
+    if world["turn"] != 9
+        || course["seq"] != world["eventSeq"]
         || world["transports"][SHIP] != transport("course", 9, Some(HARBOR))
         || !geo.entity_active(world, VALE)?
         || opening_settlement::sail_course(world, catalog, SHIP)?

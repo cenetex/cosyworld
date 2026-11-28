@@ -164,7 +164,6 @@ describe("a real voyage", () => {
     expect(
       s.log.some((e) => /casts off for The Wine-Dark Harbor/.test(e.text)),
     ).toBe(true);
-    // At sea nobody disembarks, nobody boards and no course cards remain.
     for (const actor of ["vale", "mara"]) {
       expect(targets(s, actor, "move")).toEqual([]);
       expect(targets(s, actor, "course")).toEqual([]);
