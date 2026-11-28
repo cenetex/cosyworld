@@ -76,9 +76,7 @@ fn ada_aboard(world: &Value, geo: &Geography<'_>) -> Option<bool> {
     if ada["place"] != SHIP {
         return Some(false);
     }
-    let walked = world["log"].as_array()?.iter().rev().find(|event| {
-        event["actorId"] == "ada" && event["kind"] == "action" && event["generated"] != true
-    })?;
+    ada_boarding_receipt(world)?;
     (geo.entity_active(world, "ada")?
         && geo.visiting_resident(world, "ada")
         && ada["crossed"] == 1
@@ -88,15 +86,22 @@ fn ada_aboard(world: &Value, geo: &Geography<'_>) -> Option<bool> {
         && world["items"]["shears"]["holder"] == "loft"
         && world["doors"]["loft"] == SHIP
         && world["opening"]["met"].get("ada").is_none()
-        && world["packs"]["shared-homes"]["met"].get("ada").is_none()
-        && walked["turn"] == 7
-        && walked["verb"] == "move"
-        && walked["fromLocationId"] == "loft"
-        && walked["locationId"] == SHIP
-        && walked["targetId"] == SHIP
-        && walked["itemId"].is_null()
-        && walked["witnesses"] == json!(["ada", "shears"]))
+        && world["packs"]["shared-homes"]["met"].get("ada").is_none())
     .then_some(true)
+}
+
+pub(super) fn ada_boarding_receipt(world: &Value) -> Option<u64> {
+    let event = world["log"].as_array()?.iter().rev().find(|event| {
+        event["actorId"] == "ada" && event["kind"] == "action" && event["generated"] != true
+    })?;
+    (event["turn"] == 7
+        && event["verb"] == "move"
+        && event["fromLocationId"] == "loft"
+        && event["locationId"] == SHIP
+        && event["targetId"] == SHIP
+        && event["itemId"].is_null()
+        && event["witnesses"] == json!(["ada", "shears"]))
+    .then(|| event["seq"].as_u64())?
 }
 
 pub(super) fn begin_with<T>(

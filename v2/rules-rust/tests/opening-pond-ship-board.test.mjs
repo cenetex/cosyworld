@@ -7,6 +7,7 @@ import { reducers } from "./parity.mjs";
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const op = "opening_pond_ship_board";
 const settlement = "opening_pond_ship_settlement";
+const residentsOp = "opening_ship_board_residents";
 const ship = "greek-ship";
 
 function captureBoarding(source) {
@@ -30,7 +31,16 @@ function captureBoarding(source) {
       `    if (next.turn === 8) globalThis.${name} = structuredClone(next);\n${cut}`,
     );
   }
-  return source;
+  const plan =
+    "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
+  assert.equal(source.split(plan).length, 2);
+  return source.replace(
+    plan,
+    `
+      const chosen = read2 ?? plan(next, id).action;
+      if (next.turn === 8) globalThis.plans.push([id, chosen.key, Boolean(read2 || beginLearning(next, chosen) || chosen.sleep || chosen.guards || transportArrival(next, id) || packWaitChoice(next, id))]);
+      perform(next, chosen, round2, residents2);`,
+  );
 }
 
 test("Vale's first boarding of The Charybdis matches the pinned Move and settlement", async () => {
@@ -45,6 +55,8 @@ test("Vale's first boarding of The Charybdis matches the pinned Move and settlem
   const play = (world, action) => run({ ...seats, op: "play", world, action });
   let sample;
   let settlementSample;
+  let roaming;
+  let aboard;
   for (const seed of [undefined, 2, 17, 4242]) {
     for (const sorted of [false, true]) {
       let world = run({ op: "create", seed });
@@ -72,6 +84,7 @@ test("Vale's first boarding of The Charybdis matches the pinned Move and settlem
       assert.equal(world.transports[ship].dock, "pond");
       for (const key of [`move:vale::${ship}`, `move:vale:cloth:${ship}`]) {
         reference.boarded = undefined;
+        reference.plans = [];
         const request = {
           ...seats,
           op: "play",
@@ -140,8 +153,34 @@ test("Vale's first boarding of The Charybdis matches the pinned Move and settlem
           assert.equal(boarded.opening.met.ada, 8);
           assert.equal(boarded.packs["shared-homes"].met.ada, 8);
         } else assert.deepEqual(event.cast, ["vale"]);
-        sample = { ...request, op };
         const residents = captured("residents");
+        assert.deepEqual(residents, expected);
+        assert.deepEqual(reference.plans.map(([actor]) => actor).toSorted(), [
+          "ada",
+          "ash",
+          "keeper",
+          "mara",
+          "moth",
+          "nell",
+          "orin",
+          "rue",
+          "tavi",
+        ]);
+        assert.ok(
+          reference.plans.every(
+            ([actor, key, effect]) => key === `wait:${actor}::` && !effect,
+          ),
+        );
+        assert.ok(
+          isDeepStrictEqual(wasm({ op: residentsOp, world: expected }), {
+            ok: true,
+            world: residents,
+          }),
+          `${label} residents`,
+        );
+        if (seed === undefined) aboard = expected;
+        if (seed === 2) roaming = expected;
+        sample = { ...request, op };
         assert.deepEqual(residents, captured("preWants"), label);
         const late = captured("late");
         settlementSample = { op: settlement, before: world, world: residents };
@@ -200,4 +239,26 @@ test("Vale's first boarding of The Charybdis matches the pinned Move and settlem
     mutate(world);
     assert.equal(wasm({ ...settlementSample, world }), null);
   }
+  for (const change of [
+    (world) => {
+      world.transports[ship].riders.push("ada");
+    },
+    (world) => {
+      world.actors.ada.want.target = "vale";
+    },
+    (world) => {
+      world.actors.moth.dwellUntil = 8;
+    },
+    (world) => {
+      world.actors.keeper.want = world.actors.keeper.completedQuest.want;
+    },
+  ]) {
+    const world = structuredClone(aboard);
+    change(world);
+    assert.equal(wasm({ op: residentsOp, world }), null);
+  }
+  const expired = structuredClone(roaming);
+  assert.equal(expired.actors.tavi.place, "forest-oak");
+  expired.actors.tavi.dwellUntil = 8;
+  assert.equal(wasm({ op: residentsOp, world: expired }), null);
 });
