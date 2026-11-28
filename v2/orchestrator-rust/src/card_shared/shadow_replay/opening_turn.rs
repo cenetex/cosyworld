@@ -170,13 +170,16 @@ fn sqlite_rules_wasm_parity_replays_the_first_keeper_log_read() -> Result<()> {
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_keeper_quest_pond_return() -> Result<()> {
     let id = "keeper-quest-pond-return";
-    let (mut c, state, calls) = commit_keeper_quest_pond_return(id)?;
+    let (mut c, state, calls) = commit_keeper_quest_pond_return(id, None)?;
     verify_opening_journal(&mut c, id, &calls)?;
     verify_seated_reload(&c, id, &state, "pond", &["station"], 10)
 }
 
-fn commit_keeper_quest_pond_return(id: &str) -> Result<(Connection, World, Vec<&'static str>)> {
-    let (c, mut state, mut calls) = commit_keeper_quest(id)?;
+fn commit_keeper_quest_pond_return(
+    id: &str,
+    seed: Option<u32>,
+) -> Result<(Connection, World, Vec<&'static str>)> {
+    let (c, mut state, mut calls) = commit_keeper_quest(id, seed)?;
     let known = state.game["knowledge"]["known"]["vale"]["quest:keeper:pond"].clone();
     let want = state.game["actors"]["vale"]["want"].clone();
     let lamp = state.game["items"]["lamp"].clone();
@@ -207,14 +210,17 @@ fn commit_keeper_quest_pond_return(id: &str) -> Result<(Connection, World, Vec<&
 #[test]
 fn sqlite_rules_wasm_parity_replays_keeper_quest_station_return_and_cloth_gift() -> Result<()> {
     let id = "keeper-quest-station-return-cloth-gift";
-    let (mut c, state, calls) = commit_keeper_quest_station_return(id)?;
+    let (mut c, state, calls) = commit_keeper_quest_station_return(id, None)?;
     assert_eq!(calls.len(), 9);
     verify_opening_journal(&mut c, id, &calls)?;
     verify_seated_reload(&c, id, &state, "station", &["pond", "behind-station"], 11)
 }
 
-fn commit_keeper_quest_station_return(id: &str) -> Result<(Connection, World, Vec<&'static str>)> {
-    let (c, mut state, mut calls) = commit_keeper_quest_pond_return(id)?;
+fn commit_keeper_quest_station_return(
+    id: &str,
+    seed: Option<u32>,
+) -> Result<(Connection, World, Vec<&'static str>)> {
+    let (c, mut state, mut calls) = commit_keeper_quest_pond_return(id, seed)?;
     let want = state.game["actors"]["vale"]["want"].clone();
     let lamp = state.game["items"]["lamp"].clone();
     let returned = commit_keeper_play(&c, id, &mut state, &mut calls, BARE_STATION_MOVE.0, 10)?;
@@ -254,14 +260,17 @@ fn commit_keeper_quest_station_return(id: &str) -> Result<(Connection, World, Ve
 #[test]
 fn sqlite_rules_wasm_parity_replays_keeper_quest_pond_return_with_cloth() -> Result<()> {
     let id = "keeper-quest-pond-return-with-cloth";
-    let (mut c, state, calls) = commit_keeper_quest_pond_with_cloth(id)?;
+    let (mut c, state, calls) = commit_keeper_quest_pond_with_cloth(id, None)?;
     assert_eq!(calls.len(), 10);
     verify_opening_journal(&mut c, id, &calls)?;
     verify_seated_reload(&c, id, &state, "pond", &["station"], 12)
 }
 
-fn commit_keeper_quest_pond_with_cloth(id: &str) -> Result<(Connection, World, Vec<&'static str>)> {
-    let (c, mut state, mut calls) = commit_keeper_quest_station_return(id)?;
+fn commit_keeper_quest_pond_with_cloth(
+    id: &str,
+    seed: Option<u32>,
+) -> Result<(Connection, World, Vec<&'static str>)> {
+    let (c, mut state, mut calls) = commit_keeper_quest_station_return(id, seed)?;
     let want = state.game["actors"]["vale"]["want"].clone();
     let lamp = state.game["items"]["lamp"].clone();
     let mut cloth = state.game["items"]["cloth"].clone();
@@ -297,9 +306,75 @@ fn commit_keeper_quest_pond_with_cloth(id: &str) -> Result<(Connection, World, V
 }
 
 #[test]
+fn sqlite_rules_wasm_parity_replays_the_quiet_keeper_quest_ship_call() -> Result<()> {
+    let id = "quiet-keeper-quest-ship-call";
+    let (mut c, mut state, mut calls) = commit_keeper_quest_pond_with_cloth(id, Some(17))?;
+    assert_eq!(state.game["run"]["seed"], 17);
+    let keeper_want = state.game["actors"]["keeper"]["want"].clone();
+    let called = commit_keeper_play(&c, id, &mut state, &mut calls, "drop:vale:lamp:pond", 12)?;
+    let [drop, credit, reflection] = called["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected Vale's Drop, the Keeper's quest credit, and the opened reflection");
+    };
+    let world = &state.game;
+    assert_eq!(world["turn"], 7);
+    assert_eq!(world["eventSeq"], 23);
+    for (seq, event) in (21..=23).zip([drop, credit, reflection]) {
+        assert_eq!(event["seq"], seq);
+        assert_eq!(event["turn"], 7);
+        assert_eq!(event["locationId"], "pond");
+        assert_eq!(event["cast"], json!(["vale"]));
+        assert_eq!(event["light"], true);
+    }
+    assert_eq!(drop["actorId"], "vale");
+    assert_eq!(drop["verb"], "drop");
+    assert_eq!(drop["itemId"], "lamp");
+    assert_eq!(credit["actorId"], "vale");
+    assert_eq!(credit["verb"], "want_met");
+    assert_eq!(credit["wantMet"], json!({"kind":"place","target":"pond"}));
+    assert_eq!(credit["text"], "Vale calls the ship for The keeper.");
+    assert_eq!(reflection["kind"], "narration");
+    assert_eq!(reflection["actorId"], Value::Null);
+    assert_eq!(
+        reflection["text"],
+        "The pond's reflection opens a path to the attic."
+    );
+    assert_eq!(world["actors"]["vale"]["heldItem"], "cloth");
+    assert_eq!(world["actors"]["vale"]["want"], Value::Null);
+    assert_eq!(
+        world["actors"]["vale"]["arcana"]["callers"],
+        json!(["keeper"])
+    );
+    assert_eq!(
+        world["actors"]["keeper"]["completedQuest"],
+        json!({"want":keeper_want,"by":"vale","turn":7})
+    );
+    assert_eq!(world["items"]["lamp"]["holder"], "pond");
+    assert_eq!(world["items"]["lamp"]["fuel"], 8);
+    assert_eq!(world["items"]["lamp"]["lit"], true);
+    assert_eq!(
+        world["crossings"]["pond-greek-harbor"],
+        json!({"discovered":true,"method":"pond-lamp"})
+    );
+    assert_eq!(
+        world["transports"]["greek-ship"],
+        json!({"version":3,"phase":"docked","dock":"pond","riders":[],"destination":null,"since":7,"recall":null})
+    );
+    assert_eq!(calls.len(), 11);
+    verify_opening_journal(&mut c, id, &calls)?;
+    verify_seated_reload(
+        &c,
+        id,
+        &state,
+        "pond",
+        &["station", "attic", "greek-ship"],
+        13,
+    )
+}
+
+#[test]
 fn sqlite_rules_wasm_parity_replays_keeper_quest_abandonment_and_cloth_gift() -> Result<()> {
     let id = "keeper-quest-abandonment-cloth-gift";
-    let (mut c, mut state, mut calls) = commit_keeper_quest(id)?;
+    let (mut c, mut state, mut calls) = commit_keeper_quest(id, None)?;
     let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
     let seq = state.game["eventSeq"]
         .as_u64()
@@ -752,10 +827,17 @@ fn unseeded_opening() -> Result<World> {
     Ok(state)
 }
 
-fn commit_keeper_quest(id: &str) -> Result<(Connection, World, Vec<&'static str>)> {
+fn commit_keeper_quest(
+    id: &str,
+    seed: Option<u32>,
+) -> Result<(Connection, World, Vec<&'static str>)> {
+    let world = match seed {
+        Some(seed) => World::seeded(None, Some(seed))?,
+        None => unseeded_opening()?,
+    };
     let (c, mut state, mut calls) = commit_opening_turns(
         id,
-        unseeded_opening()?,
+        world,
         true,
         &[BARE_POND_MOVE, BARE_STATION_MOVE, KEEPER_LOG_READ],
     )?;
