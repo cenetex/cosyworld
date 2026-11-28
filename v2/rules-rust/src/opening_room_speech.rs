@@ -21,7 +21,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     let saved = request.get("world")?;
     let present = opening::seats(&request["present"])?;
     let room = saved["actors"][VALE]["place"].as_str()?;
-    if saved["turn"] != 2
+    if !(saved["turn"] == 2 || (room == STATION && opening_station_view::historic_station(saved)))
         || request["actor"] != VALE
         || request["claimed"] != json!([VALE])
         || (!present.is_empty() && present != [VALE])

@@ -302,8 +302,6 @@ export function dispatchShared(request) {
       throw new Error("An exchange needs one to four lines.");
     const room = request.room || world.actors[actor].place;
     if (!places[room]) throw new Error("Choose a real room.");
-    // The voices the play named as it committed, and the room, which may
-    // always caption it. A world upgraded since that play asks again.
     const voices = [
       ...(world.speechVoices?.[actor] ??
         speechOccasions(world, dialogueCast(world)).speakers),

@@ -60,7 +60,7 @@ fn chronology(world: &Value) -> Option<u64> {
         .then_some(seq)
 }
 
-fn historic_station(world: &Value) -> bool {
+pub(super) fn historic_station(world: &Value) -> bool {
     world["began"] == 480 && world["turn"] == 482
 }
 
@@ -498,7 +498,14 @@ fn arrival_events(world: &Value, before_seq: u64, allow_speech: bool) -> Option<
         return None;
     }
     if historic_station(world) {
-        return (committed.len() == 1).then_some(events);
+        let [move_event] = committed else {
+            return None;
+        };
+        return (is_move(move_event, VALE, POND, STATION)
+            && [VALE, PIP, "cloth"]
+                .iter()
+                .all(|id| entries(&move_event["witnesses"]).any(|witness| witness == *id)))
+        .then_some(events);
     }
     let follows = committed.get(1)?;
     if !is_move(follows, PIP, POND, STATION) || !follows["itemId"].is_null() {
@@ -532,7 +539,8 @@ pub(super) fn settled_first_arrival(
     geo: &Geography<'_>,
     order: &[&str],
 ) -> Option<()> {
-    (settled_speech_voices(world, geo, order)? == [VALE, KEEPER]).then_some(())
+    (world["turn"] == 2 && settled_speech_voices(world, geo, order)? == [VALE, KEEPER])
+        .then_some(())
 }
 
 pub(super) fn settled_speech_voices(
@@ -540,10 +548,10 @@ pub(super) fn settled_speech_voices(
     geo: &Geography<'_>,
     order: &[&str],
 ) -> Option<&'static [&'static str]> {
-    if world["turn"] != 2 {
+    if world["turn"] != 2 && !historic_station(world) {
         return None;
     }
-    let events = arrival_events(world, chronology(world)?.checked_sub(1)?, true)?;
+    let events = arrival_events(world, response_chronology(world)?.checked_sub(1)?, true)?;
     let named = voices(world);
     if named.contains(&RUE)
         && !events.iter().any(|entry| {
