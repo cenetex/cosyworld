@@ -4,33 +4,44 @@ use serde_json::{json, Map, Value};
 use std::fmt;
 
 const PACKS: &str = "v2/card-game/packs.json";
+const HISTORY: &str = "v2/card-game/world-history.json";
 
 #[derive(Deserialize)]
-struct Document {
+struct Document<const KEEP_HISTORY: bool> {
     schema: u64,
-    files: Files,
+    files: Files<KEEP_HISTORY>,
 }
 
-struct Files(Value);
+#[derive(Deserialize)]
+struct HistoryClock {
+    turns: Option<u64>,
+}
 
-impl<'de> Deserialize<'de> for Files {
+struct Files<const KEEP_HISTORY: bool>(Value);
+
+impl<'de, const KEEP_HISTORY: bool> Deserialize<'de> for Files<KEEP_HISTORY> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_map(FilesVisitor)
+        deserializer.deserialize_map(FilesVisitor::<KEEP_HISTORY>)
     }
 }
 
-struct FilesVisitor;
+struct FilesVisitor<const KEEP_HISTORY: bool>;
 
-impl<'de> Visitor<'de> for FilesVisitor {
-    type Value = Files;
+impl<'de, const KEEP_HISTORY: bool> Visitor<'de> for FilesVisitor<KEEP_HISTORY> {
+    type Value = Files<KEEP_HISTORY>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("compiled content files")
     }
 
-    fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Files, M::Error> {
+    fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
         let mut files = Map::new();
         while let Some(file) = map.next_key::<String>()? {
+            if !KEEP_HISTORY && file == HISTORY {
+                let clock: HistoryClock = map.next_value()?;
+                files.insert(file, json!({"turns": clock.turns}));
+                continue;
+            }
             let content = if file == PACKS {
                 map.next_value::<PackFile>()?.0
             } else {
@@ -166,7 +177,16 @@ fn project_choice(choice: Choice) -> Option<Value> {
 }
 
 pub(super) fn files(request: &Value) -> Option<Value> {
-    let document: Document = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
+    projected_files::<true>(request)
+}
+
+pub(super) fn wait_files(request: &Value) -> Option<Value> {
+    projected_files::<false>(request)
+}
+
+fn projected_files<const KEEP_HISTORY: bool>(request: &Value) -> Option<Value> {
+    let document: Document<KEEP_HISTORY> =
+        serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
     (document.schema == 1).then_some(document.files.0)
 }
 
@@ -177,6 +197,7 @@ mod tests {
     #[test]
     fn preserves_choice_markers_used_by_opening_rules() {
         let input = json!({"schema":1,"files":{
+            "v2/card-game/world-history.json":{"turns":480,"changes":[[["turn"],480]]},
             "v2/card-game/packs.json":{"hub":{"places":["station"]},"packs":[
                 {"id":"example","works":{"a":"metadata"},"places":{"home":{}}, "choices":[
                     {"id":"one","text":"A choice", "effects":[
@@ -194,10 +215,13 @@ mod tests {
             ]},
             "other-file":["kept"]
         }});
-        let actual = files(&json!({"packContentJson":input.to_string()}));
+        let request = json!({"packContentJson":input.to_string()});
+        assert_eq!(files(&request).unwrap()[HISTORY], input["files"][HISTORY]);
+        let actual = wait_files(&request);
         assert_eq!(
             actual,
             Some(json!({
+                "v2/card-game/world-history.json":{"turns":480},
                 "v2/card-game/packs.json":{"hub":{"places":["station"]},"packs":[
                     {"id":"example", "places":{"home":{}}, "choices":[
                         {"id":"one", "effects":[{"kind":"retire_item", "item":"b", "waitAtHome":true}]},

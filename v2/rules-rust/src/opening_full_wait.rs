@@ -90,7 +90,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     let order = opening_roster::actor_order(request, before)?;
     let authored = Order::from_pack(request["packContentJson"].as_str()?)?;
     super::opening_play::attic_state(before)?;
-    let files = super::opening_content::files(request)?;
+    let files = super::opening_content::wait_files(request)?;
     super::opening_play::attic_content(&files)?;
     let (mut world, _, files) = opening_wait::begin_with_files(before, files)?;
     let catalog = Catalog::from_files(&files)?;
@@ -108,6 +108,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     deck.settle(&mut world, &geo, Some("attic"))?;
     opening_attic_rest::settle_vale_wants(&mut world, &files)?;
     opening_hub_residents::confirm_idle(&world, &geo)?;
+    let mut custody = opening_pickups::Custody::new(&world)?;
     for id in residents {
         if !known.contains(&id) || ["moth", "keeper"].contains(&id) {
             continue;
@@ -115,7 +116,15 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         if !opening::is_seat(id) {
             return None;
         }
-        opening_pickups::take(&mut world, &geo, &evidence, &claimed, &present, id)??;
+        opening_pickups::take(
+            &mut world,
+            &geo,
+            &evidence,
+            &claimed,
+            &present,
+            id,
+            &mut custody,
+        )??;
         deck.settle(&mut world, &geo, None)?;
     }
     opening_settlement::decay_bell(&mut world)?;
