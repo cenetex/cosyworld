@@ -41,8 +41,7 @@ export function bedtime(s, id) {
 export const residentAsleep = (s, id) =>
   s.actors[id]?.sleeping?.until !== undefined;
 
-// A resident's sleep is `{since, place, until}` and `slept` names the start
-// of the last sleep it took, so a resident woken early stays awake.
+// `slept` preserves the last bedtime of a `{since, place, until}` sleep so early risers stay awake.
 const whole = (n) => Number.isSafeInteger(n);
 export function validSleep(s, places) {
   for (const a of Object.values(s.actors)) {

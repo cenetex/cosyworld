@@ -1,7 +1,8 @@
 use super::{
-    create, initial_wants, opening_attic_rest, opening_content, opening_held_items,
-    opening_mirror_move, opening_quiet_life, opening_resident_sleep, opening_second_attic_lamp,
-    opening_station_move, opening_wait_response, pack_state::Catalog, Geography,
+    create, initial_wants, opening_attic_rest, opening_content, opening_full_move,
+    opening_held_items, opening_mirror_move, opening_quiet_life, opening_resident_sleep,
+    opening_roaming, opening_second_attic_lamp, opening_settlement, opening_station_move,
+    opening_station_read, opening_wait_response, pack_state::Catalog, Geography,
 };
 use serde_json::{json, Value};
 
@@ -89,7 +90,8 @@ fn solo(world: &Value) -> bool {
 fn arrived_scene(world: &Value) -> Option<&'static str> {
     if world["actors"]["vale"]["place"] == STATION {
         opening_station_move::arrival(world)
-            .or_else(|| opening_station_move::abandoned_train_arrival(world))?;
+            .or_else(|| opening_station_move::abandoned_train_arrival(world))
+            .or_else(|| opening_station_read::after_first_log(world))?;
         (solo(world) && world["playerActorId"] == "vale").then_some(STATION)
     } else {
         opening_mirror_move::second_arrival(world)?;
@@ -330,12 +332,72 @@ pub(super) fn settle_historic_station(
     verify_station_order(world, geo)
 }
 
+fn station_read_round(before: &Value, world: &Value) -> Option<()> {
+    let read = opening_station_read::after_first_log(world)?;
+    let pip = read.checked_add(1)?;
+    let wait = world["log"].as_array()?.last()?;
+    (before["turn"] == 2
+        && opening_station_move::arrival(before)? == world["arrival"]["seq"].as_u64()?
+        && before["eventSeq"].as_u64()?.checked_add(1)? == read
+        && world["revision"].as_u64()? == before["revision"].as_u64()?.checked_add(1)?
+        && world["eventSeq"] == pip
+        && wait["seq"] == pip
+        && wait["turn"] == 3
+        && wait["kind"] == "action"
+        && wait["generated"] != true
+        && wait["actorId"] == PIP
+        && wait["verb"] == "wait"
+        && wait["locationId"] == STATION
+        && wait["sleep"].is_null()
+        && wait["guards"].is_null()
+        && solo(world)
+        && world["playerActorId"] == "vale")
+        .then_some(())
+}
+
+pub(super) fn settle_station_read_before_wants(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+    catalog: &Catalog<'_>,
+) -> Option<()> {
+    station_read_round(before, world)?;
+    opening_settlement::decay_bell(world)?;
+    opening_roaming::settle_dwell(world, geo)?;
+    opening_quiet_life::verify_opening_day(world, geo)?;
+    verify_stops(world, geo)?;
+    if !opening_settlement::sail_transports(world, catalog, None)?.is_empty() {
+        return None;
+    }
+    opening_held_items::settle(world, geo, Some(before))?;
+    opening_second_attic_lamp::settle_station(world, geo)?;
+    opening_full_move::quiet_ways(before, world, geo, false)?;
+    verify_wake(world)?;
+    opening_settlement::no_item_cycle(world)
+}
+
+pub(super) fn settle_station_read_after_wants(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
+    station_read_round(before, world)?;
+    opening_quiet_life::verify_home_levels(world, geo)?;
+    verify_quiet_facts(before, world, geo)?;
+    opening_attic_rest::settle_visit_speech(before, world, false)?;
+    verify_wayfinder_placement(world, geo)?;
+    opening_held_items::settle(world, geo, Some(before))?;
+    opening_second_attic_lamp::settle_station(world, geo)?;
+    verify_station_order(world, geo)
+}
+
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let world = request.get("world")?;
-    match request["phase"].as_str()? {
+    let phase = request["phase"].as_str()?;
+    match phase {
         "station" => verify_station(world, &geo)?,
         "station_order" => verify_station_order(world, &geo)?,
         "wayfinder" => verify_wayfinder(world, &geo)?,
@@ -352,6 +414,16 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
             opening_held_items::settle(&mut next, &geo, Some(request.get("before")?))?;
             opening_second_attic_lamp::settle_station(&mut next, &geo)?;
             return Some(json!({"ok":true,"world":next}));
+        }
+        "station_read_before_wants" | "station_read_after_wants" => {
+            let before = request.get("before")?;
+            let mut world = world.clone();
+            if phase == "station_read_before_wants" {
+                settle_station_read_before_wants(before, &mut world, &geo, &catalog)?;
+            } else {
+                settle_station_read_after_wants(before, &mut world, &geo)?;
+            }
+            return Some(json!({"ok":true,"world":world}));
         }
         _ => return None,
     }
