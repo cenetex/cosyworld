@@ -2,6 +2,7 @@ use super::{
     initial_wants::root_in,
     opening, opening_content, opening_evidence,
     opening_pickups::item_as_named,
+    opening_pond_lamp_drop::grounded_fuel,
     opening_pond_view::offer,
     opening_station_move::{cloth_return_event, move_event, quiet_opening},
     opening_station_read::keeper_want_from_read,
@@ -267,12 +268,7 @@ fn called_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
         || !geo.entity_active(world, "cloth")?
         || !geo.entity_active(world, "lamp")?
         || !geo.entity_active(world, KEY)?
-        || lamp["holder"] != POND
-        || lamp["lit"] != true
-        || lamp["fuel"] != 8
-        || lamp["fuelRooms"] != 2
-        || lamp["fuelPlace"] != POND
-        || lamp["fuelVisit"] != true
+        || !grounded_fuel(lamp)?
         || world["opened"][SHIP] != json!([VALE])
         || world["crossings"][SIGNAL] != json!({"discovered":true,"method":"pond-lamp"})
         || world["transports"][SHIP]
@@ -452,7 +448,7 @@ pub(super) fn completed_dry_response(
         || drop["cast"] != json!([VALE])
         || world["speechVoices"][VALE] != json!([VALE])
         || world["actors"][VALE]["want"] != keeper_want_from_read(&world, geo, read)?
-        || world["items"]["lamp"]["lit"] != false
+        || grounded_fuel(&world["items"]["lamp"])?
         || world["opened"][SHIP] != Value::Null
         || opening_visitor_routes::exits(&world, geo, VALE, POND)? != [STATION].into()
     {

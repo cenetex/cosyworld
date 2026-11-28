@@ -80,6 +80,17 @@ pub(super) fn quiet_items<'a>(
     .then_some(items)
 }
 
+pub(super) fn grounded_fuel(lamp: &Value) -> Option<bool> {
+    let fuel = lamp_state(lamp).ok()?;
+    let lit = lamp["lit"].as_bool()?;
+    (lamp["holder"] == POND
+        && fuel.fuel_place == POND
+        && fuel.fuel_visit == lit
+        && matches!((lit, fuel.fuel_rooms), (false, 0) | (true, 1 | 2))
+        && lamp["fuel"] == fuel.fuel_rooms * 4)
+        .then_some(lit)
+}
+
 pub(super) fn ground(before: &Value, geo: &Geography<'_>, authored: &Order) -> Option<Value> {
     let (head, read) = before_drop(before)?;
     let lamp = &before["items"][LAMP];
@@ -90,7 +101,7 @@ pub(super) fn ground(before: &Value, geo: &Geography<'_>, authored: &Order) -> O
         || lamp["lit"] != false
         || fuel.fuel_place != POND
         || fuel.fuel_visit
-        || !matches!(fuel.fuel_rooms, 0 | 3)
+        || !matches!(fuel.fuel_rooms, 0 | 2 | 3)
         || lamp["fuel"] != fuel.fuel_rooms * 4
     {
         return None;
@@ -127,19 +138,12 @@ pub(super) fn record(
 ) -> Option<()> {
     let (head, read) = before_drop(world)?;
     quiet_cloth(world, geo, head)?;
-    let lamp = &world["items"][LAMP];
-    let lit = lamp["lit"].as_bool()?;
-    let room_fuel = if lit { 2 } else { 0 };
+    let lit = grounded_fuel(&world["items"][LAMP])?;
     if world["turn"] != 7
         || world["playerActorId"] != VALE
         || ["heldActors", "controlledActors", "presentActors"]
             .iter()
             .any(|field| world[*field] != json!([VALE]))
-        || lamp["holder"] != POND
-        || lamp["fuelPlace"] != POND
-        || lamp["fuelVisit"] != lit
-        || lamp["fuelRooms"] != room_fuel
-        || lamp["fuel"] != room_fuel * 4
         || world["crossings"][SIGNAL]["discovered"] != lit
     {
         return None;

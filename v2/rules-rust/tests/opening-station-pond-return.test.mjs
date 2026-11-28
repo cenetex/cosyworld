@@ -247,6 +247,36 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
           );
           published.log.at(-1).cast.push("moth");
           assert.equal(wasm(captionDrop), null);
+
+          let rested = withCloth;
+          for (const item of ["lamp", "cloth"])
+            rested = run({
+              ...seats,
+              op: "hold",
+              world: rested,
+              choice: { item, revision: rested.revision },
+            });
+          for (const move of [
+            "move:vale::pond",
+            "move:vale:lamp:pond",
+            "move:vale:cloth:pond",
+          ]) {
+            const world = play(rested, move);
+            assert.equal(world.items.lamp.fuel, 8);
+            const action = { ...drop, world, revision: world.revision };
+            const low = pinned(action);
+            assert.equal(low.ok, true, low.error);
+            assert.equal(low.world.items.lamp.fuel, 4);
+            assert.ok(
+              isDeepStrictEqual(wasm(action), low),
+              `${move} with station fuel use`,
+            );
+            const reload = { ...seats, op: "view", world: low.world };
+            assert.ok(
+              isDeepStrictEqual(wasm(reload), pinned(reload)),
+              `${move} reload`,
+            );
+          }
         }
         const op = "opening_pond_lamp_drop";
         const cut = (phase) => JSON.parse(JSON.stringify(reference[phase]));
