@@ -14,9 +14,8 @@ export const humanPresent = (world, id) =>
   controlledByHuman(world, id) &&
   (!world.presentActors || world.presentActors.includes(id));
 export const sharedEnabled = (world) => world.sharedVersion === 1;
-// Passkey v2 (#1846): a shared world seats all eight avatars. A human steers
-// an avatar only while present; a held avatar whose holder is away, and an
-// unheld one, lives there as a resident. `heldActors` keeps the claims.
+// Passkey v2 (#1846): present humans steer their avatars and the rest act as residents.
+// `heldActors` keeps the claims for all eight seats.
 export function seatActors(world, claimed, present) {
   world.heldActors = [...claimed];
   world.controlledActors = [...present];

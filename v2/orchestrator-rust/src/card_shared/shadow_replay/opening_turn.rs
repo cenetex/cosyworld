@@ -202,6 +202,31 @@ fn sqlite_rules_wasm_parity_replays_awake_historic_station_with_cass() -> Result
 }
 
 #[test]
+fn sqlite_rules_wasm_parity_reenters_awake_historic_station() -> Result<()> {
+    let id = "reenter-awake-historic-station";
+    let (mut c, mut state, mut calls) = commit_opening_turns(
+        id,
+        historic_opening(Some(99))?,
+        true,
+        &[
+            AWAKE_HISTORIC_POND_MOVE,
+            (BARE_STATION_MOVE.0, |lamp, reply| {
+                check_awake_historic_station_move(lamp, reply, false);
+            }),
+        ],
+    )?;
+    let vale = actor_index("vale")?;
+    let arrived = state.game.clone();
+    for (time, op, present) in [(7, "leave", 0), (8, "enter", 1)] {
+        full_store::commit(&c, id, &mut state, json!({"op":op,"actor":"vale"}), time)?;
+        assert_eq!((state.claimed[vale], state.present[vale]), (1, present));
+        assert_eq!(state.game, arrived);
+        calls.push("presence");
+    }
+    verify_opening_journal(&mut c, id, &calls)
+}
+
+#[test]
 fn sqlite_rules_wasm_parity_replays_station_train_quest_and_reload() -> Result<()> {
     let id = "station-train-quest";
     let (mut c, mut state, mut calls) = commit_opening_turns(
