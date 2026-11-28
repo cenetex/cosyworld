@@ -229,7 +229,6 @@ impl World {
             }
             _ => return Err("Choose an available play.".into()),
         };
-        // Station admission is journaled with presence, not with a later GET.
         if matches!(op, "enter" | "leave" | "release" | "reset") {
             let settled = reduce(
                 &next.version,
