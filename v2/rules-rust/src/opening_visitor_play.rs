@@ -3,10 +3,10 @@ use super::{
     opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
     opening_pond_call_view::{completion_owners, drop_receipt},
-    opening_pond_ship_board,
+    opening_pond_ship_board, opening_pond_ship_disembark,
     opening_pond_ship_settlement::course_before_sailing,
     opening_pond_ship_wait, opening_roster, opening_station_move, opening_station_read,
-    opening_station_view, opening_visitor_routes,
+    opening_station_view, opening_visitor_routes, opening_visitor_transport,
     opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -20,7 +20,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 
 fn quiet_turn(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
-    if !matches!(turn, 2..=10)
+    if !matches!(turn, 2..=11)
         || world.get("began").is_some_and(|began| began != 0)
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
@@ -54,6 +54,7 @@ fn quiet_turn(world: &Value) -> Option<u64> {
         (8, "greek-ship") => opening_pond_ship_board::arrival(world).map(|_| ()),
         (9, "greek-ship") => course_before_sailing(world).map(|_| ()),
         (10, "greek-ship") => opening_pond_ship_wait::before_docking(world).map(|_| ()),
+        (11, "greek-harbor") => opening_pond_ship_disembark::arrival_event(world).map(|_| ()),
         (5, "station") => opening_station_view::keeper_return::gift_head(world).map(|_| ()),
         (7, "pond") => pond_drop_scene(world),
         (_, "station") => opening_station_move::arrival(world)
@@ -215,7 +216,7 @@ fn room<'a>(geo: &Geography<'a>, id: &str) -> Option<&'a Value> {
         .or_else(|| geo.files()["v2/card-game/forest.json"]["places"].get(id))
 }
 
-fn dwell_until(actor: &str, turn: u64) -> u64 {
+pub(super) fn dwell_until(actor: &str, turn: u64) -> u64 {
     turn + 24 + u64::from(seed::hash(&format!("{actor}@{turn}")) % 6)
 }
 
@@ -266,7 +267,7 @@ fn quiet_departure_wait(
         opening_station_move::abandoned_train_arrival(world).is_some() || read.is_some();
     let round = world["turn"].as_u64()?;
     let station_departure = round == 7 || opening_station_move::departure_turn(world).is_some();
-    let boarded = matches!(round, 8..=10);
+    let boarded = matches!(round, 8..=11);
     if (!same_room && !station_departure && !boarded && round != 3)
         || (!station_departure && !boarded && world["actors"]["vale"]["place"] != "station")
         || here == "station"
@@ -398,6 +399,81 @@ fn quiet_ada_aboard(world: &Value, geo: &Geography<'_>, custody: &Custody) -> Op
     Some(())
 }
 
+fn disembark_ada(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+    custody: &Custody,
+) -> Option<()> {
+    const ADA: &str = "ada";
+    const SHIP: &str = "greek-ship";
+    const HARBOR: &str = "greek-harbor";
+    let primary = opening_pond_ship_disembark::arrival_event(world)?;
+    let ada = &world["actors"][ADA];
+    let ship = &world["transports"][SHIP];
+    let berth = room(geo, HARBOR)?;
+    if primary["seq"] != world["eventSeq"]
+        || primary["witnesses"] != json!(["vale", ADA, "cloth"])
+        || opening_pond_ship_board::ada_boarding_receipt(world)? >= primary["seq"].as_u64()?
+        || ship["phase"] != "arrived"
+        || ship["dock"] != HARBOR
+        || ship["riders"] != json!([ADA])
+        || !ship["recall"].is_null()
+        || ada["visited"] != json!(["loft", SHIP])
+        || ada["crossed"] != 1
+        || !ada["dwellUntil"].is_null()
+        || !ada["heldItem"].is_null()
+        || !custody.empty(ADA)
+        || world["items"]["shears"]["holder"] != "loft"
+        || world["opening"]["met"][ADA] != 8
+        || world["packs"]["shared-homes"]["met"][ADA] != 8
+        || world["crossings"]["greek-harbor-pond"]["discovered"] != true
+        || berth["sanctuary"] == true
+        || !geo.entity_active(world, HARBOR)?
+        || opening_visitor_transport::exits(world, geo, ADA, SHIP, None)?.first() != Some(&HARBOR)
+        || opening_station_move::departure_witnesses(world, geo, authored, SHIP)? != [ADA]
+        || geo.packs().any(|pack| {
+            entries(&pack["choices"]).any(|choice| {
+                (choice["on"] == "meet" && (choice["at"].is_null() || choice["at"] == HARBOR))
+                    || (choice["on"] == "depart" && choice["subject"] == ADA)
+            })
+        })
+    {
+        return None;
+    }
+    let actor = &mut world["actors"][ADA];
+    actor["place"] = json!(HARBOR);
+    actor["crossed"] = json!(2);
+    actor["dwellUntil"] = json!(dwell_until(ADA, 11));
+    world["transports"][SHIP]["phase"] = json!("docked");
+    world["transports"][SHIP]["riders"] = json!([]);
+    world["transports"][SHIP]["since"] = json!(11);
+    opening_crossings::no_crossing_unlocks(world, geo)?;
+    let cast = opening_roster::known_actors(world, geo, order, Some(HARBOR))?;
+    if cast.len() != 3
+        || [ADA, "vale", "greek-shipmaster"]
+            .iter()
+            .any(|id| !cast.contains(id))
+    {
+        return None;
+    }
+    let items = opening_full_wait::visible_items(world, geo, authored, HARBOR)?;
+    let ada = evidence.profile(ADA)?["name"].as_str()?;
+    let harbor = evidence.profile(HARBOR)?["name"].as_str()?;
+    let detail = json!({
+        "speaker":"World", "kind":"action", "verb":"move", "actorId":ADA, "itemId":null,
+        "locationId":HARBOR,"targetId":HARBOR,"fromLocationId":SHIP,"witnesses":[ADA],
+        "text":format!("{ada} disembarks at {harbor}."),
+    });
+    evidence.record(world, &cast, &items, detail, true)?;
+    world["actors"][ADA]["visited"]
+        .as_array_mut()?
+        .push(json!(HARBOR));
+    Some(())
+}
+
 fn record_station_meeting(world: &mut Value, geo: &Geography, actor: &str) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let incumbents = ["vale", "moth", "keeper"];
@@ -515,6 +591,9 @@ fn perform_visitor(
         return None;
     }
     if a["place"] != home {
+        if turn == 11 && actor == "ada" && a["place"] == "greek-ship" {
+            return disembark_ada(world, geo, authored, order, evidence, custody);
+        }
         if matches!(turn, 8..=10) && actor == "ada" && a["place"] == "greek-ship" {
             return quiet_ada_aboard(world, geo, custody);
         }
@@ -536,7 +615,7 @@ fn perform_visitor(
     let destination = home_destination(world, geo, actor, home)?;
     if (historic_to.is_some() && destination != historic_to)
         || (destination.is_some()
-            && (matches!(turn, 8..=10) || opening_station_move::departure_turn(world).is_some()))
+            && (matches!(turn, 8..=11) || opening_station_move::departure_turn(world).is_some()))
         || (turn == 7
             && destination.is_some_and(|to| {
                 world["items"]["lamp"]["lit"] != true || !pond_drop_route(actor, home, to)
