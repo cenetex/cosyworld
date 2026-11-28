@@ -2,6 +2,7 @@ use super::{
     authored_order::Order,
     opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
+    opening_pond_call_view::{cloth_arrival, completion_owners},
     opening_roster, opening_station_move, opening_station_read, opening_station_view,
     opening_visitor_routes,
     opening_wait_response::vale_action,
@@ -17,7 +18,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 
 fn quiet_turn(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
-    if !matches!(turn, 2..=6)
+    if !matches!(turn, 2..=7)
         || world.get("began").is_some_and(|began| began != 0)
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
@@ -49,6 +50,7 @@ fn quiet_turn(world: &Value) -> Option<u64> {
             opening_station_move::departure_turn(world).map(|_| ())
         }
         (5, "station") => opening_station_view::keeper_return::gift_head(world).map(|_| ()),
+        (7, "pond") => pond_drop_scene(world),
         (_, "station") => opening_station_move::arrival(world)
             .or_else(|| opening_station_move::abandoned_train_arrival(world))
             .or_else(|| opening_station_read::after_first_log(world))
@@ -57,6 +59,72 @@ fn quiet_turn(world: &Value) -> Option<u64> {
         _ => None,
     }?;
     Some(turn)
+}
+
+fn pond_drop_route(actor: &str, from: &str, to: &str) -> bool {
+    matches!(
+        (actor, from, to),
+        ("tavi", "hill", "forest-oak") | ("ada", "loft", "greek-ship")
+    )
+}
+
+fn pond_drop_scene(world: &Value) -> Option<()> {
+    let seq = cloth_arrival(world, true)?.0.checked_add(1)?;
+    let lamp = &world["items"]["lamp"];
+    let lit = lamp["lit"].as_bool()?;
+    let crossing = if lit {
+        json!({"discovered":true,"method":"pond-lamp"})
+    } else {
+        json!({"discovered":false})
+    };
+    let log = world["log"].as_array()?;
+    let start = log.iter().position(|event| event["seq"] == seq)?;
+    let [drop, rest @ ..] = log.get(start..)? else {
+        return None;
+    };
+    let owners = if lit { completion_owners(world) } else { &[] };
+    let (calls, moves) = rest.split_at_checked(owners.len())?;
+    if lamp["holder"] != "pond"
+        || drop["light"] != lit
+        || world["actors"]["vale"]["heldItem"] != "cloth"
+        || world["items"]["cloth"]["holder"] != "vale"
+        || world["crossings"]["pond-greek-harbor"] != crossing
+        || log.last()?["seq"] != world["eventSeq"]
+        || moves.len() > 2
+        || (!lit && !moves.is_empty())
+        || rest.iter().enumerate().any(|(index, event)| {
+            event["turn"] != 7
+                || event["seq"].as_u64() != seq.checked_add(index as u64 + 1)
+                || event["generated"] == true
+        })
+        || calls.iter().zip(owners).any(|(event, owner)| {
+            event["kind"] != "narration"
+                || event["actorId"] != "vale"
+                || event["verb"] != "want_met"
+                || event["ownerId"] != *owner
+                || event["locationId"] != "pond"
+        })
+    {
+        return None;
+    }
+    let mut first = None;
+    for event in moves {
+        let actor = event["actorId"].as_str()?;
+        let from = event["fromLocationId"].as_str()?;
+        let to = event["locationId"].as_str()?;
+        if Some(actor) == first
+            || !pond_drop_route(actor, from, to)
+            || event["kind"] != "action"
+            || event["verb"] != "move"
+            || event["itemId"] != Value::Null
+            || event["targetId"] != to
+            || world["actors"][actor]["place"] != to
+        {
+            return None;
+        }
+        first = Some(actor);
+    }
+    Some(())
 }
 
 fn historic_visitor_turn(
@@ -110,20 +178,25 @@ fn historic_visitor_turn(
         .then_some((turn, to))
 }
 
-fn board_historic_ship(world: &mut Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
+fn board_docked_ship(world: &mut Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
     let ship = geo
         .packs()
         .find_map(|pack| pack["transports"].get("greek-ship"))?;
     let state = world.get_mut("transports")?.get_mut("greek-ship")?;
+    let since = state["since"].as_u64()?;
+    let berth = if turn == 7 {
+        state["dock"] == "pond" && since == turn
+    } else {
+        state["dock"] == ship["at"] && since < turn
+    };
     if ship["place"] != "greek-ship"
         || ship["at"] != "greek-harbor"
         || state["version"] != 3
         || state["phase"] != "docked"
-        || state["dock"] != ship["at"]
+        || !berth
         || !state["destination"].is_null()
         || !state["recall"].is_null()
         || !state["riders"].as_array()?.is_empty()
-        || state["since"].as_u64()? >= turn
     {
         return None;
     }
@@ -186,8 +259,8 @@ fn quiet_departure_wait(
         .or_else(|| opening_station_view::keeper_return::gift_head(world)?.checked_sub(4));
     let same_room =
         opening_station_move::abandoned_train_arrival(world).is_some() || read.is_some();
-    let station_departure = opening_station_move::departure_turn(world).is_some();
     let round = world["turn"].as_u64()?;
+    let station_departure = round == 7 || opening_station_move::departure_turn(world).is_some();
     if (!same_room && !station_departure && round != 3)
         || (!station_departure && world["actors"]["vale"]["place"] != "station")
         || here == "station"
@@ -394,6 +467,10 @@ fn perform_visitor(
     let destination = home_destination(world, geo, actor, home)?;
     if (historic_to.is_some() && destination != historic_to)
         || (destination.is_some() && opening_station_move::departure_turn(world).is_some())
+        || (turn == 7
+            && destination.is_some_and(|to| {
+                world["items"]["lamp"]["lit"] != true || !pond_drop_route(actor, home, to)
+            }))
     {
         return None;
     }
@@ -410,7 +487,7 @@ fn perform_visitor(
         .find(|crossing| crossing["from"] == home && crossing["to"] == to)?;
     let id = crossing["id"].as_str()?;
     let meeting = to == "station" && world["actors"]["vale"]["place"] == to;
-    let historic_boarding = historic_to == Some("greek-ship");
+    let boarding = to == "greek-ship" && (historic_to.is_some() || turn == 7);
     if (meeting && !visitor.station_meeting)
         || world["doors"][home] != to
         || crossing["retired"] == true
@@ -418,7 +495,7 @@ fn perform_visitor(
         || !crossing["transport"].is_null()
         || world["actors"][actor]["crossed"] != 0
         || entries(&homes["choices"]).next().is_some()
-        || (!historic_boarding
+        || (!boarding
             && geo.packs().any(|pack| {
                 pack["transports"]
                     .as_object()
@@ -451,8 +528,8 @@ fn perform_visitor(
     a["heldItem"] = Value::Null;
     a["place"] = json!(to);
     a["crossed"] = json!(1);
-    if historic_boarding {
-        board_historic_ship(world, geo, turn)?;
+    if boarding {
+        board_docked_ship(world, geo, turn)?;
     } else {
         a["dwellUntil"] = json!(dwell);
     }
