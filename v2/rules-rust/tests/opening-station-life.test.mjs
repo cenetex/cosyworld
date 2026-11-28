@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { currentSharedEngine } from "../../../test/fixtures/shared-engine.mjs";
 import { reducers } from "./parity.mjs";
 
@@ -209,4 +210,85 @@ test("historic Station preserves Bard dwell and proves no offstage walks", async
     }),
     null,
   );
+});
+
+test("the Bard still dwells when Pip follows Vale to historic Station", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(traceHistoricStation);
+  const copy = (value) => JSON.parse(JSON.stringify(value));
+  const run = (request) => {
+    const result = pinned(request);
+    assert.equal(result.ok, true, result.error);
+    return result.world;
+  };
+  let cass;
+  let guests;
+  for (const seed of [17, 99]) {
+    const initial = run({ op: "create", history: true, seed });
+    const saved = run({ op: "create", save: JSON.stringify(initial) });
+    for (const dry of [false, true]) {
+      let world = structuredClone(saved);
+      if (dry) {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      } else {
+        world = run({
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+      }
+      const pond = run({
+        ...seats,
+        op: "play",
+        world,
+        action: "move:vale::pond",
+      });
+      const roads = pond.routeKnowledge[bard];
+      if (dry) {
+        const index = roads.findIndex(
+          ([from]) => from === pond.actors[bard].place,
+        );
+        assert.ok(index >= 0);
+        roads.splice(index, 1);
+      }
+      for (const sorted of [false, true]) {
+        const actors = sorted
+          ? Object.fromEntries(Object.entries(pond.actors).toSorted())
+          : pond.actors;
+        reference.bardPlays = [];
+        const key = dry ? "move:vale:lamp:station" : "move:vale::station";
+        const result = JSON.parse(
+          reference.cardShared(
+            JSON.stringify({
+              ...seats,
+              op: "play",
+              world: { ...pond, actors },
+              action: sorted ? { key } : key,
+            }),
+          ),
+        );
+        assert.equal(result.ok, true, result.error);
+        assert.deepEqual(copy(reference.bardPlays), [`wait:${bard}::`]);
+        const before = copy(reference.beforeBard);
+        const after = copy(reference.beforeLife);
+        assert.equal(before.log.at(-1).actorId, seed === 17 ? "orin" : "moth");
+        assert.equal(
+          after.routeKnowledge[bard].length,
+          roads.length + Number(dry),
+        );
+        const actual = wasm({ op: "opening_bard_dwell", world: before });
+        assert.ok(
+          isDeepStrictEqual(actual, { ok: true, world: after }),
+          `${seed}/${dry}/${sorted}`,
+        );
+        if (seed === 17) cass = before;
+        else guests = before;
+      }
+    }
+  }
+  cass.log.at(-1).targetId = "willows-camp";
+  assert.equal(wasm({ op: "opening_bard_dwell", world: cass }), null);
+  guests.actors.keeper.sleeping.until += 1;
+  assert.equal(wasm({ op: "opening_bard_dwell", world: guests }), null);
 });
