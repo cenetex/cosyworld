@@ -14,6 +14,8 @@ struct Context<'a> {
     hands: BTreeMap<String, Vec<&'a str>>,
     pack_values: BTreeMap<&'a str, &'a Value>,
     authored: BTreeMap<&'a str, Vec<(&'a str, bool)>>,
+    active_people: Vec<&'a str>,
+    carried_items: Vec<&'a str>,
 }
 
 struct Item<'a> {
@@ -87,6 +89,8 @@ fn choose(
         items: BTreeMap::new(),
         hands: BTreeMap::new(),
         pack_values: BTreeMap::new(),
+        active_people: Vec::new(),
+        carried_items: Vec::new(),
     };
     for &id in people.people.keys() {
         if geo.entity_active(world, id)? {
@@ -130,6 +134,20 @@ fn choose(
             }
         }
     }
+    context.active_people = context
+        .regions
+        .keys()
+        .copied()
+        .filter(|id| context.active.contains(id))
+        .collect();
+    context.carried_items = context
+        .items
+        .iter()
+        .filter_map(|(&id, item)| {
+            (context.active.contains(id) && context.regions.contains_key(item.root.as_str()))
+                .then_some(id)
+        })
+        .collect();
     let turn = world["turn"].as_u64()?;
     for (&id, person) in &people.people {
         if id == "vale" || person.data["wants"] == false || !context.active.contains(id) {
@@ -336,29 +354,42 @@ fn pick_want<'a>(
     }
     floor = floor.max(1);
     let turn = world["turn"].as_u64()?;
+    let gave_up = &me["gaveUp"];
+    let blocked = if let Some(target) = gave_up["target"].as_str() {
+        (turn.saturating_sub(gave_up["turn"].as_u64()?) < 24).then_some(target)
+    } else {
+        None
+    };
+    let is_person = |id: &str| id != actor && context.regions.contains_key(id);
+    let is_place = |id: &str| reach.contains(id) && context.active.contains(id);
     let mut range = Pool::new();
-    for &id in &context.active {
-        if me["gaveUp"]["target"] == id && turn.saturating_sub(me["gaveUp"]["turn"].as_u64()?) < 24
-        {
+    for &id in &context.carried_items {
+        let holder = context.items.get(id)?.root.as_str();
+        if holder == actor || blocked == Some(id) || is_person(id) || is_place(id) {
             continue;
         }
-        if context.regions.contains_key(id) && id != actor {
-            range.push(("person", id));
-        } else if reach.contains(id) {
-            range.push(("place", id));
-        } else if let Some(item) = context.items.get(id) {
-            let holder = item.root.as_str();
-            let other_want = &world["actors"][holder]["want"];
-            if holder != actor
-                && context.regions.contains_key(holder)
-                && (other_want["kind"] != "item" || other_want["target"] != id)
-                && value_of(world, context, actor, person, id)? > floor
-            {
-                range.push(("item", id));
-            }
+        let other_want = &world["actors"][holder]["want"];
+        if (other_want["kind"] != "item" || other_want["target"] != id)
+            && value_of(world, context, actor, person, id)? > floor
+        {
+            range.push(("item", id));
         }
     }
-    range.sort_unstable();
+    range.extend(
+        context
+            .active_people
+            .iter()
+            .copied()
+            .filter(|id| *id != actor && blocked != Some(*id))
+            .map(|id| ("person", id)),
+    );
+    range.extend(
+        reach
+            .iter()
+            .copied()
+            .filter(|id| blocked != Some(*id) && !is_person(id) && context.active.contains(id))
+            .map(|id| ("place", id)),
+    );
     let mut near = Pool::new();
     let mut refreshed = Pool::new();
     let mut wide = Pool::new();
