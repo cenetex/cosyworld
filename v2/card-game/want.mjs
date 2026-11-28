@@ -621,8 +621,7 @@ function questMet(s, actor, want, talk, action) {
         : action?.led?.includes(actor) && entityActive(s, want.target)),
   );
 }
-// Whether holding this item now meets the actor's item want, as settleWants
-// would judge it: a gift answers a want only if it meets one.
+// A gift answers an item want only if settleWants would meet it.
 export const meetsItemWant = (s, actor, item, action = null) => {
   const w = wantOf(s, actor);
   return Boolean(
