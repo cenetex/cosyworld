@@ -1,7 +1,7 @@
 use super::{
-    create, initial_wants, opening_content, opening_held_items, opening_mirror_move,
-    opening_second_attic_lamp, opening_station_move, opening_wait_response, pack_state::Catalog,
-    Geography,
+    create, initial_wants, opening_attic_rest, opening_content, opening_held_items,
+    opening_mirror_move, opening_quiet_life, opening_resident_sleep, opening_second_attic_lamp,
+    opening_station_move, opening_wait_response, pack_state::Catalog, Geography,
 };
 use serde_json::{json, Value};
 
@@ -55,6 +55,10 @@ pub(super) fn verify_wayfinder(world: &Value, geo: &Geography) -> Option<()> {
     if fresh_attic(world) != Some(2) {
         arrived_scene(world)?;
     }
+    verify_wayfinder_placement(world, geo)
+}
+
+fn verify_wayfinder_placement(world: &Value, geo: &Geography) -> Option<()> {
     if !world["items"].as_object()?.contains_key(WAYFINDER) {
         return Some(());
     }
@@ -278,6 +282,10 @@ pub(super) fn verify_final(before: &Value, world: &Value, geo: &Geography) -> Op
     {
         return None;
     }
+    verify_quiet_facts(before, world, geo)
+}
+
+fn verify_quiet_facts(before: &Value, world: &Value, geo: &Geography) -> Option<()> {
     no_arcana(world, geo)?;
     sealed_at_rest(world, geo)?;
     guards_stable(world, geo)?;
@@ -294,6 +302,33 @@ pub(super) fn verify_final(before: &Value, world: &Value, geo: &Geography) -> Op
     no_new_rumours(before, world)
 }
 
+pub(super) fn settle_historic_station(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
+    let arrival = opening_station_move::historic_arrival(world)?;
+    if before["began"] != 480
+        || before["turn"] != 481
+        || before["actors"]["vale"]["place"] != POND
+        || before["eventSeq"].as_u64()?.checked_add(1)? != arrival
+        || world["eventSeq"] != arrival
+        || before["actors"][PIP]["sleeping"] != world["actors"][PIP]["sleeping"]
+        || !solo(world)
+        || world["playerActorId"] != "vale"
+    {
+        return None;
+    }
+    opening_resident_sleep::sleeping_pip_at_pond(world, geo, arrival)?;
+    opening_quiet_life::verify_home_levels(world, geo)?;
+    verify_quiet_facts(before, world, geo)?;
+    opening_attic_rest::settle_visit_speech(before, world, false)?;
+    verify_wayfinder_placement(world, geo)?;
+    opening_held_items::settle(world, geo, Some(before))?;
+    opening_second_attic_lamp::settle_station(world, geo)?;
+    verify_station_order(world, geo)
+}
+
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
@@ -306,6 +341,11 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         "stops" => verify_stops(world, &geo)?,
         "wake" => verify_wake(world)?,
         "quiet" => verify_final(request.get("before")?, world, &geo)?,
+        "historic_station" => {
+            let mut world = world.clone();
+            settle_historic_station(request.get("before")?, &mut world, &geo)?;
+            return Some(json!({"ok":true,"world":world}));
+        }
         "station_hands_lamp" => {
             let mut next = world.clone();
             opening_held_items::settle(&mut next, &geo, Some(request.get("before")?))?;

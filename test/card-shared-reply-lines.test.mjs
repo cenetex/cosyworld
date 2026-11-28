@@ -164,7 +164,6 @@ describe("shared speech from an occasion's own voices", () => {
   });
 
   it("keeps a defeat's host after a human enters before its speech", () => {
-    // Mara is locked away at the pond, where Ada lives as a resident.
     const world = dispatchShared({ op: "create", absent: ["mara"] }).world;
     world.actors.moth.place = world.actors.rue.place = "station";
     world.actors.ada.place = world.actors.mara.place = "pond";
