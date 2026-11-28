@@ -53,12 +53,14 @@ artifact="$(node v2/scripts/build-rust-rules.mjs)"
 COSYWORLD_RULES_WASM="$artifact" node --test v2/rules-rust/tests/*.test.mjs
 COSYWORLD_RULES_WASM="$artifact" cargo test --locked \
   --manifest-path v2/orchestrator-rust/Cargo.toml --features rules-wasm \
-  --bin cosyworld-orchestrator sqlite_rules_wasm_parity -- --nocapture
+  --bin cosyworld-orchestrator sqlite_rules_wasm_parity -- --nocapture --test-threads=1
 ```
 
 Set `COSYWORLD_REPLAY_DB` to a consistent, anonymized SQLite copy. Select a world with `COSYWORLD_REPLAY_WORLD`, or use `COSYWORLD_REPLAY_ALL=1` to check every active world in one read-only transaction. The verifier replays from each seed with pinned rules and content, checks its stored checkpoint against the rebuilt head, and reports unsupported calls by operation. `COSYWORLD_REQUIRE_FULL_REPLAY=1` requires all selected heads to use current rules and content, every current rules call to match, and at least one observed comparison across the selected worlds. Reverify the journal heads when writing a future epoch checkpoint.
 
 The same test exercises fresh and imported creation, a claimed seat's view, valid and malformed saves, and plays refused for absence, a stale revision, or an unavailable card. It compares the complete reply to the pinned QuickJS bundle. Ordinary runs report unsupported direct fixtures. Strict mode requires a match on each one.
+
+Synthetic SQLite journals also replay accepted opening actions. One records a quest acceptance. Another records a claim with carried progress, entering, two lamp holds, leaving and returning, and a reset that clears progress and leaves the lit lamp in the attic.
 
 A journal claim requests `join_state` with the authenticated seat and any passkey progress. The QuickJS adapter projects the pinned `join` response to the complete journal result of `ok` and `world`. The view endpoint serves legal actions separately. The WASM candidate handles opening claims, including the arrival of absent avatars and the merge of progress earned in other worlds.
 
