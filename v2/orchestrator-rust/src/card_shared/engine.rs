@@ -190,7 +190,6 @@ fn reduce_source(
         Some((_, pack)) => view_cache_key(&format!("{version}+{pack}"), &input),
         None => view_cache_key(version, &input),
     });
-    // Cache successful projections by their exact serialized inputs.
     if let Some(cache_key) = cache_key.as_deref() {
         let cached = views()
             .lock()
