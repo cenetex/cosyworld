@@ -504,8 +504,7 @@ pub(super) fn enqueue(
     if count >= 4 {
         return Err("Four plays are at the table. Yours can follow shortly.".into());
     }
-    // The first accepted reveal snapshot stays with this queue entry. The
-    // worker takes it out before the action reaches the rules and journal.
+    // The queue keeps the first reveal snapshot until the worker removes it before rules and journaling.
     if let Some(revealed) = revealed {
         command["revealed"] = json!(revealed);
     }
