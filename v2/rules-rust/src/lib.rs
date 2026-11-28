@@ -29,6 +29,7 @@ mod opening_wait;
 mod pack_state;
 mod profiles;
 mod reset;
+pub mod resident_evidence;
 mod seed;
 mod seed_arrivals;
 mod seed_packs;
