@@ -53,6 +53,60 @@ fn quiet_turn(world: &Value) -> Option<u64> {
     Some(turn)
 }
 
+fn historic_cass_turn(world: &Value, geo: &Geography<'_>, actor: &str) -> Option<u64> {
+    if actor != "orin" {
+        return None;
+    }
+    let arrival = opening_station_move::historic_arrival(world)?;
+    let turn = world["turn"].as_u64()?;
+    let follow = arrival.checked_add(1)?;
+    let log = world["log"].as_array()?;
+    let last = log.last()?;
+    let cass = &world["actors"][actor];
+    if world["playerActorId"] != "vale"
+        || ["heldActors", "presentActors", "controlledActors"]
+            .iter()
+            .any(|key| world[*key] != json!(["vale"]))
+        || geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
+        || !world["standoffs"].as_array()?.is_empty()
+        || world["conversations"]
+            .as_array()?
+            .iter()
+            .any(|record| record["turn"].as_u64().is_none_or(|at| at >= turn))
+        || world["actors"]["moth"]["place"] != "station"
+        || !world["actors"]["moth"]["sleeping"].is_null()
+        || world["eventSeq"] != follow
+        || last["seq"] != follow
+        || last["turn"] != turn
+        || last["kind"] != "action"
+        || last["generated"] == true
+        || last["actorId"] != "moth"
+        || last["verb"] != "move"
+        || last["fromLocationId"] != "pond"
+        || last["locationId"] != "station"
+        || last["targetId"] != "station"
+        || !last["itemId"].is_null()
+        || cass["place"] != "pavilion"
+        || cass["visited"] != json!(["pavilion"])
+        || cass["want"]
+            != json!({"kind":"person","target":"willows-swede","since":480,"refusals":0})
+        || world["actors"]["willows-swede"]["place"] != "willows-camp"
+        || !geo.entity_active(world, "willows-swede")?
+        || !geo.visiting_resident(world, actor)
+    {
+        return None;
+    }
+    let take = log.iter().rev().find(|event| {
+        event["actorId"] == actor && event["kind"] == "action" && event["generated"] != true
+    })?;
+    (take["turn"] == 481
+        && take["seq"].as_u64()? < arrival
+        && take["verb"] == "take"
+        && take["itemId"] == "board"
+        && take["locationId"] == "pavilion")
+        .then_some(turn)
+}
+
 fn room<'a>(geo: &Geography<'a>, id: &str) -> Option<&'a Value> {
     geo.packs()
         .find_map(|pack| pack["places"].get(id))
@@ -268,14 +322,16 @@ fn perform_visitor(
     custody: &mut Custody,
     visitor: Visitor<'_>,
 ) -> Option<()> {
-    let turn = quiet_turn(world)?;
     let actor = visitor.actor;
+    let turn = quiet_turn(world).or_else(|| historic_cass_turn(world, geo, actor))?;
+    let historic = turn == 482;
     let avatar = entries(&geo.files()["v2/card-game/shared-cast.json"]["avatars"])
         .find(|avatar| avatar["id"] == actor)?;
     let home = avatar["home"]["id"].as_str()?;
     let item = avatar["item"]["id"].as_str()?;
     let a = world["actors"].get(actor)?;
-    if !entries(&a["visited"]).any(|place| place == home)
+    if (historic && (home != "pavilion" || item != "board"))
+        || !entries(&a["visited"]).any(|place| place == home)
         || ["sleeping", "homeward", "attend", "guarding", "under"]
             .iter()
             .any(|field| !a[*field].is_null())
@@ -305,7 +361,11 @@ fn perform_visitor(
     {
         return None;
     }
-    let Some(to) = home_destination(world, geo, actor, home)? else {
+    let destination = home_destination(world, geo, actor, home)?;
+    if historic && destination != Some("willows-bank") {
+        return None;
+    }
+    let Some(to) = destination else {
         if geo.packs().any(|pack| {
             entries(&pack["choices"]).any(|choice| choice["at"] == home && choice["on"] == "wait")
         }) {
