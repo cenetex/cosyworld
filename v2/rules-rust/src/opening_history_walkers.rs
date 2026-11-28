@@ -1,24 +1,20 @@
 use super::{
-    create_geography::Geography, initial_wants::People, opening_content, opening_quiet_life,
-    opening_resident_sleep, pack_state::Catalog,
+    create_geography::Geography,
+    opening_content, opening_quiet_life,
+    opening_resident_sleep::{self, Residents},
+    pack_state::Catalog,
 };
 use serde_json::{json, Value};
 
-pub(super) fn verify(world: &Value, geo: &Geography<'_>, acted: &[&str]) -> Option<()> {
-    let turn = world["turn"].as_u64()?;
-    if turn != 481
-        || world["began"] != 480
-        || world["presentActors"] != json!(["vale"])
-        || world["controlledActors"] != json!(["vale"])
-        || world["actors"]["vale"]["place"] != "attic"
-        || world["items"]["lamp"]["holder"] != "vale"
-        || !world["standoffs"].as_array()?.is_empty()
-    {
-        return None;
-    }
-    let people = People::new(geo.files(), geo.packs())?;
-    let ships = opening_resident_sleep::ships(geo);
-    for (id, person) in people.people {
+pub(super) fn verify(
+    world: &Value,
+    geo: &Geography<'_>,
+    acted: &[&str],
+    residents: &Residents<'_>,
+) -> Option<()> {
+    let turn = u64::try_from(opening_resident_sleep::historic_attic(world)?).ok()?;
+    let people = &residents.people;
+    for (&id, person) in &people.people {
         if id == "vale" || acted.contains(&id) || person.data["roamingQuest"] == "latest-completion"
         {
             continue;
@@ -27,18 +23,18 @@ pub(super) fn verify(world: &Value, geo: &Geography<'_>, acted: &[&str]) -> Opti
         let here = actor["place"].as_str()?;
         if here == "attic"
             || !actor["sleeping"].is_null()
-            || ships.contains(here)
+            || residents.ships.contains(here)
             || world["peaceUntil"][id].as_u64()? > turn
         {
             continue;
         }
         let homeward = actor["homeward"] == true;
         if !homeward
-            && (people.humans.contains(id) || !opening_quiet_life::ranged(world, geo, id, &person)?)
+            && (people.humans.contains(id) || !opening_quiet_life::ranged(world, geo, id, person)?)
         {
             continue;
         }
-        let home = opening_resident_sleep::home(world, geo, id, &person)?;
+        let home = opening_resident_sleep::home(world, geo, id, person)?;
         if home == Some(here) && !homeward {
             continue;
         }
@@ -63,7 +59,7 @@ pub(super) fn verify(world: &Value, geo: &Geography<'_>, acted: &[&str]) -> Opti
         {
             continue;
         }
-        if opening_resident_sleep::step_home(world, geo, id, here, home)? {
+        if opening_resident_sleep::step_home(world, geo, id, here, home, residents)? {
             return None;
         }
     }
@@ -80,6 +76,6 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         .map(Value::as_str)
         .collect::<Option<Vec<_>>>()?;
     let world = request.get("world")?;
-    verify(world, &geo, &acted)?;
+    verify(world, &geo, &acted, &Residents::new(&geo)?)?;
     Some(json!({"ok":true, "world":world}))
 }

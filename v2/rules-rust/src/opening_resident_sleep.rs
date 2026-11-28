@@ -1,8 +1,9 @@
 use super::{
     create_geography::Geography,
-    initial_wants::{run_hash, People, Person},
+    initial_wants::{People, Person},
     opening_content, opening_quiet_life,
     pack_state::Catalog,
+    seed::hash,
 };
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
@@ -21,14 +22,25 @@ fn places(region: &Value) -> impl Iterator<Item = &Value> {
         .flat_map(|map| map.values())
 }
 
-pub(super) fn ships<'a>(geo: &Geography<'a>) -> BTreeSet<&'a str> {
-    geo.packs()
-        .flat_map(|pack| pack["transports"].as_object().into_iter().flatten())
-        .filter_map(|(_, ship)| ship["place"].as_str())
-        .collect()
+pub(super) struct Residents<'a> {
+    pub(super) people: People<'a>,
+    pub(super) ships: BTreeSet<&'a str>,
 }
 
-fn bedtime(world: &Value, id: &str, schedule: &Value, turn: i64) -> Option<Option<(i64, i64)>> {
+impl<'a> Residents<'a> {
+    pub(super) fn new(geo: &Geography<'a>) -> Option<Self> {
+        Some(Self {
+            people: People::new(geo.files(), geo.packs())?,
+            ships: geo
+                .packs()
+                .flat_map(|pack| pack["transports"].as_object().into_iter().flatten())
+                .filter_map(|(_, ship)| ship["place"].as_str())
+                .collect(),
+        })
+    }
+}
+
+fn bedtime(seed: u64, id: &str, schedule: &Value, turn: i64) -> Option<Option<(i64, i64)>> {
     if schedule.is_null() {
         return Some(None);
     }
@@ -38,13 +50,21 @@ fn bedtime(world: &Value, id: &str, schedule: &Value, turn: i64) -> Option<Optio
         return None;
     }
     let scatter = |edge, day| {
-        i64::from(run_hash(world, &format!("{edge}:{id}:{day}"))) % (2 * SCATTER + 1) - SCATTER
+        i64::from(hash(&format!("{seed}:{edge}:{id}:{day}"))) % (2 * SCATTER + 1) - SCATTER
     };
     let day = turn / DAY;
     Some([day - 1, day].into_iter().find_map(|day| {
-        let start = day * DAY + from + scatter("sleep", day);
-        let end = (day + i64::from(to <= from)) * DAY + to + scatter("wake", day);
-        (start <= turn && turn < end).then_some((start, end))
+        let start = day * DAY + from;
+        let end = (day + i64::from(to <= from)) * DAY + to;
+        if turn < start - SCATTER || turn >= end + SCATTER {
+            return None;
+        }
+        let end = end + scatter("wake", day);
+        if turn >= end {
+            return None;
+        }
+        let start = start + scatter("sleep", day);
+        (start <= turn).then_some((start, end))
     }))
 }
 
@@ -131,6 +151,7 @@ pub(super) fn step_home(
     id: &str,
     here: &str,
     home: &str,
+    residents: &Residents<'_>,
 ) -> Option<bool> {
     let pack = geo.resident_pack(id)?;
     if world["routeKnowledge"].get(id).is_some()
@@ -139,17 +160,17 @@ pub(super) fn step_home(
     {
         return None;
     }
-    if !geo.entity_active(world, home)? || sealed_home(world, geo, here, home)? {
+    if !geo.entity_active(world, home)? {
         return Some(false);
     }
     if here == "station"
         || pack["places"].get(here).is_none()
         || !pack["avatars"][id]["journey"].is_null()
         || !entries(&pack["places"][here]["exits"]).any(|exit| exit == home)
-        || ships(geo).contains(here)
-        || ships(geo).contains(home)
+        || residents.ships.contains(here)
+        || residents.ships.contains(home)
     {
-        return None;
+        return sealed_home(world, geo, here, home)?.then_some(false);
     }
     let guardable = &geo.files()["v2/card-game/world-life.json"]["guardable"];
     let on_lane = |edge: &&Value| edge["from"] == here && edge["to"] == home;
@@ -186,76 +207,103 @@ fn no_seeking(world: &Value, person: &Person<'_>, id: &str, turn: i64) -> Option
     None
 }
 
-pub(super) fn settle(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+fn vale_only(seats: &Value) -> bool {
+    seats
+        .as_array()
+        .is_some_and(|seats| seats.len() == 1 && seats[0] == "vale")
+}
+
+pub(super) fn historic_attic(world: &Value) -> Option<i64> {
     let turn = world["turn"].as_i64()?;
     if turn != 481
         || world["began"] != 480
-        || world["sharedVersion"] != 1
-        || world["heldActors"] != json!(["vale"])
-        || world["controlledActors"] != json!(["vale"])
-        || world["presentActors"] != json!(["vale"])
+        || !vale_only(&world["controlledActors"])
+        || !vale_only(&world["presentActors"])
         || world["actors"]["vale"]["place"] != "attic"
         || world["items"]["lamp"]["holder"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
+    {
+        return None;
+    }
+    Some(turn)
+}
+
+pub(super) fn settle(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    residents: &Residents<'_>,
+) -> Option<()> {
+    let turn = historic_attic(world)?;
+    if world["sharedVersion"] != 1
+        || !vale_only(&world["heldActors"])
         || !["hidden", "absent", "homecoming"]
             .iter()
             .all(|field| world[*field].is_null())
     {
         return None;
     }
-    let people = People::new(geo.files(), geo.packs())?;
-    let ships = ships(geo);
+    let people = &residents.people;
+    let seed = world["run"]["seed"].as_u64().unwrap_or(0);
+    let default_schedule = &people.life["defaults"]["sleep"];
     for (&id, person) in &people.people {
         let human = people.humans.contains(id);
         if id == "vale"
             || person.data["roamingQuest"] == "latest-completion"
             || (human && !geo.visiting_resident(world, id))
-            || !geo.entity_active(world, id)?
         {
             continue;
         }
         let actor = world["actors"].get(id)?;
         let here = actor["place"].as_str()?;
-        let home = home(world, geo, id, person)?;
-        let at_home = home == Some(here);
-        let clear_homeward = at_home && actor["homeward"] == true;
         let sleeping = &actor["sleeping"];
-        if let Some(until) = sleeping.get("until") {
-            if until.as_i64()? <= turn || sleeping["place"] != here {
-                if here == "attic" {
-                    return None;
-                }
-                world["actors"][id].as_object_mut()?.remove("sleeping");
-            }
-        } else if sleeping.is_null() && !ships.contains(here) {
+        let wake = sleeping.get("until").is_some_and(|until| {
+            until.as_i64().is_none_or(|until| until <= turn) || sleeping["place"] != here
+        });
+        let bedtime = if sleeping.is_null() && !residents.ships.contains(here) {
             let pack_schedule = &people.life["packs"][person.pack]["sleep"];
             let fallback = if human || pack_schedule.is_null() {
-                &people.life["defaults"]["sleep"]
+                default_schedule
             } else {
                 pack_schedule
             };
             let schedule = people.life["residents"][id]
                 .get("sleep")
                 .unwrap_or(fallback);
-            if let Some((start, end)) = bedtime(world, id, schedule, turn)? {
-                if actor["slept"] != start {
-                    if let Some(home) = home.filter(|_| !at_home) {
-                        if seeks_home_when_tired(world, geo, id, person, human)? {
-                            if step_home(world, geo, id, here, home)? {
-                                no_seeking(world, person, id, turn)?;
-                                world["actors"][id]["homeward"] = json!(true);
-                            }
-                            continue;
-                        }
+            bedtime(seed, id, schedule, turn)?.filter(|(start, _)| actor["slept"] != *start)
+        } else {
+            None
+        };
+        if !wake && bedtime.is_none() && actor["homeward"] != true {
+            continue;
+        }
+        if !geo.entity_active(world, id)? {
+            continue;
+        }
+        let home = home(world, geo, id, person)?;
+        let at_home = home == Some(here);
+        let clear_homeward = at_home && actor["homeward"] == true;
+        if wake {
+            sleeping["until"].as_i64()?;
+            if here == "attic" {
+                return None;
+            }
+            world["actors"][id].as_object_mut()?.remove("sleeping");
+        } else if let Some((start, end)) = bedtime {
+            if let Some(home) = home.filter(|_| !at_home) {
+                if seeks_home_when_tired(world, geo, id, person, human)? {
+                    if step_home(world, geo, id, here, home, residents)? {
+                        no_seeking(world, person, id, turn)?;
+                        world["actors"][id]["homeward"] = json!(true);
                     }
-                    if here == "attic" {
-                        return None;
-                    }
-                    let sleep = json!({"since":turn,"place":here,"until":end});
-                    world["actors"][id]["slept"] = json!(start);
-                    world["actors"][id]["sleeping"] = sleep;
+                    continue;
                 }
             }
+            if here == "attic" {
+                return None;
+            }
+            let sleep = json!({"since":turn,"place":here,"until":end});
+            world["actors"][id]["slept"] = json!(start);
+            world["actors"][id]["sleeping"] = sleep;
         }
         if clear_homeward {
             world["actors"][id].as_object_mut()?.remove("homeward");
@@ -269,7 +317,7 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = request.get("world")?.clone();
-    settle(&mut world, &geo)?;
+    settle(&mut world, &geo, &Residents::new(&geo)?)?;
     let mut response = json!({"ok":true});
     response["world"] = world;
     Some(response)
