@@ -1,5 +1,4 @@
-// Bundle every rules JSON import into one revision for the Rust host to hash.
-// See docs/design/pack-content-outside-the-engine.md.
+// Build the hashed JSON revision described in docs/design/pack-content-outside-the-engine.md.
 import { build } from "esbuild";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
