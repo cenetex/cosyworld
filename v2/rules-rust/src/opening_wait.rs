@@ -95,11 +95,16 @@ pub(super) fn wait_world(request: &Value) -> Option<&Value> {
     Some(world)
 }
 
-pub(super) fn projection(request: &Value) -> Option<Value> {
+pub(super) fn begin(request: &Value) -> Option<(Value, Value, Value)> {
     let world = wait_world(request)?;
     let files = opening_play::attic_files(world, request)?;
     let mut next = world.clone();
     let event = begin_wait(&mut next, &files)?;
+    Some((next, event, files))
+}
+
+pub(super) fn projection(request: &Value) -> Option<Value> {
+    let (mut next, event, _) = begin(request)?;
     let mut memories = Map::new();
     for id in [ACTOR, ROOM, LAMP] {
         memories.insert(id.into(), next["memories"].as_object_mut()?.remove(id)?);
