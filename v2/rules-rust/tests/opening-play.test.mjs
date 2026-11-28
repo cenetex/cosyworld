@@ -97,7 +97,12 @@ test("opening play refusals preserve the entire pinned world", async () => {
     to: "pond",
   });
   assert.equal(wasm(play, JSON.stringify(updated)), null);
-  assert.equal(wasm({ ...play, action: "wait:vale::" }), null);
+  const wait = { ...play, action: "wait:vale::" };
+  compare(wasm(wait), pinned(wait), "historic opening Wait");
+  assert.equal(
+    wasm({ ...wait, claimed: ["vale", "mara"], present: ["vale", "mara"] }),
+    null,
+  );
 });
 
 test("accepting the opening quest with another seat present matches pinned rules", async () => {
