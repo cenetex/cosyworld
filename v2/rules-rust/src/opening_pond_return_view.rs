@@ -37,11 +37,18 @@ pub(super) fn arrival(world: &Value) -> Option<(u64, u64)> {
     {
         return None;
     }
+    let (departure, read) = keeper_read_departure(world, None)?;
+    (departure == seq).then_some((seq, read))
+}
+
+pub(super) fn keeper_read_departure(world: &Value, returned: Option<&Value>) -> Option<(u64, u64)> {
     let log = world["log"].as_array()?;
-    let moves: Vec<_> = log.iter().filter(|event| vale_action(event)).collect();
-    let [pond, station, read, back] = moves.as_slice() else {
+    let mut moves = log.iter().filter(|event| vale_action(event));
+    let (pond, station, read, back) = (moves.next()?, moves.next()?, moves.next()?, moves.next()?);
+    if moves.next() != returned || moves.next().is_some() {
         return None;
-    };
+    }
+    let seq = back["seq"].as_u64()?;
     let station_seq = station["seq"].as_u64()?;
     let read_seq = read["seq"].as_u64()?;
     let wait_seq = read_seq.checked_add(1)?;
@@ -74,7 +81,6 @@ pub(super) fn arrival(world: &Value) -> Option<(u64, u64)> {
         && wait["locationId"] == STATION
         && wait["cast"] == read["cast"]
         && wait["witnesses"] == read["witnesses"]
-        && back["seq"] == seq
         && wait_seq.checked_add(1)? == seq
         && move_event(back, 4, STATION, POND))
     .then_some((seq, read_seq))
