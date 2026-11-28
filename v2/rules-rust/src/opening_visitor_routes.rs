@@ -24,6 +24,9 @@ pub(super) fn crossing_open(
     }
     if let Some(transport) = crossing["transport"].as_str() {
         let ship = &world["transports"][transport];
+        if ship["version"] != 3 {
+            return None;
+        }
         if ship["dock"] != from || ship["phase"] == "sea" {
             return Some(false);
         }
@@ -44,7 +47,7 @@ pub(super) fn crossing_open(
         {
             return Some(false);
         }
-        return None;
+        return geo.crossing_conditions(world, pack, &crossing["requires"], Some(actor));
     }
     if let Some(signal) = crossing.get("signal") {
         let window = if signal["opens"].is_null() {
@@ -112,7 +115,15 @@ pub(super) fn exits<'a>(
         let id = pack["id"].as_str()?;
         for crossing in entries(&pack["crossings"]).filter(|crossing| crossing["from"] == from) {
             if crossing_open(world, geo, actor, id, crossing)? {
-                ways.insert(crossing["to"].as_str()?);
+                if let Some(transport) = crossing["transport"].as_str() {
+                    if let Some(ship) =
+                        super::opening_visitor_transport::board(world, geo, actor, transport, from)?
+                    {
+                        ways.insert(ship);
+                    }
+                } else {
+                    ways.insert(crossing["to"].as_str()?);
+                }
             }
         }
         for route in entries(&pack["routes"]).filter(|route| route["from"] == from) {
