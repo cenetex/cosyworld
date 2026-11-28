@@ -17,7 +17,7 @@ const RAVEN: &str = "ratiradio-raven-figurine";
 const PROVISIONS: &str = "greek-provisions";
 const ROADS: [&str; 2] = ["greek-road-thebes", "greek-argolid-road"];
 const EXITS: [&str; 3] = [ROADS[0], ROADS[1], SHIP];
-const VOICES: [&str; 2] = [VALE, MYRTO];
+pub(super) const VOICES: [&str; 2] = [VALE, MYRTO];
 
 fn scene(world: &Value, geo: &Geography<'_>, authored: &Order) -> Option<(bool, bool)> {
     let vale = &world["actors"][VALE];
@@ -120,9 +120,9 @@ fn cast(event: &Value, ada: bool) -> Option<()> {
     .then_some(())
 }
 
-fn events<'a>(
+fn events<'a, 'name>(
     world: &'a Value,
-    profiles: &Value,
+    name: impl Fn(&str) -> Option<&'name str>,
     ada: bool,
     raven: bool,
     allow_speech: bool,
@@ -132,12 +132,12 @@ fn events<'a>(
     let start = log.iter().position(|entry| entry == arrival)?;
     let suffix = log.get(start..)?;
     let (travel, speech) = suffix.split_at_checked(1 + usize::from(ada))?;
-    let room = profiles[HARBOR]["name"].as_str()?;
-    let vale = profiles[VALE]["name"].as_str()?;
+    let room = name(HARBOR)?;
+    let vale = name(VALE)?;
     let text = if arrival["itemId"] == CLOTH {
         format!(
             "{vale} carries {} ashore at {room}.",
-            item_as_named(profiles[CLOTH]["name"].as_str()?)
+            item_as_named(name(CLOTH)?)
         )
     } else {
         format!("{vale} disembarks at {room}.")
@@ -181,8 +181,7 @@ fn events<'a>(
             || follow["targetId"] != HARBOR
             || !follow["itemId"].is_null()
             || follow["witnesses"] != json!([ADA])
-            || follow["text"]
-                != format!("{} disembarks at {room}.", profiles[ADA]["name"].as_str()?)
+            || follow["text"] != format!("{} disembarks at {room}.", name(ADA)?)
         {
             return None;
         }
@@ -197,7 +196,7 @@ fn events<'a>(
         if ![VALE, MYRTO, HARBOR].contains(&voice)
             || (voice == HARBOR && line["kind"] != "narration")
             || line["entityId"] != voice
-            || line["speaker"] != profiles[voice]["name"]
+            || line["speaker"] != name(voice)?
             || line["generated"] != true
             || line.get("elysiumName").is_some()
         {
@@ -205,6 +204,20 @@ fn events<'a>(
         }
     }
     Some(travel)
+}
+
+pub(super) fn settled_speech<'name>(
+    world: &Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    name: impl Fn(&str) -> Option<&'name str>,
+) -> Option<(bool, bool)> {
+    if world["speechVoices"][VALE] != json!(VOICES) {
+        return None;
+    }
+    let (ada, raven) = scene(world, geo, authored)?;
+    events(world, name, ada, raven, true)?;
+    Some((ada, raven))
 }
 
 fn reply(
@@ -336,7 +349,13 @@ pub(super) fn completed_response(
     profiles: Value,
 ) -> Option<Value> {
     let (ada, raven) = scene(&world, geo, authored)?;
-    let travel = events(&world, &profiles, ada, raven, false)?;
+    let travel = events(
+        &world,
+        |id| profiles[id]["name"].as_str(),
+        ada,
+        raven,
+        false,
+    )?;
     let speech = &geo.files()["v2/card-game/speech.json"];
     if travel.first()?["seq"] != before_seq.checked_add(1)?
         || speech["action"] != json!(["actor"])
@@ -385,9 +404,8 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    let (ada, raven) = scene(world, &geo, &authored)?;
     let profiles = profiles::project(&files)?;
-    events(world, &profiles, ada, raven, true)?;
+    let (ada, raven) = settled_speech(world, &geo, &authored, |id| profiles[id]["name"].as_str())?;
     let mut response = json!({"ok":true});
     response["world"] = opening_view::private_world(world, request)?;
     reply(
