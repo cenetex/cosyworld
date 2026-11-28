@@ -237,12 +237,13 @@ pub(super) fn presence(request: &Value) -> Option<Value> {
         let held = opening.held;
         return opening.respond(world.clone(), held);
     }
-    awake_station_presence(request)
+    station_presence(request)
 }
 
-fn awake_station_presence(request: &Value) -> Option<Value> {
+fn station_presence(request: &Value) -> Option<Value> {
     let before = request.get("world")?;
-    opening_station_move::historic_follow(before)?;
+    opening_station_move::arrival(before)
+        .or_else(|| opening_station_move::historic_follow(before))?;
     let claimed = seats(&request["claimed"])?;
     let present = seats(&request["present"])?;
     if request["actor"] != "vale"
@@ -260,7 +261,7 @@ fn awake_station_presence(request: &Value) -> Option<Value> {
     world["heldActors"] = json!(claimed);
     world["controlledActors"] = json!(present);
     world["presentActors"] = json!(present);
-    let voices = opening_station_view::settled_speech_voices(&world, &geo, &order)?;
+    let voices = opening_station_view::settled_arrival_voices(&world, &geo, &order)?;
     if world["speechVoices"]["vale"] != json!(voices) {
         return None;
     }

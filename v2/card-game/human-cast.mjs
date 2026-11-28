@@ -49,9 +49,8 @@ export const humanRoomAvailable = (world, actor, place, count = 1) =>
   world.actors[actor]?.place === place ||
   roomHumanCount(world, place) + count <= 4;
 
-// These seven homes join the world away from the pond, which stays Vale's.
-// Vale, the station, the attic, the pond and the lamp keep their original
-// definitions and behavior.
+// The seven visitor homes join the shore away from Vale's pond.
+// The hub supplies Vale, the station, attic, pond and lamp.
 export const visitors = humanAvatars.filter((a) => a.id !== "vale");
 export const humanHomeGates = Object.fromEntries(
   visitors.map((a) => [a.home.id, true]),
