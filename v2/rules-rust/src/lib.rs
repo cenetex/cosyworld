@@ -32,6 +32,7 @@ mod opening_pickups;
 mod opening_place_cards;
 mod opening_play;
 mod opening_pond_ask;
+mod opening_pond_place_returns;
 mod opening_quiet_life;
 mod opening_reflection;
 mod opening_resident_sleep;
@@ -163,6 +164,9 @@ pub fn reduce(request: &Value) -> Value {
             opening_mirror_move::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_pond_ask") => opening_pond_ask::projection(request).unwrap_or(Value::Null),
+        Some("opening_pond_place_returns") => {
+            opening_pond_place_returns::projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_pickups") => opening_pickups::projection(request).unwrap_or(Value::Null),
         Some("opening_place_cards") => {
             opening_place_cards::projection(request).unwrap_or(Value::Null)

@@ -47,17 +47,21 @@ export function browserRules(bytes) {
         request.op === "play" &&
         (key === "wait:vale::" || key === "drop:vale:lamp:attic");
       const ordered =
-        ["opening_wait_roster", "opening_mirror_move", "opening_pond_ask"].includes(
-          request.op,
-        ) ||
-        atticPlay;
+        [
+          "opening_wait_roster",
+          "opening_mirror_move",
+          "opening_pond_ask",
+          "opening_pond_place_returns",
+        ].includes(request.op) || atticPlay;
       const actors = ordered ? request.world?.actors : null;
       const actorOrder =
         actors && typeof actors === "object" && !Array.isArray(actors)
           ? Object.keys(actors)
           : undefined;
       const cards =
-        request.op === "opening_place_return" ||
+        ["opening_place_return", "opening_pond_place_returns"].includes(
+          request.op,
+        ) ||
         (atticPlay && request.world?.began === 480)
           ? request.world?.placeCard
           : null;

@@ -132,13 +132,20 @@ fn encode_request(
     let attic_play = matches!(play, Some("wait:vale::" | "drop:vale:lamp:attic"));
     let ordered = matches!(
         op,
-        Some("opening_wait_roster" | "opening_mirror_move" | "opening_pond_ask")
+        Some(
+            "opening_wait_roster"
+                | "opening_mirror_move"
+                | "opening_pond_ask"
+                | "opening_pond_place_returns"
+        )
     ) || attic_play;
-    let ordered_cards = op == Some("opening_place_return")
-        || (attic_play
-            && request
-                .get("world")
-                .is_some_and(|world| world["began"] == 480));
+    let ordered_cards = matches!(
+        op,
+        Some("opening_place_return" | "opening_pond_place_returns")
+    ) || (attic_play
+        && request
+            .get("world")
+            .is_some_and(|world| world["began"] == 480));
     if ordered {
         if let Some(actors) = request
             .get("world")

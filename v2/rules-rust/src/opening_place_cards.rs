@@ -14,6 +14,13 @@ pub(super) struct Deck<'a> {
     ships: BTreeSet<&'a str>,
 }
 
+pub(super) struct ReturnScene<'a> {
+    pub(super) location: &'a str,
+    pub(super) from: &'a str,
+    pub(super) cast: &'a [&'a str],
+    pub(super) items: &'a [&'a str],
+}
+
 impl<'a> Deck<'a> {
     pub(super) fn new(world: &Value, geo: &Geography<'a>) -> Option<Self> {
         let forest = &geo.files()["v2/card-game/forest.json"];
@@ -122,11 +129,32 @@ impl<'a> Deck<'a> {
         evidence: &ResidentEvidence,
         order: &[&str],
     ) -> Option<Vec<Value>> {
+        let scene = ReturnScene {
+            location: "attic",
+            from: "attic",
+            cast: &["vale"],
+            items: &["lamp"],
+        };
+        self.settle_returns_at(world, geo, evidence, order, &scene)
+    }
+
+    pub(super) fn settle_returns_at(
+        &self,
+        world: &mut Value,
+        geo: &Geography,
+        evidence: &ResidentEvidence,
+        order: &[&str],
+        scene: &ReturnScene<'_>,
+    ) -> Option<Vec<Value>> {
         let mut events = Vec::new();
         for (home, item) in completed_at_home(world, order)? {
-            events.push(record_return(world, geo, evidence, home, &item)?);
+            events.push(record_return(world, geo, evidence, home, &item, scene)?);
         }
-        self.settle(world, geo, Some("attic"))?;
+        self.settle(
+            world,
+            geo,
+            (scene.location == scene.from).then_some(scene.location),
+        )?;
         Some(events)
     }
 }
@@ -188,6 +216,7 @@ fn record_return(
     evidence: &ResidentEvidence,
     home: &str,
     item: &str,
+    scene: &ReturnScene<'_>,
 ) -> Option<Value> {
     let from = format!("quest:place:{home}");
     for actor in world["actors"].as_object()?.values() {
@@ -217,7 +246,7 @@ fn record_return(
     let key = format!("vale:place:{home}:{turn}::{terms}");
     let event = json!({
         "speaker":"World", "text":format!("{vale} reaches {place}."),
-        "kind":"narration", "actorId":"vale", "locationId":"attic", "verb":"want_met", "ownerId":home,
+        "kind":"narration", "actorId":"vale", "locationId":scene.location, "verb":"want_met", "ownerId":home,
         "wantMet":{"kind":"place","target":home}, "wantKey":key,
     });
     let fields = world.as_object_mut()?;
@@ -227,7 +256,7 @@ fn record_return(
         .or_insert_with(|| json!([]))
         .as_array_mut()?
         .push(json!(item));
-    evidence.record(world, &["vale"], &["lamp"], event, true)?;
+    evidence.record(world, scene.cast, scene.items, event, true)?;
     world["log"].as_array()?.last().cloned()
 }
 
