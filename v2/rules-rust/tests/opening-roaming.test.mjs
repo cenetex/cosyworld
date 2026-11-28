@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { currentSharedEngine } from "../../../test/fixtures/shared-engine.mjs";
 import { reducers } from "./parity.mjs";
 
 const bard = "greek-rhapsode";
@@ -69,4 +70,48 @@ test("the bard learns visible roads and changes direction for a different want",
     "greek-harbor",
   );
   assert.equal(wasm({ ...wait, op: "opening_bard_move" }), null);
+});
+
+test("the bard remembers the current roads while dwelling through the next turn", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine((source) => {
+    const begin = /    for \(const id of roamingActors\) \{\n      if \(controlledByHuman\(next, id\) \|\| id === respondent/;
+    const end = /    const cast = \[actor, respondent, \.\.\.residents\d*\]\.filter\(Boolean\);/;
+    assert.match(source, begin);
+    assert.match(source, end);
+    return source
+      .replace(begin, "    globalThis.beforeRoaming = structuredClone(next);\n$&")
+      .replace(end, "    globalThis.afterRoaming = structuredClone(next);\n$&");
+  });
+  for (const seed of [undefined, 2, 17, 4242, 4294967295]) {
+    const { world } = pinned({ op: "create", seed });
+    for (const [first, second] of [
+      ["wait:vale::", "wait:vale::"],
+      ["drop:vale:lamp:attic", "take:vale:lamp:"],
+    ]) {
+      let { world: next } = pinned({
+        ...seats, op: "play", world, action: first,
+      });
+      const route = next.routeKnowledge[bard].find(
+        ([from]) => from === next.actors[bard].place,
+      );
+      assert.ok(route);
+      next.routeKnowledge[bard] = next.routeKnowledge[bard].filter((e) => e !== route);
+      const reply = JSON.parse(reference.cardShared(JSON.stringify({
+        ...seats, op: "play", world: next, action: second,
+      })));
+      assert.equal(reply.ok, true, reply.error);
+      const before = JSON.parse(JSON.stringify(reference.beforeRoaming));
+      const after = JSON.parse(JSON.stringify(reference.afterRoaming));
+      const request = { op: "opening_bard_dwell", world: before };
+      const result = wasm(request);
+      assert.ok(result, `${seed} ${second}`);
+      assert.deepEqual(result.world, after);
+      assert.equal(after.eventSeq, before.eventSeq);
+      assert.equal(after.routeKnowledge[bard].length, before.routeKnowledge[bard].length + 1);
+
+      before.actors[bard].dwellUntil = before.turn;
+      assert.equal(wasm(request), null);
+    }
+  }
 });
