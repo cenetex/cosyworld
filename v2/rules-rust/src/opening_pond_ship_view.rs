@@ -278,7 +278,7 @@ fn reply(mut response: Value, profiles: Value, ada: bool) -> Option<Value> {
     response["actor"] = json!(VALE);
     response["room"] = json!(SHIP);
     response["exits"] = json!([HARBOR]);
-    response["actions"] = json!(plans);
+    response["actions"] = Value::Array(plans);
     response["profiles"] = profiles;
     Some(response)
 }
@@ -303,15 +303,13 @@ pub(super) fn completed_response(
     if movement["seq"] != before_seq.checked_add(1)? {
         return None;
     }
-    let events = json!([movement]);
+    let movement = movement.clone();
     world["speechVoices"]
         .as_object_mut()?
         .insert(VALE.into(), voices(ada));
-    reply(
-        json!({"ok":true,"world":opening::stored_world(world)?,"events":events}),
-        profiles,
-        ada,
-    )
+    let mut response = opening::stored_response(world)?;
+    response["events"] = Value::Array(vec![movement]);
+    reply(response, profiles, ada)
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
@@ -346,9 +344,7 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     }
     let profiles = profiles::project(&files)?;
     event(world, ada, &profiles, true)?;
-    reply(
-        json!({"ok":true,"world":opening_view::private_world(world,request)?}),
-        profiles,
-        ada,
-    )
+    let mut response = json!({"ok":true});
+    response["world"] = opening_view::private_world(world, request)?;
+    reply(response, profiles, ada)
 }

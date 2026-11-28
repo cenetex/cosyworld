@@ -494,7 +494,6 @@ describe("ports reachable on foot or by a free leg home", () => {
   });
 
   it("walks the land route home from Piraeus along the open Long Walls", () => {
-    // Vale is ashore at Piraeus when the ship and provisions go to the harbor.
     let s = openDoorStart();
     s = holding(s, "greek-creon-writ", "greek-guard");
     // Roaming residents aboard go ashore: the ship is empty.
