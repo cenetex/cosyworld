@@ -17,12 +17,14 @@ impl Custody {
         Some(Self(counts))
     }
 
-    fn take(&mut self, home: &str, actor: &str) -> Option<()> {
-        if self.0.get(home) != Some(&1) || self.0.contains_key(actor) {
-            return None;
-        }
-        self.0.remove(home);
-        self.0.insert(actor.into(), 1);
+    pub(super) fn can_transfer_one(&self, from: &str, to: &str) -> bool {
+        self.0.get(from) == Some(&1) && !self.0.contains_key(to)
+    }
+
+    pub(super) fn transfer_one(&mut self, from: &str, to: &str) -> Option<()> {
+        self.can_transfer_one(from, to).then_some(())?;
+        self.0.remove(from);
+        self.0.insert(to.into(), 1);
         Some(())
     }
 }
@@ -35,7 +37,7 @@ fn includes(values: &Value, id: &str) -> bool {
     lists(values).any(|value| value == id)
 }
 
-fn another_way(geo: &Geography, home: &str) -> Option<bool> {
+pub(super) fn another_way(geo: &Geography, home: &str) -> Option<bool> {
     let files = geo.files();
     Some(
         !geo.base_exits(home)?.is_empty()
@@ -133,7 +135,7 @@ pub(super) fn take(
     if initial_wants::root(world, item)? != home || world["items"].get(actor).is_some() {
         return None;
     }
-    custody.take(home, actor)?;
+    custody.transfer_one(home, actor)?;
 
     let name = avatar["name"].as_str()?;
     let item_name = item_as_named(avatar["item"]["name"].as_str()?);
@@ -152,7 +154,7 @@ pub(super) fn take(
     Some(Some(world["log"].as_array()?.last()?.clone()))
 }
 
-fn resting(resident: &Value, turn: u64) -> bool {
+pub(super) fn resting(resident: &Value, turn: u64) -> bool {
     resident["metTurn"].as_u64().is_some_and(|met| {
         turn.saturating_sub(met) < 3
             && resident["want"]["since"]
