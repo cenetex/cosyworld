@@ -1152,8 +1152,8 @@ pub(super) async fn notes(
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
     let spoke = request.messages.iter().filter_map(|m| m.resident.clone());
-    // Notes only summarize existing Discord history, without loading a game world.
-    let mut residents = joined(residents, spoke, true);
+    let history_only_so_listener_known = true;
+    let mut residents = joined(residents, spoke, history_only_so_listener_known);
     chosen_names(app.as_deref(), &mut residents).await;
     let fits = (1..=12).contains(&request.messages.len())
         && request.notes.as_ref().is_none_or(sound)
