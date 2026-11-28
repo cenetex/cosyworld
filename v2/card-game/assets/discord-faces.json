@@ -1,7 +1,7 @@
 {
  "assets/badger-forest/badger-grumpy.png": {
   "x": 0.183,
-  "y": 0.0,
+  "y": 0,
   "size": 0.633
  },
  "assets/greek-drama/chthonic-antigone.png": {
@@ -11,7 +11,7 @@
  },
  "assets/greek-drama/chthonic-ismene.png": {
   "x": 0.248,
-  "y": 0.0,
+  "y": 0,
   "size": 0.317
  },
  "assets/greek-drama/chthonic-creon.png": {
@@ -26,17 +26,17 @@
  },
  "assets/greek-drama/chthonic-baker.png": {
   "x": 0.292,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/chthonic-elder.png": {
   "x": 0.265,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/chthonic-shipmaster.png": {
   "x": 0.258,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/chthonic-singer.png": {
@@ -46,97 +46,97 @@
  },
  "assets/greek-drama/chthonic-neighbor.png": {
   "x": 0.342,
-  "y": 0.0,
+  "y": 0,
   "size": 0.317
  },
  "assets/greek-drama/chthonic-attendant.png": {
   "x": 0.327,
-  "y": 0.0,
+  "y": 0,
   "size": 0.267
  },
  "assets/greek-drama/chthonic-ferryman.png": {
   "x": 0.335,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/chthonic-helen.png": {
   "x": 0.308,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/chthonic-menelaus.png": {
   "x": 0.308,
-  "y": 0.0,
+  "y": 0,
   "size": 0.317
  },
  "assets/greek-drama/chthonic-electra.png": {
   "x": 0.318,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/chthonic-orestes.png": {
   "x": 0.323,
-  "y": 0.0,
+  "y": 0,
   "size": 0.3
  },
  "assets/greek-drama/open-door-aethra.webp": {
   "x": 0.325,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/open-door-adrastus.webp": {
   "x": 0.275,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/open-door-mother.webp": {
   "x": 0.318,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/open-door-iphis.webp": {
   "x": 0.308,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/open-door-theseus.webp": {
   "x": 0.292,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/open-door-quay-host.webp": {
   "x": 0.267,
-  "y": 0.0,
+  "y": 0,
   "size": 0.3
  },
  "assets/greek-drama/open-door-grove-keeper.webp": {
   "x": 0.265,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/open-door-altar-keeper.webp": {
   "x": 0.292,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/myrine.webp": {
   "x": 0.292,
-  "y": 0.0,
+  "y": 0,
   "size": 0.317
  },
  "assets/greek-drama/ajax-tecmessa.png": {
   "x": 0.308,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/ajax-teucer.png": {
   "x": 0.317,
-  "y": 0.0,
+  "y": 0,
   "size": 0.3
  },
  "assets/greek-drama/ajax-odysseus.png": {
   "x": 0.292,
-  "y": 0.0,
+  "y": 0,
   "size": 0.283
  },
  "assets/greek-drama/polynices-shade.webp": {
@@ -146,12 +146,12 @@
  },
  "assets/greek-drama/patroclus.png": {
   "x": 0.283,
-  "y": 0.0,
+  "y": 0,
   "size": 0.3
  },
  "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png": {
   "x": 0.267,
-  "y": 0.0,
+  "y": 0,
   "size": 0.433
  },
  "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png": {
@@ -171,12 +171,12 @@
  },
  "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png": {
   "x": 0.31,
-  "y": 0.0,
+  "y": 0,
   "size": 0.367
  },
  "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png": {
   "x": 0.342,
-  "y": 0.0,
+  "y": 0,
   "size": 0.417
  },
  "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png": {
@@ -191,17 +191,17 @@
  },
  "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png": {
   "x": 0.3,
-  "y": 0.0,
+  "y": 0,
   "size": 0.467
  },
  "assets/hoppycat-archive/hoppycat-fable-cutout.png": {
   "x": 0.35,
-  "y": 0.0,
+  "y": 0,
   "size": 0.3
  },
  "assets/hoppycat-archive/hoppycat-phase-two-cutout.png": {
   "x": 0.342,
-  "y": 0.0,
+  "y": 0,
   "size": 0.317
  },
  "assets/hoppycat-archive/hoppycat-arc-cutout.png": {
@@ -231,7 +231,7 @@
  },
  "assets/willows/swede.webp": {
   "x": 0.367,
-  "y": 0.0,
+  "y": 0,
   "size": 0.233
  },
  "assets/lonely-forest/rati.png": {
@@ -256,7 +256,7 @@
  },
  "assets/ratiradio/rati.webp": {
   "x": 0.383,
-  "y": 0.0,
+  "y": 0,
   "size": 0.233
  },
  "assets/ratiradio/raven.webp": {
@@ -322,6 +322,431 @@
  "assets/shared/characters/ada.png": {
   "x": 0.385,
   "y": 0.077,
+  "size": 0.3
+ },
+ "assets/greek-drama/cilissa.webp": {
+  "x": 0.29,
+  "y": 0.005,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-helen-egypt.png": {
+  "x": 0.335,
+  "y": 0.036,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-menelaus-egypt.png": {
+  "x": 0.298,
+  "y": 0.039,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-helen-troy.png": {
+  "x": 0.389,
+  "y": 0.037,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-menelaus-troy.png": {
+  "x": 0.277,
+  "y": 0.038,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-electra-aeschylus.png": {
+  "x": 0.284,
+  "y": 0.054,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-orestes-aeschylus.png": {
+  "x": 0.377,
+  "y": 0.041,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-electra-sophocles.png": {
+  "x": 0.307,
+  "y": 0.053,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-orestes-sophocles.png": {
+  "x": 0.342,
+  "y": 0.042,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-electra-euripides.png": {
+  "x": 0.302,
+  "y": 0.054,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-orestes-euripides.png": {
+  "x": 0.275,
+  "y": 0.079,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-persians-first.png": {
+  "x": 0.42,
+  "y": 0.083,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-persians-second.png": {
+  "x": 0.318,
+  "y": 0.104,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-first.png": {
+  "x": 0.226,
+  "y": 0.102,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-second.png": {
+  "x": 0.403,
+  "y": 0.098,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-first.png": {
+  "x": 0.369,
+  "y": 0.08,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-second.png": {
+  "x": 0.366,
+  "y": 0.091,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-first.png": {
+  "x": 0.329,
+  "y": 0.104,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-second.png": {
+  "x": 0.348,
+  "y": 0.097,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-first.png": {
+  "x": 0.334,
+  "y": 0.095,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-second.png": {
+  "x": 0.342,
+  "y": 0.104,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-first.png": {
+  "x": 0.36,
+  "y": 0.078,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-second.png": {
+  "x": 0.345,
+  "y": 0.1,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-first.png": {
+  "x": 0.37,
+  "y": 0.114,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-second.png": {
+  "x": 0.305,
+  "y": 0.108,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-first.png": {
+  "x": 0.318,
+  "y": 0.118,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-second.png": {
+  "x": 0.328,
+  "y": 0.093,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-first.png": {
+  "x": 0.279,
+  "y": 0.102,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-second.png": {
+  "x": 0.282,
+  "y": 0.113,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-alcestis-first.png": {
+  "x": 0.316,
+  "y": 0.028,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-alcestis-second.png": {
+  "x": 0.317,
+  "y": 0.029,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-medea-first.png": {
+  "x": 0.264,
+  "y": 0.067,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-medea-second.png": {
+  "x": 0.355,
+  "y": 0.026,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-first.png": {
+  "x": 0.327,
+  "y": 0.057,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-second.png": {
+  "x": 0.317,
+  "y": 0.028,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-andromache-first.png": {
+  "x": 0.37,
+  "y": 0.031,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-andromache-second.png": {
+  "x": 0.315,
+  "y": 0.029,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-hecuba-first.png": {
+  "x": 0.306,
+  "y": 0.058,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-hecuba-second.png": {
+  "x": 0.348,
+  "y": 0.038,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-heracles-first.png": {
+  "x": 0.287,
+  "y": 0.094,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-heracles-second.png": {
+  "x": 0.316,
+  "y": 0.08,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-first.png": {
+  "x": 0.33,
+  "y": 0.042,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-second.png": {
+  "x": 0.299,
+  "y": 0.058,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-tauris-first.png": {
+  "x": 0.34,
+  "y": 0.037,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-tauris-second.png": {
+  "x": 0.368,
+  "y": 0.037,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-ion-first.png": {
+  "x": 0.391,
+  "y": 0.035,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-ion-second.png": {
+  "x": 0.353,
+  "y": 0.036,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-first.png": {
+  "x": 0.348,
+  "y": 0.037,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-second.png": {
+  "x": 0.332,
+  "y": 0.037,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-orestes-first.png": {
+  "x": 0.258,
+  "y": 0.038,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-orestes-second.png": {
+  "x": 0.342,
+  "y": 0.043,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-bacchae-first.png": {
+  "x": 0.23,
+  "y": 0.043,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-bacchae-second.png": {
+  "x": 0.317,
+  "y": 0.038,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-first.png": {
+  "x": 0.228,
+  "y": 0.037,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-second.png": {
+  "x": 0.281,
+  "y": 0.037,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-rhesus-first.png": {
+  "x": 0.384,
+  "y": 0.039,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-rhesus-second.png": {
+  "x": 0.306,
+  "y": 0.036,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-cyclops-first.png": {
+  "x": 0.275,
+  "y": 0.038,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-euripides-cyclops-second.png": {
+  "x": 0.339,
+  "y": 0.039,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-first.webp": {
+  "x": 0.379,
+  "y": 0.07,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-second.webp": {
+  "x": 0.378,
+  "y": 0.043,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-knights-first.webp": {
+  "x": 0.303,
+  "y": 0.041,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-knights-second.webp": {
+  "x": 0.316,
+  "y": 0.04,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-first.webp": {
+  "x": 0.467,
+  "y": 0.043,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-second.webp": {
+  "x": 0.314,
+  "y": 0.041,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-first.webp": {
+  "x": 0.23,
+  "y": 0.044,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-second.webp": {
+  "x": 0.304,
+  "y": 0.092,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-peace-first.webp": {
+  "x": 0.193,
+  "y": 0.048,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-peace-second.webp": {
+  "x": 0.46,
+  "y": 0.04,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-birds-first.webp": {
+  "x": 0.293,
+  "y": 0.044,
+  "size": 0.3
+ },
+ "assets/greek-drama/hoopoe.webp": {
+  "x": 0.33,
+  "y": 0,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-first.webp": {
+  "x": 0.394,
+  "y": 0.04,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-second.webp": {
+  "x": 0.359,
+  "y": 0.04,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-first.webp": {
+  "x": 0.444,
+  "y": 0.041,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-second.webp": {
+  "x": 0.284,
+  "y": 0.041,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-first.webp": {
+  "x": 0.35,
+  "y": 0.04,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-second.webp": {
+  "x": 0.27,
+  "y": 0.04,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-first.webp": {
+  "x": 0.394,
+  "y": 0.043,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-second.webp": {
+  "x": 0.272,
+  "y": 0.044,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-first.webp": {
+  "x": 0.313,
+  "y": 0.044,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-second.webp": {
+  "x": 0.298,
+  "y": 0.043,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-colonus-theseus.png": {
+  "x": 0.295,
+  "y": 0.039,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-marathon-alcmene.png": {
+  "x": 0.342,
+  "y": 0.037,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-piraeus-pilot.webp": {
+  "x": 0.371,
+  "y": 0.041,
+  "size": 0.3
+ },
+ "assets/greek-drama/repertoire-greek-pagasae-pilot.webp": {
+  "x": 0.345,
+  "y": 0.078,
   "size": 0.3
  }
 }

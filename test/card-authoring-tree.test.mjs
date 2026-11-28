@@ -124,6 +124,7 @@ describe("the authored world card tree", () => {
     const ports = tree.cards.filter(
       (c) =>
         c.source[0] === "bridge" &&
+        c.source.includes("greek-ship") &&
         c.source.includes("docks") &&
         c.kind === "link",
     );

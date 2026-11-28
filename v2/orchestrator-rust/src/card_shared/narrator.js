@@ -33435,7 +33435,7 @@
       )
     };
   }
-  var GENERIC = /* @__PURE__ */ new Set(["account", "card", "list", "record", "plea", "seed"]);
+  var GENERIC = /* @__PURE__ */ new Set(["account", "card", "list", "record", "plea", "seed", "water", "milk", "honey"]);
   var itemNouns = /* @__PURE__ */ new Map();
   for (const [id, p] of Object.entries({ ...entity_profiles_default, ...packThings }))
     if (p.kind === "item" || packThings[id]) {

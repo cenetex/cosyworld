@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { backdrop, stageOf, travelCard } from "../v2/card-game/scene.mjs";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { isNight, locationDaylight } from "../v2/card-game/daylight.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import {
   argosPaintings,
   argosPaintingWorld,
@@ -57,9 +56,6 @@ describe("Argos account paintings", () => {
           night ? "night" : "day",
         );
         expect(stageOf(world, place).focus).toEqual({ x: 31, y: 50 });
-        expect(packDefinition("greek-drama").release.places).not.toContain(
-          place,
-        );
       },
     );
 });

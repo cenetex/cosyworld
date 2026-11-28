@@ -103,8 +103,9 @@ describe("resident levels earned at a fixed home", () => {
     let s = fixture();
     for (const actor of Object.values(s.actors))
       if (actor.place === home) actor.place = "greek-palace";
-    for (const item of Object.values(s.items))
-      if (item.holder === home) item.holder = "greek-palace";
+    for (const [id, item] of Object.entries(s.items))
+      if (item.holder === home && !s.usedUp.includes(id))
+        item.holder = "greek-palace";
     s = advance(s, "move", "station");
     expect(s.actors[resident]).toMatchObject({
       place: "greek-palace",

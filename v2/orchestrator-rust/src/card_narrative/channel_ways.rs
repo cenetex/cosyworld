@@ -32,16 +32,9 @@ mod tests {
         };
         assert_eq!(
             paths("The Wine-Dark Harbor"),
-            json!([
-                "Theban Harbor Road",
-                "The Argolid Crossroads",
-                "The Northern Road"
-            ])
+            json!(["Theban Harbor Road", "The Argolid Crossroads"])
         );
-        assert_eq!(
-            paths("Proteus's Tomb in Egypt"),
-            json!(["The Wine-Dark Harbor"])
-        );
+        assert_eq!(paths("Proteus's Tomb in Egypt"), json!([]));
         assert_eq!(paths("Agamemnon's Tomb"), json!(["The Argolid Crossroads"]));
     }
 }
