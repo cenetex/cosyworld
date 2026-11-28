@@ -109,6 +109,19 @@ pub(super) fn station_cloth_gift(world: &Value) -> Option<u64> {
     Some(read)
 }
 
+fn pond_caption(line: &Value, lit: bool) -> bool {
+    line["generated"] == true
+        && line["locationId"] == POND
+        && line["cast"] == json!([VALE])
+        && line["light"] == lit
+        && line.get("elysiumName").is_none()
+        && match line["kind"].as_str() {
+            Some("dialogue") => line["actorId"] == VALE && line["entityId"] == VALE,
+            Some("narration") => line["actorId"].is_null() && line["entityId"] == POND,
+            _ => false,
+        }
+}
+
 fn cloth_receipt(world: &Value, dropped: bool) -> Option<(u64, u64, u64)> {
     let (read, gift, mut plays) = cloth_journey(world)?;
     let gift_seq = gift["seq"].as_u64()?;
@@ -128,18 +141,7 @@ fn cloth_receipt(world: &Value, dropped: bool) -> Option<(u64, u64, u64)> {
     while suffix.peek().is_some_and(|entry| entry["turn"] == 6) {
         let line = suffix.next()?;
         head = head.checked_add(1)?;
-        if line["seq"] != head
-            || line["generated"] != true
-            || line["locationId"] != POND
-            || line["cast"] != json!([VALE])
-            || line["light"] != false
-            || line.get("elysiumName").is_some()
-            || match line["kind"].as_str()? {
-                "dialogue" => line["actorId"] != VALE || line["entityId"] != VALE,
-                "narration" => !line["actorId"].is_null() || line["entityId"] != POND,
-                _ => true,
-            }
-        {
+        if line["seq"] != head || !pond_caption(line, false) {
             return None;
         }
     }
@@ -224,38 +226,22 @@ fn signal_events(world: &Value, seq: u64, allow_speech: bool) -> Option<&[Value]
     if [drop, reflection]
         .into_iter()
         .chain(calls)
-        .chain(speech)
         .any(|event| event["cast"] != json!([VALE]) || event["locationId"] != POND)
-        || speech.iter().any(|line| {
-            line["generated"] != true
-                || line.get("elysiumName").is_some()
-                || match line["kind"].as_str() {
-                    Some("dialogue") => line["actorId"] != VALE || line["entityId"] != VALE,
-                    Some("narration") => !line["actorId"].is_null() || line["entityId"] != POND,
-                    _ => true,
-                }
-        })
+        || speech.iter().any(|line| !pond_caption(line, true))
     {
         return None;
     }
     Some(committed)
 }
 
-fn called_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
+fn pond_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let vale = &world["actors"][VALE];
-    let lamp = &world["items"]["lamp"];
     if vale["place"] != POND
         || vale["heldItem"] != "cloth"
         || vale["waitSpeech"] != json!({"place":POND,"turn":null})
-        || !vale["want"].is_null()
         || !vale["under"].is_null()
         || !vale["sleeping"].is_null()
-        || vale["arcana"] != json!({"proved":[],"did":[],"callers":["keeper"],"calls":1})
-        || vale["closed"]["quest:from:keeper"]
-            != json!([
-                7,
-                r#"["place","pond",[["crossing","pond-greek-harbor"],["verb","call"]],null]"#
-            ])
+        || world["speechVoices"][VALE] != json!([VALE])
         || !world["defeats"][VALE].is_null()
         || !world["standoffs"].as_array()?.is_empty()
         || !world["disabledPacks"].is_null()
@@ -268,7 +254,37 @@ fn called_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
         || !geo.entity_active(world, "cloth")?
         || !geo.entity_active(world, "lamp")?
         || !geo.entity_active(world, KEY)?
-        || !grounded_fuel(lamp)?
+    {
+        return None;
+    }
+    for (id, actor) in world["actors"].as_object()? {
+        if id != VALE && actor["place"] == POND && geo.entity_active(world, id)? {
+            return None;
+        }
+    }
+    let items = world["items"].as_object()?;
+    for id in items.keys() {
+        if matches!(root_in(items, id)?, POND | VALE)
+            && geo.entity_active(world, id)?
+            && !matches!(id.as_str(), "cloth" | "lamp" | KEY | WAYFINDER)
+        {
+            return None;
+        }
+    }
+    Some(())
+}
+
+fn called_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    pond_scene(world, geo)?;
+    let vale = &world["actors"][VALE];
+    if !vale["want"].is_null()
+        || vale["arcana"] != json!({"proved":[],"did":[],"callers":["keeper"],"calls":1})
+        || vale["closed"]["quest:from:keeper"]
+            != json!([
+                7,
+                r#"["place","pond",[["crossing","pond-greek-harbor"],["verb","call"]],null]"#
+            ])
+        || !grounded_fuel(&world["items"]["lamp"])?
         || world["opened"][SHIP] != json!([VALE])
         || world["crossings"][SIGNAL] != json!({"discovered":true,"method":"pond-lamp"})
         || world["transports"][SHIP]
@@ -294,21 +310,50 @@ fn called_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
             return None;
         }
     }
-    for (id, actor) in world["actors"].as_object()? {
-        if id != VALE && actor["place"] == POND && geo.entity_active(world, id)? {
-            return None;
-        }
-    }
-    let items = world["items"].as_object()?;
-    for id in items.keys() {
-        if matches!(root_in(items, id)?, POND | VALE)
-            && geo.entity_active(world, id)?
-            && !matches!(id.as_str(), "cloth" | "lamp" | KEY | WAYFINDER)
-        {
-            return None;
-        }
+    Some(())
+}
+
+fn dry_scene(world: &Value, geo: &Geography<'_>, read: u64) -> Option<()> {
+    pond_scene(world, geo)?;
+    let vale = &world["actors"][VALE];
+    if vale["want"] != keeper_want_from_read(world, geo, read)?
+        || !vale["arcana"].is_null()
+        || !vale["completedQuest"].is_null()
+        || !world["actors"]["keeper"]["completedQuest"].is_null()
+        || grounded_fuel(&world["items"]["lamp"])?
+        || !world["opened"][SHIP].is_null()
+        || world["crossings"][SIGNAL] != json!({"discovered":false})
+        || world["transports"][SHIP]
+            != json!({
+                "version":3,"phase":"docked","dock":"greek-harbor","destination":null,
+                "riders":[],"since":0,"recall":null,
+            })
+        || opening_visitor_routes::exits(world, geo, VALE, POND)? != [STATION].into()
+    {
+        return None;
     }
     Some(())
+}
+
+fn dry_events(world: &Value, seq: u64, allow_speech: bool) -> Option<&Value> {
+    let log = world["log"].as_array()?;
+    let start = log.iter().position(|entry| entry["seq"] == seq)?;
+    let [drop, speech @ ..] = log.get(start..)? else {
+        return None;
+    };
+    if drop["light"] != false
+        || drop["cast"] != json!([VALE])
+        || log.last()?["seq"] != world["eventSeq"]
+        || (!allow_speech && !speech.is_empty())
+        || speech.iter().enumerate().any(|(index, line)| {
+            line["seq"].as_u64() != seq.checked_add(index as u64 + 1)
+                || line["turn"] != 7
+                || !pond_caption(line, false)
+        })
+    {
+        return None;
+    }
+    Some(drop)
 }
 
 fn reply(
@@ -440,20 +485,11 @@ pub(super) fn completed_dry_response(
 ) -> Option<Value> {
     let seq = drop_receipt(&world)?;
     let (_, read) = cloth_arrival(&world, true)?;
-    let drop = world["log"].as_array()?.last()?;
-    if before_seq.checked_add(1)? != seq
-        || world["eventSeq"] != seq
-        || drop["seq"] != seq
-        || drop["light"] != false
-        || drop["cast"] != json!([VALE])
-        || world["speechVoices"][VALE] != json!([VALE])
-        || world["actors"][VALE]["want"] != keeper_want_from_read(&world, geo, read)?
-        || grounded_fuel(&world["items"]["lamp"])?
-        || world["opened"][SHIP] != Value::Null
-        || opening_visitor_routes::exits(&world, geo, VALE, POND)? != [STATION].into()
-    {
+    if before_seq.checked_add(1)? != seq {
         return None;
     }
+    dry_scene(&world, geo, read)?;
+    let drop = dry_events(&world, seq, false)?;
     let mut response = reply(
         json!({"ok":true,"events":[drop]}),
         &world,
@@ -464,12 +500,26 @@ pub(super) fn completed_dry_response(
     Some(response)
 }
 
+pub(super) fn settled_dry(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    if world["speechVoices"][VALE] != json!([VALE]) {
+        return None;
+    }
+    let (_, read) = cloth_arrival(world, true)?;
+    dry_scene(world, geo, read)?;
+    dry_events(world, drop_receipt(world)?, true)?;
+    Some(())
+}
+
 pub(super) fn private_view(request: &Value) -> Option<Value> {
     let world = request.get("world")?;
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    settled_speech(world, &geo)?;
+    if world["items"]["lamp"]["lit"] == true {
+        settled_speech(world, &geo)?;
+    } else {
+        settled_dry(world, &geo)?;
+    }
     reply(
         json!({"ok":true,"world":opening_view::private_world(world, request)?}),
         world,
