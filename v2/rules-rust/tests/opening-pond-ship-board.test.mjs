@@ -95,6 +95,28 @@ test("Vale's first boarding of The Charybdis matches the pinned Move and settlem
         const boarded = actual.world;
         const event = boarded.log.at(-1);
         assert.deepEqual(reply.events, [event]);
+        const complete = {
+          ...seats,
+          op: "opening_pond_ship_view",
+          world: reply.world,
+          beforeSeq: world.eventSeq,
+        };
+        assert.ok(isDeepStrictEqual(wasm(complete), reply), `reply ${label}`);
+        const spoken = run({
+          ...seats,
+          op: "speech",
+          world: reply.world,
+          room: ship,
+          lines: [{ entityId: ship, text: "The hull creaks softly." }],
+        });
+        for (const present of [["vale"], []]) {
+          const world = present.length > 0 ? spoken : reply.world;
+          const view = { ...seats, op: "view", world, present };
+          assert.ok(
+            isDeepStrictEqual(wasm(view), pinned(view)),
+            `view ${label}`,
+          );
+        }
         assert.equal(event.fromLocationId, "pond");
         assert.equal(event.locationId, ship);
         assert.equal(event.itemId, key.includes(":cloth:") ? "cloth" : null);

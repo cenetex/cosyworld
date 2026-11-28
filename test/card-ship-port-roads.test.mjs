@@ -93,7 +93,6 @@ const FAR_SHORE_LANES = [
   ["greek-lemnos", HOMECOMING_BEACH],
 ];
 
-// Keys named in route or sea-lane conditions.
 const keysIn = (conditions = []) =>
   conditions.flatMap((c) => [
     ...(c.item ? [c.item] : []),

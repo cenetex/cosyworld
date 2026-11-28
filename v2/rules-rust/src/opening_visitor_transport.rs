@@ -128,6 +128,20 @@ pub(super) fn board<'a>(
     Some(None)
 }
 
+pub(super) fn docked_courses<'a>(
+    world: &Value,
+    geo: &Geography<'a>,
+    actor: &str,
+    place: &str,
+) -> Option<Vec<&'a str>> {
+    let ship = Ship::find(geo, |_, ship| ship["place"] == place)?;
+    let state = &world["transports"][ship.id];
+    if world["actors"][actor]["place"] != place || state["phase"] != "docked" {
+        return None;
+    }
+    ship.open_lanes(world, geo, actor, state["dock"].as_str()?)
+}
+
 pub(super) fn exits<'a>(
     world: &Value,
     geo: &Geography<'a>,

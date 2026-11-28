@@ -47,6 +47,7 @@ mod opening_pond_return_view;
 mod opening_pond_rumours;
 mod opening_pond_ship_board;
 mod opening_pond_ship_settlement;
+mod opening_pond_ship_view;
 mod opening_pond_view;
 mod opening_quiet_life;
 mod opening_reflection;
@@ -240,6 +241,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_pond_ship_settlement") => {
             opening_pond_ship_settlement::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_pond_ship_view") => {
+            opening_pond_ship_view::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_pond_call") => opening_pond_call::projection(request).unwrap_or(Value::Null),
         Some("opening_pond_call_tail") => {
