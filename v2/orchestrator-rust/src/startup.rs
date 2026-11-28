@@ -2,6 +2,10 @@ use super::*;
 
 use axum::Router;
 
+#[cfg(unix)]
+#[path = "dev_server.rs"]
+mod dev_server;
+
 #[cfg(feature = "local-tooling")]
 #[path = "local_tooling.rs"]
 mod local_tooling;
@@ -13,6 +17,11 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("local")) {
         return Ok(local_tooling::run(std::env::args_os().skip(2)).await?);
     }
+    #[cfg(unix)]
+    if std::env::args().nth(1).as_deref() == Some("dev") {
+        let action = std::env::args().nth(2);
+        return Ok(dev_server::run(action.as_deref().unwrap_or("start")).await?);
+    }
     let boot_started = Instant::now();
     if std::env::args().nth(1).as_deref() == Some("--check-assets") {
         check_assets()?;
@@ -20,8 +29,7 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     initialize_tracing();
-    // The signing key: made on first start and kept on the volume, or the
-    // `COSYWORLD_SIGNING_KEY` override (docs/release.md#signing-key).
+    // Use the volume signing key unless COSYWORLD_SIGNING_KEY provides one.
     crate::routes::signed_envelope::init().map_err(deployment_config_error)?;
     check_assets()?;
     info!(
