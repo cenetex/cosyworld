@@ -1,5 +1,4 @@
-// A Talk that tells a resident's want asks for help until the traveler's next
-// play (offered: { from, turn }); the quest it unlocks stands (world/offers.mjs).
+// Talk can ask for help until the traveler's next play. Its unlocked quest persists.
 export function askOffer(s, actor, them) {
   s.actors[actor].offered = { from: them, turn: s.turn };
 }
