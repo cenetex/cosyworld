@@ -23,13 +23,18 @@ fn empty_record(value: &Value) -> bool {
 pub(super) fn at_home(world: &Value, geo: &Geography, id: &str, held: &str) -> Option<()> {
     let forest = &geo.files()["v2/card-game/forest.json"];
     let definition = forest["people"].get(id)?;
-    let home = definition["home"].as_str()?;
-    let resident = world["actors"].get(id)?;
     let mut wanted = definition["want"].as_object()?.clone();
     wanted.insert("since".into(), json!(0));
     wanted.insert("refusals".into(), json!(0));
+    (world["actors"][id]["want"] == Value::Object(wanted)).then_some(())?;
+    held_at_home(world, geo, id, held)
+}
+
+pub(super) fn held_at_home(world: &Value, geo: &Geography, id: &str, held: &str) -> Option<()> {
+    let forest = &geo.files()["v2/card-game/forest.json"];
+    let home = forest["people"].get(id)?["home"].as_str()?;
+    let resident = world["actors"].get(id)?;
     if resident["place"] != home
-        || resident["want"] != Value::Object(wanted)
         || resident["heldItem"] != held
         || resident.get("sleeping").is_some()
         || resident["dwellUntil"]

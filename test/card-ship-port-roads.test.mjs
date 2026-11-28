@@ -50,9 +50,7 @@ const discovered = (world) => {
   world.crossings["pond-greek-harbor"].discovered = true;
   return world;
 };
-// A new world, the same with the City Gate keys out in Attica (nothing
-// opens the Open Door: Attica is there from the start), the Ajax opening, and
-// an old full-scope world.
+// Fresh, City Gate keys in always-open Attica, Ajax opening, and old full-scope worlds.
 const stages = {
   opening: () => discovered(createWorld()),
   "open door": () => discovered(createWorld()),

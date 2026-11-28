@@ -1,7 +1,7 @@
 use super::{
     authored_order::Order, opening_content, opening_crossings, opening_hub_residents,
     opening_pickups, opening_place_cards::Deck, opening_pond_call_view::cloth_arrival,
-    opening_roster, opening_second_round, opening_station_move,
+    opening_pond_ship_board, opening_roster, opening_second_round, opening_station_move,
     opening_station_quest_drop_learning::confirm_pond_ask_trial,
     opening_station_read::keeper_want_from_read, pack_state::Catalog,
     resident_evidence::ResidentEvidence, seed, Geography,
@@ -12,16 +12,24 @@ const VALE: &str = "vale";
 const PIP: &str = "moth";
 const KEEPER: &str = "keeper";
 const STATION: &str = "station";
+const POND: &str = "pond";
 
 fn cloth_wait_receipt(world: &Value, geo: &Geography<'_>, trials: &[Value]) -> Option<()> {
-    let (arrival, read) = cloth_arrival(world, false)?;
+    let vale = &world["actors"][VALE];
+    let arrival = if world["turn"] == 8 {
+        vale["want"].is_null().then_some(())?;
+        opening_pond_ship_board::arrival(world)?
+    } else {
+        let (arrival, read) = cloth_arrival(world, false)?;
+        (vale["want"] == keeper_want_from_read(world, geo, read)?).then_some(())?;
+        arrival
+    };
     let [ask, wait, gift] = trials else {
         return None;
     };
     let goal = json!({"kind":"ask","target":VALE,"item":"lamp","destination":null});
     let gift_seq = gift["seq"].as_u64()?;
-    if world["actors"][VALE]["want"] != keeper_want_from_read(world, geo, read)?
-        || world["life"]["actors"][VALE]["attachments"] != json!({"cloth":{"from":PIP,"turn":5}})
+    if world["life"]["actors"][VALE]["attachments"] != json!({"cloth":{"from":PIP,"turn":5}})
         || !geo.entity_active(world, "cloth")?
         || [ask, wait, gift].iter().any(|trial| {
             trial["version"] != 2
@@ -62,17 +70,32 @@ pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Optio
     let pip = &world["actors"][PIP];
     let forest = &geo.files()["v2/card-game/forest.json"];
     let lamp = &world["items"]["lamp"];
-    let cloth_given = turn == 6;
+    let boarded = turn == 8;
+    let cloth_given = matches!(turn, 6 | 8);
     let hand = if cloth_given {
         Value::Null
     } else {
         json!("cloth")
     };
     let cloth_holder = if cloth_given { VALE } else { PIP };
+    let lamp_ready = if boarded {
+        lamp["holder"] == POND
+            && lamp["fuelPlace"] == POND
+            && lamp["lit"] == true
+            && lamp["fuelRooms"] == 2
+            && lamp["fuel"] == 8
+            && lamp["fuelVisit"] == true
+    } else {
+        lamp["holder"] == VALE
+            && lamp["fuelPlace"] == world["actors"][VALE]["place"]
+            && lamp["lit"] == false
+    };
+    let refusals = u8::from(!boarded);
     let dwell = 2 + 24 + u64::from(seed::hash("moth@2") % 6);
     if pip["place"] != STATION
         || pip["heldItem"] != hand
-        || pip["want"] != json!({"kind":"item","target":"lamp","since":0,"refusals":1,"lit":true})
+        || pip["want"]
+            != json!({"kind":"item","target":"lamp","since":0,"refusals":refusals,"lit":true})
         || pip["visited"] != json!(["pond", STATION])
         || pip["dwellUntil"] != dwell
         || pip["xp"] != 0
@@ -88,9 +111,7 @@ pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Optio
         || !geo.entity_active(world, PIP)?
         || !geo.entity_active(world, "lamp")?
         || world["items"]["cloth"]["holder"] != cloth_holder
-        || lamp["holder"] != VALE
-        || lamp["fuelPlace"] != world["actors"][VALE]["place"]
-        || lamp["lit"] != false
+        || !lamp_ready
         || forest["people"][PIP]["want"] != json!({"kind":"item","target":"lamp","lit":true})
         || forest["people"][PIP]["levelAtHome"] == true
         || ["claims", "records", "teachesQuest"]
@@ -124,8 +145,30 @@ pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Optio
         {
             confirm_pond_ask_trial(world, ask, 1)
         }
-        (6, trials) => cloth_wait_receipt(world, geo, trials),
+        (6 | 8, trials) => cloth_wait_receipt(world, geo, trials),
         _ => None,
+    }
+}
+
+fn keeper_wait(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
+    let keeper = &world["actors"][KEEPER];
+    if turn == 8 {
+        let completed = &keeper["completedQuest"];
+        if keeper["place"] != STATION
+            || !keeper["want"].is_null()
+            || keeper["content"] != true
+            || completed["by"] != VALE
+            || completed["turn"] != 7
+            || completed["want"]["target"] != POND
+            || completed["want"]["step"]["verb"] != "call"
+            || completed["want"]["step"]["crossing"] != "pond-greek-harbor"
+        {
+            return None;
+        }
+        opening_hub_residents::held_at_home(world, geo, KEEPER, "oil")
+    } else {
+        (keeper["want"]["step"]["verb"] == "call").then_some(())?;
+        opening_hub_residents::at_home(world, geo, KEEPER, "oil")
     }
 }
 
@@ -138,7 +181,21 @@ pub(super) fn settle(
     deck: &Deck<'_>,
     residents: &[&str],
 ) -> Option<()> {
-    let turn = opening_station_move::departure_turn(world)?;
+    let turn = if world["turn"] == 8 {
+        opening_pond_ship_board::arrival(world)?;
+        let ship = &world["transports"]["greek-ship"];
+        if world["actors"][VALE]["heldItem"] != "cloth"
+            || world["crossings"]["pond-greek-harbor"]
+                != json!({"discovered":true,"method":"pond-lamp"})
+            || *ship
+                != json!({"version":3,"phase":"docked","dock":POND,"destination":null,"riders":[],"since":8,"recall":null})
+        {
+            return None;
+        }
+        8
+    } else {
+        opening_station_move::departure_turn(world)?
+    };
     if (!world["began"].is_null() && world["began"] != 0)
         || world["playerActorId"] != VALE
         || ["heldActors", "controlledActors", "presentActors"]
@@ -150,7 +207,6 @@ pub(super) fn settle(
         || !world["conversations"].as_array()?.is_empty()
         || world["items"]["bell"]["holder"] != STATION
         || world["items"]["bell"]["ringing"] != 0
-        || world["actors"][KEEPER]["want"]["step"]["verb"] != "call"
         || geo.entity_active(world, "boardyai")?
         || ![PIP, KEEPER].iter().all(|id| residents.contains(id))
         || geo.packs().any(|pack| {
@@ -162,7 +218,7 @@ pub(super) fn settle(
         return None;
     }
     pip_dwells(world, geo, turn)?;
-    opening_hub_residents::at_home(world, geo, KEEPER, "oil")?;
+    keeper_wait(world, geo, turn)?;
     opening_crossings::no_crossing_unlocks(world, geo)?;
     let seq = world["eventSeq"].as_u64()?;
     opening_second_round::settle_visitors(world, geo, authored, order, evidence, deck, residents)?;
@@ -171,13 +227,18 @@ pub(super) fn settle(
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let working = request.get("world")?;
+    let from = if request["op"] == "opening_ship_board_residents" {
+        (working["turn"] == 8).then_some(POND)?
+    } else {
+        (working["turn"] != 8).then_some(STATION)?
+    };
     let order = opening_roster::actor_order(request, working)?;
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let evidence = ResidentEvidence::new(&files)?;
     let known = opening_roster::known_actors(working, &geo, &order, None)?;
-    let residents = opening_roster::residents_at(working, &geo, &known, STATION)?;
+    let residents = opening_roster::residents_at(working, &geo, &known, from)?;
     let mut world = working.clone();
     let deck = Deck::new(&world, &geo)?;
     settle(
