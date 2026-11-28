@@ -4,12 +4,16 @@ use serde_json::{json, Value};
 pub(super) const MAX_REVISION: u64 = 9_007_199_254_740_991;
 const SEATS: [&str; 8] = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 
+pub(super) fn is_seat(id: &str) -> bool {
+    SEATS.contains(&id)
+}
+
 pub(super) fn seats(value: &Value) -> Option<Vec<&str>> {
     let ids = value.as_array()?;
     let mut valid = Vec::with_capacity(SEATS.len());
     for id in ids {
         let id = id.as_str()?;
-        if !SEATS.contains(&id) || valid.contains(&id) {
+        if !is_seat(id) || valid.contains(&id) {
             return None;
         }
         valid.push(id);
@@ -69,7 +73,7 @@ impl<'a> Opening<'a> {
             || !lamp.fuel_visit
             || saved_lamp["fuel"] != lamp.fuel_rooms * 4
             || saved_lamp["lit"] != ((held || grounded) && lamp.fuel_rooms > 0)
-            || !SEATS.contains(&actor)
+            || !is_seat(actor)
             || !away_from_station(actor)
             || !claimed.iter().all(|id| away_from_station(id))
             || !present.iter().all(|id| claimed.contains(id))
