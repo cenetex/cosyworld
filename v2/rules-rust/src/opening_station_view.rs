@@ -7,6 +7,7 @@ use super::{
     opening_resident_sleep::sleeping_pip_at_pond,
     opening_roster::known_actors,
     opening_station_move::{self, rue_arrived},
+    opening_station_read::after_first_log,
     opening_view, opening_visitor_routes,
     pack_state::Catalog,
     profiles, Geography,
@@ -70,6 +71,31 @@ fn response_chronology(world: &Value) -> Option<u64> {
     } else {
         chronology(world)
     }
+}
+
+fn settled_first_read(world: &Value) -> Option<()> {
+    let seq = after_first_log(world)?;
+    let [.., read, wait] = world["log"].as_array()?.as_slice() else {
+        return None;
+    };
+    let next = seq.checked_add(1)?;
+    let learned = &world["knowledge"]["known"][VALE]["quest:keeper:pond"];
+    (read["seq"] == seq
+        && wait["seq"] == next
+        && world["eventSeq"] == next
+        && wait["turn"] == world["turn"]
+        && wait["kind"] == "action"
+        && wait["verb"] == "wait"
+        && wait["actorId"] == PIP
+        && wait["locationId"] == STATION
+        && wait["generated"] != true
+        && wait["witnesses"] == read["witnesses"]
+        && wait["cast"] == read["cast"]
+        && *learned
+            == json!({
+                "kind":"read","teller":null,"eventSeq":seq,"learnedTurn":3,"book":"keeper-log"
+            }))
+    .then_some(())
 }
 
 fn historic_sleepers(world: &Value, geo: &Geography<'_>) -> Option<()> {
@@ -192,6 +218,8 @@ fn station_scene<'a>(
     train_accepted: bool,
 ) -> Option<Vec<&'a str>> {
     let turn = world["turn"].as_u64()?;
+    let met_keeper = world["opening"]["met"][KEEPER].as_u64()?;
+    let after_read = turn == 3 && met_keeper == 2 && settled_first_read(world).is_some();
     let historic = historic_station(world);
     let actors = world["actors"].as_object()?;
     let vale = actors.get(VALE)?;
@@ -202,8 +230,8 @@ fn station_scene<'a>(
         || (world.get("began").is_some() && !historic)
         || !(turn..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
         || world["opening"]["crossed"] != true
-        || world["opening"]["met"][KEEPER] != turn
-        || world["opening"]["met"][PIP] != turn.checked_sub(1)?
+        || (met_keeper != turn && !after_read)
+        || world["opening"]["met"][PIP] != met_keeper.checked_sub(1)?
         || !world["disabledPacks"].is_null()
         || !world["standoffs"].as_array()?.is_empty()
         || !world["pondLampLoan"].is_null()
@@ -223,6 +251,7 @@ fn station_scene<'a>(
     }
     if train_accepted {
         if historic
+            || after_read
             || rue_arrived(world)
             || vale["want"] != train_want(turn)
             || vale.get("content").is_some()
@@ -447,10 +476,18 @@ fn station_projection(
     let company = station_scene(world, geo, actor_order, train_accepted)?;
     station_paths(world, geo)?;
     let profiles = profile_source()?;
-    Some((
-        actions(world, geo, authored, &profiles, &company, train_accepted)?,
-        profiles,
-    ))
+    let mut plans = actions(world, geo, authored, &profiles, &company, train_accepted)?;
+    if world["turn"] == 3
+        && world["opening"]["met"][KEEPER] == 2
+        && settled_first_read(world).is_some()
+    {
+        let index = plans.iter().position(|plan| plan["key"] == ACCEPT_TRAIN)?;
+        let vale = profiles[VALE]["name"].as_str()?;
+        let keeper = profiles[KEEPER]["name"].as_str()?;
+        let text = format!("{vale} accepts {keeper}'s quest.");
+        plans.insert(index, offer("accept", None, Some(KEEPER), text, &[]));
+    }
+    Some((plans, profiles))
 }
 
 fn voices(world: &Value) -> &'static [&'static str] {
@@ -673,18 +710,22 @@ pub(super) fn accept_train(request: &Value) -> Option<Value> {
 pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let world = request.get("world")?;
     let train_accepted = !world["actors"][VALE]["want"].is_null();
+    let after_read = world["turn"] == 3 && settled_first_read(world).is_some();
+    let named = if after_read { &[] } else { voices(world) };
     if request["claimed"] != json!([VALE])
         || (!present.is_empty() && present != [VALE])
         || ((rue_arrived(world) || train_accepted) && present != [VALE])
-        || world["speechVoices"][VALE] != json!(voices(world))
+        || world["speechVoices"][VALE] != json!(named)
     {
         return None;
     }
-    arrival_events(
-        world,
-        response_chronology(world)?.checked_sub(1)?,
-        world["turn"] == 2 || historic_station(world),
-    )?;
+    if !after_read {
+        arrival_events(
+            world,
+            response_chronology(world)?.checked_sub(1)?,
+            world["turn"] == 2 || historic_station(world),
+        )?;
+    }
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
