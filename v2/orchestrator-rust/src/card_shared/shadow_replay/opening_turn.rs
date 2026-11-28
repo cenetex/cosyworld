@@ -138,6 +138,58 @@ fn sqlite_rules_wasm_parity_replays_station_after_the_first_pond_move() -> Resul
 }
 
 #[test]
+fn sqlite_rules_wasm_parity_replays_station_train_quest_and_reload() -> Result<()> {
+    let id = "station-train-quest";
+    let (mut c, mut state, mut calls) = commit_opening_turns(
+        id,
+        unseeded_opening()?,
+        true,
+        &[BARE_POND_MOVE, BARE_STATION_MOVE],
+    )?;
+    let mut expected = state.game.clone();
+    let turn = expected["turn"].as_u64().ok_or("Missing turn.")?;
+    let revision = expected["revision"].as_u64().ok_or("Missing revision.")?;
+    let want = json!({
+        "kind":"item", "target":"routes", "since":turn, "refusals":0, "story":true,
+        "step":{"verb":"bring","at":"station"}, "from":"quest:box:train",
+    });
+    expected["revision"] = json!(revision + 1);
+    expected["actors"]["vale"]["want"] = want.clone();
+    let accepted = full_store::commit(
+        &c,
+        id,
+        &mut state,
+        json!({"op":"play","actor":"vale","action":"accept:vale::box:train"}),
+        7,
+    )?;
+    assert_eq!(accepted["ok"], true);
+    assert_eq!(accepted["world"], expected);
+    assert_eq!(accepted["events"], json!([]));
+    assert_eq!(state.game, expected);
+    calls.push("play");
+    verify_opening_journal(&mut c, id, &calls)?;
+
+    let reloaded = full_store::world(&c, id, 8)?;
+    assert_eq!(reloaded, state);
+    let request = reloaded.request("view", actor_index("vale")?);
+    assert_eq!(request["present"], json!(["vale"]));
+    let pack = reloaded.pack.as_deref();
+    let reference = engine::reduce_journal(&reloaded.version, pack, request.clone())?;
+    assert_eq!(reference["world"]["actors"]["vale"]["want"], want);
+    assert!(reference.get("events").is_none());
+    let actions = reference["actions"].as_array().ok_or("Missing actions.")?;
+    assert!(actions
+        .iter()
+        .any(|action| action["key"] == "drop:vale:::0"));
+    assert!(actions
+        .iter()
+        .all(|action| action["key"] != "accept:vale::box:train"));
+    let guest = Rules::new(&read_candidate()?)?;
+    assert_eq!(reduce_candidate(&guest, pack, &request)?, Some(reference));
+    Ok(())
+}
+
+#[test]
 fn sqlite_rules_wasm_parity_replays_station_after_the_second_pond_move() -> Result<()> {
     replay_opening_turns(
         "station-after-second-pond-move",
