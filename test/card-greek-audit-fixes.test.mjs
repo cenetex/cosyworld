@@ -191,7 +191,6 @@ describe("harbor to Piraeus needs the provisions on deck", () => {
       .filter((a) => a.kind === "course")
       .map((a) => a.target);
     expect(courses).not.toContain("greek-piraeus");
-    // Provisions lying on deck do open it.
     world.items["greek-provisions"].holder = "greek-ship";
     world.usedUp = [];
     expect(
