@@ -3,8 +3,7 @@ import { createWorld, encodeSave } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { connectSharedWorld } from "../v2/card-game/shared.mjs";
 
-// Rust full_store::snapshot keeps World.version as the rules label and
-// projects the actual game revision inside world (full_world.rs).
+// The Rust snapshot keeps the rules label in World.version and the game revision inside world.
 const created = dispatchShared({
   op: "create",
   save: encodeSave(createWorld()),
