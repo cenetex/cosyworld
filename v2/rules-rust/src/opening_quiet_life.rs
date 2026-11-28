@@ -36,7 +36,7 @@ fn home<'a>(world: &Value, geo: &Geography, id: &str, person: &Person<'a>) -> Op
         .or_else(|| person.data["place"].as_str())
 }
 
-fn attic_interior<'a>(geo: &Geography<'a>) -> Option<BTreeSet<&'a str>> {
+pub(super) fn attic_interior<'a>(geo: &Geography<'a>) -> Option<BTreeSet<&'a str>> {
     let mut found = BTreeSet::from(["attic"]);
     let mut queue = VecDeque::from(["attic"]);
     while let Some(from) = queue.pop_front() {

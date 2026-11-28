@@ -28,6 +28,7 @@ mod opening_place_cards;
 mod opening_play;
 mod opening_quiet_life;
 mod opening_reflection;
+mod opening_resident_sleep;
 mod opening_roaming;
 mod opening_roster;
 pub mod opening_rumours;
@@ -150,6 +151,9 @@ pub fn reduce(request: &Value) -> Value {
             opening_place_cards::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
+        Some("opening_resident_sleep") => {
+            opening_resident_sleep::projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_hub_idle") => {
             opening_hub_residents::projection(request).unwrap_or(Value::Null)
         }
