@@ -24,7 +24,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     let present = opening::seats(&request["present"])?;
     let room = saved["actors"][VALE]["place"].as_str()?;
     let later_pond = room == POND && matches!(saved["turn"].as_u64(), Some(6 | 7));
-    let ship_speech = room == SHIP && matches!(saved["turn"].as_u64(), Some(8 | 9));
+    let ship_speech = room == SHIP && matches!(saved["turn"].as_u64(), Some(8..=10));
     if !(saved["turn"] == 2
         || later_pond
         || ship_speech

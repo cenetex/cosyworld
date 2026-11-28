@@ -46,7 +46,7 @@ function publish(wasm, pinned, request, cast, label) {
   return { spoken, final };
 }
 
-test("Witnessed Charybdis speech follows boarding and the first course", async () => {
+test("Witnessed Charybdis speech follows boarding, course and arrival", async () => {
   const { pinned, wasm } = await reducers();
   const run = (request) => {
     const reply = pinned(request);
@@ -55,6 +55,7 @@ test("Witnessed Charybdis speech follows boarding and the first course", async (
   };
   let dockedSample;
   let sample;
+  let arrivedSample;
   for (const [seed, sorted, shoreSpeech] of [
     [undefined, false, false],
     [undefined, true, true],
@@ -163,8 +164,43 @@ test("Witnessed Charybdis speech follows boarding and the first course", async (
       assert.equal(sailing.spoken.world.memories.ada.seen.vale.seq, seq);
     }
     sample = { ...atSea, world: sailing.final.world };
+    const arrived = run({
+      ...seats,
+      op: "play",
+      world: shoreSpeech ? sailing.final.world : sea,
+      action: "wait:vale::",
+    });
+    assert.equal(arrived.turn, 10);
+    assert.equal(arrived.transports[ship].phase, "arrived");
+    assert.equal(arrived.transports[ship].dock, "greek-harbor");
+    assert.deepEqual(arrived.speechVoices.vale, ["vale"]);
+    const inHarbor = {
+      ...request,
+      world: arrived,
+      lines: [
+        { actorId: "vale", text: "  We made it to the harbor. " },
+        { entityId: ship, text: "The hull settles into its berth." },
+      ],
+    };
+    const harbored = publish(wasm, pinned, inHarbor, cast, `arrived ${label}`);
+    assert.deepEqual(
+      harbored.spoken.lines.map(({ speaker }) => speaker),
+      ["Vale", "The Charybdis"],
+    );
+    if (ada) {
+      const invalid = {
+        ...inHarbor,
+        lines: [{ actorId: "ada", text: "We made it." }],
+      };
+      assert.equal(pinned(invalid).ok, false);
+      assert.equal(wasm(invalid), null);
+      const seq = harbored.spoken.world.eventSeq;
+      assert.equal(harbored.spoken.world.memories.ada.seen.vale.seq, seq);
+      assert.equal(harbored.spoken.world.memories.vale.seen.ada.seq, seq);
+    }
+    arrivedSample = { ...inHarbor, world: harbored.final.world };
   }
-  for (const scene of [dockedSample, sample]) {
+  for (const scene of [dockedSample, sample, arrivedSample]) {
     for (const invalid of [
       { ...scene, claimed: [] },
       { ...scene, room: "pond" },
@@ -182,4 +218,9 @@ test("Witnessed Charybdis speech follows boarding and the first course", async (
   missingCourse.log.findLast((entry) => entry.verb === "course").targetId =
     "pond";
   assert.equal(wasm({ ...sample, world: missingCourse }), null);
+  const missingDock = structuredClone(arrivedSample.world);
+  missingDock.log.findLast(
+    (entry) => entry.turn === 10 && entry.generated !== true,
+  ).speaker = "Vale";
+  assert.equal(wasm({ ...arrivedSample, world: missingDock }), null);
 });

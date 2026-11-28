@@ -94,7 +94,6 @@ describe("RATi's keepsakes", () => {
     const s = world();
     const held = () => s.actors["ratiradio-rati"].want;
     expect(things.map((id) => [id])).toContainEqual(held().step.items);
-    // Set the first one down at home: the next pick is one of the others.
     let remaining = [...things];
     let previous = held();
     while (remaining.length) {
