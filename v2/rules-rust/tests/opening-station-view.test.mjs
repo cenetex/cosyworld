@@ -139,3 +139,100 @@ test("seated Station reloads keep Rue, offers and the published speech", async (
     assert.equal(wasm({ ...last, world }), null);
   }
 });
+
+test("historic Station reloads preserve sleeping residents and available offers", async () => {
+  const { pinned, wasm } = await reducers();
+  const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+  const run = (request) => {
+    const reply = pinned(request);
+    assert.equal(reply.ok, true, reply.error);
+    return reply.world;
+  };
+  let last;
+  for (const seed of [undefined, 2, 42, 4242]) {
+    for (const dry of [false, true]) {
+      let world = run({ op: "create", seed, history: true });
+      if (dry) {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+        world.actors = Object.fromEntries(
+          Object.entries(world.actors).toSorted(),
+        );
+      } else {
+        world = run({
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+      }
+      world = run({ ...seats, op: "play", world, action: "move:vale::pond" });
+      const action = dry ? "move:vale:lamp:station" : "move:vale::station";
+      const arrived = run({ ...seats, op: "play", world, action });
+      const spoken = run({
+        ...seats,
+        op: "speech",
+        world: arrived,
+        room: "station",
+        lines: [
+          { actorId: "vale", text: "The station is quiet." },
+          { actorId: "keeper", text: "A train will come." },
+          { entityId: "station", text: "A clock ticks." },
+        ],
+      });
+      assert.equal(spoken.eventSeq, arrived.eventSeq + 3);
+      for (const saved of [arrived, spoken]) {
+        for (const present of [seats.present, []]) {
+          last = { ...seats, present, op: "view", world: saved };
+          const expected = pinned(last);
+          assert.equal(expected.ok, true, expected.error);
+          const actual = wasm(last);
+          const label = `${seed} dry ${dry} present ${present.length} published ${saved === spoken}`;
+          assert.ok(actual, label);
+          const differing = Object.keys(expected).find(
+            (key) => !isDeepStrictEqual(expected[key], actual[key]),
+          );
+          assert.ok(
+            isDeepStrictEqual(actual, expected),
+            `${label} ${differing ?? "extra fields"}`,
+          );
+          assert.deepEqual(actual.world.speechVoices.vale, ["vale", "keeper"]);
+          assert.deepEqual(actual.world.memories.vale, saved.memories.vale);
+          assert.equal(actual.world.memories.keeper.subjects, undefined);
+          assert.ok(actual.actions.every((action) => action.target !== "moth"));
+          assert.equal(
+            actual.actions.some(({ kind }) => kind === "accompany"),
+            seed !== 4242,
+          );
+          assert.equal(
+            actual.actions.some(({ kind }) => kind === "ask"),
+            seed !== 4242,
+          );
+          assert.equal(
+            actual.actions.some(({ kind }) => kind === "trade"),
+            seed !== 4242,
+          );
+          assert.ok(
+            actual.actions.some(({ key }) => key === "give:vale:lamp:keeper"),
+          );
+          assert.ok(!Object.hasOwn(actual, "events"));
+        }
+      }
+    }
+  }
+  for (const change of [
+    (world) => {
+      world.actors.moth.sleeping.until = 482;
+    },
+    (world) => {
+      world.log.find((event) => event.text === "Pip falls asleep.").generated =
+        true;
+    },
+    (world) => {
+      world.actors.keeper.sleeping.place = "pond";
+    },
+  ]) {
+    const world = structuredClone(last.world);
+    change(world);
+    assert.equal(wasm({ ...last, world }), null);
+  }
+});
