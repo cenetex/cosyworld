@@ -303,6 +303,7 @@ impl<'a> Geography<'a> {
             "drawn" => contains(&state["specials"], condition["id"].as_str()?),
             "met" => state["met"].get(condition["actor"].as_str()?).is_some(),
             "shared_world" => world["sharedVersion"] == 1,
+            "home_door" => world["doors"][condition["home"].as_str()?] == condition["place"],
             "arcana_called" => self.arcana_called(world)?,
             "connected_humans" => {
                 self.humans_present(world) >= condition["minimum"].as_u64()? as usize
