@@ -333,7 +333,6 @@ export function stagedNext(s, id, previous = null) {
   return entries.length ? heldWant(s, entries[0].want) : null;
 }
 
-// Every actor carries a want record, experience and what it has seen.
 export function installWants(s) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (wantless(id)) a.want = null;
