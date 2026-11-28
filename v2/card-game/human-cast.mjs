@@ -1,7 +1,6 @@
 import cast from "./shared-cast.json" with { type: "json" };
 
 export const humanAvatars = cast.avatars;
-// The places any avatar reaches without Vale's lamp.
 export const lamplessPlaces = cast.lampless;
 export const humanAvatarIds = humanAvatars.map((a) => a.id);
 const avatarById = new Map();

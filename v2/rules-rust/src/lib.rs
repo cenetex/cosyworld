@@ -13,6 +13,7 @@ mod create_geography;
 mod initial_wants;
 mod join;
 mod opening;
+mod opening_candidates;
 pub mod opening_evidence;
 pub mod opening_history;
 mod opening_play;
@@ -24,7 +25,10 @@ mod pack_state;
 mod profiles;
 mod reset;
 mod seed;
+mod seed_arrivals;
 mod seed_packs;
+mod seed_scatter;
+mod seed_wayfinder;
 mod validate;
 
 pub use create_geography::Geography;
@@ -109,6 +113,8 @@ pub fn reduce(request: &Value) -> Value {
         Some("hold") => opening::hold(request).unwrap_or(Value::Null),
         Some("seed_doors") => seed::door_projection(request).unwrap_or(Value::Null),
         Some("seed_specials") => seed::specials_projection(request).unwrap_or(Value::Null),
+        Some("seed_opening") => seed::opening_projection(request).unwrap_or(Value::Null),
+        Some("seed_arrivals") => seed_arrivals::projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
@@ -117,7 +123,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("mount_packs") => pack_state::reduce(request).unwrap_or(Value::Null),
         Some("speech") => opening_speech::reduce(request).unwrap_or(Value::Null),
         Some("validate") => validate::reduce(request).unwrap_or(Value::Null),
-        Some("create") => validate::import_refusal(request).unwrap_or(Value::Null),
+        Some("create") => create::reduce(request).unwrap_or(Value::Null),
         _ => Value::Null,
     }
 }

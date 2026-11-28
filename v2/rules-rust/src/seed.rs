@@ -1,4 +1,4 @@
-use super::{pack_state::Catalog, seed_packs};
+use super::{pack_state::Catalog, seed_packs, seed_scatter, seed_wayfinder};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -91,12 +91,21 @@ fn links<'a>(
 }
 
 pub(super) fn place_doors(files: &Value, seed: u32, owner: Option<&str>) -> Option<Value> {
+    let catalog = Catalog::from_files(files)?;
+    place_doors_in(files, &catalog, seed, owner)
+}
+
+fn place_doors_in(
+    files: &Value,
+    catalog: &Catalog<'_>,
+    seed: u32,
+    owner: Option<&str>,
+) -> Option<Value> {
     let homes = homes(files)?;
     if owner.is_some_and(|id| !homes.iter().any(|home| home.actor == id)) {
         return None;
     }
     let lampless = files["v2/card-game/shared-cast.json"]["lampless"].as_array()?;
-    let catalog = Catalog::from_files(files)?;
     let (linked, ships) = links(
         files.get("v2/card-game/forest.json")?,
         catalog.packs(),
@@ -169,5 +178,40 @@ pub(super) fn specials_projection(request: &Value) -> Option<Value> {
     let catalog = Catalog::from_files(content.get("files")?)?;
     let mut world = request.get("world")?.clone();
     seed_packs::install(&mut world, &catalog, seed)?;
+    Some(json!({"ok": true, "world": world}))
+}
+
+pub(super) fn run_seed(world: &Value) -> Option<u32> {
+    match world.get("run") {
+        Some(run) => u32::try_from(run["seed"].as_u64()?).ok(),
+        None => Some(0),
+    }
+}
+
+pub(super) fn place_wayfinder(world: &mut Value, files: &Value) -> Option<()> {
+    let seed = run_seed(world)?;
+    let catalog = Catalog::from_files(files)?;
+    seed_wayfinder::place(world, files, &catalog, seed)
+}
+
+pub(super) fn seed_fresh(world: &mut Value, files: &Value, seed: u32) -> Option<()> {
+    if world.get("run").is_some() {
+        return None;
+    }
+    let catalog = Catalog::from_files(files)?;
+    let doors = place_doors_in(files, &catalog, seed, None)?;
+    world
+        .as_object_mut()?
+        .insert("run".into(), json!({"seed": seed}));
+    world["doors"] = doors;
+    seed_packs::install(world, &catalog, seed)?;
+    seed_scatter::place(world, files, &catalog, seed)?;
+    seed_wayfinder::place(world, files, &catalog, seed)
+}
+
+pub(super) fn opening_projection(request: &Value) -> Option<Value> {
+    let (content, seed) = seed_input(request)?;
+    let mut world = request.get("world")?.clone();
+    seed_fresh(&mut world, content.get("files")?, seed)?;
     Some(json!({"ok": true, "world": world}))
 }
