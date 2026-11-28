@@ -478,8 +478,7 @@ pub(super) fn enqueue(
     if pending > 0 {
         return Err("Your play is already at the table.".into());
     }
-    // The probe runs rules under the shared writer lock. Charge rejected plays
-    // to a per-user budget because they leave no row for queue limits to count.
+    // Rejected plays leave no queue row, so budget probes that hold the shared writer lock separately.
     if rejections(user, false) {
         return Err("The table is resting for a moment. Try your play shortly.".into());
     }

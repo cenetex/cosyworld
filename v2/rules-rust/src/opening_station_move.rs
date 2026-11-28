@@ -124,9 +124,8 @@ pub(super) fn rue_arrived(world: &Value) -> bool {
 
 fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let forest = &geo.files()["v2/card-game/forest.json"];
-    if !matches!(world["turn"].as_u64()?, 1 | 2)
-        || world.get("began").is_some()
-        || !quiet_opening(world)
+    if !quiet_opening(world)
+        || world.get("began").is_some_and(|began| began != 480)
         || world["actors"][VALE]["crossed"] != 1
         || forest["homeGates"][POND]["opening"] == true
         || world["actors"][KEEPER]["place"] != STATION
@@ -149,9 +148,7 @@ fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
     {
         return None;
     }
-    if opening_pond_view::quiet_pond(world, geo)? {
-        return None;
-    }
+    opening_pond_view::quiet_pond(world, geo)?;
     opening_pond_view::pond_paths(world, geo)?;
     opening_second_attic_tail::verify_station_order(world, geo)?;
     if geo.packs().any(|pack| {
