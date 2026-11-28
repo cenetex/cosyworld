@@ -52,7 +52,7 @@ test("seated Station reloads keep Rue, offers and the published speech", async (
     return reply.world;
   };
   let last;
-  for (const seed of [7, 99]) {
+  for (const seed of [73, 75]) {
     for (const lamp of ["stowed", "dry"]) {
       let world = run({ op: "create", seed });
       if (lamp === "stowed") {

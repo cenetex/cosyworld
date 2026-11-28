@@ -125,7 +125,7 @@ test("the attic lamp Take stage requires the first completed Drop and no hold ch
   ]) {
     assert.equal(wasm({ ...request, ...change }), null);
   }
-  assert.equal(wasm({ ...request, op: "play" }), null);
+  assert.deepEqual(wasm({ ...request, op: "play" }), pinned({ ...request, op: "play" }));
   const content = JSON.parse(
     await readFile(
       new URL(

@@ -21,7 +21,7 @@ test("a second attic Wait or Take settles wants exactly when residents stay or m
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(capture);
   let moved = false;
-  for (const seed of [undefined, 2, 17, 4242, 4294967295]) {
+  for (const seed of [undefined, 2, 17, 42, 4242, 4294967295]) {
     const { world } = pinned({ op: "create", seed });
     for (const [first, second] of [
       ["wait:vale::", "wait:vale::"],

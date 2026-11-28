@@ -23,6 +23,7 @@ fn prepare(files: &Value, catalog: &Catalog, geo: &Geography, people: &People) -
     world["doors"] = seed::place_doors(files, 0, None)?;
     people.install(&mut world, geo)?;
     seed::place_wayfinder(&mut world, files)?;
+    world["voidTokensSpread"] = json!(true);
     opening_candidates::fill(&mut world, geo, people)?;
     Some(world)
 }

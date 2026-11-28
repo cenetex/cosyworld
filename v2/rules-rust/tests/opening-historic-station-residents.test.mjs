@@ -39,7 +39,7 @@ test("historic Station resident plays leave the exact sleeping-Pip phase unchang
     return reply.world;
   };
   let saved;
-  for (const seed of [undefined, 2, 42, 4242, 17, 1]) {
+  for (const seed of [undefined, 2, 42, 4242, 17, 5]) {
     for (const lamp of ["stowed", "dry"]) {
       let world = success(pinned({ op: "create", seed, history: true }));
       if (lamp === "dry") {
@@ -75,7 +75,7 @@ test("historic Station resident plays leave the exact sleeping-Pip phase unchang
         assert.equal(before.eventSeq, before.arrival.seq);
         const actual = wasm({ op, world: before });
         const label = JSON.stringify({ seed, lamp, action });
-        if (seed === 17 || seed === 1) {
+        if (seed === 17 || seed === 5) {
           assert.equal(actual, null, label);
           assert.ok(
             plans.includes(
@@ -83,7 +83,7 @@ test("historic Station resident plays leave the exact sleeping-Pip phase unchang
             ),
             label,
           );
-          if (seed === 1) assert.ok(before.actors.moth.sleeping, label);
+          if (seed === 5) assert.ok(before.actors.moth.sleeping, label);
           assert.ok(after.eventSeq > before.eventSeq, label);
         } else {
           assert.ok(before.actors.moth.sleeping, label);

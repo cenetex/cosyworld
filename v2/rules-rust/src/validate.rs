@@ -194,7 +194,12 @@ fn verified_opening(saved: &Value, files: &Value) -> Option<Value> {
         }
         _ => return None,
     };
-    (rebuilt == *saved).then_some(rebuilt)
+    let mut loaded = saved.clone();
+    loaded
+        .as_object_mut()?
+        .entry("voidTokensSpread")
+        .or_insert(json!(true));
+    (rebuilt == loaded).then_some(rebuilt)
 }
 
 fn integer(value: &Value) -> Option<u64> {

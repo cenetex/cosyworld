@@ -22,7 +22,7 @@ test("second Pond arrival uses pinned Bard dwell and offstage resident settlemen
   const reference = currentSharedEngine(traceLife);
   const movers = new Set();
   let state;
-  for (const seed of [undefined, 0, 2, 17, 4242, 4_294_967_295]) {
+  for (const seed of [undefined, 0, 2, 3, 17, 35, 4242, 4_294_967_295]) {
     for (const mode of ["stowed", "dry"]) {
       let { world } = pinned({ op: "create", seed });
       if (mode === "stowed") {
@@ -63,7 +63,7 @@ test("second Pond arrival uses pinned Bard dwell and offstage resident settlemen
       }
     }
   }
-  assert.deepEqual([...movers].sort(), ["ash", "nell", "orin"]);
+  assert.deepEqual([...movers].sort(), ["nell", "tavi"]);
   const invalid = structuredClone(state);
   invalid.arrival.fromLocationId = "station";
   assert.equal(wasm({ op: "opening_second_pond_life", world: invalid }), null);

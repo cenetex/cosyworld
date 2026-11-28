@@ -174,8 +174,9 @@ test("speech after the second Take keeps Drop speech and resident events", async
   for (const [seed, wayfinder, suffix] of [
     [0, "pond", null],
     [17, "behind-station", null],
-    [2, "station", "ash"],
-    [4242, "behind-station", "orin"],
+    [2, "station", null],
+    [4242, "behind-station", null],
+    [42, "station", "tavi"],
   ]) {
     for (const mode of ["held", "stowed", "dry"]) {
       const created = pinned({ op: "create", seed });
