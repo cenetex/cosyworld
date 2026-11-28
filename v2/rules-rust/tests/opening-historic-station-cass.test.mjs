@@ -21,7 +21,7 @@ function traceCass(source) {
   );
 }
 
-test("Cass leaves the Game board in the pavilion on his historic move to Willows bank", async () => {
+test("Cass waits with current seeded wants and leaves his board when pursuing the Swede", async () => {
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(traceCass);
   const run = (request) => {
@@ -30,7 +30,7 @@ test("Cass leaves the Game board in the pavilion on his historic move to Willows
     return reply.world;
   };
   let sample;
-  for (const seed of [17, 99]) {
+  for (const [seed, restoredWillowsWant] of [[17, false], [99, false], [17, true]]) {
     const fresh = run({ op: "create", history: true, seed });
     const reopened = run({ op: "create", save: JSON.stringify(fresh) });
     const stowed = run({
@@ -45,6 +45,9 @@ test("Cass leaves the Game board in the pavilion on his historic move to Willows
       world: stowed,
       action: "move:vale::pond",
     });
+    if (restoredWillowsWant) {
+      pond.actors.orin.want.target = "willows-swede";
+    }
     const sorted = Object.fromEntries(Object.entries(pond.actors).toSorted());
     for (const actors of [pond.actors, sorted]) {
       for (const route of ["move:vale::station", "move:vale:lamp:station"]) {
@@ -60,11 +63,12 @@ test("Cass leaves the Game board in the pavilion on his historic move to Willows
         const { key, before, after } = JSON.parse(
           JSON.stringify(reference.cass),
         );
-        assert.equal(before.log.at(-1).actorId, "moth");
-        assert.equal(before.eventSeq, before.arrival.seq + 1);
+        const adaBeforeCass = seed === 99 && actors === sorted;
+        assert.equal(before.log.at(-1).actorId, adaBeforeCass ? "ada" : "moth");
+        assert.equal(before.eventSeq, before.arrival.seq + (adaBeforeCass ? 2 : 1));
         const actual = wasm({ ...moveCass, world: before });
-        const label = `${seed} ${route} ${actors === sorted ? "sorted" : "authored"}`;
-        if (seed === 99) {
+        const label = `${seed} ${route} ${actors === sorted ? "sorted" : "authored"} restored=${restoredWillowsWant}`;
+        if (!restoredWillowsWant) {
           assert.equal(key, "wait:orin::", label);
           assert.deepEqual(after, before);
           assert.equal(actual, null, label);
