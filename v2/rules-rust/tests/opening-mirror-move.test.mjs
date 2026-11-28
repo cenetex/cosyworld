@@ -74,10 +74,56 @@ test("first mirror travel matches the pinned arrival and its action evidence", a
 
 test("a lit held lamp keeps the mirror closed to both movement cards", async () => {
   const { pinned, wasm } = await reducers();
-  const { world } = pinned({ op: "create" });
-  for (const action of routes) {
-    const request = { ...seats, world, action };
-    assert.equal(pinned({ ...request, op: "play" }).ok, false);
-    assert.equal(wasm({ ...request, op: "opening_mirror_move" }), null);
+  const fresh = pinned({ op: "create" }).world;
+  const waited = pinned({ ...seats, op: "play", world: fresh, action: "wait:vale::" });
+  assert.equal(waited.ok, true, waited.error);
+  for (const world of [fresh, waited.world]) {
+    for (const action of routes) {
+      const request = { ...seats, world, action };
+      assert.equal(pinned({ ...request, op: "play" }).ok, false);
+      assert.equal(wasm({ ...request, op: "opening_mirror_move" }), null);
+    }
   }
+});
+
+test("the first reflection crossing after an attic Wait matches the pinned primary world", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(captureMove);
+  let request;
+  for (const seed of [undefined, 0, 17, 4242, 4_294_967_295]) {
+    for (const mode of ["stowed", "dry"]) {
+      let { world } = pinned({ op: "create", seed });
+      if (mode === "stowed") {
+        ({ world } = pinned({
+          ...seats, op: "hold", world,
+          choice: { item: null, revision: world.revision },
+        }));
+      } else {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      }
+      const waited = pinned({ ...seats, op: "play", action: "wait:vale::", world });
+      assert.equal(waited.ok, true, waited.error);
+      const sorted = Object.fromEntries(Object.entries(waited.world.actors).toSorted());
+      for (const actors of [waited.world.actors, sorted]) {
+        for (const key of routes) {
+          request = { ...seats, world: { ...waited.world, actors }, action: actors === sorted ? { key } : key, revision: waited.world.revision };
+          reference.primaryMove = undefined;
+          const outcome = JSON.parse(reference.cardShared(JSON.stringify({ ...request, op: "play" })));
+          assert.equal(outcome.ok, true, outcome.error);
+          const actual = wasm({ ...request, op: "opening_mirror_move" });
+          const label = JSON.stringify({ seed, mode, key, sorted: actors === sorted });
+          assert.ok(actual, `unsupported ${label}`);
+          assert.deepEqual(actual, { ok: true, world: JSON.parse(JSON.stringify(reference.primaryMove)) }, label);
+          assert.equal(actual.world.opening.met.moth, 2);
+          assert.equal(actual.world.actors.vale.waitSpeech.turn, 1);
+          assert.equal(actual.world.arrival.seq, waited.world.eventSeq + 1);
+        }
+      }
+    }
+  }
+  const stale = { ...request, op: "opening_mirror_move", revision: request.revision - 1 };
+  assert.equal(wasm(stale), null);
+  const unsupported = structuredClone(request.world);
+  delete unsupported.actors.vale.waitSpeech;
+  assert.equal(wasm({ ...request, op: "opening_mirror_move", world: unsupported }), null);
 });

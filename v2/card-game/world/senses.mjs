@@ -5,7 +5,6 @@ import { nameOf } from "./catalog.mjs";
 import { currentActor } from "../human-cast.mjs";
 import forest from "../forest.json" with { type: "json" };
 
-// A reflection opens while its authored conditions hold (#1600).
 export const reflectionsFrom = (s, from) =>
   (forest.reflectionRoutes || [])
     .filter(

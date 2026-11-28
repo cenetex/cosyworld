@@ -103,15 +103,20 @@ pub(super) fn second_world(request: &Value) -> Option<&Value> {
     let world = wait_request(request, opening::supported_after_first_turn(request)?)?;
     if opening::seats(&request["claimed"])? != [ACTOR]
         || opening::seats(&request["present"])? != [ACTOR]
-        || ["absent", "hidden", "homecoming", "gone", "disabledPacks"]
-            .iter()
-            .any(|key| !world[*key].is_null())
-        || !world["stationExitOrder"].as_array()?.is_empty()
-        || opening_wait_response::settled_first_wait(world)? != 1
     {
         return None;
     }
+    after_fresh_wait(world)?;
     Some(world)
+}
+
+pub(super) fn after_fresh_wait(world: &Value) -> Option<()> {
+    (["absent", "hidden", "homecoming", "gone", "disabledPacks"]
+        .iter()
+        .all(|key| world[*key].is_null())
+        && world["stationExitOrder"].as_array()?.is_empty()
+        && opening_wait_response::settled_first_wait(world)? == 1)
+        .then_some(())
 }
 
 pub(super) fn begin(request: &Value) -> Option<(Value, Value, Value)> {

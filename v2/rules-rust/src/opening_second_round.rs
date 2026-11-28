@@ -17,7 +17,7 @@ enum Play {
     Take,
 }
 
-fn quiet_start(world: &Value) -> Option<()> {
+pub(super) fn quiet_start(world: &Value) -> Option<()> {
     if [
         "absent",
         "hidden",
