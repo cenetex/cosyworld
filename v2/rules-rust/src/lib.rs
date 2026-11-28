@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 mod opening;
+mod reset;
 
 pub const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 
@@ -86,6 +87,7 @@ pub fn reduce(request: &Value) -> Value {
         },
         Some("presence") => opening::presence(request).unwrap_or(Value::Null),
         Some("hold") => opening::hold(request).unwrap_or(Value::Null),
+        Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         _ => Value::Null,
     }
 }

@@ -147,7 +147,6 @@ pub(super) fn presence(request: &Value) -> Option<Value> {
     opening.respond(world, held)
 }
 
-// Lamp holds in an untouched opening have only one possible box credit.
 pub(super) fn hold(request: &Value) -> Option<Value> {
     let present = request["present"].as_array()?;
     if request["actor"] != "vale" || !present.iter().any(|id| id == "vale") {
