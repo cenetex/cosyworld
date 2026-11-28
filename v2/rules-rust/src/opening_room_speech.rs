@@ -24,13 +24,13 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     let present = opening::seats(&request["present"])?;
     let room = saved["actors"][VALE]["place"].as_str()?;
     let later_pond = room == POND && matches!(saved["turn"].as_u64(), Some(6 | 7));
-    let boarded = room == SHIP && saved["turn"] == 8;
+    let ship_speech = room == SHIP && matches!(saved["turn"].as_u64(), Some(8 | 9));
     if !(saved["turn"] == 2
         || later_pond
-        || boarded
+        || ship_speech
         || (room == STATION && opening_station_view::historic_station(saved)))
         || request["actor"] != VALE
-        || (claimed != [VALE] && !((later_pond || boarded) && claimed.is_empty()))
+        || (claimed != [VALE] && !((later_pond || ship_speech) && claimed.is_empty()))
         || (!present.is_empty() && present != [VALE])
         || !present.iter().all(|id| claimed.contains(id))
         || (!request["room"].is_null() && request["room"] != room)
@@ -57,23 +57,29 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     world["heldActors"] = json!(claimed);
     world["controlledActors"] = json!(present);
     world["presentActors"] = json!(present);
-    let voices: &[&str] = match room {
+    let (voices, cast_size): (&[&str], Option<usize>) = match room {
         POND if world["turn"] == 6 => {
             opening_pond_return_view::verify_cloth_arrival(&world, &geo)?;
-            &[VALE]
+            (&[VALE], Some(1))
         }
         POND if world["turn"] == 7 => {
             opening_pond_call_view::settled_speech(&world, &geo)?;
-            &[VALE]
+            (&[VALE], Some(1))
         }
         POND => {
             opening_pond_view::settled_second_move(&world, &geo)?;
-            &[VALE, PIP]
+            (&[VALE, PIP], Some(2))
         }
-        STATION => opening_station_view::settled_speech_voices(&world, &geo, &order)?,
-        SHIP => opening_pond_ship_view::settled_speakers(&world, &geo, |id| {
-            evidence.profile(id)?["name"].as_str()
-        })?,
+        STATION => (
+            opening_station_view::settled_speech_voices(&world, &geo, &order)?,
+            None,
+        ),
+        SHIP => {
+            let (ada, voices) = opening_pond_ship_view::settled_speakers(&world, &geo, |id| {
+                evidence.profile(id)?["name"].as_str()
+            })?;
+            (voices, Some(1 + usize::from(ada)))
+        }
         _ => return None,
     };
     if lines.len() > voices.len() + 1
@@ -83,7 +89,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         return None;
     }
     let cast = opening_roster::known_actors(&world, &geo, &order, Some(room))?;
-    if (matches!(room, POND | SHIP) && cast.len() != voices.len())
+    if cast_size.is_some_and(|size| cast.len() != size)
         || voices.iter().any(|id| !cast.contains(id))
     {
         return None;

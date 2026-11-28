@@ -269,22 +269,22 @@ fn caption<'name>(
     .then_some(())
 }
 
-fn course_events<'a>(
+fn course_events<'a, 'name>(
     world: &'a Value,
     ada: bool,
-    profiles: &Value,
+    name: impl Fn(&str) -> Option<&'name str>,
     allow_speech: bool,
 ) -> Option<&'a [Value]> {
-    let (board, captions, suffix) = event(world, ada, |id| profiles[id]["name"].as_str(), false)?;
+    let (board, captions, suffix) = event(world, ada, &name, false)?;
     let [course, cast_off, speech @ ..] = suffix else {
         return None;
     };
     let seq = captions.last().unwrap_or(board)["seq"]
         .as_u64()?
         .checked_add(1)?;
-    let vale = profiles[VALE]["name"].as_str()?;
-    let ship = profiles[SHIP]["name"].as_str()?;
-    let harbor = profiles[HARBOR]["name"].as_str()?;
+    let vale = name(VALE)?;
+    let ship = name(SHIP)?;
+    let harbor = name(HARBOR)?;
     let items = &board["items"];
     let witnesses = if ada {
         json!([VALE, ADA, CLOTH])
@@ -324,7 +324,7 @@ fn course_events<'a>(
         }
     }
     for line in speech {
-        caption(line, ada, false, items, |id| profiles[id]["name"].as_str())?;
+        caption(line, ada, false, items, &name)?;
     }
     suffix.get(..2)
 }
@@ -387,14 +387,19 @@ pub(super) fn settled_speakers<'name>(
     world: &Value,
     geo: &Geography<'_>,
     name: impl Fn(&str) -> Option<&'name str>,
-) -> Option<&'static [&'static str]> {
-    let ada = scene(world, geo, true)?;
-    let speakers = voices(ada);
+) -> Option<(bool, &'static [&'static str])> {
+    let docked = world["turn"] == 8;
+    let ada = scene(world, geo, docked)?;
+    let speakers = voices(ada && docked);
     if world["speechVoices"][VALE] != json!(speakers) {
         return None;
     }
-    event(world, ada, name, true)?;
-    Some(speakers)
+    if docked {
+        event(world, ada, name, true)?;
+    } else {
+        course_events(world, ada, name, true)?;
+    }
+    Some((ada, speakers))
 }
 
 pub(super) fn completed_response(
@@ -426,7 +431,7 @@ pub(super) fn completed_course_response(
 ) -> Option<Value> {
     let ada = scene(&world, geo, false)?;
     let profiles = profile_source()?;
-    let events = course_events(&world, ada, &profiles, false)?;
+    let events = course_events(&world, ada, |id| profiles[id]["name"].as_str(), false)?;
     if events.first()?["seq"] != before_seq.checked_add(1)?
         || geo.files()["v2/card-game/speech.json"]["action"] != json!(["actor"])
     {
@@ -471,16 +476,7 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let geo = Geography::new(&files, catalog.packs())?;
     let docked = world["turn"] == 8;
     let profiles = profiles::project(&files)?;
-    let ada = if docked {
-        settled_speakers(world, &geo, |id| profiles[id]["name"].as_str())?.contains(&ADA)
-    } else {
-        let ada = scene(world, &geo, false)?;
-        if world["speechVoices"][VALE] != json!([VALE]) {
-            return None;
-        }
-        course_events(world, ada, &profiles, true)?;
-        ada
-    };
+    let (ada, _) = settled_speakers(world, &geo, |id| profiles[id]["name"].as_str())?;
     let mut response = json!({"ok":true});
     response["world"] = opening_view::private_world(world, request)?;
     reply(response, profiles, ada, docked)

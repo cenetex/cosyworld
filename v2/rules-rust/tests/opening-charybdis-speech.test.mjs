@@ -13,13 +13,47 @@ function exact(actual, expected, label) {
   assert.ok(isDeepStrictEqual(actual, expected), `${label} ${field ?? ""}`);
 }
 
-test("First Charybdis speech is restricted to the witnessed ship scene", async () => {
+function publish(wasm, pinned, request, cast, label) {
+  const spoken = wasm(request);
+  exact(spoken, pinned(request), label);
+  assert.equal(spoken.world.revision, request.world.revision + 1);
+  for (const [index, line] of spoken.lines.entries()) {
+    assert.deepEqual(line.cast, cast);
+    assert.equal(line.light, false);
+    assert.equal(line.seq, request.world.eventSeq + index + 1);
+  }
+  const away = {
+    ...request,
+    world: spoken.world,
+    present: [],
+    lines: request.lines.slice(-1),
+  };
+  delete away.room;
+  const caption = wasm(away);
+  exact(caption, pinned(away), `${label} away`);
+  const released = {
+    ...away,
+    world: caption.world,
+    claimed: [],
+    lines: request.lines.slice(0, -1),
+  };
+  const final = wasm(released);
+  exact(final, pinned(released), `${label} released`);
+  for (const present of [seats.present, []]) {
+    const view = { ...seats, op: "view", world: final.world, present };
+    exact(wasm(view), pinned(view), `${label} view ${present}`);
+  }
+  return { spoken, final };
+}
+
+test("Witnessed Charybdis speech follows boarding and the first course", async () => {
   const { pinned, wasm } = await reducers();
   const run = (request) => {
     const reply = pinned(request);
     assert.equal(reply.ok, true, reply.error);
     return reply.world;
   };
+  let dockedSample;
   let sample;
   for (const [seed, sorted, shoreSpeech] of [
     [undefined, false, false],
@@ -73,19 +107,19 @@ test("First Charybdis speech is restricted to the witnessed ship scene", async (
     ];
     const label = `${seed}/${sorted}`;
     const request = { ...seats, op: "speech", world: saved, room: ship, lines };
-    const spoken = wasm(request);
-    exact(spoken, pinned(request), label);
-    assert.equal(spoken.world.revision, saved.revision + 1);
+    const cast = ada ? (sorted ? ["ada", "vale"] : ["vale", "ada"]) : ["vale"];
+    const { spoken, final } = publish(
+      wasm,
+      pinned,
+      request,
+      cast,
+      `boarded ${label}`,
+    );
+    dockedSample = { ...request, world: final.world };
     assert.deepEqual(
       spoken.lines.map(({ speaker }) => speaker),
       ada ? ["Vale", "Sage", "The Charybdis"] : ["Vale", "The Charybdis"],
     );
-    const cast = ada ? (sorted ? ["ada", "vale"] : ["vale", "ada"]) : ["vale"];
-    for (const [index, line] of spoken.lines.entries()) {
-      assert.deepEqual(line.cast, cast);
-      assert.equal(line.light, false);
-      assert.equal(line.seq, saved.eventSeq + index + 1);
-    }
     if (ada) {
       const seq = spoken.world.eventSeq;
       assert.equal(spoken.world.memories.vale.seen.ada.seq, seq);
@@ -95,39 +129,57 @@ test("First Charybdis speech is restricted to the witnessed ship scene", async (
         saved.memories.vale.subjects,
       );
     }
-    const away = {
+    const sea = run({
+      ...seats,
+      op: "play",
+      world: shoreSpeech ? final.world : saved,
+      action: "course:vale::greek-harbor",
+    });
+    assert.equal(sea.turn, 9);
+    assert.equal(sea.transports[ship].phase, "sea");
+    assert.deepEqual(sea.speechVoices.vale, ["vale"]);
+    const atSea = {
       ...request,
-      world: spoken.world,
-      present: [],
-      lines: lines.slice(-1),
+      world: sea,
+      lines: [
+        { actorId: "vale", text: "  We’re underway now. " },
+        { entityId: ship, text: "The rigging whistles in the wind." },
+      ],
     };
-    delete away.room;
-    const caption = wasm(away);
-    exact(caption, pinned(away), `${label} away`);
-    const released = {
-      ...away,
-      world: caption.world,
-      claimed: [],
-      lines: lines.slice(0, -1),
-    };
-    const final = wasm(released);
-    exact(final, pinned(released), `${label} released`);
-    for (const present of [seats.present, []]) {
-      const view = { ...seats, op: "view", world: final.world, present };
-      exact(wasm(view), pinned(view), `${label} view ${present}`);
+    const sailing = publish(wasm, pinned, atSea, cast, `at sea ${label}`);
+    assert.deepEqual(
+      sailing.spoken.lines.map(({ speaker }) => speaker),
+      ["Vale", "The Charybdis"],
+    );
+    if (ada) {
+      const invalid = {
+        ...atSea,
+        lines: [{ actorId: "ada", text: "Steady as she goes." }],
+      };
+      assert.equal(pinned(invalid).ok, false);
+      assert.equal(wasm(invalid), null);
+      const seq = sailing.spoken.world.eventSeq;
+      assert.equal(sailing.spoken.world.memories.vale.seen.ada.seq, seq);
+      assert.equal(sailing.spoken.world.memories.ada.seen.vale.seq, seq);
     }
-    sample = { ...request, world: final.world };
+    sample = { ...atSea, world: sailing.final.world };
   }
-  for (const invalid of [
-    { ...sample, claimed: [] },
-    { ...sample, room: "pond" },
-    { ...sample, lines: [{ actorId: "ada", text: "The ship waits." }] },
-    { ...sample, lines: [sample.lines[0], sample.lines[0]] },
-  ]) {
-    assert.equal(pinned(invalid).ok, false);
-    assert.equal(wasm(invalid), null);
+  for (const scene of [dockedSample, sample]) {
+    for (const invalid of [
+      { ...scene, claimed: [] },
+      { ...scene, room: "pond" },
+      { ...scene, lines: [{ actorId: "ada", text: "The ship waits." }] },
+      { ...scene, lines: [scene.lines[0], scene.lines[0]] },
+    ]) {
+      assert.equal(pinned(invalid).ok, false);
+      assert.equal(wasm(invalid), null);
+    }
+    const forged = structuredClone(scene.world);
+    forged.log.at(-1).locationId = "pond";
+    assert.equal(wasm({ ...scene, world: forged }), null);
   }
-  const forged = structuredClone(sample.world);
-  forged.log.at(-1).locationId = "pond";
-  assert.equal(wasm({ ...sample, world: forged }), null);
+  const missingCourse = structuredClone(sample.world);
+  missingCourse.log.findLast((entry) => entry.verb === "course").targetId =
+    "pond";
+  assert.equal(wasm({ ...sample, world: missingCourse }), null);
 });

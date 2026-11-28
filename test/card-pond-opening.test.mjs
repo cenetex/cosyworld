@@ -57,7 +57,6 @@ describe("the attic opening and saved pond journeys", () => {
       });
       expect(sceneCast(world)).toEqual(["vale", null]);
       expect(world.actors.moth.place).toBe("pond");
-      // The first quest waits for the Black Pond.
       expect(world.actors.vale.want).toBeNull();
       expect(world.log[0]).toMatchObject({
         locationId: "attic",
