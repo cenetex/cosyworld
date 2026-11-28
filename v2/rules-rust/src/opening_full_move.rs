@@ -1,8 +1,13 @@
 use super::{
-    opening_attic_rest, opening_content, opening_crossings, opening_full_wait,
-    opening_hub_residents, opening_mirror_move, opening_place_cards::Deck, opening_pond_ask,
-    opening_quiet_life, opening_roster, opening_settlement, opening_visitor_routes, opening_wants,
-    pack_state::Catalog, resident_evidence::ResidentEvidence, Geography,
+    opening_attic_rest, opening_company, opening_content, opening_crossings, opening_full_wait,
+    opening_history_walkers, opening_hub_residents, opening_mirror_move,
+    opening_place_cards::{self, Deck},
+    opening_pond_ask, opening_pond_place_returns, opening_pond_rumours, opening_quiet_life,
+    opening_resident_sleep, opening_roster, opening_settlement, opening_visitor_routes,
+    opening_wants,
+    pack_state::Catalog,
+    resident_evidence::ResidentEvidence,
+    Geography,
 };
 use serde_json::{json, Value};
 
@@ -38,15 +43,14 @@ fn quiet_ways(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<()> 
     opening_crossings::no_crossing_unlocks(world, geo)
 }
 
-pub(super) fn progress(
+fn progress(
     request: &Value,
-    finish: impl FnOnce(Value, &Geography<'_>, u64) -> Option<Value>,
+    finish: impl FnOnce(Value, &Geography<'_>, u64, ResidentEvidence) -> Option<Value>,
 ) -> Option<Value> {
     let (before, carry) = opening_mirror_move::move_world(request)?;
-    if before["turn"] != 0 {
-        return None;
-    }
     opening_full_wait::quiet_opening(before)?;
+    let historic = before["began"] == 480;
+    let before_seq = before["eventSeq"].as_u64()?;
     let order = opening_roster::actor_order(request, before)?;
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
@@ -66,30 +70,63 @@ pub(super) fn progress(
         },
     )?;
     let deck = Deck::new(&world, &geo)?;
+    if historic {
+        let cards = opening_place_cards::saved_order(request, before)?;
+        opening_pond_place_returns::settle(
+            &mut world, &geo, &authored, &order, &cards, &deck, &evidence,
+        )?;
+    }
     opening_pond_ask::settle(&mut world, &geo, &authored, &order, &evidence, &deck)?;
     opening_hub_residents::keeper_idle_after_move(&world, &geo)?;
     opening_full_wait::pickups(&mut world, &geo, &evidence, &deck, &known, &residents)?;
     opening_settlement::decay_bell(&mut world)?;
     opening_full_wait::roam(&mut world, &geo, &authored, &order, &evidence, &deck)?;
-    opening_quiet_life::verify(&mut world, &geo)?;
+    if historic {
+        let resident_catalog = opening_resident_sleep::Residents::new(&geo)?;
+        opening_resident_sleep::settle_pond(
+            &mut world,
+            &geo,
+            &resident_catalog,
+            &authored,
+            &order,
+            &evidence,
+        )?;
+        let acted: Vec<_> = std::iter::once("vale").chain(residents).collect();
+        opening_history_walkers::verify(&world, &geo, &acted, &resident_catalog)?;
+    } else {
+        opening_quiet_life::verify(&mut world, &geo)?;
+    }
     if !opening_settlement::sail_transports(&mut world, &catalog, None)?.is_empty() {
         return None;
     }
     quiet_ways(before, &world, &geo)?;
     opening_settlement::no_item_cycle(&world)?;
-    opening_wants::settle_first_wait(&mut world, &geo)?;
+    if historic {
+        opening_wants::settle_with(&mut world, &geo, opening_company::fade_trust)?;
+    } else {
+        opening_wants::settle_first_wait(&mut world, &geo)?;
+    }
     opening_attic_rest::settle_visit_speech(before, &mut world, false)?;
-    finish(world, &geo, before["eventSeq"].as_u64()?)
+    if historic {
+        opening_pond_rumours::settle(&mut world, &geo, before_seq)?;
+    }
+    finish(world, &geo, before_seq, evidence)
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
-    progress(request, |world, geo, before_seq| {
-        super::opening_pond_view::completed_move_response(world, geo, before_seq, &["vale"])
+    progress(request, |world, geo, before_seq, evidence| {
+        super::opening_pond_view::completed_move_response_with_profiles(
+            world,
+            geo,
+            before_seq,
+            &["vale"],
+            || Some(evidence.into_profiles()),
+        )
     })
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
-    progress(request, |world, _, _| {
+    progress(request, |world, _, _, _| {
         let mut response = json!({"ok":true});
         response["world"] = world;
         Some(response)

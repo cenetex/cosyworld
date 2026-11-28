@@ -145,8 +145,13 @@ fn encode_request(
         || pond_play;
     let ordered_cards = matches!(
         op,
-        Some("opening_place_return" | "opening_pond_place_returns" | "opening_pond_ask")
-    ) || (attic_play
+        Some(
+            "opening_place_return"
+                | "opening_pond_place_returns"
+                | "opening_pond_ask"
+                | "opening_full_move"
+        )
+    ) || ((attic_play || pond_play)
         && request
             .get("world")
             .is_some_and(|world| world["began"] == 480));

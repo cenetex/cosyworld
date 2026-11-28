@@ -10,6 +10,7 @@ import { knowsLane } from "../card-game/pack-transport.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { recitalPoem } from "../card-game/pack-recital.mjs";
+import { MAX_DWELL } from "../card-game/world/dwell.mjs";
 import { ajaxStart } from "../../test/helpers/greek-ajax.mjs";
 import {
   clearSelection,
@@ -246,7 +247,7 @@ export async function checkAjax(browser, origin) {
           // stepped out waits for them, as a player would.
           for (
             let wait = 0;
-            wait < 16 && choiceId && !offer(await state());
+            wait < 2 * MAX_DWELL && choiceId && !offer(await state());
             wait++
           )
             await step({ kind: "wait" });

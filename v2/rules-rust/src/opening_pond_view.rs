@@ -350,10 +350,22 @@ fn actions(
 }
 
 pub fn completed_move_response(
+    world: Value,
+    geo: &Geography<'_>,
+    before_seq: u64,
+    present: &[&str],
+) -> Option<Value> {
+    completed_move_response_with_profiles(world, geo, before_seq, present, || {
+        profiles::project(geo.files())
+    })
+}
+
+pub(super) fn completed_move_response_with_profiles(
     mut world: Value,
     geo: &Geography<'_>,
     before_seq: u64,
     present: &[&str],
+    profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<Value> {
     if present != [VALE] || arrival(&world)? != before_seq.checked_add(1)? {
         return None;
@@ -381,10 +393,10 @@ pub fn completed_move_response(
         .or_insert_with(|| json!({}))
         .as_object_mut()?
         .insert(VALE.into(), json!([VALE, PIP]));
-    let profiles = profiles::project(files)?;
+    let profiles = profile_source()?;
     let plans = actions(&world, geo, &profiles, pip_sleeping)?;
     let mut response = opening::stored_response(world)?;
-    response["events"] = json!(events);
+    response["events"] = Value::Array(events);
     Some(pond_response(response, plans, profiles))
 }
 

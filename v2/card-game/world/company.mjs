@@ -35,7 +35,6 @@ export function validTrust(actors, id, trust, actorCount) {
 // Only a human traveler's visible acts reduce trust, which floors at 0.
 export const TRUST_LOSS = { threaten: 2, threatenForItem: 3, attack: 1 };
 
-// An act against a resident lowers its trust in the actor, never below 0.
 export function loseTrust(s, resident, actor, amount) {
   const trust = s.actors?.[resident]?.trust;
   if (!trust || !(trust[actor] > 0)) return 0;

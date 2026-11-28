@@ -68,7 +68,6 @@ pub(super) fn parse(text: &str, work: &Value, ids: &[String]) -> Result<Value> {
     }
     Ok(json!(lines))
 }
-/// The avatars a play's words were due from, the acting avatar included.
 pub(super) fn voices(work: &Value, actor: usize) -> Vec<String> {
     let Ok((_, ids)) = prepared(actor, work) else {
         return Vec::new();

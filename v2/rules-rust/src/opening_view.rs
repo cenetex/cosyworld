@@ -1,6 +1,12 @@
 use super::{opening, opening_play, opening_play::Mirror, opening_wait_response};
 use serde_json::{json, Value};
 
+enum AtticView {
+    Ordinary,
+    AfterWait,
+    AfterTake,
+}
+
 pub fn create_response(world: Value, files: &Value, actor: &str) -> Option<Value> {
     let vale = world["actors"].get("vale")?;
     if actor != "vale"
@@ -41,14 +47,14 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if request["world"]["actors"]["vale"]["place"] == "pond" {
         return super::opening_pond_view::private_view(request, &present);
     }
-    let (world, can_sleep) = match opening::supported_world(request) {
+    let (world, view) = match opening::supported_world(request) {
         Some(world) => {
             opening_play::attic_state(world)?;
-            (world, false)
+            (world, AtticView::Ordinary)
         }
         None => {
             let world = request.get("world")?;
-            (world, after_play_sleep(world, &claimed)?)
+            (world, after_play(world, &claimed)?)
         }
     };
     if world["absent"]
@@ -58,25 +64,32 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     {
         return None;
     }
-    let mirror = attic_mirror(world, &present)?;
+    let mirror = match view {
+        AtticView::AfterTake => super::opening_take_response::mirror_after_take(world, &present)?,
+        _ => attic_mirror(world, &present)?,
+    };
     let files = opening_play::attic_content_files(request)?;
     if other_attic_content(&files)? {
         return None;
     }
     let projected = private_world(world, request)?;
     let response = json!({"ok":true,"world":projected});
-    if can_sleep {
+    if matches!(view, AtticView::AfterWait) {
         opening_play::after_wait_response(response, &files, mirror)
     } else {
         opening_play::attic_response(response, &files, mirror)
     }
 }
 
-fn after_play_sleep(world: &Value, claimed: &[&str]) -> Option<bool> {
+fn after_play(world: &Value, claimed: &[&str]) -> Option<AtticView> {
     let turn = world["turn"].as_u64()?;
     let waited = opening_wait_response::settled_first_wait(world) == Some(turn);
-    if !waited {
-        first_lamp_drop(world)?;
+    if !waited && first_lamp_drop(world).is_none() {
+        if claimed != ["vale"] || world["speechVoices"]["vale"] != json!(["vale"]) {
+            return None;
+        }
+        super::opening_take_response::settled_take(world)?;
+        return Some(AtticView::AfterTake);
     }
     let revision = world["revision"].as_u64()?;
     let lamp = &world["items"]["lamp"];
@@ -97,7 +110,11 @@ fn after_play_sleep(world: &Value, claimed: &[&str]) -> Option<bool> {
     {
         return None;
     }
-    Some(waited)
+    Some(if waited {
+        AtticView::AfterWait
+    } else {
+        AtticView::Ordinary
+    })
 }
 
 pub(super) fn first_lamp_drop(world: &Value) -> Option<()> {
@@ -140,7 +157,7 @@ pub(super) fn attic_mirror(world: &Value, present: &[&str]) -> Option<Mirror> {
     }
 }
 
-fn pond_at_capacity(world: &Value, present: &[&str]) -> bool {
+pub(super) fn pond_at_capacity(world: &Value, present: &[&str]) -> bool {
     present.contains(&"vale")
         && present
             .iter()

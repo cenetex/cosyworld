@@ -939,7 +939,7 @@
         },
         "greek-greek-camp": {
           "name": "The Greek Camp at Troy",
-          "text": "Camp Lane leads to Ajax’s household tent and grave. The other paths lead to the landing and the boarding shore.",
+          "text": "Camp Lane passes between the tents. The path down to the water returns to the Boarding Shore Below Troy.",
           "exits": [
             "greek-troy",
             "greek-ajax-landing",
