@@ -114,6 +114,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("mount_packs") => pack_state::reduce(request).unwrap_or(Value::Null),
         Some("speech") => opening_speech::reduce(request).unwrap_or(Value::Null),
         Some("validate") => validate::reduce(request).unwrap_or(Value::Null),
+        Some("create") => validate::import_refusal(request).unwrap_or(Value::Null),
         _ => Value::Null,
     }
 }

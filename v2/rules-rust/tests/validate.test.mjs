@@ -7,7 +7,7 @@ const incomplete =
   "This save needs a fresh start. Your previous save is kept until you choose New game.";
 const fuelError = "Invalid saved lamp room fuel.";
 
-function stableValidation(reply) {
+function stableValidation(reply, caller = "load") {
   if (reply?.ok !== false || typeof reply.error !== "string") return reply;
   const { error } = reply;
   for (const [primary, first] of [
@@ -16,7 +16,7 @@ function stableValidation(reply) {
   ]) {
     if (!error.startsWith(primary + " (") || !error.endsWith(")")) continue;
     const frames = error.slice(primary.length + 2, -1).split(" < ");
-    const expected = [first, "decodeSave", "load", "dispatchShared"];
+    const expected = [first, "decodeSave", caller, "dispatchShared"];
     if (frames.length !== expected.length) continue;
     if (
       frames.every((frame, index) => {
@@ -111,4 +111,43 @@ test("current saves requiring complete validation stay outside the refusal slice
   };
   assert.equal(pinned(request).ok, true);
   assert.equal(wasm(request), null);
+});
+
+test("import preflight refuses definite shape and save header failures", async () => {
+  const { pinned, wasm } = await reducers();
+  const choose = "Choose a saved world.";
+  for (const [save, error] of [
+    ...[false, true, 1, [], "[]", '"hello"', "false", "null"].map((save) => [
+      save,
+      choose,
+    ]),
+    ["{}", legacy],
+    [{ schema: 7, claimed: ["mara"], present: ["mara"] }, legacy],
+    [
+      {
+        schema: 8,
+        turn: 0,
+        revision: 0,
+        playerActorId: "keeper",
+        sharedMigration: { spoofed: true },
+      },
+      incomplete,
+    ],
+    [{ schema: 7, items: { lamp: { fuelRooms: 4, lit: true } } }, fuelError],
+  ]) {
+    const request = { op: "create", save, seed: 4321 };
+    const expected = { ok: false, error };
+    assert.deepEqual(wasm(request), expected, JSON.stringify(save));
+    assert.deepEqual(
+      stableValidation(pinned(request), "importClientSave"),
+      expected,
+      JSON.stringify(save),
+    );
+  }
+
+  const { world } = pinned({ op: "create", seed: 4242, history: true });
+  const request = { op: "create", save: JSON.stringify(world), seed: 4321 };
+  assert.equal(pinned(request).ok, true);
+  assert.equal(wasm(request), null);
+  assert.equal(wasm({ ...request, save: "not-json" }), null);
 });

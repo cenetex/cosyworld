@@ -14,11 +14,38 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if let Err(error) = validate_context(request, world) {
         return refused(error);
     }
+    load_header(request, world)?.err().and_then(refused)
+}
+
+pub(super) fn import_refusal(request: &Value) -> Option<Value> {
+    let save = request.get("save").filter(|save| !save.is_null())?;
+    let mut world = match save {
+        Value::String(text) => serde_json::from_str(text).ok()?,
+        other => other.clone(),
+    };
+    let Some(fields) = world.as_object_mut() else {
+        return refused("Choose a saved world.");
+    };
+    for field in [
+        "sharedMigration",
+        "playerActorId",
+        "controlledActors",
+        "presentActors",
+        "heldActors",
+        "claimed",
+        "present",
+    ] {
+        fields.remove(field);
+    }
+    load_header(request, &world)?.err().and_then(refused)
+}
+
+fn load_header(request: &Value, world: &Value) -> Option<Result<(), &'static str>> {
     if !valid_lamp(request, &world["items"]["lamp"])? {
-        return refused("Invalid saved lamp room fuel.");
+        return Some(Err("Invalid saved lamp room fuel."));
     }
     if integer(&world["schema"]) != Some(8) {
-        return refused(LEGACY_SAVE);
+        return Some(Err(LEGACY_SAVE));
     }
     if world.as_object()?.keys().all(|field| {
         matches!(
@@ -32,9 +59,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
                 | "heldActors"
         )
     }) {
-        return refused(BROKEN_SAVE);
+        return Some(Err(BROKEN_SAVE));
     }
-    None
+    Some(Ok(()))
 }
 
 fn refused(error: &str) -> Option<Value> {
