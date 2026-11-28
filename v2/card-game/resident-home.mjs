@@ -113,7 +113,6 @@ export const wanders = (s, id) =>
   Boolean(packPeople[id]) && !humanAvatar(id) && (rangeOf(s, id) ?? 0) > 0;
 // Kept home: a range of 0, from its pack or this data.
 export const keepsHome = (s, id) => rangeOf(s, id) === 0;
-// Boarding a ship needs `sails` for a resident kept to a range.
 export const mayBoard = (s, id) => {
   const range = rangeOf(s, id);
   return (
