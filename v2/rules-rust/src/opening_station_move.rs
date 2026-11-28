@@ -495,7 +495,7 @@ fn quiet_station_departure(
     opening_crossings::no_crossing_unlocks(world, geo)
 }
 
-fn departure_witnesses<'a>(
+pub(super) fn departure_witnesses<'a>(
     world: &Value,
     geo: &Geography<'_>,
     authored: &'a Order,

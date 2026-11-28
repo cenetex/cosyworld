@@ -93,8 +93,7 @@ const FAR_SHORE_LANES = [
   ["greek-lemnos", HOMECOMING_BEACH],
 ];
 
-// Every thing a route or a sea lane names in its conditions: the keys that
-// open ways.
+// Keys named in route or sea-lane conditions.
 const keysIn = (conditions = []) =>
   conditions.flatMap((c) => [
     ...(c.item ? [c.item] : []),
