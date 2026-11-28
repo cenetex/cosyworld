@@ -1,3 +1,4 @@
+use super::{pack_state::Catalog, seed_packs};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -10,15 +11,6 @@ pub(super) fn hash(key: &str) -> u32 {
         let unit = ch.encode_utf16(&mut units)[0];
         (hash ^ u32::from(unit)).wrapping_mul(16_777_619)
     })
-}
-
-pub(super) fn packs(files: &Value) -> Option<impl Iterator<Item = &Value>> {
-    Some(
-        files["v2/card-game/packs.json"]["packs"]
-            .as_array()?
-            .iter()
-            .chain(std::iter::once(files.get("v2/card-game/boardyai.json")?)),
-    )
 }
 
 struct Home<'a> {
@@ -46,9 +38,13 @@ fn homes(files: &Value) -> Option<Vec<Home<'_>>> {
         .collect()
 }
 
-fn links<'a>(files: &'a Value, homes: &[Home<'a>]) -> Option<(LinkMap<'a>, BTreeSet<&'a str>)> {
+fn links<'a>(
+    forest: &'a Value,
+    packs: impl Iterator<Item = &'a Value> + Clone,
+    homes: &[Home<'a>],
+) -> Option<(LinkMap<'a>, BTreeSet<&'a str>)> {
     let mut ships = BTreeMap::new();
-    for pack in packs(files)? {
+    for pack in packs.clone() {
         if let Some(transports) = pack.get("transports") {
             for (id, ship) in transports.as_object()? {
                 ships.insert(id.as_str(), ship["place"].as_str()?);
@@ -62,9 +58,8 @@ fn links<'a>(files: &'a Value, homes: &[Home<'a>]) -> Option<(LinkMap<'a>, BTree
             links.entry(from).or_default().insert(to);
         }
     };
-    let forest = files.get("v2/card-game/forest.json")?;
     let places =
-        std::iter::once(&forest["places"]).chain(packs(files)?.map(|pack| &pack["places"]));
+        std::iter::once(&forest["places"]).chain(packs.clone().map(|pack| &pack["places"]));
     for places in places {
         for (from, place) in places.as_object()? {
             for to in place["exits"].as_array()? {
@@ -72,14 +67,15 @@ fn links<'a>(files: &'a Value, homes: &[Home<'a>]) -> Option<(LinkMap<'a>, BTree
             }
         }
     }
-    let routes = forest["reflectionRoutes"]
-        .as_array()?
-        .iter()
-        .chain(packs(files)?.flat_map(|pack| pack["routes"].as_array().into_iter().flatten()));
+    let routes = forest["reflectionRoutes"].as_array()?.iter().chain(
+        packs
+            .clone()
+            .flat_map(|pack| pack["routes"].as_array().into_iter().flatten()),
+    );
     for route in routes {
         link(route["from"].as_str()?, route["to"].as_str()?);
     }
-    for pack in packs(files)? {
+    for pack in packs {
         for crossing in pack["crossings"].as_array()? {
             if crossing["retired"] == true {
                 continue;
@@ -91,11 +87,6 @@ fn links<'a>(files: &'a Value, homes: &[Home<'a>]) -> Option<(LinkMap<'a>, BTree
             link(crossing["from"].as_str()?, to);
         }
     }
-    for home in homes {
-        for &door in &home.doors {
-            link(home.id, door);
-        }
-    }
     Some((links, ships.into_values().collect()))
 }
 
@@ -105,7 +96,12 @@ pub(super) fn place_doors(files: &Value, seed: u32, owner: Option<&str>) -> Opti
         return None;
     }
     let lampless = files["v2/card-game/shared-cast.json"]["lampless"].as_array()?;
-    let (linked, ships) = links(files, &homes)?;
+    let catalog = Catalog::from_files(files)?;
+    let (linked, ships) = links(
+        files.get("v2/card-game/forest.json")?,
+        catalog.packs(),
+        &homes,
+    )?;
     let mut order: Vec<_> = homes.iter().collect();
     order.sort_by_key(|home| {
         if home.doors.len() == 1 {
@@ -149,16 +145,29 @@ pub(super) fn place_doors(files: &Value, seed: u32, owner: Option<&str>) -> Opti
     Some(json!(doors))
 }
 
-pub(super) fn door_projection(request: &Value) -> Option<Value> {
+fn seed_input(request: &Value) -> Option<(Value, u32)> {
     let content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
     if content["schema"] != 1 {
         return None;
     }
     let seed = u32::try_from(request["seed"].as_u64()?).ok()?;
+    Some((content, seed))
+}
+
+pub(super) fn door_projection(request: &Value) -> Option<Value> {
+    let (content, seed) = seed_input(request)?;
     let owner = match request.get("homecoming") {
         None | Some(Value::Null) => None,
         Some(value) => Some(value.as_str()?),
     };
     let doors = place_doors(content.get("files")?, seed, owner)?;
     Some(json!({"ok": true, "doors": doors}))
+}
+
+pub(super) fn specials_projection(request: &Value) -> Option<Value> {
+    let (content, seed) = seed_input(request)?;
+    let catalog = Catalog::from_files(content.get("files")?)?;
+    let mut world = request.get("world")?.clone();
+    seed_packs::install(&mut world, &catalog, seed)?;
+    Some(json!({"ok": true, "world": world}))
 }
