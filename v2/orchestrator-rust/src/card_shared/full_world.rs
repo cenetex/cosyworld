@@ -130,7 +130,6 @@ impl World {
                     .as_str()
                     .ok_or("Choose the upgrade's pack content.")?,
             );
-            // Recorded upgrades retain their released target transformation.
             let result = reduce(target, pack, request)?;
             self.game = result["world"].clone();
             self.version = target.into();

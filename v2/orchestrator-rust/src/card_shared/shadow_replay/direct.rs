@@ -16,7 +16,7 @@ impl Report {
     }
 }
 
-fn without_save_stack(message: &str) -> &str {
+fn without_save_stack<'a>(message: &'a str, caller: &str) -> &'a str {
     let Some((primary, stack)) = message
         .strip_suffix(')')
         .and_then(|message| message.split_once(" ("))
@@ -31,7 +31,7 @@ fn without_save_stack(message: &str) -> &str {
         _ => return message,
     };
     let mut frames = stack.split(" < ");
-    let recognized = [first, "decodeSave", "load", "dispatchShared"]
+    let recognized = [first, "decodeSave", caller, "dispatchShared"]
         .into_iter()
         .all(|name| {
             frames
@@ -54,7 +54,12 @@ fn same_reply(request: &Value, actual: &Value, reference: &Value) -> bool {
     if actual == reference {
         return true;
     }
-    if request["op"] != "validate" || actual["ok"] != false || reference["ok"] != false {
+    let caller = match request["op"].as_str() {
+        Some("validate") => "load",
+        Some("create") if !request["save"].is_null() => "importClientSave",
+        _ => return false,
+    };
+    if actual["ok"] != false || reference["ok"] != false {
         return false;
     }
     let (Some(actual), Some(reference)) = (actual.as_object(), reference.as_object()) else {
@@ -64,8 +69,12 @@ fn same_reply(request: &Value, actual: &Value, reference: &Value) -> bool {
         && actual.iter().all(|(field, actual)| {
             let reference = reference.get(field);
             if field == "error" {
-                let actual = actual.as_str().map(without_save_stack);
-                let reference = reference.and_then(Value::as_str).map(without_save_stack);
+                let actual = actual
+                    .as_str()
+                    .map(|message| without_save_stack(message, caller));
+                let reference = reference
+                    .and_then(Value::as_str)
+                    .map(|message| without_save_stack(message, caller));
                 actual.is_some() && actual == reference
             } else {
                 Some(actual) == reference
@@ -108,6 +117,11 @@ pub(super) fn verify(
         json!({"op":"create","save":world.to_string(),"seed":4321}),
         true,
     )?;
+    check(
+        "create-import-retired",
+        json!({"op":"create","save":"{\"schema\":7}","seed":4321}),
+        false,
+    )?;
     let request = |op| {
         json!({
             "op":op, "world":world, "actor":"vale", "claimed":["vale"], "present":["vale"]
@@ -139,7 +153,7 @@ fn requires_each_fixture_in_full_coverage_mode() -> Result<()> {
         engine::reduce_pack_envelope(version, pack, request.clone()).map(Some)
     };
     let report = verify(equal)?;
-    assert_eq!(report.matched, 9);
+    assert_eq!(report.matched, 10);
     report.require_coverage(true)?;
 
     let report = verify(|version, pack, request| {
@@ -148,7 +162,7 @@ fn requires_each_fixture_in_full_coverage_mode() -> Result<()> {
         }
         equal(version, pack, request)
     })?;
-    assert_eq!(report.matched, 8);
+    assert_eq!(report.matched, 9);
     assert_eq!(report.unsupported, ["validate-malformed"]);
     assert!(report.require_coverage(false).is_ok());
     assert!(report.require_coverage(true).is_err());
@@ -166,6 +180,14 @@ fn validates_only_recognized_save_diagnostics_as_the_same_refusal() {
     assert!(same_reply(&request, &bare, &traced));
     assert!(same_reply(&request, &traced, &bare));
     assert!(!same_reply(&json!({"op":"play"}), &bare, &traced));
+    let import = json!({"op":"create","save":"{\"schema\":7}"});
+    let import_trace = json!({
+        "ok":false,
+        "error":"This save needs a fresh start. (upgradeSave:1 < decodeSave:2 < importClientSave:3 < dispatchShared:4)"
+    });
+    assert!(same_reply(&import, &bare, &import_trace));
+    assert!(!same_reply(&import, &bare, &traced));
+    assert!(!same_reply(&request, &bare, &import_trace));
     for error in [
         "This save needs a fresh start. (unknown)",
         "This save needs a fresh start. (decline:1 < decodeSave:2 < load:3 < dispatchShared:4)",
