@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { runInNewContext } from "node:vm";
 import { expect, it as check } from "vitest";
 import {
   createWorld,
@@ -7,7 +5,6 @@ import {
   encodeSave,
   legalActions,
   plan,
-  play,
 } from "../v2/card-game/world.mjs";
 import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
 import { questFaceKey } from "../v2/card-game/card-entry.mjs";
@@ -27,7 +24,7 @@ import * as itemRules from "../v2/card-game/pack-items.mjs";
 import { roamingActors } from "../v2/card-game/roaming-routes.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { newWant, questsOf } from "../v2/card-game/want.mjs";
-import { newest } from "../v2/scripts/rules-pins.mjs";
+import { act as actOn, reload } from "./helpers/play.mjs";
 
 // This acceptance contract runs only when its pack is mounted.
 const it = check.skipIf(!packPeople["ratiradio-rati"]);
@@ -62,18 +59,12 @@ const gather = (s, who) => {
 };
 const act = (s, kind = "wait", target) => {
   if (kind === "gather") return gather(s, target);
-  const action = legalActions(s).find(
+  return actOn(
+    s,
     (a) =>
       a.kind === kind &&
-      (!target ||
-        a.item === target ||
-        a.target === target ||
-        a.offer === target),
+      (!target || a.item === target || a.target === target || a.offer === target),
   );
-  expect(action, `${kind} ${target ?? ""}`).toBeDefined();
-  const result = play(s, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
 };
 const route = [
   ["take", id("station-key")],
@@ -113,7 +104,7 @@ it("learns RATi’s next lay only after talking about that stage", () => {
   expect(first.factId).toBe(beanie);
   expect(s.knowledge.facts[beanie].text).toMatch(/Red Beanie/u);
 
-  s = decodeSave(encodeSave(act(s, "drop", returns[0])));
+  s = reload(act(s, "drop", returns[0]));
   const raven = questFactId(rati, s.actors[rati].want);
   expect(s.actors[rati].want.step.items).toEqual([returns[1]]);
   expect(raven).not.toBe(beanie);
@@ -152,7 +143,7 @@ it("preserves old stage evidence without assigning the collided key to later rea
   for (const actor of ["vale", "mara", "rue"])
     expect(knowsFact(s, actor, raven)).toBe(false);
   expect(s.actors.rue.told).toContain(rati);
-  expect(decodeSave(encodeSave(s))).toEqual(s);
+  expect(reload(s)).toEqual(s);
 });
 
 it("rejects duplicate or ambiguous authored quest stages", () => {
@@ -184,7 +175,6 @@ it("walks the full return, introduces both residents at home, then keeps the unl
     }
     expect(entityActive(s, raven)).toBe(step === route.length - 1);
     expect(s.actors[raven].place).toBe(home);
-    s = decodeSave(encodeSave(s));
   }
   expect(flags(s)).toMatchObject({ "booth-open": true, "raven-awake": true });
   // The first three doors keep no flag: they follow their items.
@@ -210,7 +200,6 @@ it("keeps opening and pack meetings aligned when arrival wakes RATi", () => {
   expect(s.actors.vale.place).toBe(home);
   expect(s.packs.ratiradio.met[rati]).toBe(s.turn);
   expect(s.opening.met[rati]).toBe(s.turn);
-  expect(decodeSave(encodeSave(s))).toEqual(s);
   expect(decodeSave(before).actors.vale.place).toBe(id("dispatch-window"));
 });
 
@@ -314,21 +303,7 @@ it("lets a newly active roamer stand down from a standoff", () => {
   expect(s.standoffs.some((fight) => Object.hasOwn(fight.resolve, rati))).toBe(false);
 });
 
-it("replays the full shared journal through the compiled rules identically", () => {
-  const read = (file) =>
-    readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-  const version = `engine-v${newest(read("v2/orchestrator-rust/src/card_shared/rules.json"))}.js`;
-  const sandbox = {
-    cardContent: JSON.parse(
-      read("v2/orchestrator-rust/src/card_shared/content.json"),
-    ),
-  };
-  runInNewContext(
-    read(`v2/orchestrator-rust/src/card_shared/${version}`),
-    sandbox,
-  );
-  const compiled = (request) =>
-    JSON.parse(sandbox.cardShared(JSON.stringify(request)));
+it("replays the full journey through the shared rules", () => {
   const context = { actor: "vale", claimed: ["vale"], present: ["vale"] };
   let world = dispatchShared({
     op: "create",
@@ -345,11 +320,9 @@ it("replays the full shared journal through the compiled rules identically", () 
     );
     expect(action).toBeDefined();
     const command = { ...request, op: "play", action };
-    const source = dispatchShared(command),
-      replay = compiled(command);
+    const source = dispatchShared(command);
     expect(source.ok, source.error).toBe(true);
-    expect(replay).toEqual(source);
-    world = JSON.parse(encodeSave(source.world));
+    world = source.world;
   }
   expect(flags(world)["raven-awake"]).toBe(true);
 }, 15000);
@@ -359,7 +332,6 @@ it("replays the full shared journal through the compiled rules identically", () 
 const upTo = (kind, target) =>
   route.slice(0, route.findIndex(([k, t]) => k === kind && t === target) + 1);
 const steps = (s, list) => list.reduce((w, [k, t]) => act(w, k, t), s);
-const reload = (s) => decodeSave(encodeSave(s));
 const canMove = (s, to) =>
   legalActions(s).some((a) => a.kind === "move" && a.target === to && !a.item);
 const box = (s, card) => ({

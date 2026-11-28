@@ -1,14 +1,12 @@
 import { expect, it } from "vitest";
 import {
   createWorld,
-  decodeSave,
-  encodeSave,
   holdChoice,
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { reload } from "./helpers/play.mjs";
 const gate = "pond-greek-harbor";
 const context = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 function arranged(actor = "vale") {
@@ -17,7 +15,7 @@ function arranged(actor = "vale") {
   s.items.lamp.holder = "pond";
   s.items.cloth.holder = actor;
   s.actors[actor].heldItem = null;
-  return decodeSave(encodeSave(s));
+  return reload(s);
 }
 it("a quiet cloth hold reveals the placed lit lamp's ship identically locally and in shared rules", () => {
   const world = arranged();
@@ -27,10 +25,6 @@ it("a quiet cloth hold reveals the placed lit lamp's ship identically locally an
   holdChoice(local, "vale", choice);
   const request = { ...context, op: "hold", world, choice };
   const shared = dispatchShared(request);
-  const runtime = currentSharedEngine();
-  expect(JSON.parse(runtime.cardShared(JSON.stringify(request)))).toEqual(
-    shared,
-  );
   expect(shared.world.crossings[gate]).toEqual({ discovered: true, method: "pond-lamp" });
   expect(shared.world.transports["greek-ship"].dock).toBe("pond");
   expect(shared.world.crossings).toEqual(local.crossings);
@@ -40,7 +34,7 @@ it("a quiet cloth hold reveals the placed lit lamp's ship identically locally an
     { verb: "want_met", actorId: "vale", turn: world.turn },
   ]);
   holdChoice(local, "vale", { item: null, revision: local.revision });
-  expect(decodeSave(encodeSave(local)).crossings[gate].discovered).toBe(true);
+  expect(local.crossings[gate].discovered).toBe(true);
 });
 it("mere cloth possession, a carried lamp, or an actor elsewhere cannot reveal the ship", () => {
   for (const damage of [

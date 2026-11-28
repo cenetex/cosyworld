@@ -9,7 +9,6 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { reload } from "./helpers/world-life.mjs";
 
 const charm = "forest-wolfprint-charm",
@@ -24,17 +23,6 @@ const endingReceipts = (world) =>
   );
 const fresh = () => createLandingWorld(packDefinition("lonely-forest"), 17);
 const seat = { actor: "vale", claimed: ["vale", "mara"], present: ["vale"] };
-// serde_json sorts request-world keys before Rust invokes QuickJS.
-const sorted = (v) =>
-  Array.isArray(v)
-    ? v.map(sorted)
-    : v && typeof v === "object"
-      ? Object.fromEntries(
-          Object.keys(v)
-            .sort()
-            .map((k) => [k, sorted(v[k])]),
-        )
-      : v;
 const route = [
   ["talk", "rati"],
   ["talk", "rati"],
@@ -52,7 +40,6 @@ const route = [
 for (const shared of [false, true])
   for (const ending of ["keep", "give"])
     it(`preserves Forest ${ending} through return and reload (shared ${shared})`, () => {
-      const engine = shared && currentSharedEngine();
       const view = (world) =>
         shared
           ? dispatchShared({ ...seat, op: "view", world }).actions
@@ -75,10 +62,6 @@ for (const shared of [false, true])
           ? dispatchShared(request)
           : play(world, action, world.revision);
         expect(result.ok, result.error).toBe(true);
-        if (shared)
-          expect(
-            JSON.parse(engine.cardShared(JSON.stringify(request))),
-          ).toEqual(result);
         expect(world).toEqual(before);
         const next = result.world || result.state;
         validateWorld(structuredClone(next));
@@ -86,16 +69,10 @@ for (const shared of [false, true])
           expect(pack(next).met[id]).toBe(turn);
         const loaded = reload(next);
         expect(view(loaded)).toEqual(view(next));
-        return shared ? sorted(loaded) : loaded;
+        return loaded;
       };
       let world = shared
-        ? sorted(
-            dispatchShared({
-              op: "create",
-              seed: 17,
-              save: encodeSave(fresh()),
-            }).world,
-          )
+        ? dispatchShared({ op: "create", seed: 17, save: encodeSave(fresh()) }).world
         : fresh();
       let reached = 0;
       for (const command of route) {

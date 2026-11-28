@@ -533,7 +533,7 @@ jobs:
         run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Run unit tests
-        run: npx vitest run --shard=${{ matrix.shard }}/3 --maxWorkers=2 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
+        run: npx vitest run --shard=${{ matrix.shard }}/3 --maxWorkers=2
 
   production-rust-gate:
     name: Production Rust gate

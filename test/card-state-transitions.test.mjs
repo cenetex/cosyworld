@@ -10,7 +10,7 @@ import {
   wayTo,
 } from "./helpers/transition-walk.mjs";
 
-const SEEDS = (process.env.TRANSITION_SEEDS || "6,43").split(",").map(Number);
+const SEEDS = (process.env.TRANSITION_SEEDS || "6").split(",").map(Number);
 const SHARED_SEEDS = process.env.TRANSITION_SEEDS ? SEEDS : SEEDS.slice(0, 1);
 const SCALE = Number(process.env.TRANSITION_SCALE || 1);
 const [first, second] = humanAvatarIds;

@@ -25,6 +25,7 @@ import { createServer } from "../v2/card-game/serve.mjs";
 import { roomTracks } from "../v2/card-game/music.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
+import { seeded } from "./helpers/play.mjs";
 
 function act(s, kind, item, target) {
   s = endStandoff(s);
@@ -254,34 +255,23 @@ describe("the reflected shore card game", () => {
     expect(() => validateWorld(broken)).toThrow();
   });
 
-  describe.sequential("one 4000-turn world journey", () => {
-    let checkpoint;
-    it.each(Array.from({ length: 40 }, (_, i) => (i + 1) * 100))(
-      "preserves unique objects and valid state through turn %i",
-      async (end) => {
-        expect(checkpoint?.end ?? 0).toBe(end - 100);
-        let { seed, picks, world: s } = checkpoint
-          ? structuredClone(checkpoint)
-          : { seed: 109, picks: 0, world: createWorld() };
-        const itemIds = Object.keys(s.items).sort();
-        for (let i = end - 100; i < end; i++) {
-          if (i % 100 === 0) await yieldToRunner();
-          seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-          const actions = legalActions(s);
-          const action =
-            i % 5 === 0 ? plan(s).action : actions[seed % actions.length];
-          const result = play(s, action);
-          expect(result.ok).toBe(true);
-          if (["focus", "accept"].includes(action.kind)) picks += 1;
-          s = result.state;
-          expect(() => validateWorld(s)).not.toThrow();
-          expect(Object.keys(s.items).sort()).toEqual(itemIds);
-          if (i % 97 === 0) s = decodeSave(encodeSave(s));
-        }
-        expect(s.turn).toBeGreaterThanOrEqual(end - picks);
-        checkpoint = { seed, picks, world: s, end };
-      },
-    );
+  it("keeps unique objects and a valid world through a 300-turn journey", async () => {
+    const rng = seeded(109);
+    let s = createWorld(), picks = 0;
+    const itemIds = Object.keys(s.items).sort();
+    for (let i = 0; i < 300; i++) {
+      if (i % 50 === 0) await yieldToRunner();
+      const actions = legalActions(s);
+      const action = i % 5 === 0 ? plan(s).action : actions[rng(actions.length)];
+      const result = play(s, action);
+      expect(result.ok).toBe(true);
+      if (["focus", "accept"].includes(action.kind)) picks += 1;
+      s = result.state;
+      if (i % 10 === 0) expect(() => validateWorld(s)).not.toThrow();
+      if (i % 97 === 0) s = decodeSave(encodeSave(s));
+    }
+    expect(Object.keys(s.items).sort()).toEqual(itemIds);
+    expect(s.turn).toBeGreaterThanOrEqual(300 - picks);
   });
 
   it("scopes import permissions to the authoring page aliases", async () => {

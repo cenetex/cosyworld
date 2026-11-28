@@ -1,22 +1,12 @@
 import { describe, expect, it } from "vitest";
 import "./helpers/still-cast.mjs";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld } from "../v2/card-game/world.mjs";
 import { packDefinition, packPeople } from "../v2/card-game/pack-registry.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
+import { act } from "./helpers/play.mjs";
 
 // Travelers earn no XP (rules 136): these pin the boxes the Greek and
 // RatiRadio content credits to a traveler, and that none of it pays XP.
-const act = (world, kind, fields = {}) => {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind &&
-      Object.entries(fields).every(([key, value]) => a[key] === value),
-  );
-  if (!action) throw new Error(`Missing ${kind} ${JSON.stringify(fields)}`);
-  const result = play(world, action, world.revision);
-  if (!result.ok) throw new Error(result.error);
-  return result.state;
-};
 const xp = (world) =>
   Object.values(world.opened || {}).filter((ids) => ids.includes("vale"))
     .length;
@@ -46,11 +36,10 @@ describe("boxes the Greek and RatiRadio content credits", () => {
     world.actors.vale.place = "greek-harbor";
     world.actors.vale.visited.push("pond", "greek-harbor");
     world.items.lamp.lit = false;
-    world = act(world, "take", { item: "greek-helen-accounts" });
+    world = act(world, { kind: "take", item: "greek-helen-accounts" });
     const before = xp(world);
     const xpBefore = paid(world);
-    world = act(world, "give", {
-      item: "greek-helen-accounts",
+    world = act(world, { kind: "give", item: "greek-helen-accounts",
       target: "greek-shipmaster",
     });
     expect(world.packs["greek-drama"].choices["greek-helen-account"]).toBe(
@@ -108,11 +97,10 @@ describe("boxes the Greek and RatiRadio content credits", () => {
         continue;
       }
       const before = xp(world);
-      world = act(
-        world,
+      world = act(world, {
         kind,
-        kind === "talk" || kind === "move" ? { target } : { item: target },
-      );
+        ...(kind === "talk" || kind === "move" ? { target } : { item: target }),
+      });
       if (xp(world) !== before) gains[`${kind} ${target}`] = xp(world) - before;
     }
     return { gains, total: xp(world), paid: paid(world) - paid(s) };

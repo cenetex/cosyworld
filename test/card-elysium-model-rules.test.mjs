@@ -5,9 +5,8 @@ import {
   decodeSave,
   encodeSave,
   holdChoice,
-  legalActions,
-  play,
 } from "../v2/card-game/world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 import {
   ELYSIUM_MODEL_IDS,
   elysiumModelToken,
@@ -27,17 +26,6 @@ const study = "elysium-void-002";
 const rear = "behind-station";
 const ordinary = (place) => Object.hasOwn(places, place) && packIdOf(place) !== "elysium";
 
-const reload = (s) => decodeSave(encodeSave(s));
-function act(s, kind, target, item) {
-  const action = legalActions(s).find(
-    (a) => a.kind === kind && (target === undefined || a.target === target) &&
-      (item === undefined || a.item === item),
-  );
-  expect(action, `${kind} ${target ?? item ?? ""}`).toBeDefined();
-  const result = play(s, action);
-  expect(result.ok, result.error).toBe(true);
-  return reload(result.state);
-}
 
 function approach(seed = 17) {
   const s = createWorld({ seed });
@@ -46,24 +34,24 @@ function approach(seed = 17) {
   for (const item of Object.values(s.items))
     if (item.holder === "vale") item.holder = "station";
   s.items[wayfinder].holder = "station";
-  const equipped = act(s, "take", null, wayfinder);
-  return act(equipped, "move", entry);
+  const equipped = act(s, { kind: "take", target: null, item: wayfinder });
+  return act(equipped, { kind: "move", target: entry });
 }
-const arrive = (seed) => act(approach(seed), "move", study);
+const arrive = (seed) => act(approach(seed), { kind: "move", target: study });
 const tour = (s) => [2, 3, 4, 7, 6, 5].reduce(
-  (world, room) => act(world, "move", `elysium-void-00${room}`),
+  (world, room) => act(world, { kind: "move", target: `elysium-void-00${room}` }),
   s,
 );
 const tokens = ELYSIUM_MODEL_IDS.map(elysiumModelToken);
 const landings = (s) => tokens.map((id) => s.items[id].holder);
 
 function bringBack(s) {
-  s = act(s, "move", "station");
+  s = act(s, { kind: "move", target: "station" });
   s.items[token].holder = "station";
-  s = act(s, "take", null, token);
+  s = act(s, { kind: "take", target: null, item: token });
   expect(s.items[token].holder).toBe("vale");
   holdChoice(s, "vale", { item: wayfinder, revision: s.revision });
-  return act(act(s, "move", entry), "move", study);
+  return act(act(s, { kind: "move", target: entry }), { kind: "move", target: study });
 }
 
 it("scatters each resident's own token on arrival and records first Talk separately", () => {
@@ -77,11 +65,11 @@ it("scatters each resident's own token on arrival and records first Talk separat
     const item = elysiumModelToken(resident);
     const route = [study, ...routes[i]];
     let s = approach();
-    for (const place of route.slice(0, -1)) s = act(s, "move", place);
+    for (const place of route.slice(0, -1)) s = act(s, { kind: "move", target: place });
     expect(s.elysiumEncounters?.[resident]).toBeUndefined();
     expect(s.actors[resident].want).toBeNull();
     expect(s.items[item].holder).toBe(resident);
-    s = act(s, "move", route.at(-1));
+    s = act(s, { kind: "move", target: route.at(-1) });
     const arrival = s.log.find((e) => e.elysiumArrival === resident);
     expect(arrival).toMatchObject({
       kind: "narration", locationId: route.at(-1), targetId: resident, itemId: item,
@@ -91,11 +79,11 @@ it("scatters each resident's own token on arrival and records first Talk separat
     expect(s.actors[resident].want).toMatchObject({ kind: "item", target: item });
     expect(s.elysiumEncounters[resident]).toEqual({ scatteredAt: arrival.seq, talkedAt: null });
     expect(s.log.some((e) => e.elysiumModel === resident)).toBe(false);
-    s = act(s, "talk", resident);
+    s = act(s, { kind: "talk", target: resident });
     const talk = s.log.find((e) => e.elysiumModel === resident);
     expect(talk).toMatchObject({ kind: "action", verb: "talk", targetId: resident });
     expect(s.elysiumEncounters[resident]).toEqual({ scatteredAt: arrival.seq, talkedAt: talk.seq });
-    s = act(s, "talk", resident);
+    s = act(s, { kind: "talk", target: resident });
     expect(s.items[item].holder).toBe(destination);
     expect(s.log.filter((e) => e.elysiumArrival === resident)).toHaveLength(1);
     expect(s.log.filter((e) => e.elysiumModel === resident)).toHaveLength(1);
@@ -103,13 +91,14 @@ it("scatters each resident's own token on arrival and records first Talk separat
 });
 
 it("keeps a legacy first-Talk encounter and its token location on reload", () => {
-  const s = act(arrive(), "talk", claude);
+  const s = act(arrive(), { kind: "talk", target: claude });
   const destination = s.items[token].holder;
   const arrival = s.log.find((e) => e.elysiumArrival === claude);
   delete arrival.elysiumArrival;
   s.elysiumEncounters[claude] = { scatteredAt: s.elysiumEncounters[claude].talkedAt };
   const restored = reload(s);
-  const later = act(act(act(restored, "move", entry), "move", study), "talk", claude);
+  let later = act(restored, { kind: "move", target: entry });
+  later = act(act(later, { kind: "move", target: study }), { kind: "talk", target: claude });
   expect(later.elysiumEncounters[claude]).toEqual(s.elysiumEncounters[claude]);
   expect(later.items[token].holder).toBe(destination);
   expect(later.log.filter((e) => e.elysiumModel === claude)).toHaveLength(1);
@@ -151,23 +140,23 @@ it("scatters the tokens already out once more on upgrade, even one a traveler ca
 
 it("commits the portrait receipt only for an accepted Give to the matching resident", () => {
   let s = bringBack(arrive());
-  s = act(s, "give", claude, token);
+  s = act(s, { kind: "give", target: claude, item: token });
   expect(s.items[token].holder).toBe("vale");
   expect(s.log.findLast((e) => e.verb === "give")).toMatchObject({ accepted: false });
   expect(s.elysiumEncounters[claude].returnedAt).toBeUndefined();
-  s = act(s, "talk", claude);
-  s = act(s, "drop", study, token);
+  s = act(s, { kind: "talk", target: claude });
+  s = act(s, { kind: "drop", target: study, item: token });
   expect(s.elysiumEncounters[claude].returnedAt).toBeUndefined();
-  s = act(s, "take", null, token);
+  s = act(s, { kind: "take", target: null, item: token });
 
-  s = act(s, "move", "elysium-void-003");
-  s = act(s, "give", gemini, token);
+  s = act(s, { kind: "move", target: "elysium-void-003" });
+  s = act(s, { kind: "give", target: gemini, item: token });
   expect(s.items[token].holder).toBe("vale");
   expect(s.log.findLast((e) => e.verb === "give" && e.itemId === token)).toMatchObject({
     targetId: gemini, accepted: false,
   });
-  s = act(s, "move", study);
-  s = act(s, "give", claude, token);
+  s = act(s, { kind: "move", target: study });
+  s = act(s, { kind: "give", target: claude, item: token });
   const event = s.log.find((e) => e.portraitModel === claude);
   expect(event).toMatchObject({
     kind: "action", verb: "give", accepted: true, itemId: token,
@@ -178,7 +167,7 @@ it("commits the portrait receipt only for an accepted Give to the matching resid
   });
   expect(s.items[token].holder).toBe(claude);
   expect(s.actors[claude].want).toBeNull();
-  s = act(s, "talk", claude);
+  s = act(s, { kind: "talk", target: claude });
   expect(s.log.filter((e) => e.portraitModel === claude)).toHaveLength(1);
   expect(s.items[token].holder).toBe(claude);
 });
@@ -186,7 +175,7 @@ it("commits the portrait receipt only for an accepted Give to the matching resid
 it.each(["scattered", "returned"])("can play the shared encounter after importing a %s local token", (progress) => {
   let local = arrive();
   if (progress === "returned") {
-    local = act(local, "talk", claude);
+    local = act(local, { kind: "talk", target: claude });
     addLog(local, "Resident of Void 002", "The leaves keep their own time.", {
       actorId: claude, entityId: claude, kind: "dialogue", generated: true,
       locationId: study, elysiumName: "Mica Thread",
@@ -195,7 +184,7 @@ it.each(["scattered", "returned"])("can play the shared encounter after importin
     const malformed = structuredClone(local);
     malformed.log.at(-1).elysiumName = "Unusable-Name-7";
     expect(() => decodeSave(JSON.stringify(malformed))).toThrow("This save needs a fresh start.");
-    local = act(bringBack(local), "give", claude, token);
+    local = act(bringBack(local), { kind: "give", target: claude, item: token });
   }
   local.items.cloth.holder = "keeper";
   const localSeq = local.eventSeq;

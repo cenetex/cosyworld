@@ -3,15 +3,8 @@ import { describe, it, expect } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { witnessed } from "../v2/card-game/scene.mjs";
+import { act } from "./helpers/play.mjs";
 
-function act(s, kind, target) {
-  const action = legalActions(s).find(
-    (a) =>
-      a.kind === kind && (!target || a.target === target || a.item === target),
-  );
-  expect(action, `${kind} ${target ?? ""}`).toBeTruthy();
-  return play(s, action).state;
-}
 // At the station Pip wants the keeper's oil and the keeper wants Pip's
 // cloth. Pip asks, then trades on a cast turn, then sets off for the pond.
 function stationTrade() {

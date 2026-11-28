@@ -1,6 +1,7 @@
 import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
-import { legalActions, nameOf, play } from "../v2/card-game/world.mjs";
+import { nameOf } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { movementCaption } from "../v2/card-game/scene.mjs";
@@ -20,21 +21,12 @@ import {
   theName,
 } from "../v2/card-game/combat-beats.mjs";
 
-const act = (s, kind, target) => {
-  const action = legalActions(s).find(
-    (a) => a.kind === kind && (!target || a.target === target),
-  );
-  expect(action, kind).toBeTruthy();
-  const result = play(s, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
 // Vale and Pip share the pond; Pip has the upper hand in an open standoff.
 const atPond = (resolve = { vale: 1, moth: 4 }) => {
   let s = enableMotives(atticOpening());
   s = selectLamp(s);
   s.actors.moth.place = "pond";
-  s = act(s, "move", "pond");
+  s = act(s, { kind: "move", target: "pond" });
   s.standoffs = [
     {
       challenger: "moth",
@@ -103,7 +95,7 @@ describe("combat beats from today's rule lines", () => {
 
   it("drains resolve in order when both sides strike in one play", () => {
     const before = atPond({ vale: 4, moth: 4 });
-    const after = act(before, "attack", "moth");
+    const after = act(before, { kind: "attack", target: "moth" });
     const beats = combatBeats(before, after, { viewer: "vale" });
     const hits = beats.filter((b) => b.kind === "attack");
     expect(hits.map((b) => [b.targetId, b.resolveBefore])).toEqual([
@@ -119,8 +111,8 @@ describe("combat beats from today's rule lines", () => {
     s = selectLamp(s);
     s.actors.moth.place = "pond";
     s.items.cloth.holder = "moth";
-    s = act(s, "move", "pond");
-    const after = act(s, "threaten", "moth");
+    s = act(s, { kind: "move", target: "pond" });
+    const after = act(s, { kind: "threaten", target: "moth" });
     const [threat] = combatBeats(s, after, { viewer: "vale" });
     expect(threat).toMatchObject({ kind: "threaten", actorId: "vale" });
     expect(threat.resolve).toEqual({ vale: 4, moth: 4 });

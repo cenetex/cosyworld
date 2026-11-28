@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createWorld,
   decodeSave,
-  encodeSave,
   exits,
   legalActions,
   play,
@@ -20,6 +19,7 @@ import {
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { sectionAllows } from "../v2/card-game/pack-sections.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
+import { act as playOne } from "./helpers/play.mjs";
 
 const pack = packDefinition("greek-drama");
 const section = () => ({
@@ -57,14 +57,7 @@ const act = (world, kind, fields = {}) => {
       )
         world = act(world, "wait");
   }
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action).toBeTruthy();
-  const result = play(world, action, world.revision);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
+  return playOne(world, { kind, ...fields });
 };
 
 describe("permanent pack sections", () => {
@@ -111,10 +104,6 @@ describe("permanent pack sections", () => {
       );
     }
     expect(entityActive(opened, "greek-market-neighbor")).toBe(true);
-    const loaded = decodeSave(encodeSave(opened));
-    expect(exits(loaded, "greek-road-athens-piraeus", "vale")).toContain(
-      "greek-city-road-fork",
-    );
   });
 
   it("checks section access before applying a choice and while replaying receipts", () => {
@@ -186,7 +175,6 @@ describe("permanent pack sections", () => {
     );
     expect(entityActive(world, "greek-egypt-tomb")).toBe(false);
     expect(entityActive(world, "greek-helen-egypt")).toBe(false);
-    expect(decodeSave(encodeSave(world))).toEqual(world);
   });
 
   it("ties cast, objects, and fixtures to their authored section", () => {

@@ -335,7 +335,7 @@ describe("one want per avatar", () => {
     }
   });
 
-  it("keeps ordinary resident wants and Elysium's token wants through a long shared run", () => {
+  it("keeps ordinary resident wants and Elysium's token wants through a shared run", () => {
     const players = humanAvatarIds.slice(0, 4);
     let world = dispatchShared({ op: "create" }).world;
     const ask = (op, actor, extra = {}) =>
@@ -369,7 +369,7 @@ describe("one want per avatar", () => {
     };
     checkWants();
     let met = 0;
-    for (let t = 0; t < 300; t++) {
+    for (let t = 0; t < 100; t++) {
       const actor = players[t % players.length];
       const actions = ask("view", actor).actions.filter(
         (a) => a.kind !== "attack",

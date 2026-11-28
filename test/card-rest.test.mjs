@@ -9,12 +9,8 @@ import { DREAM_FROM, knownActors, sleepQuest } from "../v2/card-game/want.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import { reflectionDue } from "../v2/card-game/reflections.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { act } from "./helpers/play.mjs";
 
-const act = (s, pick, actor = "vale") => {
-  const action = legalActions(s, actor).find(pick);
-  expect(action, `${actor} at ${s.actors[actor].place}`).toBeTruthy();
-  return play(s, action, s.revision, actor).state;
-};
 const wait = (s, actor = "vale") => act(s, (a) => a.kind === "wait", actor);
 // Sleep is a Wait offered after a Wait.
 const sleep = (s, actor = "vale") => act(wait(s, actor), (a) => a.sleep, actor);

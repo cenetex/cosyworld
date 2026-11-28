@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { createWorld, encodeSave } from "../v2/card-game/world.mjs";
+import { reload } from "./helpers/play.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { learnLane, summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { backdrop, stageOf, travelCard } from "../v2/card-game/scene.mjs";
@@ -8,7 +9,6 @@ import { stowProvisions } from "./helpers/provisions.mjs";
 
 const ship = "greek-ship", signal = "pond-greek-harbor";
 const players = ["vale", "mara", "ash"];
-const reload = (world) => decodeSave(encodeSave(world));
 // The Charybdis no longer calls at the Trojan landing (rules 94), so the
 // Hoppy Cat jetty is its one painted berth beyond Piraeus.
 const berths = [

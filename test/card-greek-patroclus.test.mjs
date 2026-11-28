@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import "./helpers/still-cast.mjs";
-import { legalActions, play } from "../v2/card-game/world.mjs";
+import { legalActions } from "../v2/card-game/world.mjs";
 import {
   entityActive,
   packDefinition,
@@ -8,29 +8,16 @@ import {
 import { boxesAt } from "../v2/card-game/world/boxes.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
+import { act } from "./helpers/play.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 
 const PATROCLUS = "greek-patroclus";
 const SHIP = "greek-ship";
 const pack = packDefinition("greek-drama");
 
-const act = (world, kind, fields = {}) => {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind &&
-      Object.entries(fields).every(([key, value]) => a[key] === value),
-  );
-  if (!action)
-    throw new Error(
-      `Missing ${kind} ${JSON.stringify(fields)} at ${world.actors.vale.place}`,
-    );
-  const result = play(world, action, world.revision);
-  if (!result.ok) throw new Error(result.error);
-  return result.state;
-};
 const walk = (world, place) =>
   greekTravelTargets(world.actors.vale.place, `greek-${place}`).reduce(
-    (state, target) => act(state, "move", { target }),
+    (state, target) => act(state, { kind: "move", target }),
     world,
   );
 const trust = (world) => world.actors[PATROCLUS].trust?.vale || 0;
@@ -101,18 +88,18 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
   // it fires on the quay when the traveler steps ashore (or on deck, if the
   // traveler's first play after docking is not a Wait).
   const docked = () => {
-    let world = act(provisioned(), "move", { target: SHIP });
+    let world = act(provisioned(), { kind: "move", target: SHIP });
     expect(entityActive(world, PATROCLUS)).toBe(false);
-    world = act(world, "course", { target: "greek-piraeus" });
+    world = act(world, { kind: "course", target: "greek-piraeus" });
     world = act(world, "wait");
     expect(world.transports[SHIP].dock).toBe("greek-piraeus");
     return world;
   };
-  const ashore = () => act(docked(), "move", { target: "greek-piraeus" });
+  const ashore = () => act(docked(), { kind: "move", target: "greek-piraeus" });
   // He lands in the same round as the traveler, and a resident walking in
   // where the traveler is is met there and then (rules 101). No other quay
   // meeting takes the turn's one receipt since the Open Door's steps went.
-  const metOnQuay = () => act(ashore(), "talk", { target: PATROCLUS });
+  const metOnQuay = () => act(ashore(), { kind: "talk", target: PATROCLUS });
 
   it("appears at the dock as a rider, and steps ashore at Piraeus", () => {
     let world = docked();
@@ -143,7 +130,7 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
     expect(trust(stepped)).toBe(3);
     expect(flags(stepped)["greek-patroclus-met"]).toBe(true);
     // A Talk after it meets him no further.
-    const world = act(stepped, "talk", { target: PATROCLUS });
+    const world = act(stepped, { kind: "talk", target: PATROCLUS });
     expect(trust(world)).toBe(3);
   });
 
@@ -151,14 +138,14 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
     let world = docked();
     // The traveler lingers aboard on a Wait, then steps ashore.
     world = act(world, "wait");
-    world = act(world, "move", { target: "greek-piraeus" });
-    world = act(world, "talk", { target: PATROCLUS });
+    world = act(world, { kind: "move", target: "greek-piraeus" });
+    world = act(world, { kind: "talk", target: PATROCLUS });
     expect(trust(world)).toBe(3);
   });
 
   it("tells that he wants bread, and the gift at trust 3 pays no XP and raises no error", () => {
     let world = metOnQuay();
-    world = act(world, "talk", { target: PATROCLUS });
+    world = act(world, { kind: "talk", target: PATROCLUS });
     expect(world.actors[PATROCLUS].want).toMatchObject({
       kind: "item",
       target: "greek-bread",
@@ -166,7 +153,7 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
     world.usedUp = (world.usedUp || []).filter((id) => id !== "greek-bread");
     world.items["greek-bread"].holder = "vale";
     const before = world.actors.vale.xp;
-    world = act(world, "give", { item: "greek-bread", target: PATROCLUS });
+    world = act(world, { kind: "give", item: "greek-bread", target: PATROCLUS });
     expect(trust(world)).toBe(3);
     expect(world.actors.vale.xp - before).toBe(0);
   });
@@ -177,8 +164,7 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
       (a) => a.kind === "accompany" && a.target === PATROCLUS,
     );
     expect(ask).toBeTruthy();
-    world = act(world, "accompany", {
-      target: PATROCLUS,
+    world = act(world, { kind: "accompany", target: PATROCLUS,
       destination: ask.destination,
     });
     expect(world.actors.vale.place).toBe(ask.destination);

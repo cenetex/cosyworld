@@ -10,17 +10,11 @@ import {
   nextSpread,
   recordOf,
 } from "../v2/card-game/world/arcana.mjs";
-import {
-  decodeSave,
-  encodeSave,
-  legalActions,
-  play,
-  validateWorld,
-} from "../v2/card-game/world.mjs";
+import { validateWorld } from "../v2/card-game/world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const FOOL = "arcanum-0";
 const WORLD = "arcanum-21";
-const reload = (s) => decodeSave(encodeSave(s));
 const holding = (face = "down") => {
   const s = createPipWorld(5);
   s.actors.vale.arcana = {
@@ -34,13 +28,6 @@ const holding = (face = "down") => {
   };
   return s;
 };
-function act(s, pick) {
-  const action = legalActions(s, "vale").find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const result = play(s, action, s.revision, "vale");
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 const turnOver = (s) =>
   act(
     s,

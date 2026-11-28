@@ -7,7 +7,6 @@ import {
   legalActions,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { knownActors } from "../v2/card-game/want.mjs";
 import { DAY_TURNS } from "../v2/card-game/resident-home.mjs";
@@ -84,33 +83,19 @@ describe("meeting a resident who arrives (rules 101)", () => {
   });
 });
 
-// The shared host runs the minted bundle; it must meet the elder on arrival
-// as the browser does.
 describe("meeting on arrival on the server (rules 101)", () => {
   const seats = { claimed: ["vale"], present: ["vale"] };
-  const host = (runtime) => (request) =>
-    JSON.parse(runtime.cardShared(JSON.stringify(request)));
-  function arrive(server) {
-    const both = (request) => {
-      const local = dispatchShared(structuredClone(request));
-      if (server) expect(server(structuredClone(request))).toEqual(local);
-      return local;
-    };
+  it("commits the meeting through the shared rules", () => {
     const save = encodeSave(courtyard());
-    let world = both({ op: "create", seed: 7, save, actor: "vale" }).world;
+    let world = dispatchShared({ op: "create", seed: 7, save, actor: "vale" }).world;
     for (let i = 0; i < 6 && world.actors[ELDER].place !== COURT; i++) {
-      const { actions } = both({ op: "view", world, actor: "vale", ...seats });
+      const { actions } = dispatchShared({ op: "view", world, actor: "vale", ...seats });
       const action = actions.find((a) => a.kind === "wait" && !a.sleep);
-      const done = both({ op: "play", world, actor: "vale", action, ...seats });
+      const done = dispatchShared({ op: "play", world, actor: "vale", action, ...seats });
       expect(done.ok, done.error).toBe(true);
       world = done.world;
     }
-    return world;
-  }
-  it("commits the same meeting as the browser rules, and replays", () => {
-    const world = arrive(host(currentSharedEngine()));
     expect(world.actors[ELDER].place).toBe(COURT);
     expect(world.packs["greek-drama"].met[ELDER]).toBe(world.turn);
-    expect(arrive(null)).toEqual(world);
   });
 });

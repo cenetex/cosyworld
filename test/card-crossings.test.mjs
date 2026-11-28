@@ -32,6 +32,7 @@ import {
 } from "../v2/card-game/scene.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
+import { act as playAct } from "./helpers/play.mjs";
 
 function clearing() {
   const s = createWorld();
@@ -56,16 +57,13 @@ function act(s, kind, target, item) {
     needsVoyage(s, currentActor(s), target)
   )
     return sailTo(s, target);
-  const a = legalActions(s).find(
+  return playAct(
+    s,
     (a) =>
       a.kind === kind &&
       (target === undefined || a.target === target) &&
       (item === undefined || a.item === item),
   );
-  assert(a, `Missing ${kind} ${target ?? ""}`);
-  const r = play(s, a);
-  assert(r.ok, r.error);
-  return r.state;
 }
 function ringClock(s) {
   return act(s, "ring", "clearing", null);

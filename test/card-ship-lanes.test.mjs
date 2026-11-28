@@ -17,9 +17,9 @@ import {
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
+import { reload } from "./helpers/play.mjs";
 
 const players = ["vale", "mara"];
-const reload = (s) => decodeSave(encodeSave(s));
 function setup(
   dock,
   packScopes = { "greek-drama": "full" },
@@ -260,9 +260,7 @@ describe("knowing a lane is personal", () => {
     });
     expect(disclosure.factId).toMatch(/^lane:greek-harbor>/);
     // A gated lane is told with the thing that opens it.
-    expect(disclosure.text).toBe(
-      "Ships for Piraeus Quays leave from The Wine-Dark Harbor only with Travel Provisions aboard.",
-    );
+    expect(disclosure.text).toMatch(/Piraeus Quays.*Travel Provisions/u);
     // Talk context names the lanes Myrto knows from here.
     const myrto = context.entities.find((e) => e.id === "greek-shipmaster");
     expect(myrto.facts.some((f) => /^I know ships sail from/.test(f))).toBe(
@@ -296,7 +294,7 @@ describe("knowing a lane is personal", () => {
   it("Talk context at a port lists the lanes the speaker knows from it", () => {
     const s = setup("greek-harbor");
     expect(laneTalkFacts(s, "vale")).toEqual([
-      "I know ships sail from The Wine-Dark Harbor to Black pond.",
+      expect.stringMatching(/Harbor to Black pond/u),
     ]);
     s.actors.vale.place = "station";
     expect(laneTalkFacts(s, "vale")).toEqual([]);

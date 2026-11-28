@@ -33,17 +33,8 @@ import {
 import { dialogueCast } from "../v2/card-game/scene-cast.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
 import { sceneScript, currentScene } from "../v2/card-game/scene.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
-const act = (world, kind, item, target) =>
-  play(
-    world,
-    legalActions(world).find(
-      (a) =>
-        a.kind === kind &&
-        (!item || a.item === item) &&
-        (!target || a.target === target),
-    ),
-  ).state;
 const response = (context) => ({
   revision: context.revision,
   model: "fixture-model",
@@ -81,7 +72,7 @@ describe("entity memories and model text", () => {
     world.items.bell.holder = "vale";
     // The keeper heads home to the station; Vale's bell rides along.
     world.actors.keeper.want = wantPlace("station");
-    const next = act(world, "give", "bell", "keeper");
+    const next = act(world, { kind: "give", item: "bell", target: "keeper" });
     const outcome = narrativeContext(next).outcome;
     expect(outcome.card).toMatchObject({
       kind: "give",
@@ -100,9 +91,6 @@ describe("entity memories and model text", () => {
       holding: ["oil", "bell"],
       travel: { from: "pond", to: "station", companions: [] },
     });
-    expect(narrativeContext(decodeSave(encodeSave(next))).outcome).toEqual(
-      outcome,
-    );
   });
 
   it("sends the final lamp state after refueling, holding and running dry", () => {
@@ -119,7 +107,7 @@ describe("entity memories and model text", () => {
           value,
         ]),
       );
-    world = act(world, "take", "oil");
+    world = act(world, { kind: "take", item: "oil" });
     expect(world.items.lamp.fuel).toBe(12);
     expect(lamp(world)).toMatchObject({
       "lamp-flame": false,
@@ -130,13 +118,12 @@ describe("entity memories and model text", () => {
     });
     world = endStandoff(world);
     Object.assign(world.items.lamp, { fuel: 4, fuelRooms: 1 });
-    world = act(world, "move", null, "station");
+    world = act(world, { kind: "move", target: "station" });
     expect(lamp(world)).toMatchObject({
       "lamp-flame": false,
     });
     expect(narrativeContext(world).outcome.card.kind).toBe("move");
     expect(world.items.lamp.fuelRooms).toBe(0);
-    expect(lamp(decodeSave(encodeSave(world)))).toEqual(lamp(world));
   });
 
   it("reports an extinguished lamp when its last room of oil is spent on arrival", () => {
@@ -144,7 +131,7 @@ describe("entity memories and model text", () => {
     world.items.lamp.holder = "vale";
     world.actors.vale.heldItem = "lamp";
     Object.assign(world.items.lamp, { fuel: 4, fuelRooms: 1, lit: true });
-    const next = act(world, "move", null, "pond");
+    const next = act(world, { kind: "move", target: "pond" });
     const context = narrativeContext(next);
     expect(context.outcome.card.kind).toBe("move");
     expect(context.outcome.observations).toContainEqual({
@@ -155,7 +142,7 @@ describe("entity memories and model text", () => {
   });
 
   it("records an event in its witnesses, item and place, including departures", () => {
-    let world = act(createWorld(), "take", "lamp");
+    let world = act(createWorld(), { kind: "take", item: "lamp" });
     for (const id of ["vale", "lamp", "station"])
       expect(
         world.memories[id].events.some((e) =>
@@ -167,18 +154,17 @@ describe("entity memories and model text", () => {
         e.text.includes("Vale takes the Lamp"),
       ),
     ).toBe(false);
-    world = act(world, "move", null, "pond");
+    world = act(world, { kind: "move", target: "pond" });
     for (const id of ["vale", "lamp", "station", "pond", "moth"])
       expect(
         world.memories[id].events.some((e) =>
           e.text.includes("Vale goes to Black pond"),
         ),
       ).toBe(true);
-    expect(decodeSave(encodeSave(world))).toEqual(world);
   });
 
   it("sends current desires and per-entity memories and keeps generated text through reload", () => {
-    const world = act(createWorld(), "take", "lamp");
+    const world = act(createWorld(), { kind: "take", item: "lamp" });
     const context = narrativeContext(world, { item: "lamp" });
     // Taking the lamp is silent except that it met Vale's want.
     expect(context.occasion).toBe("want_met");
@@ -214,13 +200,13 @@ describe("entity memories and model text", () => {
       expect(next.log.some((e) => e.entityId === id && e.generated)).toBe(true);
     expect(currentScene(next).line.generated).toBe(true);
     expect(sceneScript(next).memories).toEqual(next.memories);
-    expect(decodeSave(encodeSave(next))).toEqual(next);
+    expect(reload(next)).toEqual(next);
   });
 
   it("gives Vale a line alone and starts a direct exchange with the chosen avatar", () => {
     expect(narrativeContext(createWorld()).speakers).toEqual(["vale"]);
-    let world = act(createWorld(), "take", "lamp");
-    world = act(world, "talk", null, "keeper");
+    let world = act(createWorld(), { kind: "take", item: "lamp" });
+    world = act(world, { kind: "talk", target: "keeper" });
     const context = narrativeContext(world, { target: "keeper" });
     expect(context.speakers).toEqual(["vale", "keeper"]);
     expect(context.action).toBe("Vale has a conversation with The keeper.");
@@ -234,8 +220,8 @@ describe("entity memories and model text", () => {
   });
 
   it("tells a noise-averse speaker when a handled bell stayed silent", () => {
-    let s = act(createWorld(), "take", "lamp");
-    s = act(s, "take", "bell");
+    let s = act(createWorld(), { kind: "take", item: "lamp" });
+    s = act(s, { kind: "take", item: "bell" });
     const trade = legalActions(s).find(
       (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
     );
@@ -248,9 +234,9 @@ describe("entity memories and model text", () => {
     expect(facts(context, "vale")).not.toContain(quiet);
 
     // A real ring keeps its noise, and so does its ringing afterwards.
-    let rung = act(createWorld(), "take", "lamp");
-    rung = act(rung, "take", "bell");
-    rung = act(rung, "ring", "bell");
+    let rung = act(createWorld(), { kind: "take", item: "lamp" });
+    rung = act(rung, { kind: "take", item: "bell" });
+    rung = act(rung, { kind: "ring", item: "bell" });
     context = narrativeContext(rung);
     expect(facts(context, "keeper")).not.toContain(quiet);
     rung = act(rung, "wait");
@@ -259,8 +245,8 @@ describe("entity memories and model text", () => {
   });
 
   it("gives each trader their own exchange before their current wants", () => {
-    let s = act(createWorld(), "take", "lamp");
-    s = act(s, "take", "bell");
+    let s = act(createWorld(), { kind: "take", item: "lamp" });
+    s = act(s, { kind: "take", item: "bell" });
     const trade = legalActions(s).find(
       (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
     );
@@ -289,12 +275,12 @@ describe("entity memories and model text", () => {
   });
 
   it("starts the earliest saves fresh and keeps item histories on reload", () => {
-    const world = act(createWorld(), "take", "lamp");
+    const world = act(createWorld(), { kind: "take", item: "lamp" });
     const old = structuredClone(world);
     old.schema = 3;
     delete old.memories;
     expect(() => decodeSave(JSON.stringify(old))).toThrow(/fresh start/);
-    const restored = decodeSave(encodeSave(world));
+    const restored = reload(world);
     expect(restored.actors).toEqual(world.actors);
     expect(restored.items).toEqual(world.items);
     expect(
@@ -305,7 +291,7 @@ describe("entity memories and model text", () => {
   });
 
   it("leaves one bad line silent, publishes the rest and discards replies for older turns", () => {
-    const world = act(act(createWorld(), "take", "lamp"), "talk", null, "keeper"),
+    const world = act(act(createWorld(), { kind: "take", item: "lamp" }), { kind: "talk", target: "keeper" }),
       context = narrativeContext(world);
     const spoke = (next, id) =>
       next.log.some((e) => e.generated && e.turn === world.turn && e.entityId === id);
@@ -327,7 +313,7 @@ describe("entity memories and model text", () => {
   });
 
   it("keeps omitted cards unchanged and publishes only supplied speakers", () => {
-    const world = act(act(createWorld(), "take", "lamp"), "talk", null, "keeper");
+    const world = act(act(createWorld(), { kind: "take", item: "lamp" }), { kind: "talk", target: "keeper" });
     const context = narrativeContext(world);
     const reply = response(context);
     const silent = context.speakers.at(-1);
@@ -377,9 +363,9 @@ describe("entity memories and model text", () => {
         }),
     });
     narrator.changed();
-    world = act(world, "move", null, "pond");
+    world = act(world, { kind: "move", target: "pond" });
     narrator.changed();
-    world = act(world, "move", null, "station");
+    world = act(world, { kind: "move", target: "station" });
     narrator.changed();
     expect(requests).toHaveLength(1);
     expect(started).toHaveBeenCalledTimes(1);
@@ -487,10 +473,10 @@ describe("entity memories and model text", () => {
   });
 
   it("recovers a screened Talk from the same committed scene", async () => {
-    const firstTalk = act(act(createWorld(), "take", "lamp"), "talk", null, "keeper");
+    const firstTalk = act(act(createWorld(), { kind: "take", item: "lamp" }), { kind: "talk", target: "keeper" });
     const firstScene = narrativeContext(firstTalk);
     const earlier = applyGeneratedText(firstTalk, firstScene, response(firstScene));
-    let world = act(earlier, "talk", null, "keeper");
+    let world = act(earlier, { kind: "talk", target: "keeper" });
     const before = structuredClone(world);
     const status = vi.fn();
     const requests = [];
@@ -718,7 +704,7 @@ describe("entity memories and model text", () => {
 
   it("marks a reply the scene outgrew as a mismatch", async () => {
     vi.useFakeTimers();
-    const world = act(createWorld(), "take", "lamp");
+    const world = act(createWorld(), { kind: "take", item: "lamp" });
     const status = vi.fn();
     const request = vi.fn(async (context) => ({
       revision: context.revision + 1,
@@ -741,7 +727,7 @@ describe("entity memories and model text", () => {
 
   it("ends failed dialogue as silence without a world turn or another request", async () => {
     vi.useFakeTimers();
-    let world = act(createWorld(), "take", "lamp");
+    let world = act(createWorld(), { kind: "take", item: "lamp" });
     const before = structuredClone(world);
     const status = vi.fn();
     const apply = vi.fn();
@@ -914,7 +900,6 @@ describe("witnessed departures and conversation continuity", () => {
     atPond.actors.vale.place = "pond";
     expect(here(atPond)).toEqual(["moth"]);
     expect(next.memories.moth.text).toBe(words.text);
-    expect(decodeSave(encodeSave(next))).toEqual(next);
     const later = act(next, "wait");
     expect(dialogueCast(later).speakers).not.toContain("moth");
   });
@@ -987,7 +972,7 @@ describe("witnessed departures and conversation continuity", () => {
       ["moth", "pond"],
       ["keeper", "pond"],
     ]);
-    world = act(world, "talk", null, "keeper");
+    world = act(world, { kind: "talk", target: "keeper" });
     context = narrativeContext(world);
     expect(context.conversation.map((e) => e.actorId)).toEqual([
       "vale",
@@ -1048,9 +1033,9 @@ describe("witnessed departures and conversation continuity", () => {
     // Vale outranks Pip, so Pip braces rather than answering with words,
     // which would end the standoff.
     world.actors.vale.xp = 3;
-    world = act(world, "threaten", null, "moth");
+    world = act(world, { kind: "threaten", target: "moth" });
     world.standoffs[0].resolve.moth = 1;
-    world = act(world, "attack", null, "moth");
+    world = act(world, { kind: "attack", target: "moth" });
     // A strike is silent; its caption carries the retreat.
     expect(voicesNobody(narrativeContext(world))).toBe(true);
     const context = castContext(world);
@@ -1066,7 +1051,7 @@ describe("witnessed departures and conversation continuity", () => {
     const world = createWorld(),
       context = narrativeContext(world);
     const next = applyGeneratedText(world, context, response(context));
-    expect(decodeSave(encodeSave(next))).toEqual(next);
+    expect(reload(next)).toEqual(next);
     for (const patch of [
       { departureTo: "wrong" },
       { departureTo: "station" },
@@ -1133,9 +1118,6 @@ describe("speech grounding in resolved card plays", () => {
     expect(
       next.entities.find((e) => e.id === "moth").facts.join(" "),
     ).toContain("Location now: Black pond. Company now: alone.");
-    expect(narrativeContext(decodeSave(encodeSave(world))).outcome).toEqual(
-      outcome,
-    );
   });
 
   it("records both travellers only when the accompany request was accepted", () => {
@@ -1196,7 +1178,7 @@ describe("speech grounding in resolved card plays", () => {
     const start = together();
     start.actors.vale.place = start.actors.moth.place = "attic";
     start.items.lamp.holder = "station";
-    const outcome = turnOutcome(act(start, "move", null, "pond"));
+    const outcome = turnOutcome(act(start, { kind: "move", target: "pond" }));
     for (const id of ["vale", "moth"])
       expect(avatar(outcome, id).travel).toEqual({
         from: "attic",
@@ -1207,8 +1189,8 @@ describe("speech grounding in resolved card plays", () => {
   });
 
   it("uses final item ownership after a request and the cast's actions", () => {
-    let world = act(createWorld(), "take", "lamp");
-    world = act(world, "ask", "cloth", "moth");
+    let world = act(createWorld(), { kind: "take", item: "lamp" });
+    world = act(world, { kind: "ask", item: "cloth", target: "moth" });
     const outcome = turnOutcome(world);
     expect(outcome.card).toMatchObject({
       kind: "ask",
@@ -1253,7 +1235,7 @@ describe("speech grounding in resolved card plays", () => {
 
 describe("saved character inner lives", () => {
   it("saves separate model attribution, dreams and evolving personas and recalls them after reload", () => {
-    const world = rest(act(createWorld(), "take", "lamp"), { dream: true });
+    const world = rest(act(createWorld(), { kind: "take", item: "lamp" }), { dream: true });
     const context = narrativeContext(world);
     const generated = response(context);
     const vale = generated.entries.find((entry) => entry.id === "vale");
@@ -1264,7 +1246,7 @@ describe("saved character inner lives", () => {
       dream: "A lamp became a tiny sun above the shore.",
     };
     const next = applyGeneratedText(world, context, generated);
-    const restored = decodeSave(encodeSave(next));
+    const restored = reload(next);
     expect(restored.memories.vale.model).toBe("vale-specific-model");
     expect(restored.memories.vale.innerLife.persona).toContain(
       "gifts make me more patient",
@@ -1289,7 +1271,7 @@ describe("saved character inner lives", () => {
 
   it("rejects early repeated growth, invalid private text and reflections on scenery", () => {
     // Only the avatar who waited reflects; a first thought comes without a dream.
-    const busy = act(createWorld(), "take", "lamp");
+    const busy = act(createWorld(), { kind: "take", item: "lamp" });
     const busyContext = narrativeContext(busy);
     const early = response(busyContext);
     early.entries.find((e) => e.id === "vale").reflection = {

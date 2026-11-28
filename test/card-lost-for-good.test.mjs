@@ -4,10 +4,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createWorld as baseCreateWorld,
-  decodeSave,
-  encodeSave,
-  legalActions,
-  play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
@@ -31,22 +27,11 @@ import {
   newWant,
   travels,
 } from "../v2/card-game/want.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 const COTTAGE = "forest-cottage";
 const BUTTON = "forest-button-vale";
-const reload = (world) => decodeSave(encodeSave(world));
-function act(world, kind, fields = {}) {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind &&
-      Object.entries(fields).every(([key, value]) => a[key] === value),
-  );
-  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 function atRati() {
   const world = enableMotives(createWorld());
   world.actors.vale.place = "attic";
@@ -54,15 +39,15 @@ function atRati() {
   world.items.lamp.holder = "attic";
   world.items.lamp.lit = true;
   world.items.lamp.fuel = 12;
-  return act(world, "move", { target: COTTAGE });
+  return act(world, { kind: "move", target: COTTAGE });
 }
 function holdingButton(world = atRati()) {
   world.actors.vale.place = world.items[BUTTON].holder;
-  world = act(world, "take", { item: BUTTON });
+  world = act(world, { kind: "take", item: BUTTON });
   world.actors.vale.place = COTTAGE;
   return world;
 }
-const sew = (world) => act(world, "give", { item: BUTTON, target: "rati" });
+const sew = (world) => act(world, { kind: "give", item: BUTTON, target: "rati" });
 const keptHome = (world, at = null) =>
   Object.keys(world.actors)
     .sort()
@@ -128,7 +113,7 @@ describe("a want on a thing that can never come back", () => {
     expect(knowsFact(world, "vale", `event:${loss.seq}`)).toBe(false);
     validateWorld(reload(world));
     world.actors.vale.place = world.actors[id].place;
-    world = act(world, "talk", { target: id });
+    world = act(world, { kind: "talk", target: id });
     expect(JSON.stringify(narrativeContext(world))).toContain(loss.text);
   });
 
@@ -228,7 +213,7 @@ describe("a want on a thing that can never come back", () => {
       expect(loss.text).toContain("gone for good");
       expect(unseen(world, id, loss.text)).toBe(true);
       validateWorld(reload(world));
-      world = act(world, "talk", { target: id });
+      world = act(world, { kind: "talk", target: id });
       expect(JSON.stringify(narrativeContext(world))).toContain(loss.text);
     });
   });

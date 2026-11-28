@@ -48,7 +48,6 @@ export default defineConfig({
     maxWorkers: '75%',
     minWorkers: 1,
     sequence: { sequencer: DurationSequencer },
-    retry: 1,
     setupFiles: ['./test/setup.mjs'],
   },
 

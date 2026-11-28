@@ -1,7 +1,6 @@
 import { afterEach, expect, it } from "vitest";
 import {
   createWorld,
-  decodeSave,
   encodeSave,
   exits,
   legalActions,
@@ -16,7 +15,7 @@ import {
   validatePackDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const field = "greek-battlefield",
   hollow = "greek-polynices-hollow",
@@ -35,15 +34,7 @@ function start() {
   s.packs[pack.id].met[shade] = 35;
   return s;
 }
-function talk(s, actor, target) {
-  const action = legalActions(s, actor).find(
-    (a) => a.kind === "talk" && a.target === target,
-  );
-  expect(action).toBeTruthy();
-  const result = play(s, action, s.revision, actor);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
+const talk = (s, actor, target) => act(s, { kind: "talk", target }, actor);
 it("remembers direct participants after quest history clears, log trimming and reload", () => {
   let s = talk(start(), "vale", shade);
   const record = s.conversations.find(
@@ -56,7 +47,7 @@ it("remembers direct participants after quest history clears, log trimming and r
   expect(talkedDirectly(s, antigone, shade)).toBe(false);
   s.actors.vale.talked = [];
   s.log = s.log.slice(-1);
-  s = decodeSave(encodeSave(s));
+  s = reload(s);
   expect(s.conversations).toContainEqual(record);
   expect(
     conditionMet(s, { kind: "talked", person: shade }, null, pack.id, "vale"),
@@ -69,12 +60,12 @@ it("migrates retained direct Talk events on load", () => {
   let s = start();
   s.actors.vale.talked = [shade];
   delete s.conversations;
-  s = decodeSave(encodeSave(s));
+  s = reload(s);
   expect(talkedDirectly(s, "vale", shade)).toBe(false);
   s = talk(s, "vale", shade);
   const records = s.conversations.map(({ company: _company, ...record }) => record);
   delete s.conversations;
-  expect(decodeSave(encodeSave(s)).conversations).toEqual(records);
+  expect(reload(s).conversations).toEqual(records);
 });
 it("checks each traveller even after the shared gate opens", () => {
   route.travelerRequires = [{ kind: "talked", person: shade }];
@@ -150,15 +141,8 @@ it("validates personal route conditions and saved event identity", () => {
   expect(() => validateWorld(s)).toThrow();
 });
 it("replays shared direct evidence and clears a reset avatar's conversations", () => {
-  const engine = currentSharedEngine(),
-    seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
-  const both = (request) => {
-    const result = dispatchShared({ ...request, ...seats });
-    expect(
-      JSON.parse(engine.cardShared(JSON.stringify({ ...request, ...seats }))),
-    ).toEqual(result);
-    return result;
-  };
+  const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+  const both = (request) => dispatchShared({ ...request, ...seats });
   let s = both({ op: "create", save: encodeSave(start()) }).world;
   const action = both({ op: "view", world: s }).actions.find(
     (a) => a.kind === "talk" && a.target === shade,
@@ -169,7 +153,5 @@ it("replays shared direct evidence and clears a reset avatar's conversations", (
   s = result.world;
   expect(talkedDirectly(s, "vale", shade)).toBe(true);
   const reset = both({ op: "reset", world: s }).world;
-  expect(talkedDirectly(decodeSave(encodeSave(reset)), "vale", shade)).toBe(
-    false,
-  );
+  expect(talkedDirectly(reset, "vale", shade)).toBe(false);
 });

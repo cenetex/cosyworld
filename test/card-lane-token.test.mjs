@@ -36,8 +36,10 @@ vi.mock("../v2/card-game/packs.json", async (importOriginal) => {
   };
 });
 
-const { createWorld, decodeSave, encodeSave, legalActions, play } =
-  await import("../v2/card-game/world.mjs");
+const { createWorld, legalActions } = await import(
+  "../v2/card-game/world.mjs"
+);
+const { act, reload } = await import("./helpers/play.mjs");
 const { conditionMet } = await import("../v2/card-game/pack-rules.mjs");
 const { learnLane } = await import("../v2/card-game/pack-transport.mjs");
 const { laneFact } = await import("../v2/card-game/world/lanes.mjs");
@@ -46,7 +48,6 @@ const { hub, packDefinition, packDefinitions } = await import(
 );
 const { packProblems } = await import("../v2/card-game/pack-schema.mjs");
 
-const reload = (s) => decodeSave(encodeSave(s));
 const aboard = () => {
   const s = createWorld({ seed: 5 });
   s.turn = s.revision = 60;
@@ -92,11 +93,7 @@ describe("a lane opens only while a thing from its port is aboard", () => {
 
     s.items["co-shell"].holder = "vale";
     s = reload(s);
-    const sail = legalActions(s, "vale").find(
-      (a) => a.kind === "course" && a.target === "co-far-pier",
-    );
-    const done = play(s, sail, s.revision, "vale");
-    expect(done.ok, done.error).toBe(true);
+    act(s, { kind: "course", target: "co-far-pier" });
   });
 
   it("is told as something from that port", () => {

@@ -20,6 +20,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { knownActors } from "../v2/card-game/want.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
+import { act as playAct, reload } from "./helpers/play.mjs";
 
 function pond() {
   const s = enableMotives(createWorld());
@@ -30,19 +31,14 @@ function pond() {
   s.items.lamp.holder = "vale";
   return selectLamp(s);
 }
-function act(s, kind, item, target) {
-  s = endStandoff(s);
-  const action = legalActions(s).find(
+const act = (s, kind, item, target) =>
+  playAct(
+    endStandoff(s),
     (a) =>
       a.kind === kind &&
       (!item || a.item === item) &&
       (!target || a.target === target),
   );
-  expect(action, `${kind} ${item || target || ""}`).toBeTruthy();
-  const result = play(s, action);
-  expect(result.ok).toBe(true);
-  return result.state;
-}
 const ring = (s) => act(s, "ring", "bell");
 // The bridge's signal state for the pond's crossing into the clearing.
 const signal = (s) => s.crossings["pond-clearing"];
@@ -78,7 +74,7 @@ describe("the bell crossing to the Steam Clock", () => {
       kind: "signal_echo",
       text: "Bong.",
     });
-    s = decodeSave(encodeSave(s));
+    s = reload(s);
     s = applyGeneratedText(s, context, response);
     expect(echoes(s)).toEqual([echo]);
     s = ring(s);
@@ -120,7 +116,6 @@ describe("the bell crossing to the Steam Clock", () => {
         (a) => a.kind === "move" && a.target === "clearing",
       ),
     ).toBe(true);
-    expect(decodeSave(encodeSave(heard))).toEqual(heard);
     const next = reach(heard);
     expect(next.actors.vale.place).toBe("clearing");
     expect(rootHolder(next, "bell")).toBe("vale");
@@ -133,7 +128,6 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(
       turnOutcome(next).avatars.find((a) => a.id === "vale").travel,
     ).toEqual({ from: "pond", to: "clearing", companions: [] });
-    expect(decodeSave(encodeSave(next))).toEqual(next);
   });
 
   it("breaks the sequence on another committed play and keeps failed plays free", () => {
@@ -172,7 +166,7 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(narrativeContext(s).speakers).toContain("badger");
     s = act(s, "move", null, "pond");
     expect(availableCards(s)).not.toContain("clearing");
-    s = decodeSave(encodeSave(s));
+    s = reload(s);
     // The pond's regulars keep away again, so the two rings stay unbroken.
     s.actors.moth.place = "attic";
     s.actors.keeper.place = "station";
@@ -216,7 +210,7 @@ describe("the bell crossing to the Steam Clock", () => {
     s = ring(s);
     expect(s.actors.badger.irritation).toBeGreaterThan(1);
     expect(facts(s)).toContain("Furious at the noise");
-    expect(facts(decodeSave(encodeSave(s)))).toContain(
+    expect(facts(reload(s))).toContain(
       "blunt demand for quiet",
     );
   });

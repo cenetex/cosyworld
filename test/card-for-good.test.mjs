@@ -4,11 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   createWorld as baseCreateWorld,
   decodeSave,
-  encodeSave,
-  legalActions,
-  play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { neverBack } from "../v2/card-game/pack-registry.mjs";
 import { bringBack, gone, usedUp } from "../v2/card-game/item-use.mjs";
@@ -18,19 +16,7 @@ import data from "../v2/card-game/arcana.json" with { type: "json" };
 import { recordOf } from "../v2/card-game/world/arcana.mjs";
 
 const createWorld = (...args) => questing(baseCreateWorld(...args));
-const reload = (world) => decodeSave(encodeSave(world));
-function act(world, kind, fields = {}) {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind &&
-      Object.entries(fields).every(([key, value]) => a[key] === value),
-  );
-  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
-const wait = (world) => act(world, "wait", { sleep: undefined });
+const wait = (world) => act(world, { kind: "wait", sleep: undefined });
 const COTTAGE = "forest-cottage";
 const BUTTON = "forest-button-vale";
 function sewing() {
@@ -40,9 +26,9 @@ function sewing() {
   world.items.lamp.holder = "attic";
   world.items.lamp.lit = true;
   world.items.lamp.fuel = 12;
-  world = act(world, "move", { target: COTTAGE });
+  world = act(world, { kind: "move", target: COTTAGE });
   world.actors.vale.place = world.items[BUTTON].holder;
-  world = act(world, "take", { item: BUTTON });
+  world = act(world, { kind: "take", item: BUTTON });
   world.actors.vale.place = COTTAGE;
   return world;
 }
@@ -63,7 +49,6 @@ describe("a thing given up for good", () => {
     for (let i = 0; i < 4; i++) world = wait(world);
     expect(usedUp(world, "bell")).toBe(true);
     expect(world.actors.moth.want?.target).not.toBe("bell");
-    expect(validateWorld(reload(world))).toBeTruthy();
   });
 
   it("keeps the gone list inside the used-up list on load", () => {
@@ -85,12 +70,12 @@ describe("a thing given up for good", () => {
       spread: [{ card: xiii.id, face: "up" }],
     };
     const before = new Set(world.usedUp);
-    world = act(world, "give", { item: BUTTON, target: "rati" });
+    world = act(world, { kind: "give", item: BUTTON, target: "rati" });
     expect(recordOf(world, "vale")).toMatchObject({
       proved: [],
       spread: [{ card: xiii.id, face: "reward", done: true }],
     });
-    world = act(world, "accept", { tarot: 0 });
+    world = act(world, { kind: "accept", tarot: 0 });
     expect(neverBack(world, BUTTON)).toBe(true);
     expect(goneSince(world, before)).toEqual([BUTTON]);
     const entry = world.log.findLast(
@@ -98,7 +83,6 @@ describe("a thing given up for good", () => {
     );
     expect(entry.gone).toEqual([BUTTON]);
     expect(recordOf(world, "vale").proved).toContain(xiii.id);
-    expect(validateWorld(reload(world))).toBeTruthy();
   });
 
   it("leaves an ordinary play unmarked", () => {

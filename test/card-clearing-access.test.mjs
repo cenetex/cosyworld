@@ -6,24 +6,15 @@ import {
   legalActions,
   exits,
   encodeSave,
-  decodeSave,
 } from "../v2/card-game/world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 
-function act(s, kind, target) {
-  const action = legalActions(s).find(
-    (a) => a.kind === kind && (!target || a.target === target),
-  );
-  expect(action, `${kind} ${target || ""}`).toBeTruthy();
-  const result = play(s, action);
-  expect(result.ok).toBe(true);
-  return result.state;
-}
 function pond() {
   let s = enableMotives(atticOpening());
-  s = act(selectLamp(s), "move", "pond");
+  s = act(selectLamp(s), { kind: "move", target: "pond" });
   s.actors.moth.place = "attic";
   s.items.lamp.holder = "moth";
   s.items.bell.holder = "vale";
@@ -68,14 +59,14 @@ describe("the temporary ringing path to Forest Clearing", () => {
   it("allows the final entry turn but needs a sounding bell to return", () => {
     let s = act(act(open(), "wait"), "wait");
     expect(s.items.bell.ringing).toBe(1);
-    s = act(s, "move", "clearing");
+    s = act(s, { kind: "move", target: "clearing" });
     expect(s.items.bell.ringing).toBe(0);
     s = act(act(s, "wait"), "wait");
     expect(exits(s, "clearing", "vale")).not.toContain("pond");
     expect(availableCards(s)).not.toContain("pond");
-    s = act(decodeSave(encodeSave(s)), "ring", "clearing");
+    s = act(reload(s), { kind: "ring", target: "clearing" });
     expect(exits(s, "clearing", "vale")).toContain("pond");
-    s = act(s, "move", "pond");
+    s = act(s, { kind: "move", target: "pond" });
     expect(visible(s)).toBe(false);
     expect(visible(ring(s))).toBe(false);
     expect(visible(ring(ring(s)))).toBe(true);
@@ -83,24 +74,24 @@ describe("the temporary ringing path to Forest Clearing", () => {
 
   it("refreshes an active window with one local ring and preserves its exact remainder on reload", () => {
     let s = act(act(open(), "wait"), "wait");
-    s = ring(decodeSave(encodeSave(s)));
+    s = ring(reload(s));
     expect(crossing(s).phase).toBe(0);
     expect(crossing(s).until).toBe(s.turn + 3);
     expect(s.items.bell.ringing).toBe(3);
-    s = decodeSave(encodeSave(act(s, "wait")));
+    s = reload(act(s, "wait"));
     expect(crossing(s).until - s.turn).toBe(2);
     s = act(act(s, "wait"), "wait");
-    expect(visible(decodeSave(encodeSave(s)))).toBe(false);
+    expect(visible(reload(s))).toBe(false);
   });
 
   it("does not let a distant ring refresh or reopen the pond path", () => {
     let s = open();
     const expiry = crossing(s).until;
-    s = act(s, "move", "station");
+    s = act(s, { kind: "move", target: "station" });
     expect(visible(s)).toBe(false);
     s = ring(s);
     expect(crossing(s).until).toBe(expiry);
-    s = act(s, "move", "pond");
+    s = act(s, { kind: "move", target: "pond" });
     expect(s.items.bell.ringing).toBeGreaterThan(0);
     expect(visible(s)).toBe(false);
     expect(visible(ring(s))).toBe(false);
@@ -159,7 +150,6 @@ describe("the temporary ringing path to Forest Clearing", () => {
     expect(crossing(s).until).toBeGreaterThan(s.turn);
     expect(availableCards(s)).not.toContain("clearing");
     expect(play(s, stale, s.revision).ok).toBe(false);
-    expect(visible(decodeSave(encodeSave(s)))).toBe(false);
+    expect(visible(s)).toBe(false);
   });
-
 });

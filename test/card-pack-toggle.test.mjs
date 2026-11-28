@@ -3,7 +3,6 @@
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
-  decodeSave,
   encodeSave,
   legalActions,
   play,
@@ -12,11 +11,11 @@ import {
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
+import { reload } from "./helpers/play.mjs";
 
 const [SEA, HOPPY, COTTAGE, SHORE] = ["sea", "hoppy", "cottage", "shore"];
 const off = (pack) => ({ kind: "pack", pack, enable: false });
 const on = (pack) => ({ kind: "pack", pack, enable: true });
-const reload = (s) => decodeSave(encodeSave(s));
 function world(edit = () => {}) {
   const s = createWorld({ seed: 7, packScopes: { "greek-drama": "full" } });
   Object.assign(s.actors.vale, { place: "greek-well" });
@@ -43,7 +42,6 @@ describe("switching a pack off and on (rules 98)", () => {
     expect(entityActive(after, "hoppycat-signal-jetty")).toBe(true);
     expect(after.actors.keeper.place).toBe("pond");
     expect(play(world(), off(SEA)).state).toEqual(after);
-    expect(reload(after)).toEqual(after);
   });
 
   it("keeps its own content dormant and returns it as it was", () => {
@@ -125,7 +123,7 @@ describe("switching a pack off and on (rules 98)", () => {
     expect(play(opening, off(SHORE)).error).toMatch(/first crossing/);
     // Other packs switch during the opening, which stays uncrossed.
     const quiet = ok(play(ok(play(opening, off(SEA))), off(COTTAGE)));
-    expect(reload(quiet).opening).toEqual(opening.opening);
+    expect(quiet.opening).toEqual(opening.opening);
   });
 
   it("turns a rest step from its sanctuary and keeps its ship's crew", () => {

@@ -1,6 +1,7 @@
 import "./helpers/still-cast.mjs";
 import { expect, it } from "vitest";
-import { createWorld, legalActions, nameOf, play } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, nameOf } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
@@ -10,14 +11,6 @@ function encounter(other = "keeper") {
   world.actors.vale.place = world.actors[other].place;
   if (other.startsWith("greek-")) world.packs["greek-drama"].met[other] = 0;
   return world;
-}
-function act(world, fields) {
-  const action = legalActions(world).find((a) =>
-    Object.entries(fields).every(([key, value]) => a[key] === value));
-  expect(action, JSON.stringify(fields)).toBeDefined();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
 }
 const knowledge = (world, id, hidden = null) =>
   narrativeContext(world, null, hidden).entities.find((e) => e.id === id)?.facts

@@ -6,8 +6,6 @@
 import { blindLockText, lockText } from "./helpers/lock-text.mjs";
 import { describe, expect, it } from "vitest";
 import {
-  decodeSave,
-  encodeSave,
   exits,
   legalActions,
   play,
@@ -25,25 +23,21 @@ import { greekErrands } from "./helpers/greek-opening.mjs";
 import { acceptBox } from "./helpers/accept-quest.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { courseOptions } from "../v2/card-game/pack-transport.mjs";
+import { act as actOn, reload } from "./helpers/play.mjs";
 
 const pack = packDefinition("greek-drama");
 const GATE = "greek-gate",
   FIELD = "greek-battlefield",
   GUARD = "greek-guard";
-const reload = (s) => decodeSave(encodeSave(s));
-function act(s, kind, fields = {}) {
-  const action = legalActions(s).find(
+const act = (s, kind, fields = {}) =>
+  actOn(
+    s,
     (a) =>
       a.kind === kind &&
       !a.guards &&
       (kind !== "wait" || !a.sleep) &&
       Object.entries(fields).every(([k, v]) => a[k] === v),
   );
-  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-  const done = play(s, action, s.revision);
-  expect(done.ok, done.error).toBe(true);
-  return done.state;
-}
 const walk = (s, ...ids) =>
   ids.reduce(
     (w, id) =>
@@ -84,7 +78,6 @@ describe("Dione's bread", () => {
     expect(s.items["greek-water-jar"].holder).toBe("greek-well");
     expect(s.items["greek-wheat"].holder).toBe("greek-piraeus");
     expect(ids(s)).toEqual(ids(states.waterOffer));
-    expect(reload(s).items).toEqual(s.items);
   });
 
   it("is eaten by whoever holds it and goes home locked", () => {

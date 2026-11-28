@@ -25,21 +25,14 @@ import {
 
 import { journeyWorlds } from "./helpers/journey.mjs";
 import { questCards } from "./journeys/quest-cards.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const ID = "listener";
 const fetches = (offer) => offer.kind === "listener";
-const reload = (world) => decodeSave(encodeSave(world));
 const call = (world, extra = {}) => {
   world.actors.vale.arcana = { proved: [], did: [], calls: 3, ...extra };
   return world;
 };
-function act(world, test) {
-  const action = legalActions(world, "vale").find(test);
-  expect(action).toBeDefined();
-  const result = play(world, action, world.revision, "vale");
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 const wait = (world) => act(world, (a) => a.kind === "wait" && !a.sleep);
 const accept = (world) => act(world, (a) => a.tarot === "offer");
 const beside = (world) => {

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
+import { exits } from "../v2/card-game/world.mjs";
+import { reload } from "./helpers/play.mjs";
 import { openDoorStart, traveler } from "./helpers/open-door.mjs";
 
 // The Sacred Way joins Eleusis and the Agora. The Long Walls join the
 // City Road Fork and Piraeus. Both roads are open from either end
 // from the start: no petition, burial or truce is read by either road.
-const reload = (s) => decodeSave(encodeSave(s));
 const SACRED = "greek-road-athens-eleusis",
   WALLS = "greek-road-athens-piraeus";
 const opens = (s, from, road) => exits(s, from, "vale").includes(road);

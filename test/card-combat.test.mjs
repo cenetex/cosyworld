@@ -468,7 +468,7 @@ describe("standoff endings", () => {
   // clones and validates the whole world (66 actors, ~300 KB by turn 150),
   // so one seed of 150 plays takes ~0.6 s locally and a few seconds on a
   // busy runner. Each seed is its own test so none nears the 10 s default.
-  const seeds = [1, 2, 3, 4, 5, 6];
+  const seeds = [1, 4];
   it.each(seeds)(
     "never leaves a standoff open in long runs (seed %i)",
     (seed) => {

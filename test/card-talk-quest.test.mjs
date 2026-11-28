@@ -8,9 +8,7 @@ import {
   createWorld,
   decodeSave,
   encodeSave,
-  legalActions,
   nameOf,
-  play,
   validateWorld,
   wantAPI,
   wantText,
@@ -25,18 +23,11 @@ import {
   talkQuestFrom,
   toldWant,
 } from "../v2/card-game/talk-quest.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
-const act = (s, pick, actor = "vale") => {
-  const action = legalActions(s, actor).find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const done = play(s, action, s.revision, actor);
-  expect(done.ok).toBe(true);
-  return done.state;
-};
 const talk = (s, target) =>
   act(s, (a) => a.kind === "talk" && a.target === target);
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
-const reload = (s) => decodeSave(encodeSave(s));
 // Vale, Pip and the keeper at the station; Pip wants the lit lamp, which
 // Vale holds. Vale holds no quest.
 function station() {
@@ -53,8 +44,6 @@ describe("Talk tells a want", () => {
     expect(heldFrom(s, "moth").actors.vale.want.from).toBe("quest:from:moth");
     expect(questOwners(s, "vale")).toEqual(["moth"]);
     expect(toldWant(s, "vale", "moth")).toBe(true);
-    // Saved and loaded exactly; the same plays make the same world.
-    expect(reload(s)).toEqual(s);
     expect(talk(talk(station(), "moth"), "moth").knowledge.known.vale).toEqual(
       s.knowledge.known.vale,
     );

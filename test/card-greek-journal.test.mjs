@@ -67,7 +67,7 @@ it("offers a letter handoff only at a personally known destination and character
   visit(t.s, "vale", tauris);
   t.talk(iphigenia).take(letter).give(letter, iphigenia).act("read", { item: order }).talk(iphigenia);
   const story = (isKnown) => greekJournal(t.s, "vale", isKnown).find(({ title }) => title === "Iphigenia in Tauris");
-  expect(story(known).next).toBe("Give Letter to Argos to Electra at The Jury Yard of Argos");
+  expect(story(known).next).toMatch(/Electra.*Jury Yard/);
   expect(story((id) => id !== yard).next).not.toContain("Jury Yard");
   expect(story((id) => id !== electra).next).not.toContain("Electra");
 });

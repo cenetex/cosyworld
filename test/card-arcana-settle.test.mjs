@@ -9,25 +9,15 @@ import {
 } from "../v2/card-game/world/arcana.mjs";
 import {
   createWorld,
-  decodeSave,
-  encodeSave,
   humanAvatarIds,
   legalActions,
-  play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const HERE = "arcanum-0";
 const WAITED = "arcanum-1";
 
-function act(s, kind, who = "vale") {
-  const action = legalActions(s, who).find((a) =>
-    typeof kind === "function" ? kind(a) : a.kind === kind,
-  );
-  const result = play(s, action, s.revision, who);
-  expect(result.ok).toBe(true);
-  return result.state;
-}
 const collect = (s, who = "vale") =>
   act(s, (a) => a.kind === "accept" && a.tarot !== undefined, who);
 
@@ -269,7 +259,7 @@ describe("the saved record", () => {
     });
     expect(fresh.actors.vale.arcana).toBeUndefined();
     const s = collect(act(holding(fresh, "vale", HERE), "move"));
-    const back = decodeSave(encodeSave(s));
+    const back = reload(s);
     expect(back.actors.vale.arcana).toEqual(s.actors.vale.arcana);
     expect(back.actors.vale.arcana.proved).toEqual([HERE]);
   });

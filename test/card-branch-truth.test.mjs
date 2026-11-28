@@ -4,11 +4,10 @@ import {
   createWorld,
   decodeSave,
   encodeSave,
-  legalActions,
   nameOf,
-  play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
+import { act as playAct, reload } from "./helpers/play.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { knowledgeFacts } from "../v2/card-game/knowledge.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
@@ -18,11 +17,8 @@ import { narrativeContext } from "../v2/card-game/narrative.mjs";
 const HELEN = "greek-helen-accounts",
   ATREID = "greek-atreid-record";
 const [EGYPT, TROY] = claimsIn(HELEN).map((c) => c.text);
-const act = (w, kind, test = () => true, who = "vale") => {
-  const action = legalActions(w, who).find((a) => a.kind === kind && !a.sleep && test(a));
-  if (!action) throw new Error(`${who} cannot ${kind}`);
-  return play(w, action).state;
-};
+const act = (w, kind, test = () => true, who = "vale") =>
+  playAct(w, (a) => a.kind === kind && !a.sleep && test(a), who);
 const wait = (w) => act(w, "wait");
 const greek = (place = "greek-harbor") => {
   const w = createWorld({ packScopes: { "greek-drama": "full" } });
@@ -168,7 +164,7 @@ describe("a claim's truth follows the world's branch", () => {
     const w = read(committed("greek-helen-account", "egypt", "greek-helen-egypt"), HELEN);
     const shared = dispatchShared({ op: "create", save: encodeSave(w) }).world;
     for (const world of [
-      decodeSave(encodeSave(w)),
+      reload(w),
       dispatchShared({ op: "upgrade", from: "full-card-world/199", world: shared }).world,
     ]) {
       expect(held(world, HELEN)).toEqual(beliefs);
