@@ -31,27 +31,40 @@ const quiet = [
 ];
 const rue = [7, 99].flatMap(seed => [false, true].flatMap(dry =>
     [false, true].map(sorted => [seed, false, dry, sorted, dry !== sorted])));
-for (const [seed, second, dry, sorted, carry] of [...quiet, ...rue]) {
-    let {world} = pinned({op:'create', seed});
+const historic = [undefined, 2, 42, 4242].flatMap(seed => [false, true].flatMap(dry =>
+    [false, true].map(sorted => [seed, false, dry, sorted, dry !== sorted, true])));
+for (const [seed, second, dry, sorted, carry, history] of [...quiet, ...rue, ...historic]) {
+    let {world} = pinned({op:'create', seed, history});
     if (dry) Object.assign(world.items.lamp, {fuel:0, fuelRooms:0, lit:false});
     else ({world} = pinned({...seats, op:'hold', world, choice:{item:null, revision:world.revision}}));
     if (second) ({world} = play(world, 'wait:vale::'));
     ({world} = play(world, 'move:vale::pond'));
+    if (history && sorted) ({world} = pinned({
+        ...seats, op:'speech', world, room:'pond',
+        lines:[{entityId:'pond',text:'Only ripples stir.'}],
+    }));
     if (sorted) world.actors = Object.fromEntries(Object.entries(world.actors).sort());
     world.speechVoices.mara = ['mara'];
     const expected = play(world, carry ? 'move:vale:lamp:station' : 'move:vale::station');
-    const withRue = rue.some(([candidate]) => candidate === seed);
+    const withRue = !history && rue.some(([candidate]) => candidate === seed);
     assert.equal(expected.world.actors.rue.place === 'station', withRue);
     if (withRue) {
         assert.deepEqual(expected.world.speechVoices.vale, ['vale', 'keeper', 'rue']);
         assert.deepEqual(expected.events.map(event => event.actorId),
             seed === 99 ? ['vale', 'moth', 'nell', 'rue'] : ['vale', 'moth', 'rue']);
     }
+    if (history) {
+        assert.equal(expected.world.turn, 482);
+        assert.equal(expected.world.actors.moth.place, 'pond');
+        assert.equal(expected.world.actors.moth.sleeping.since, 481);
+        assert.equal(Boolean(expected.world.actors.keeper.sleeping), seed === 4242);
+        assert.deepEqual(expected.events.map(event => event.actorId), ['vale']);
+    }
     const views = (withRue ? [seats.present] : [seats.present, []]).map(present =>
         pinned({...seats, op:'view', present, world:expected.world}));
     console.log(JSON.stringify({
         beforeSeq: world.eventSeq, priorVoices: world.speechVoices,
-        order: Object.keys(world.actors), expected, views, label: {seed,second,dry,sorted,carry},
+        order: Object.keys(world.actors), expected, views, label: {seed,second,dry,sorted,carry,history},
     }));
 }
 "#;
@@ -73,7 +86,12 @@ for (const [seed, second, dry, sorted, carry] of [...quiet, ...rue]) {
         let before = row["beforeSeq"].as_u64().unwrap();
         let mut world = row["expected"]["world"].clone();
         world["speechVoices"] = row["priorVoices"].clone();
-        assert_eq!(chronology(&world), Some(before + 1), "{}", row["label"]);
+        assert_eq!(
+            response_chronology(&world),
+            Some(before + 1),
+            "{}",
+            row["label"]
+        );
         assert!(
             station_scene(&world, &geo, &order, false).is_some(),
             "scene {}",
@@ -101,8 +119,12 @@ for (const [seed, second, dry, sorted, carry] of [...quiet, ...rue]) {
             let actual = crate::reduce(&request);
             assert_eq!(actual["actions"], expected["actions"], "{}", row["label"]);
             assert_eq!(actual, *expected, "{}", row["label"]);
-            request["world"]["actors"][PIP]["place"] = json!(POND);
-            assert_eq!(crate::reduce(&request), Value::Null);
+            if historic_station(&actual["world"]) {
+                request["world"]["actors"][PIP]["sleeping"] = Value::Null;
+            } else {
+                request["world"]["actors"][PIP]["place"] = json!(POND);
+            }
+            assert!(crate::reduce(&request).is_null(), "{}", row["label"]);
         }
     }
 }

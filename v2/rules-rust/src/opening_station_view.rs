@@ -4,6 +4,7 @@ use super::{
     lamp_state, opening, opening_content,
     opening_pickups::item_as_named,
     opening_pond_view::offer,
+    opening_resident_sleep::sleeping_pip_at_pond,
     opening_roster::known_actors,
     opening_station_move::{self, rue_arrived},
     opening_view, opening_visitor_routes,
@@ -57,6 +58,32 @@ fn chronology(world: &Value) -> Option<u64> {
     let seq = opening_station_move::arrival(world)?;
     (world["arrival"] == json!({"seq":seq,"fromLocationId":POND,"locationId":STATION}))
         .then_some(seq)
+}
+
+fn historic_station(world: &Value) -> bool {
+    world["began"] == 480 && world["turn"] == 482
+}
+
+fn response_chronology(world: &Value) -> Option<u64> {
+    if historic_station(world) {
+        opening_station_move::historic_arrival(world)
+    } else {
+        chronology(world)
+    }
+}
+
+fn historic_sleepers(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    if geo.files()["v2/card-game/world-history.json"]["turns"] != 480 {
+        return None;
+    }
+    sleeping_pip_at_pond(world, geo, world["arrival"]["seq"].as_u64()?)?;
+    let keeper = &world["actors"][KEEPER]["sleeping"];
+    (keeper.is_null()
+        || (keeper.as_object()?.len() == 3
+            && keeper["since"] == 481
+            && keeper["place"] == STATION
+            && keeper["until"].as_u64()? > 482))
+        .then_some(())
 }
 
 fn rue_meeting(world: &Value) -> Option<()> {
@@ -165,13 +192,14 @@ fn station_scene<'a>(
     train_accepted: bool,
 ) -> Option<Vec<&'a str>> {
     let turn = world["turn"].as_u64()?;
+    let historic = historic_station(world);
     let actors = world["actors"].as_object()?;
     let vale = actors.get(VALE)?;
     let lamp = &world["items"][LAMP];
     let fuel = lamp_state(lamp).ok()?;
     if world["schema"] != 8
         || world["sharedVersion"] != 1
-        || world.get("began").is_some()
+        || (world.get("began").is_some() && !historic)
         || !(turn..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
         || world["opening"]["crossed"] != true
         || world["opening"]["met"][KEEPER] != turn
@@ -180,7 +208,6 @@ fn station_scene<'a>(
         || !world["standoffs"].as_array()?.is_empty()
         || !world["pondLampLoan"].is_null()
         || !world["defeats"][VALE].is_null()
-        || !world["placeMet"][STATION].is_null()
         || world["doors"]["train"] != STATION
         || ["usedUp", "gone"]
             .iter()
@@ -195,7 +222,8 @@ fn station_scene<'a>(
         return None;
     }
     if train_accepted {
-        if rue_arrived(world)
+        if historic
+            || rue_arrived(world)
             || vale["want"] != train_want(turn)
             || vale.get("content").is_some()
             || world["items"].get(ROUTES).is_none()
@@ -205,15 +233,20 @@ fn station_scene<'a>(
     } else if !vale["want"].is_null() {
         return None;
     }
-    let mut cast = vec![VALE, PIP, KEEPER];
-    if rue_arrived(world) {
-        rue_meeting(world)?;
-        cast.push(RUE);
+    let mut cast = vec![VALE, KEEPER];
+    if historic {
+        historic_sleepers(world, geo)?;
+    } else {
+        cast.push(PIP);
+        if rue_arrived(world) {
+            rue_meeting(world)?;
+            cast.push(RUE);
+        }
     }
     for id in &cast {
         let actor = actors.get(*id)?;
         if actor["place"] != STATION
-            || !actor["sleeping"].is_null()
+            || (!actor["sleeping"].is_null() && !(historic && *id == KEEPER))
             || !actor["under"].is_null()
             || !actor["talked"].as_array()?.is_empty()
             || world["peaceUntil"][*id].as_u64()? > turn
@@ -254,6 +287,14 @@ fn station_scene<'a>(
     {
         return None;
     }
+    let place_met = &world["placeMet"][STATION];
+    if historic && wayfinder_here {
+        if *place_met != json!([WAYFINDER]) {
+            return None;
+        }
+    } else if !place_met.is_null() {
+        return None;
+    }
     Some(known.into_iter().filter(|id| *id != VALE).collect())
 }
 
@@ -274,6 +315,9 @@ fn actions(
     for to in EXITS {
         let destination = name(to)?;
         for &other in company {
+            if !world["actors"][other]["sleeping"].is_null() {
+                continue;
+            }
             let text = format!(
                 "{vale} asks {} to accompany them to {destination}.",
                 name(other)?
@@ -334,7 +378,9 @@ fn actions(
                     out.push(offer("ring", Some(id), None, ring, &[id]));
                 }
             }
-            ("oil" | "cloth", KEEPER | PIP) => {
+            ("oil" | "cloth", KEEPER | PIP)
+                if company.contains(&holder) && world["actors"][holder]["sleeping"].is_null() =>
+            {
                 let resident = name(holder)?;
                 let item = name(id)?;
                 out.push(offer(
@@ -438,10 +484,7 @@ fn arrival_events(world: &Value, before_seq: u64, allow_speech: bool) -> Option<
         .position(|event| event["generated"] == true)
         .unwrap_or(events.len());
     let (committed, lines) = events.split_at(first_line);
-    let follows = committed.get(1)?;
-    if !is_move(follows, PIP, POND, STATION)
-        || !follows["itemId"].is_null()
-        || events.last()?["seq"] != world["eventSeq"]
+    if events.last()?["seq"] != world["eventSeq"]
         || (!lines.is_empty()
             && (!allow_speech
                 || !lines
@@ -452,6 +495,13 @@ fn arrival_events(world: &Value, before_seq: u64, allow_speech: bool) -> Option<
                 || event["turn"] != world["turn"]
         })
     {
+        return None;
+    }
+    if historic_station(world) {
+        return (committed.len() == 1).then_some(events);
+    }
+    let follows = committed.get(1)?;
+    if !is_move(follows, PIP, POND, STATION) || !follows["itemId"].is_null() {
         return None;
     }
     let mut local = committed
@@ -537,7 +587,7 @@ pub(super) fn completed_station_response_with_profiles(
     present: &[&str],
     profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<Value> {
-    if present != [VALE] || chronology(&world)? != before_seq.checked_add(1)? {
+    if present != [VALE] || response_chronology(&world)? != before_seq.checked_add(1)? {
         return None;
     }
     let (plans, profiles) =
@@ -624,8 +674,8 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     }
     arrival_events(
         world,
-        chronology(world)?.checked_sub(1)?,
-        world["turn"] == 2,
+        response_chronology(world)?.checked_sub(1)?,
+        world["turn"] == 2 || historic_station(world),
     )?;
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;

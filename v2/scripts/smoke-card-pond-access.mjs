@@ -286,7 +286,6 @@ try {
     assert.equal((await state()).items.lamp.lit, false);
     await opened("pond");
     await painted("attic-doused");
-    // With the lamp stowed, daylight has no ambient light pool.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
     assert.equal(
       await page
