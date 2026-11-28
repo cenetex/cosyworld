@@ -1,13 +1,21 @@
 import { deepStrictEqual } from "node:assert";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { browserRules } from "../rules-rust/browser.mjs";
 
-const manifestPath = fileURLToPath(
-  new URL("../rules-rust/wasm/Cargo.toml", import.meta.url),
+const manifestPath = realpathSync(
+  fileURLToPath(new URL("../rules-rust/wasm/Cargo.toml", import.meta.url)),
 );
 const cargo = (command, ...args) =>
   execFileSync(
@@ -24,9 +32,13 @@ const metadata = JSON.parse(
 const guest = metadata.packages.find(
   ({ manifest_path }) => manifest_path === manifestPath,
 );
+const checkoutKey = createHash("sha256").update(manifestPath).digest("hex");
+const buildDir = join(metadata.target_directory, "rules-builds", checkoutKey);
 const target = "wasm32-unknown-unknown";
 const messages = cargo(
   "build",
+  "--target-dir",
+  buildDir,
   "--target",
   target,
   "--release",
@@ -66,6 +78,7 @@ const outputDir = join(
   guest.version,
 );
 const file = `${sha256}.wasm`;
+const manifest = `${sha256}.json`;
 const artifact = {
   abi: 1,
   version: guest.version,
@@ -75,9 +88,16 @@ const artifact = {
   size: bytes.length,
 };
 mkdirSync(outputDir, { recursive: true });
-writeFileSync(join(outputDir, file), bytes);
-writeFileSync(
-  join(outputDir, `${sha256}.json`),
-  `${JSON.stringify(artifact, null, 2)}\n`,
-);
+const staging = mkdtempSync(join(outputDir, ".publish-"));
+try {
+  writeFileSync(join(staging, file), bytes);
+  writeFileSync(
+    join(staging, manifest),
+    `${JSON.stringify(artifact, null, 2)}\n`,
+  );
+  renameSync(join(staging, file), join(outputDir, file));
+  renameSync(join(staging, manifest), join(outputDir, manifest));
+} finally {
+  rmSync(staging, { recursive: true, force: true });
+}
 console.log(join(outputDir, file));

@@ -1,6 +1,5 @@
 // Give a branch's shared rules the next free version after main's live rules,
 // whose bytes are fixed for journal replay. Run this after rebasing on main:
-//
 //   node v2/scripts/next-shared-rules.mjs [base-ref]
 //
 // It restores main's released bundles and version wiring, rebuilds the rules,
