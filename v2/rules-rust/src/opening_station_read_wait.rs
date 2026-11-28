@@ -104,7 +104,7 @@ fn quiet_plan(world: &Value, geo: &Geography<'_>, seq: u64) -> Option<()> {
     .then_some(())
 }
 
-fn observe_place(world: &mut Value, geo: &Geography<'_>, seq: u64) -> Option<()> {
+pub(super) fn observe_place(world: &mut Value, geo: &Geography<'_>, seq: u64) -> Option<()> {
     let card = &world["placeCard"][STATION];
     let holder = world["items"][WAYFINDER]["holder"].as_str()?;
     if card.is_null() {
@@ -121,17 +121,18 @@ fn observe_place(world: &mut Value, geo: &Geography<'_>, seq: u64) -> Option<()>
     let place = geo.files()["v2/card-game/forest.json"]["places"][STATION]["name"].as_str()?;
     let item = thing["name"].as_str()?;
     let id = format!("quest:{STATION}:{WAYFINDER}");
+    let turn = world["turn"].as_u64()?;
     let knowledge = &mut world["knowledge"];
     if knowledge["version"] != 1 || knowledge["pending"] != json!([]) {
         return None;
     }
     let fact = json!({
         "id": id, "text": format!("{place} wants {item} back."), "source": {
-            "kind":"quest","eventSeq":seq,"turn":3,"actorId":STATION,"locationId":STATION,
+            "kind":"quest","eventSeq":seq,"turn":turn,"actorId":STATION,"locationId":STATION,
             "witnesses":[VALE],"topic":null,
         }
     });
-    let witnessed = json!({"kind":"witnessed","teller":null,"eventSeq":seq,"learnedTurn":3});
+    let witnessed = json!({"kind":"witnessed","teller":null,"eventSeq":seq,"learnedTurn":turn});
     if let Some(existing) = knowledge["facts"].get(&id) {
         return (*existing == fact && knowledge["known"][VALE][&id] == witnessed).then_some(());
     }
@@ -142,6 +143,14 @@ fn observe_place(world: &mut Value, geo: &Geography<'_>, seq: u64) -> Option<()>
     }
     knowledge["facts"][&id] = fact;
     knowledge["known"][VALE][&id] = witnessed;
+    Some(())
+}
+
+pub(super) fn record_wait_learning(world: &mut Value, text: &str) -> Option<()> {
+    let trial = lamp_trial(world, world["turn"].as_u64()?, "wait", text)?;
+    world["memories"][PIP]["learning"]
+        .as_array_mut()?
+        .push(trial);
     Some(())
 }
 
@@ -180,9 +189,5 @@ pub fn settle_station_read_wait(
         }),
         true,
     )?;
-    let trial = lamp_trial(world, 3, "wait", &text)?;
-    world["memories"][PIP]["learning"]
-        .as_array_mut()?
-        .push(trial);
-    Some(())
+    record_wait_learning(world, &text)
 }

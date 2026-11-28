@@ -52,6 +52,7 @@ mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
 mod opening_station_move;
+mod opening_station_quest_drop_learning;
 mod opening_station_read;
 mod opening_station_read_wait;
 mod opening_station_residents;

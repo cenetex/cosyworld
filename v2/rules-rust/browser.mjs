@@ -55,7 +55,8 @@ export function browserRules(bytes) {
         request.op === "play" &&
         (key === "move:vale::station" ||
           key === "move:vale:lamp:station" ||
-          key === "accept:vale::box:train");
+          key === "accept:vale::box:train" ||
+          key === "drop:vale:::0");
       const place = request.world?.actors?.vale?.place;
       const orderedRoom =
         (request.op === "speech" &&

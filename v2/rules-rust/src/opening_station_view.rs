@@ -2,15 +2,25 @@ use super::{
     authored_order::Order,
     initial_wants::root_in,
     lamp_state, opening, opening_content,
+    opening_full_wait::visible_items,
+    opening_hub_residents,
     opening_pickups::item_as_named,
+    opening_place_cards::Deck,
     opening_pond_view::offer,
+    opening_quiet_life,
     opening_resident_sleep::sleeping_pip_at_pond,
-    opening_roster::known_actors,
+    opening_roaming,
+    opening_roster::{self, known_actors},
+    opening_second_attic_lamp, opening_second_attic_tail, opening_second_round, opening_settlement,
     opening_station_move::{self, rue_arrived},
+    opening_station_quest_drop_learning::confirm_pip_wait,
     opening_station_read::after_first_log,
-    opening_view, opening_visitor_routes,
+    opening_station_read_wait::{observe_place, record_wait_learning},
+    opening_view, opening_visitor_routes, opening_wants,
     pack_state::Catalog,
-    profiles, Geography,
+    profiles,
+    resident_evidence::ResidentEvidence,
+    Geography,
 };
 use serde_json::{json, Value};
 
@@ -664,13 +674,13 @@ fn train_want(turn: u64) -> Value {
     })
 }
 
-pub(super) fn accept_train(request: &Value) -> Option<Value> {
+fn train_action_world<'a>(request: &'a Value, key: &str) -> Option<&'a Value> {
     let world = request.get("world")?;
     let action = &request["action"];
     if request["actor"] != VALE
         || opening::seats(&request["claimed"])? != [VALE]
         || opening::seats(&request["present"])? != [VALE]
-        || action.as_str().or_else(|| action["key"].as_str()) != Some(ACCEPT_TRAIN)
+        || action.as_str().or_else(|| action["key"].as_str()) != Some(key)
         || action["kind"] == "pack"
         || !request["selectedIds"].is_null()
         || (!request["revision"].is_null() && request["revision"] != world["revision"])
@@ -679,8 +689,15 @@ pub(super) fn accept_train(request: &Value) -> Option<Value> {
                 .as_array()
                 .is_some_and(Vec::is_empty))
         || world["speechVoices"][VALE] != json!([VALE, KEEPER])
-        || !world["actors"][VALE]["want"].is_null()
     {
+        return None;
+    }
+    Some(world)
+}
+
+pub(super) fn accept_train(request: &Value) -> Option<Value> {
+    let world = train_action_world(request, ACCEPT_TRAIN)?;
+    if !world["actors"][VALE]["want"].is_null() {
         return None;
     }
     let turn = world["turn"].as_u64()?;
@@ -739,6 +756,110 @@ fn abandonment_events(world: &Value) -> Option<&[Value]> {
                 && event["generated"] != true
         }))
     .then_some(events)
+}
+
+pub(super) fn abandon_train(request: &Value) -> Option<Value> {
+    let before = train_action_world(request, ABANDON_TRAIN)?;
+    let before_seq = before["eventSeq"].as_u64()?;
+    let turn = before["turn"].as_u64()?.checked_add(1)?;
+    let revision = before["revision"].as_u64()?.checked_add(1)?;
+    if revision <= turn || revision > opening::MAX_REVISION {
+        return None;
+    }
+    arrival_events(before, chronology(before)?.checked_sub(1)?, turn == 3)?;
+    let order = opening_roster::actor_order(request, before)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let (mut plans, profiles) = station_projection(before, &geo, &authored, &order, true, || {
+        profiles::project(&files)
+    })?;
+    let abandon = plans.pop()?;
+    if abandon["key"] != ABANDON_TRAIN
+        || before["actors"][KEEPER]["want"]["step"]["verb"] != "call"
+        || before["items"]["bell"]["ringing"] != 0
+    {
+        return None;
+    }
+    confirm_pip_wait(before, &geo)?;
+    opening_hub_residents::at_home(before, &geo, KEEPER, "oil")?;
+    let mut world = before.clone();
+    world["turn"] = turn.into();
+    world["revision"] = revision.into();
+    world["playerActorId"] = json!(VALE);
+    for field in ["heldActors", "controlledActors", "presentActors"] {
+        world[field] = json!([VALE]);
+    }
+    let vale = world["actors"][VALE].as_object_mut()?;
+    for field in ["under", "offered", "guarding"] {
+        vale.remove(field);
+    }
+    vale.insert("want".into(), Value::Null);
+    vale.insert("gaveUp".into(), json!({"target":ROUTES,"turn":turn}));
+    vale.insert(
+        "closed".into(),
+        json!({"quest:box:train":[turn,TRAIN_TERMS]}),
+    );
+    let cast = known_actors(&world, &geo, &order, Some(STATION))?;
+    let items = visible_items(&world, &geo, &authored, STATION)?;
+    let witnesses: Vec<_> = authored
+        .actors
+        .iter()
+        .map(String::as_str)
+        .filter(|id| cast.contains(id))
+        .chain(items.iter().copied())
+        .collect();
+    let evidence = ResidentEvidence::new(&files)?;
+    let waiting = format!("{} waits one turn.", profiles[PIP]["name"].as_str()?);
+    for (by, verb, text) in [
+        (VALE, "drop", abandon["text"].as_str()?),
+        (PIP, "wait", &waiting),
+    ] {
+        evidence.record(
+            &mut world,
+            &cast,
+            &items,
+            json!({
+                "speaker":"World","text":text,"kind":"action","actorId":by,
+                "locationId":STATION,"verb":verb,"witnesses":witnesses,
+            }),
+            true,
+        )?;
+        if by == VALE {
+            observe_place(&mut world, &geo, before_seq.checked_add(1)?)?;
+        } else {
+            record_wait_learning(&mut world, text)?;
+        }
+    }
+    let known = known_actors(&world, &geo, &order, None)?;
+    let residents = opening_roster::residents(&world, &geo, &known, VALE)?;
+    let deck = Deck::new(&world, &geo)?;
+    deck.settle(&mut world, &geo, None)?;
+    opening_second_round::settle_visitors(
+        &mut world, &geo, &authored, &order, &evidence, &deck, &residents,
+    )?;
+    if world["eventSeq"].as_u64()? != before_seq.checked_add(2)?
+        || world["placeCard"][STATION] != before["placeCard"][STATION]
+        || !opening_settlement::sail_transports(&mut world, &catalog, None)?.is_empty()
+    {
+        return None;
+    }
+    opening_settlement::decay_bell(&mut world)?;
+    opening_roaming::settle_dwell(&mut world, &geo)?;
+    opening_quiet_life::verify_opening_day(&mut world, &geo)?;
+    opening_second_attic_tail::verify_stops(&world, &geo)?;
+    opening_second_attic_tail::verify_wake(&world)?;
+    opening_second_attic_lamp::settle_station(&mut world, &geo)?;
+    opening_settlement::no_item_cycle(&world)?;
+    opening_wants::settle_station(&mut world, &geo)?;
+    opening_second_attic_tail::verify_quiet_facts(before, &world, &geo)?;
+    opening_second_attic_tail::verify_wayfinder(&world, &geo)?;
+    opening_second_attic_tail::verify_station_order(&world, &geo)?;
+    world["speechVoices"][VALE] = json!([VALE]);
+    let events = json!(abandonment_events(&world)?);
+    let mut response = station_response(opening::stored_response(world)?, plans, profiles);
+    response["events"] = events;
+    Some(response)
 }
 
 pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {

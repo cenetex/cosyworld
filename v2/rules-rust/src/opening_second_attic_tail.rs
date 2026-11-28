@@ -88,7 +88,8 @@ fn solo(world: &Value) -> bool {
 
 fn arrived_scene(world: &Value) -> Option<&'static str> {
     if world["actors"]["vale"]["place"] == STATION {
-        opening_station_move::arrival(world)?;
+        opening_station_move::arrival(world)
+            .or_else(|| opening_station_move::abandoned_train_arrival(world))?;
         (solo(world) && world["playerActorId"] == "vale").then_some(STATION)
     } else {
         opening_mirror_move::second_arrival(world)?;
@@ -285,7 +286,7 @@ pub(super) fn verify_final(before: &Value, world: &Value, geo: &Geography) -> Op
     verify_quiet_facts(before, world, geo)
 }
 
-fn verify_quiet_facts(before: &Value, world: &Value, geo: &Geography) -> Option<()> {
+pub(super) fn verify_quiet_facts(before: &Value, world: &Value, geo: &Geography) -> Option<()> {
     no_arcana(world, geo)?;
     sealed_at_rest(world, geo)?;
     guards_stable(world, geo)?;

@@ -138,7 +138,12 @@ fn encode_request(
     let pond_play = matches!(play, Some("move:vale::pond" | "move:vale:lamp:pond"));
     let station_play = matches!(
         play,
-        Some("move:vale::station" | "move:vale:lamp:station" | "accept:vale::box:train")
+        Some(
+            "move:vale::station"
+                | "move:vale:lamp:station"
+                | "accept:vale::box:train"
+                | "drop:vale:::0"
+        )
     );
     let room = request
         .get("world")

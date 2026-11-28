@@ -280,7 +280,6 @@ try {
     await assertLitShut();
     await painted("attic-lit");
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
-    // Stowing it shows the Black Pond in the glass and the way out.
     await selectCard(page, "lamp");
     await ready();
     assert.equal((await state()).items.lamp.lit, false);
