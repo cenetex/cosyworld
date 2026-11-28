@@ -177,7 +177,6 @@ describe("a real voyage", () => {
       dock: "greek-harbor",
       riders: ["mara", "vale"],
     });
-    // On arrival the only Disembark card is that port.
     expect(targets(s, "vale", "move")).toEqual(["greek-harbor"]);
     expect(
       playLabel(
