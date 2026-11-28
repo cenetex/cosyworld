@@ -433,35 +433,9 @@ jobs:
           bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT" --env "COSYWORLD_IMAGE_COMMIT=$PREVIOUS_IMAGE_COMMIT"
           [ -z "$PREVIOUS_COMMIT" ] || node scripts/fly-machines-serve-commit.mjs cosyworld "$PREVIOUS_COMMIT"
 
-  deployment-impact:
-    name: Check production impact
-    # Tags and production dispatches only; dev-deploy runs the .dev train.
-    if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')
-    runs-on: ubuntu-latest
-    outputs:
-      deploy: ${{ steps.impact.outputs.deploy }}
-    steps:
-      - name: Checkout committed release
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 2
-
-      - name: Check whether production inputs changed
-        id: impact
-        env:
-          BEFORE_SHA: ${{ github.event.before }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "deploy=true" >> "$GITHUB_OUTPUT"
-            echo "reason=explicit deployment or tag release" >> "$GITHUB_OUTPUT"
-          else
-            node scripts/check-deployment-impact.mjs "$BEFORE_SHA" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          fi
-
   release-owner:
     name: Confirm committed release still owns production
-    needs: deployment-impact
-    if: needs.deployment-impact.outputs.deploy == 'true'
+    if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -478,29 +452,17 @@ jobs:
       # A newer tag or dispatch supersedes an older production run: cancel
       # an older run that has not started a Fly rollout, and stop this run
       # when a run that supersedes it is already active.
-      - name: Yield a superseded main deployment
+      - name: Claim production release
         id: ownership
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            node scripts/supersede-production-deploy.mjs start
-            exit 0
-          fi
-          main_sha="$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)"
-          if [ "$main_sha" = "$GITHUB_SHA" ]; then
-            echo "owns=true" >> "$GITHUB_OUTPUT"
-            echo "This run owns main at ${GITHUB_SHA:0:7}."
-          else
-            echo "owns=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Superseded: main advanced to ${main_sha:0:7}; the newer commit will deploy."
-          fi
+        run: node scripts/supersede-production-deploy.mjs start
 
   production-node-gate:
     name: Production Node and content gate
-    needs: [deployment-impact, release-owner]
-    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'
+    needs: [release-owner]
+    if: needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -536,8 +498,8 @@ jobs:
 
   production-unit:
     name: Production JavaScript unit tests (${{ matrix.shard }}/3)
-    needs: [deployment-impact, release-owner]
-    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'
+    needs: [release-owner]
+    if: needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -575,8 +537,8 @@ jobs:
 
   production-rust-gate:
     name: Production Rust gate
-    needs: [deployment-impact, release-owner]
-    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'
+    needs: [release-owner]
+    if: needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -616,8 +578,8 @@ jobs:
   # target directory, so it needs no Cargo cache.
   production-rust-lint:
     name: Production Rust architecture and lint
-    needs: [deployment-impact, release-owner]
-    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'
+    needs: [release-owner]
+    if: needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -644,12 +606,11 @@ jobs:
   production-gate:
     name: V2 production deployment gate
     if: ${{ always() && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')) }}
-    needs: [deployment-impact, release-owner, production-node-gate, production-unit, production-rust-gate, production-rust-lint]
+    needs: [release-owner, production-node-gate, production-unit, production-rust-gate, production-rust-lint]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required production gates passed
         env:
-          DEPLOY: ${{ needs.deployment-impact.outputs.deploy }}
           OWNER_RESULT: ${{ needs.release-owner.result }}
           OWNS_RELEASE: ${{ needs.release-owner.outputs.owns }}
           NODE_RESULT: ${{ needs.production-node-gate.result }}
@@ -657,15 +618,12 @@ jobs:
           RUST_RESULT: ${{ needs.production-rust-gate.result }}
           RUST_LINT_RESULT: ${{ needs.production-rust-lint.result }}
         run: |
-          if [ "$DEPLOY" != true ]; then
-            echo "No production inputs changed; deployment is not needed."
-            exit 0
-          fi
           test "$OWNER_RESULT" = success
-          if [ "$OWNS_RELEASE" != true ]; then
+          if [ "$OWNS_RELEASE" = false ]; then
             echo "This commit was superseded before its production gates; nothing will deploy."
             exit 0
           fi
+          test "$OWNS_RELEASE" = true
           test "$NODE_RESULT" = success
           test "$UNIT_RESULT" = success
           test "$RUST_RESULT" = success
@@ -677,9 +635,8 @@ jobs:
     name: Prepare primary image
     outputs:
       image: ${{ steps.image.outputs.image }}
-    needs: [deployment-impact, release-owner]
+    needs: [release-owner]
     if: >-
-      needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
       (github.event_name == 'push' ||
        inputs.target == 'both' ||
@@ -732,9 +689,8 @@ jobs:
   # Tags and dispatches wait for all three paths; a main push skips this job.
   primary-backup:
     name: Guard and back up primary
-    needs: [deployment-impact, release-owner]
+    needs: [release-owner]
     if: >-
-      needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
       (startsWith(github.ref, 'refs/tags/') ||
        (github.event_name == 'workflow_dispatch' &&
@@ -781,12 +737,11 @@ jobs:
 
   primary-fly:
     name: Deploy primary to Fly
-    needs: [deployment-impact, release-owner, production-gate, primary-image, primary-backup]
+    needs: [release-owner, production-gate, primary-image, primary-backup]
     # Tags and dispatches require the gates and backup to succeed. Main
     # pushes never reach this job; dev-deploy rolls them out.
     if: >-
       !cancelled() &&
-      needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
       needs.primary-image.result == 'success' &&
       (github.event_name == 'push' ||
@@ -965,7 +920,7 @@ jobs:
   # Copy the primary build into the Lonely Forest registry with its own token.
   lonelyforest-image:
     name: Prepare Lonely Forest image
-    needs: [deployment-impact, release-owner, primary-image]
+    needs: [release-owner, primary-image]
     outputs:
       image: ${{ steps.image.outputs.image }}
     # Ordinary .dev trains must never replace an intentional Lonely Forest
@@ -974,7 +929,6 @@ jobs:
     if: >-
       !cancelled() &&
       (needs.primary-image.result == 'success' || needs.primary-image.result == 'skipped') &&
-      needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
       (startsWith(github.ref, 'refs/tags/v') ||
        (github.event_name == 'workflow_dispatch' &&
@@ -1002,12 +956,11 @@ jobs:
 
   lonelyforest-backup:
     name: Guard and back up Lonely Forest
-    needs: [deployment-impact, release-owner]
+    needs: [release-owner]
     # Ordinary .dev trains must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
-      needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
       (startsWith(github.ref, 'refs/tags/v') ||
        (github.event_name == 'workflow_dispatch' &&
@@ -1049,7 +1002,7 @@ jobs:
 
   lonelyforest-fly:
     name: Deploy Lonely Forest to Fly
-    needs: [deployment-impact, release-owner, production-gate, lonelyforest-image, lonelyforest-backup]
+    needs: [release-owner, production-gate, lonelyforest-image, lonelyforest-backup]
     # Ordinary .dev trains must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
@@ -1058,7 +1011,6 @@ jobs:
       needs.production-gate.result == 'success' &&
       needs.lonelyforest-image.result == 'success' &&
       needs.lonelyforest-backup.result == 'success' &&
-      needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
       (startsWith(github.ref, 'refs/tags/v') ||
        (github.event_name == 'workflow_dispatch' &&
@@ -1138,7 +1090,6 @@ jobs:
       - dev-plan
       - dev-image
       - dev-deploy
-      - deployment-impact
       - release-owner
       - production-gate
       - primary-image
@@ -1177,7 +1128,7 @@ jobs:
           needs.dev-plan.result == 'failure' ||
           needs.dev-image.result == 'failure' ||
           needs.dev-deploy.result == 'failure' ||
-          (needs.deployment-impact.outputs.deploy == 'true' &&
+          ((startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')) &&
           (needs.release-owner.result == 'failure' ||
            needs.production-gate.result != 'success' ||
            contains(fromJSON('["failure","cancelled"]'), needs.primary-image.result) ||

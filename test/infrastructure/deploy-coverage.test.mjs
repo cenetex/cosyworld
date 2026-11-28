@@ -41,12 +41,8 @@ describe("deploy triggers", () => {
 });
 
 describe("exactly one actor owns the release lever", () => {
-  it("a queued run yields cleanly before its expensive gates when main has advanced", () => {
-    expect(deployWorkflow).toContain(
-      "Confirm committed release still owns production",
-    );
-    expect(deployWorkflow).toContain("Superseded: main advanced to");
-    expect(deployWorkflow).toContain('echo "owns=false" >> "$GITHUB_OUTPUT"');
+  it("checks release ownership before starting expensive production gates", () => {
+    expect(deployWorkflow).toContain("node scripts/supersede-production-deploy.mjs start");
     expect(deployWorkflow).toMatch(
       /production-node-gate:[\s\S]*needs\.release-owner\.outputs\.owns == 'true'/,
     );
