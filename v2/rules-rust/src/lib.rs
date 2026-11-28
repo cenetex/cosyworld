@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 mod create;
+mod create_geography;
 mod join;
 mod opening;
 pub mod opening_evidence;
@@ -25,6 +26,7 @@ mod seed;
 mod seed_packs;
 mod validate;
 
+pub use create_geography::Geography;
 pub use opening_view::create_response;
 
 pub const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
