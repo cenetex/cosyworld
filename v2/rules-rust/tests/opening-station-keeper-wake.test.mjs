@@ -73,7 +73,7 @@ test("Keeper's scheduled wake matches the historic Station narration and memorie
           place: "station",
           until: 482,
         });
-        assert.equal(before.log.at(-1).actorId, seed === 17 ? "orin" : "moth");
+        assert.equal(before.log.at(-1).actorId, seed === 99 ? "ada" : "moth");
         assert.equal(after.actors.keeper.sleeping, undefined);
         assert.equal(after.actors.keeper.slept, before.actors.keeper.slept);
         const event = after.log.at(-1);
@@ -181,14 +181,16 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
     return run({ ...seats, op: "play", world, action: "move:vale::pond" });
   }
 
-  let staged;
+  let stagedAda;
+  let stagedHomeward;
   for (const [seed, mode] of [
     [99, "stowed"],
     [99, "dry"],
     [17, "stowed"],
     [17, "dry"],
   ]) {
-    const cass = seed === 17;
+    const ada = seed === 99;
+    const homeward = seed === 17;
     const pond = arriveAtPond(seed, mode);
     const sorted = Object.fromEntries(Object.entries(pond.actors).toSorted());
     for (const actors of [pond.actors, sorted]) {
@@ -200,15 +202,15 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
       );
       assert.deepEqual(
         reply.events.map(({ actorId }) => actorId),
-        cass ? ["vale", "moth", "orin", "keeper"] : ["vale", "moth", "keeper"],
+        ada ? ["vale", "moth", "ada", "keeper"] : ["vale", "moth", "keeper"],
       );
       const before = copy(reference.beforeLife);
       const middle = copy(reference.afterKeeper);
       const after = copy(reference.afterSleep);
       const label = `${seed} ${mode} ${actors === sorted ? "sorted" : "authored"}`;
-      assert.equal(before.eventSeq, before.arrival.seq + (cass ? 2 : 1), label);
+      assert.equal(before.eventSeq, before.arrival.seq + (ada ? 2 : 1), label);
       assert.equal(middle.eventSeq, before.eventSeq + 1, label);
-      assert.equal(after.actors.moth.homeward, cass ? true : undefined, label);
+      assert.equal(after.actors.moth.homeward, homeward ? true : undefined, label);
       assert.equal(after.actors.moth.place, "station", label);
       assert.equal(after.actors.moth.sleeping, undefined, label);
       const woke = Object.keys(before.actors)
@@ -218,7 +220,7 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
         .sort();
       assert.deepEqual(
         woke,
-        cass
+        homeward
           ? [
               "elysium-chatgpt",
               "greek-market-neighbor",
@@ -238,13 +240,15 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
               "rue",
             ],
       );
-      staged = {
+      const staged = {
         ...copy(before),
         log: middle.log,
         memories: middle.memories,
         eventSeq: middle.eventSeq,
       };
       staged.actors.keeper = middle.actors.keeper;
+      if (ada) stagedAda = staged;
+      if (homeward) stagedHomeward = staged;
       for (const frame of [before, staged, middle]) {
         const actual = wasm({ op, world: frame });
         assert.ok(actual, `unsupported ${label}`);
@@ -282,14 +286,13 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
       world.actors.mara.place = "station";
     },
     (world) => {
-      world.items.board.holder = "orin";
-    },
-    (world) => {
-      world.routeKnowledge.moth = [];
+      world.items.shears.holder = "ada";
     },
   ]) {
-    const world = structuredClone(staged);
+    const world = structuredClone(stagedAda);
     mutate(world);
-    assert.equal(wasm({ op, world }), null);
+    assert.ok(wasm({ op, world }) === null, "invalid Ada fixture");
   }
+  stagedHomeward.routeKnowledge.moth = [];
+  assert.ok(wasm({ op, world: stagedHomeward }) === null, "invalid Pip route");
 });

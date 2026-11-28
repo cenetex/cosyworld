@@ -66,7 +66,7 @@ test("both Station arrival horizons match pinned Bard dwell and offstage life", 
       }
     }
   }
-  assert.deepEqual([...movers].sort(), ["ash", "nell", "orin"]);
+  assert.deepEqual([...movers], []);
   const badArrival = structuredClone(state);
   badArrival.arrival.fromLocationId = "attic";
   assert.equal(wasm({ op: "opening_bard_dwell", world: badArrival }), null);
@@ -331,8 +331,8 @@ test("Bard dwell and offstage walks match when Pip follows to historic Station",
     assert.equal(result.ok, true, result.error);
     return result.world;
   };
-  let cass;
-  let guests;
+  let ada;
+  let quiet;
   for (const seed of [17, 99]) {
     const initial = run({ op: "create", history: true, seed });
     const saved = run({ op: "create", save: JSON.stringify(initial) });
@@ -382,7 +382,7 @@ test("Bard dwell and offstage walks match when Pip follows to historic Station",
         assert.deepEqual(copy(reference.bardPlays), [`wait:${bard}::`]);
         const before = copy(reference.beforeBard);
         const after = copy(reference.beforeLife);
-        assert.equal(before.log.at(-1).actorId, seed === 17 ? "orin" : "moth");
+        assert.equal(before.log.at(-1).actorId, seed === 99 ? "ada" : "moth");
         assert.equal(
           after.routeKnowledge[bard].length,
           roads.length + Number(dry),
@@ -403,13 +403,13 @@ test("Bard dwell and offstage walks match when Pip follows to historic Station",
           }),
           `walks ${seed}/${dry}/${sorted}`,
         );
-        if (seed === 17) cass = before;
-        else guests = before;
+        if (seed === 99) ada = before;
+        else quiet = before;
       }
     }
   }
-  cass.log.at(-1).targetId = "willows-camp";
-  assert.equal(wasm({ op: "opening_bard_dwell", world: cass }), null);
-  guests.actors.keeper.sleeping.until += 1;
-  assert.equal(wasm({ op: "opening_bard_dwell", world: guests }), null);
+  ada.log.at(-1).targetId = "greek-piraeus";
+  assert.equal(wasm({ op: "opening_bard_dwell", world: ada }), null);
+  quiet.actors.keeper.sleeping.until += 1;
+  assert.equal(wasm({ op: "opening_bard_dwell", world: quiet }), null);
 });
