@@ -1774,10 +1774,7 @@ function wrongedBy(s, a, entry) {
 function trustGiver(s, recipient, item, giver) {
   if (needed(s, recipient, item)) gainTrust(s, recipient, giver);
 }
-// Wait is the only rest. Any Wait at a sanctuary, by a player or a resident,
-// clears every loss. A Wait anywhere else leaves losses as they are. Sleep, a
-// player's Wait after a Wait, lasts until something changes (wakeSleepers).
-// Nobody rests in the middle of a standoff.
+// Wait clears losses at a sanctuary. Sleep lasts until something changes.
 function rest(s, actor, here, sleep = false) {
   if (standoffFor(s, actor)) return;
   if (restsAt(actor, here) && s.defeats?.[actor]) delete s.defeats[actor];
