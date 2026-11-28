@@ -117,6 +117,32 @@ test("Pond speech and reloads follow the Keeper quest return and ship call", asy
         const view = { ...seats, op: "view", world: repeated.world, present };
         exact(wasm(view), run(view), `${label} reload ${present}`);
       }
+      if (saved.turn === 6 && !dry) {
+        const drop = {
+          ...seats,
+          op: "play",
+          action: "drop:vale:lamp:pond",
+          world: repeated.world,
+          revision: repeated.world.revision,
+        };
+        const called = wasm(drop);
+        exact(called, run(drop), `${label} drop after captions`);
+        assert.equal(called.events[0].seq, repeated.world.eventSeq + 1);
+        assert.equal(called.world.transports["greek-ship"].dock, "pond");
+        const nextSpeech = { ...speech, world: called.world };
+        const described = wasm(nextSpeech);
+        exact(described, run(nextSpeech), `${label} speech after call`);
+        const reload = {
+          ...seats,
+          present: [],
+          op: "view",
+          world: described.world,
+        };
+        exact(wasm(reload), run(reload), `${label} reload after call`);
+        const unwitnessed = structuredClone(drop.world);
+        unwitnessed.log.at(-1).locationId = "station";
+        assert.equal(wasm({ ...drop, world: unwitnessed }), null);
+      }
       for (const invalid of [
         { ...speech, claimed: [] },
         { ...speech, room: "station" },

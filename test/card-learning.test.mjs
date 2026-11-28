@@ -10,7 +10,6 @@ import {
   decodeSave,
   addLog,
 } from "../v2/card-game/world.mjs";
-// Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
