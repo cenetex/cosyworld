@@ -6,8 +6,8 @@ use super::{
     opening_full_wait::visible_items,
     opening_held_items,
     opening_pickups::item_as_named,
-    opening_pond_return_view, opening_pond_view, opening_roster, opening_second_attic_tail,
-    opening_station_read, opening_station_view, opening_visitor_routes,
+    opening_pond_call_view, opening_pond_return_view, opening_pond_view, opening_roster,
+    opening_second_attic_tail, opening_station_read, opening_station_view, opening_visitor_routes,
     opening_wait_response::{ordinary_attic_wait, vale_action},
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -22,6 +22,7 @@ const BEHIND: &str = "behind-station";
 const PIP: &str = "moth";
 const KEEPER: &str = "keeper";
 const LAMP: &str = "lamp";
+const CLOTH: &str = "cloth";
 
 pub(super) fn move_world(request: &Value) -> Option<(&Value, bool)> {
     move_world_to(request, STATION)
@@ -34,6 +35,11 @@ pub(super) fn quest_return_world(request: &Value) -> Option<(&Value, bool)> {
 
 pub(super) fn return_world(request: &Value) -> Option<(&Value, bool)> {
     move_world_to(request, POND)
+}
+
+pub(super) fn cloth_return_world(request: &Value) -> Option<(&Value, bool)> {
+    let (world, carry) = return_world(request)?;
+    (world["turn"] == 5 && world["actors"][VALE]["place"] == STATION).then_some((world, carry))
 }
 
 pub(super) fn behind_world(request: &Value) -> Option<(&Value, bool)> {
@@ -247,7 +253,7 @@ pub(super) fn rue_arrived(world: &Value) -> bool {
         && world["packs"]["shared-homes"]["met"]["rue"] == 2
 }
 
-fn quiet_departure(world: &Value) -> Option<()> {
+fn quiet_departure(world: &Value, with_cloth: bool) -> Option<()> {
     if !quiet_opening(world)
         || world["actors"][VALE]["crossed"] != 1
         || world["packs"].as_object()?.values().any(|pack| {
@@ -259,12 +265,16 @@ fn quiet_departure(world: &Value) -> Option<()> {
         })
         || world["life"]["actors"]
             .as_object()?
-            .values()
-            .any(|resident| {
-                resident["attachments"]
-                    .as_object()
-                    .is_none_or(|map| !map.is_empty())
+            .iter()
+            .any(|(id, resident)| {
+                let attachments = &resident["attachments"];
+                if with_cloth && id == VALE {
+                    *attachments != json!({"cloth":{"from":PIP,"turn":5}})
+                } else {
+                    attachments.as_object().is_none_or(|map| !map.is_empty())
+                }
             })
+        || (with_cloth && world["life"]["actors"].get(VALE).is_none())
     {
         return None;
     }
@@ -272,7 +282,7 @@ fn quiet_departure(world: &Value) -> Option<()> {
 }
 
 fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
-    quiet_departure(world)?;
+    quiet_departure(world, false)?;
     if world.get("began").is_some_and(|began| began != 480) {
         return None;
     }
@@ -282,7 +292,7 @@ fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
 }
 
 fn quiet_quest_station_return(world: &Value, geo: &Geography<'_>) -> Option<()> {
-    quiet_departure(world)?;
+    quiet_departure(world, false)?;
     opening_pond_return_view::verify_arrival(world, geo)?;
     if !world["conversations"].as_array()?.is_empty()
         || [PIP, KEEPER]
@@ -346,7 +356,24 @@ fn quiet_return_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
         return None;
     }
     opening_pond_view::pond_paths(world, geo)?;
-    quiet_station_departure(world, geo, POND)
+    quiet_station_departure(world, geo, POND, false)
+}
+
+fn quiet_cloth_return_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let read = opening_pond_call_view::station_cloth_gift(world)?;
+    let vale = &world["actors"][VALE];
+    if vale["want"] != opening_station_read::keeper_want_from_read(world, geo, read)?
+        || world["speechVoices"][VALE] != json!([VALE])
+        || !vale["under"].is_null()
+        || !vale["arcana"].is_null()
+        || !world["pondLampLoan"].is_null()
+        || world["items"][CLOTH]["holder"] != VALE
+        || !geo.entity_active(world, CLOTH)?
+    {
+        return None;
+    }
+    opening_pond_view::pond_paths(world, geo)?;
+    quiet_station_departure(world, geo, POND, true)
 }
 
 fn quiet_behind_source(world: &Value, geo: &Geography<'_>, order: &[&str]) -> Option<()> {
@@ -357,15 +384,27 @@ fn quiet_behind_source(world: &Value, geo: &Geography<'_>, order: &[&str]) -> Op
         return None;
     }
     opening_station_view::settled_first_arrival(world, geo, order)?;
-    quiet_station_departure(world, geo, BEHIND)
+    quiet_station_departure(world, geo, BEHIND, false)
 }
 
-fn quiet_station_departure(world: &Value, geo: &Geography<'_>, to: &str) -> Option<()> {
-    quiet_departure(world)?;
+fn quiet_station_departure(
+    world: &Value,
+    geo: &Geography<'_>,
+    to: &str,
+    with_cloth: bool,
+) -> Option<()> {
+    quiet_departure(world, with_cloth)?;
     let forest = &geo.files()["v2/card-game/forest.json"];
     let actors = world["actors"].as_object()?;
     let vale = actors.get(VALE)?;
     let lamp = &world["items"][LAMP];
+    let ordinary_hand =
+        vale["heldItem"].is_null() || (vale["heldItem"] == LAMP && lamp["fuelRooms"] == 0);
+    let valid_hand = if with_cloth {
+        vale["heldItem"] == CLOTH
+    } else {
+        ordinary_hand
+    };
     if vale["visited"] != json!(["attic", POND, STATION])
         || !world["disabledPacks"].is_null()
         || !world["standoffs"].as_array()?.is_empty()
@@ -373,11 +412,12 @@ fn quiet_station_departure(world: &Value, geo: &Geography<'_>, to: &str) -> Opti
         || lamp["holder"] != VALE
         || lamp["fuelPlace"] != STATION
         || lamp["lit"] != false
-        || !(vale["heldItem"].is_null() || (vale["heldItem"] == LAMP && lamp["fuelRooms"] == 0))
-        || world["items"]
-            .as_object()?
-            .iter()
-            .any(|(id, item)| (item["holder"] == VALE && id != LAMP) || item["holder"] == LAMP)
+        || !valid_hand
+        || world["items"].as_object()?.iter().any(|(id, item)| {
+            (item["holder"] == VALE && id != LAMP && !(with_cloth && id == CLOTH))
+                || item["holder"] == LAMP
+                || (with_cloth && item["holder"] == CLOTH)
+        })
         || forest["homeGates"][STATION]["opening"] == true
         || forest["places"][to]["sanctuary"] == true
         || !geo.entity_active(world, LAMP)?
@@ -439,6 +479,7 @@ enum Passage {
     Station(bool),
     QuestStation(bool),
     Pond(bool),
+    ClothPond(bool),
     Behind(bool),
 }
 
@@ -478,6 +519,26 @@ pub(super) fn begin_return_with<T>(
         order,
         evidence,
         Passage::Pond(carry),
+        prepare,
+    )
+}
+
+pub(super) fn begin_cloth_return_with<T>(
+    before: &Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+    carry: bool,
+    prepare: impl FnOnce(&Value) -> Option<T>,
+) -> Option<(Value, T)> {
+    begin_passage(
+        before,
+        geo,
+        authored,
+        order,
+        evidence,
+        Passage::ClothPond(carry),
         prepare,
     )
 }
@@ -546,6 +607,10 @@ fn begin_passage<T>(
             quiet_return_source(before, geo)?;
             (STATION, POND, carry)
         }
+        Passage::ClothPond(carry) => {
+            quiet_cloth_return_source(before, geo)?;
+            (STATION, POND, carry)
+        }
         Passage::Behind(carry) => {
             quiet_behind_source(before, geo, order)?;
             (STATION, BEHIND, carry)
@@ -580,11 +645,15 @@ fn begin_passage<T>(
     let hands = opening_held_items::snapshot(&world, geo)?;
     let witnesses = departure_witnesses(&world, geo, authored, from)?;
     world["actors"][VALE]["place"] = json!(to);
-    let history = world["items"][LAMP]["history"].as_array_mut()?;
-    history.push(json!(format!(
-        "Turn {turn}: {vale} carried it to {destination}."
-    )));
-    history.drain(..history.len().saturating_sub(12));
+    for id in [LAMP, CLOTH] {
+        if world["items"][id]["holder"] == VALE {
+            let history = world["items"][id]["history"].as_array_mut()?;
+            history.push(json!(format!(
+                "Turn {turn}: {vale} carried it to {destination}."
+            )));
+            history.drain(..history.len().saturating_sub(12));
+        }
+    }
     opening_held_items::settle_from(&mut world, geo, Some(&hands))?;
     let held = world["actors"][VALE]["heldItem"] == LAMP;
     let lamp = &mut world["items"][LAMP];
@@ -619,6 +688,9 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let (before, passage) = quest_return_world(request)
         .map(|(world, carry)| (world, Passage::QuestStation(carry)))
         .or_else(|| move_world(request).map(|(world, carry)| (world, Passage::Station(carry))))
+        .or_else(|| {
+            cloth_return_world(request).map(|(world, carry)| (world, Passage::ClothPond(carry)))
+        })
         .or_else(|| return_world(request).map(|(world, carry)| (world, Passage::Pond(carry))))
         .or_else(|| behind_world(request).map(|(world, carry)| (world, Passage::Behind(carry))))?;
     let order = opening_roster::actor_order(request, before)?;
@@ -636,6 +708,9 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         }
         Passage::Pond(carry) => {
             begin_return_with(before, &geo, &authored, &order, &evidence, carry, prepare)
+        }
+        Passage::ClothPond(carry) => {
+            begin_cloth_return_with(before, &geo, &authored, &order, &evidence, carry, prepare)
         }
         Passage::Behind(carry) => {
             begin_behind_with(before, &geo, &authored, &order, &evidence, carry, prepare)

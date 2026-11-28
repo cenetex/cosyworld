@@ -20,32 +20,21 @@ const KEY: &str = "ratiradio-station-key";
 const WAYFINDER: &str = "elysium-wayfinder";
 const EXITS: [&str; 3] = [STATION, "attic", SHIP];
 
-pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> {
+fn cloth_journey(world: &Value) -> Option<(u64, &Value, impl Iterator<Item = &Value>)> {
     let vale = &world["actors"][VALE];
     let log = world["log"].as_array()?;
-    let moves: Vec<_> = log.iter().filter(|entry| vale_action(entry)).collect();
-    let [pond, station, read, first_return, reentry, second_return, tail @ ..] = moves.as_slice()
-    else {
-        return None;
-    };
-    let returned = second_return["seq"].as_u64()?;
-    let next = returned.checked_add(1)?;
+    let mut moves = log.iter().filter(|entry| vale_action(entry));
+    let [pond, station, read, first_return, reentry] = [
+        moves.next()?,
+        moves.next()?,
+        moves.next()?,
+        moves.next()?,
+        moves.next()?,
+    ];
+    let read_seq = read["seq"].as_u64()?;
     let gift = reentry["seq"].as_u64()?.checked_add(1)?;
-    match (dropped, tail) {
-        (false, []) => {}
-        (true, [drop])
-            if world["turn"] == 7
-                && drop["seq"] == next
-                && drop["turn"] == 7
-                && drop["verb"] == "drop"
-                && drop["itemId"] == "lamp"
-                && drop["locationId"] == POND
-                && drop["targetId"] == POND => {}
-        _ => return None,
-    }
     if world["schema"] != 8
         || world["sharedVersion"] != 1
-        || !matches!(world["turn"].as_u64()?, 6 | 7)
         || world.get("began").is_some()
         || !quiet_opening(world)
         || !(world["turn"].as_u64()?.checked_add(1)?..=opening::MAX_REVISION)
@@ -54,7 +43,6 @@ pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> 
         || vale["visited"] != json!(["attic", POND, STATION])
         || vale["crossed"] != 1
         || world["opening"]["crossed"] != true
-        || world["arrival"] != json!({"seq":returned,"fromLocationId":STATION,"locationId":POND})
         || !move_event(pond, 1, "attic", POND)
         || !move_event(station, 2, POND, STATION)
         || read["turn"] != 3
@@ -67,25 +55,84 @@ pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> 
             })
         || !move_event(first_return, 4, STATION, POND)
         || !move_event(reentry, 5, POND, STATION)
-        || !move_event(second_return, 6, STATION, POND)
-        || gift >= returned
     {
         return None;
     }
-    log.iter()
-        .any(|event| {
-            event["seq"] == gift
-                && event["turn"] == 5
-                && event["kind"] == "action"
-                && event["generated"] != true
-                && event["locationId"] == STATION
-                && event["actorId"] == "moth"
-                && event["verb"] == "give"
-                && event["itemId"] == "cloth"
-                && event["targetId"] == VALE
-                && event["accepted"] == true
+    let event = log.iter().find(|event| {
+        event["seq"] == gift
+            && event["turn"] == 5
+            && event["kind"] == "action"
+            && event["generated"] != true
+            && event["locationId"] == STATION
+            && event["actorId"] == "moth"
+            && event["verb"] == "give"
+            && event["itemId"] == "cloth"
+            && event["targetId"] == VALE
+            && event["accepted"] == true
+    })?;
+    Some((read_seq, event, moves))
+}
+
+pub(super) fn station_cloth_gift(world: &Value) -> Option<u64> {
+    let (read, gift, mut plays) = cloth_journey(world)?;
+    let gift_seq = gift["seq"].as_u64()?;
+    let move_seq = gift_seq.checked_sub(1)?;
+    let log = world["log"].as_array()?;
+    let start = log.iter().position(|entry| entry["seq"] == gift_seq)?;
+    let cast = gift["cast"].as_array()?;
+    if world["turn"] != 5
+        || plays.next().is_some()
+        || world["arrival"] != json!({"seq":move_seq,"fromLocationId":POND,"locationId":STATION})
+        || log.last()?["seq"] != world["eventSeq"]
+        || cast.len() != 3
+        || ![VALE, "moth", "keeper"]
+            .iter()
+            .all(|id| cast.iter().any(|member| member == *id))
+        || !gift["witnesses"].as_array()?.iter().any(|id| id == "cloth")
+        || log[start + 1..].iter().enumerate().any(|(i, line)| {
+            line["turn"] != 5
+                || line["locationId"] != STATION
+                || line["generated"] != true
+                || line["seq"].as_u64() != gift_seq.checked_add(i as u64 + 1)
+                || match line["kind"].as_str() {
+                    Some("dialogue") => line["actorId"] != VALE || line["entityId"] != VALE,
+                    Some("narration") => !line["actorId"].is_null() || line["entityId"] != STATION,
+                    _ => true,
+                }
         })
-        .then_some((returned, read["seq"].as_u64()?))
+    {
+        return None;
+    }
+    Some(read)
+}
+
+pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> {
+    let (read, gift, mut plays) = cloth_journey(world)?;
+    let gift_seq = gift["seq"].as_u64()?;
+    let second_return = plays.next()?;
+    let returned = second_return["seq"].as_u64()?;
+    let next = returned.checked_add(1)?;
+    if !matches!(world["turn"].as_u64()?, 6 | 7)
+        || gift_seq >= returned
+        || !move_event(second_return, 6, STATION, POND)
+        || world["arrival"] != json!({"seq":returned,"fromLocationId":STATION,"locationId":POND})
+    {
+        return None;
+    }
+    match (dropped, plays.next()) {
+        (false, None) => {}
+        (true, Some(drop))
+            if world["turn"] == 7
+                && drop["seq"] == next
+                && drop["turn"] == 7
+                && drop["verb"] == "drop"
+                && drop["itemId"] == "lamp"
+                && drop["locationId"] == POND
+                && drop["targetId"] == POND
+                && plays.next().is_none() => {}
+        _ => return None,
+    }
+    Some((returned, read))
 }
 
 fn drop_receipt(world: &Value) -> Option<u64> {
