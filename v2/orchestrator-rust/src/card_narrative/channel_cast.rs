@@ -73,6 +73,9 @@ pub(super) async fn chosen_names(app: Option<&crate::AppState>, residents: &mut 
         {
             resident.name = name;
         }
+        if let Some(face) = crate::card_shared::elysium_face_path(state, &resident.id).await {
+            resident.avatar = Some(face);
+        }
     }
 }
 

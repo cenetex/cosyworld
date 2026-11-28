@@ -378,10 +378,10 @@ describe("calling the empty ship", () => {
     ]) {
       const words = `${distance} sea ${distance === 1 ? "leg" : "legs"} away`;
       expect(placeText(view().world, tauris)).toContain(words);
-      expect(playLabel(nextWait())).toBe("Wait for Scylla");
+      expect(playLabel(nextWait())).toBe("Wait");
       if (distance < 3)
         expect(restPlays(view().world, [nextWait()], true, ["vale"]).map((a) => playLabel(a)))
-          .toEqual(["Wait for Scylla", "Sleep"]);
+          .toEqual(["Wait", "Sleep"]);
       expect(targets(s, "vale", "move")).not.toContain(scylla);
       s = act(s, "vale", "wait");
       expect(s.transports[scylla].dock).toBe(dock);
@@ -415,7 +415,7 @@ describe("calling the empty ship", () => {
     expect(playLabel(wait())).toBe("Wait");
     s = act(s, "mara", "move", lemnos);
     expect(placeText(s, tauris)).toContain("2 sea legs away");
-    expect(playLabel(wait())).toBe("Wait for Scylla");
+    expect(playLabel(wait())).toBe("Wait");
   });
 
   it("keeps the provisions course and unmarked cargo recalls gated", () => {

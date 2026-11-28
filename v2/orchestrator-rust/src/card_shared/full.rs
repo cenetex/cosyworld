@@ -57,6 +57,7 @@ pub(super) fn router() -> Router<AppState> {
         .route("/card-game/shared/worlds/{id}", get(view))
         .route(elysium::ROUTE, get(elysium::portrait))
         .route(elysium_models::NAME_ROUTE, get(elysium_models::identity))
+        .route(elysium_models::FACE_ROUTE, get(elysium_models::face))
         .route(
             elysium_models::PORTRAIT_ROUTE,
             get(elysium_models::portrait),

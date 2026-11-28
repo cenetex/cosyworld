@@ -31120,6 +31120,45 @@
           reachable.add(neighbor);
     return [...reachable].sort();
   }
+  var tokenRooms = (world) => Object.keys(places).filter((place) => !isElysium(place) && !transportPlace(place) && entityActive(world, place) && !packPlaces[place]?.requires?.length).sort();
+  function elysiumTokenLanding(world, token) {
+    const rooms = new Map(tokenRooms(world).map((place) => [place, { place, tokens: 0, loose: 0 }]));
+    if (!rooms.size) return null;
+    for (const [id, { holder }] of Object.entries(world.items)) {
+      const room = rooms.get(holder);
+      if (!room || !entityActive(world, id)) continue;
+      room.loose++;
+      if (isElysiumModelToken(id)) room.tokens++;
+    }
+    const worlds = /* @__PURE__ */ new Map();
+    for (const room of rooms.values())
+      worlds.set(packIdOf(room.place), (worlds.get(packIdOf(room.place)) ?? 0) + room.tokens);
+    const fewest = Math.min(...worlds.values());
+    const open = [...worlds.keys()].filter((id) => worlds.get(id) === fewest).sort();
+    const chosen = open[runHash(world, `${token}:world`) % open.length];
+    const here2 = [...rooms.values()].filter((room) => packIdOf(room.place) === chosen);
+    const compare = (a, b) => a.tokens - b.tokens || a.loose - b.loose;
+    const best = here2.reduce((least, room) => compare(room, least) < 0 ? room : least);
+    const tied = here2.filter((room) => compare(room, best) === 0);
+    return tied[runHash(world, token) % tied.length].place;
+  }
+  function spreadVoidTokens(world) {
+    if (world.voidTokensSpread) return;
+    world.voidTokensSpread = true;
+    const out = ELYSIUM_MODEL_IDS.filter((resident) => {
+      const record7 = world.elysiumEncounters?.[resident];
+      const item = world.items[elysiumModelToken(resident)];
+      return record7 && !record7.returnedAt && item && item.holder !== resident;
+    });
+    for (const resident of out) world.items[elysiumModelToken(resident)].holder = resident;
+    for (const resident of out) {
+      const token = elysiumModelToken(resident), item = world.items[token];
+      const place = elysiumTokenLanding(world, token);
+      if (!place) continue;
+      item.holder = place;
+      item.history = [...item.history, `Turn ${world.turn}: Scattered through the worlds.`].slice(-12);
+    }
+  }
   function scatterWayfinder(world) {
     if (!entityActive(world, WAYFINDER)) return;
     const active = currentActor(world);
@@ -32889,6 +32928,7 @@
       });
       installJourneyProgress(s, packDefinitions);
       installConversations(s);
+      spreadVoidTokens(s);
       settleGuards(s);
       settleHeldItems(s);
       settleLamp(s);

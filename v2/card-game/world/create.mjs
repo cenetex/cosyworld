@@ -58,6 +58,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   installRouteKnowledge(world);
   installKnowledge(world);
   scatterWayfinder(world);
+  world.voidTokensSpread = true;
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
   seedCallLead(world, addLog);

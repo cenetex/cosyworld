@@ -144,7 +144,7 @@ describe("ordinary hospitality across Attica", () => {
     world = joined.world;
     expect(world.actors.mara.place).toBe("pond");
 
-    act("mara", "wait", { label: "Wait for Charybdis" });
+    act("mara", "wait", { label: "Wait" });
     act("mara", "move", { target: "greek-ship" });
     act("mara", "course", { target: "greek-harbor" });
     act("mara", "wait", { sleep: undefined });
