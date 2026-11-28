@@ -109,7 +109,7 @@ impl Opening {
     }
 }
 
-fn station_order(world: &Value) -> Option<Vec<&'static str>> {
+pub(super) fn station_order(world: &Value) -> Option<Vec<&'static str>> {
     let saved = world["stationExitOrder"].as_array()?;
     let used_up = world["usedUp"].as_array()?;
     let steps = [

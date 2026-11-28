@@ -129,7 +129,7 @@ fn encode_request(
         .get("action")
         .and_then(|action| action.as_str().or_else(|| action["key"].as_str()))
         .filter(|_| op == Some("play"));
-    let ordered = op == Some("opening_wait_roster")
+    let ordered = matches!(op, Some("opening_wait_roster" | "opening_mirror_move"))
         || matches!(play, Some("wait:vale::" | "drop:vale:lamp:attic"));
     let ordered_cards = op == Some("opening_place_return")
         || (play == Some("wait:vale::")

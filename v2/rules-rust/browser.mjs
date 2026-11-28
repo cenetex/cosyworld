@@ -42,7 +42,7 @@ export function browserRules(bytes) {
       const key =
         typeof request.action === "string" ? request.action : request.action?.key;
       const ordered =
-        request.op === "opening_wait_roster" ||
+        ["opening_wait_roster", "opening_mirror_move"].includes(request.op) ||
         (request.op === "play" &&
           (key === "wait:vale::" || key === "drop:vale:lamp:attic"));
       const actors = ordered ? request.world?.actors : null;

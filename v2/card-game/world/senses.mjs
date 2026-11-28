@@ -1,4 +1,3 @@
-// Senses and reflections, split out of world.mjs (#1390).
 import { conditionMet } from "../pack-rules.mjs";
 import { entityActive } from "../pack-registry.mjs";
 import { itemPlace } from "./items.mjs";
