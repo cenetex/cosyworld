@@ -1889,8 +1889,7 @@ function wakeSleepers(s, before, voyages) {
   }
 }
 // --- Rules 100: world life (resident-home, -sleep, -guard) ---------------
-// A resident asleep on its schedule wakes, at once, for a Talk, a threat, a
-// ring where it sleeps or being moved. It stays awake until its next bedtime.
+// Talk, threats, a bell in the room, and movement wake a resident until its next bedtime.
 function wakeResident(s, id) {
   if (!residentAsleep(s, id)) return false;
   delete s.actors[id].sleeping;
