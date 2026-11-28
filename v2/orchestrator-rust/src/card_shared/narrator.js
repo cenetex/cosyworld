@@ -2531,7 +2531,7 @@
               "greek-civic-avenue",
               "greek-north-gate"
             ],
-            backdrop: "assets/greek-drama/dipylon-road.svg"
+            backdrop: "assets/greek-drama/repertoire-greek-city-road-fork.webp"
           },
           "greek-north-gate": {
             name: "North Gate",
@@ -2541,7 +2541,7 @@
               "greek-road-athens-marathon",
               "greek-assembly"
             ],
-            backdrop: "assets/greek-drama/city-gate-day.webp"
+            backdrop: "assets/greek-drama/repertoire-greek-north-gate.webp"
           },
           "greek-piraeus": {
             name: "Piraeus Quays",
@@ -2653,10 +2653,10 @@
               "greek-underworld",
               "greek-attic-farm"
             ],
-            backdrop: "assets/greek-drama/attic-road.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-eleusis-lower-precinct.webp",
             backdrops: [
               {
-                backdrop: "assets/greek-drama/attic-road-night.webp",
+                backdrop: "assets/greek-drama/repertoire-greek-eleusis-lower-precinct-night.webp",
                 requires: [
                   {
                     kind: "daylight",
@@ -2682,7 +2682,7 @@
               "greek-harbor",
               "greek-argos-sanctuary"
             ],
-            backdrop: "assets/greek-drama/grove.svg"
+            backdrop: "assets/greek-drama/repertoire-greek-argolid-road.webp"
           },
           "greek-argos-sanctuary": {
             name: "Argive Shore Altar",
@@ -2838,7 +2838,7 @@
               "greek-oeta",
               "greek-ion-court"
             ],
-            backdrop: "assets/greek-drama/palace.svg"
+            backdrop: "assets/greek-drama/repertoire-greek-delphi.webp"
           },
           "greek-trachis": {
             name: "House at Trachis",
@@ -2857,7 +2857,7 @@
               "greek-delphi",
               "greek-trachis"
             ],
-            backdrop: "assets/greek-drama/oeta-road.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-oeta.webp",
             road: [
               "greek-delphi",
               "greek-trachis"
@@ -2920,10 +2920,10 @@
               "greek-ajax-household",
               "greek-ajax-grave"
             ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-trojan-camp-lane.webp",
             backdrops: [
               {
-                backdrop: "assets/greek-drama/ajax-camp-night.webp",
+                backdrop: "assets/greek-drama/repertoire-greek-trojan-camp-lane-night.webp",
                 requires: [
                   {
                     kind: "daylight",
@@ -3151,7 +3151,7 @@
               "greek-piraeus",
               "greek-city-road-fork"
             ],
-            backdrop: "assets/greek-drama/attic-road.webp"
+            backdrop: "assets/greek-drama/repertoire-greek-road-athens-piraeus.webp"
           },
           "greek-road-athens-colonus": {
             name: "Colonus Road",
@@ -3241,7 +3241,7 @@
               "greek-civic-avenue",
               "greek-delphi"
             ],
-            backdrop: "assets/greek-drama/sacred-way.svg"
+            backdrop: "assets/greek-drama/repertoire-greek-road-sacred-way.webp"
           },
           "greek-road-royal": {
             name: "The Royal Road",
@@ -3310,7 +3310,7 @@
           "greek-ajax-landing": {
             stage: {
               focus: {
-                x: 80,
+                x: 55,
                 y: 50
               }
             },
@@ -3319,7 +3319,7 @@
             exits: [
               "greek-greek-camp"
             ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-ajax-landing.webp",
             requires: [
               {
                 kind: "flag",
@@ -3334,7 +3334,7 @@
             exits: [
               "greek-trojan-camp-lane"
             ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-ajax-household.webp",
             requires: [
               {
                 kind: "flag",
@@ -3349,7 +3349,7 @@
             exits: [
               "greek-trojan-camp-lane"
             ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-ajax-grave.webp",
             requires: [
               {
                 kind: "flag",
@@ -3948,7 +3948,7 @@
             home: "greek-egypt-tomb",
             values: {},
             seed: "Helen, wife of Menelaus, in Egypt.",
-            portrait: "assets/greek-drama/chthonic-helen.png",
+            portrait: "assets/greek-drama/repertoire-greek-helen-egypt.png",
             requires: [
               {
                 kind: "choice",
@@ -3971,7 +3971,7 @@
             home: "greek-egypt-tomb",
             values: {},
             seed: "Menelaus, King of Sparta, in Egypt.",
-            portrait: "assets/greek-drama/chthonic-menelaus.png",
+            portrait: "assets/greek-drama/repertoire-greek-menelaus-egypt.png",
             requires: [
               {
                 kind: "choice",
@@ -3995,7 +3995,7 @@
             home: "greek-troy-beach",
             values: {},
             seed: "Helen, wife of Menelaus, home from Troy.",
-            portrait: "assets/greek-drama/chthonic-helen.png",
+            portrait: "assets/greek-drama/repertoire-greek-helen-troy.png",
             requires: [
               {
                 kind: "choice",
@@ -4018,7 +4018,7 @@
             home: "greek-troy-beach",
             values: {},
             seed: "Menelaus, King of Sparta, home from Troy.",
-            portrait: "assets/greek-drama/chthonic-menelaus.png",
+            portrait: "assets/greek-drama/repertoire-greek-menelaus-troy.png",
             requires: [
               {
                 kind: "choice",
@@ -4041,7 +4041,7 @@
             home: "greek-argos-tomb",
             values: {},
             seed: "Electra, daughter of Agamemnon.",
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/repertoire-greek-electra-aeschylus.png",
             requires: [
               {
                 kind: "choice",
@@ -4064,7 +4064,7 @@
             home: "greek-argos-tomb",
             values: {},
             seed: "Orestes, son of Agamemnon.",
-            portrait: "assets/greek-drama/chthonic-orestes.png",
+            portrait: "assets/greek-drama/repertoire-greek-orestes-aeschylus.png",
             requires: [
               {
                 kind: "choice",
@@ -4133,7 +4133,7 @@
             home: "greek-mycenae-palace",
             values: {},
             seed: "Electra, daughter of Agamemnon.",
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/repertoire-greek-electra-sophocles.png",
             requires: [
               {
                 kind: "choice",
@@ -4157,7 +4157,7 @@
             home: "greek-mycenae-palace",
             values: {},
             seed: "Orestes, son of Agamemnon.",
-            portrait: "assets/greek-drama/chthonic-orestes.png",
+            portrait: "assets/greek-drama/repertoire-greek-orestes-sophocles.png",
             requires: [
               {
                 kind: "choice",
@@ -4180,7 +4180,7 @@
             home: "greek-argive-farm",
             values: {},
             seed: "Electra, daughter of Agamemnon, wife of a farmer.",
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/repertoire-greek-electra-euripides.png",
             requires: [
               {
                 kind: "choice",
@@ -4203,7 +4203,7 @@
             home: "greek-argive-farm",
             values: {},
             seed: "Orestes, son of Agamemnon.",
-            portrait: "assets/greek-drama/chthonic-orestes.png",
+            portrait: "assets/greek-drama/repertoire-greek-orestes-euripides.png",
             requires: [
               {
                 kind: "choice",
@@ -6597,13 +6597,13 @@
           "greek-story-aeschylus-persians-object": {
             name: "Salamis Roll",
             holder: "greek-susa",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-persians-object.webp",
             seed: "The object Atossa asks you to bring to the dispute."
           },
           "greek-story-aeschylus-persians-record": {
             name: "Persians Settlement",
             holder: "greek-susa",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-persians-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aeschylus-persians-first",
@@ -6636,13 +6636,13 @@
           "greek-story-aeschylus-seven-thebes-object": {
             name: "Seven-Gate Tally",
             holder: "greek-seven-gates",
-            art: "assets/greek-drama/guard-tablet.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-object.webp",
             seed: "The object Theban Scout asks you to bring to the dispute."
           },
           "greek-story-aeschylus-seven-thebes-record": {
             name: "Seven Against Thebes Settlement",
             holder: "greek-seven-gates",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aeschylus-seven-thebes-first",
@@ -6675,13 +6675,13 @@
           "greek-story-aeschylus-suppliant-women-object": {
             name: "Danaids\u2019 Wool-Bound Bough",
             holder: "greek-argos-sanctuary",
-            art: "assets/greek-drama/olive-branch.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-object.webp",
             seed: "The object Pelasgus asks you to bring to the dispute."
           },
           "greek-story-aeschylus-suppliant-women-record": {
             name: "Suppliant Women Settlement",
             holder: "greek-argos-sanctuary",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aeschylus-suppliant-women-first",
@@ -6710,7 +6710,7 @@
           "greek-story-aeschylus-prometheus-bound-record": {
             name: "Prometheus Bound Settlement",
             holder: "greek-scythian-crag",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aeschylus-prometheus-bound-first",
@@ -6739,7 +6739,7 @@
           "greek-story-aeschylus-agamemnon-object": {
             name: "Purple Welcome Cloth",
             holder: "greek-argos-palace",
-            art: "assets/greek-drama/return-cloths.png",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-object.webp",
             seed: "The object Clytemnestra asks you to bring to the dispute.",
             requires: [
               {
@@ -6752,7 +6752,7 @@
           "greek-story-aeschylus-agamemnon-record": {
             name: "Agamemnon Settlement",
             holder: "greek-argos-palace",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aeschylus-agamemnon-first",
@@ -6786,13 +6786,13 @@
           "greek-story-aeschylus-eumenides-object": {
             name: "Court Ballot Stone",
             holder: "greek-areopagus",
-            art: "assets/greek-drama/household-token.png",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-object.webp",
             seed: "The object Athena asks you to bring to the dispute."
           },
           "greek-story-aeschylus-eumenides-record": {
             name: "Judgment of the Areopagus",
             holder: "greek-areopagus",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aeschylus-eumenides-first",
@@ -6824,13 +6824,13 @@
           "greek-story-sophocles-women-of-trachis-object": {
             name: "Deianeira\u2019s Robe Chest",
             holder: "greek-trachis",
-            art: "assets/greek-drama/provision-basket.png",
+            art: "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-object.webp",
             seed: "The object Deianeira asks you to bring to the dispute."
           },
           "greek-story-sophocles-women-of-trachis-record": {
             name: "Women of Trachis Settlement",
             holder: "greek-trachis",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-sophocles-women-of-trachis-first",
@@ -6859,13 +6859,13 @@
           "greek-story-sophocles-oedipus-tyrannus-object": {
             name: "Shepherd\u2019s Summons",
             holder: "greek-oedipus-court",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-object.webp",
             seed: "The object Jocasta asks you to bring to the dispute."
           },
           "greek-story-sophocles-oedipus-tyrannus-record": {
             name: "Oedipus Tyrannus Settlement",
             holder: "greek-oedipus-court",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-sophocles-oedipus-tyrannus-first",
@@ -6898,13 +6898,13 @@
           "greek-story-sophocles-philoctetes-object": {
             name: "Bow of Heracles",
             holder: "greek-lemnos",
-            art: "assets/greek-drama/ajax-tools.png",
+            art: "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-object.webp",
             seed: "The object Philoctetes asks you to bring to the dispute."
           },
           "greek-story-sophocles-philoctetes-record": {
             name: "Lemnian Passage Agreement",
             holder: "greek-lemnos",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-sophocles-philoctetes-first",
@@ -6933,13 +6933,13 @@
           "greek-story-euripides-alcestis-object": {
             name: "Alcestis\u2019s mourning cloth",
             holder: "greek-pherae",
-            art: "assets/greek-drama/ajax-cloth.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-alcestis-object.webp",
             seed: "The object The Servant of Alcestis asks you to bring to the dispute."
           },
           "greek-story-euripides-alcestis-record": {
             name: "Alcestis Settlement",
             holder: "greek-pherae",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-alcestis-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-alcestis-first",
@@ -6968,13 +6968,13 @@
           "greek-story-euripides-medea-object": {
             name: "Corinthian passage tally",
             holder: "greek-corinth",
-            art: "assets/greek-drama/return-list.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-medea-object.webp",
             seed: "The object Medea\u2019s Nurse asks you to bring to the dispute."
           },
           "greek-story-euripides-medea-record": {
             name: "Medea Settlement",
             holder: "greek-corinth",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-medea-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-medea-first",
@@ -7003,13 +7003,13 @@
           "greek-story-euripides-hippolytus-object": {
             name: "Phaedra\u2019s sealed tablet",
             holder: "greek-troezen",
-            art: "assets/greek-drama/palace-testimony.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-object.webp",
             seed: "The object Phaedra\u2019s Nurse asks you to bring to the dispute."
           },
           "greek-story-euripides-hippolytus-record": {
             name: "Hippolytus Settlement",
             holder: "greek-troezen",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-hippolytus-first",
@@ -7044,13 +7044,13 @@
           "greek-story-euripides-andromache-object": {
             name: "Thetis altar binding",
             holder: "greek-thetis",
-            art: "assets/greek-drama/funeral-cloth.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-andromache-object.webp",
             seed: "The object Andromache asks you to bring to the dispute."
           },
           "greek-story-euripides-andromache-record": {
             name: "Andromache Settlement",
             holder: "greek-thetis",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-andromache-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-andromache-first",
@@ -7083,13 +7083,13 @@
           "greek-story-euripides-hecuba-object": {
             name: "Purse with the Trojan Seal",
             holder: "greek-thrace",
-            art: "assets/greek-drama/household-token.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-hecuba-object.webp",
             seed: "The object Hecuba asks you to bring to the dispute."
           },
           "greek-story-euripides-hecuba-record": {
             name: "Hecuba Settlement",
             holder: "greek-thrace",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-hecuba-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-hecuba-first",
@@ -7123,13 +7123,13 @@
           "greek-story-euripides-heracles-object": {
             name: "Wool-bound suppliant bough",
             holder: "greek-heracles-altar",
-            art: "assets/greek-drama/shelter-blanket.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-heracles-object.webp",
             seed: "The object Amphitryon asks you to bring to the dispute."
           },
           "greek-story-euripides-heracles-record": {
             name: "Heracles Settlement",
             holder: "greek-heracles-altar",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-heracles-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-heracles-first",
@@ -7163,13 +7163,13 @@
           "greek-story-euripides-trojan-women-object": {
             name: "Departure Roll",
             holder: "greek-troy",
-            art: "assets/greek-drama/return-list.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-object.webp",
             seed: "The object Andromache asks you to bring to the dispute."
           },
           "greek-story-euripides-trojan-women-record": {
             name: "Trojan Departure Roll",
             holder: "greek-troy",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-trojan-women-first",
@@ -7201,7 +7201,7 @@
           "greek-story-euripides-tauris-object": {
             name: "Letter to Argos",
             holder: "greek-tauris",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-tauris-object.webp",
             seed: "Iphigenia\u2019s letter bears Electra\u2019s acknowledgment after it is delivered to her in Argos.",
             lifecycle: "kept",
             author: "greek-story-euripides-orestes-first",
@@ -7221,7 +7221,7 @@
           "greek-story-euripides-tauris-record": {
             name: "Taurian Departure Order",
             holder: "greek-tauris",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-tauris-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-tauris-first",
@@ -7255,13 +7255,13 @@
           "greek-story-euripides-ion-object": {
             name: "Delphic cradle basket",
             holder: "greek-ion-court",
-            art: "assets/greek-drama/provision-basket.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-ion-object.webp",
             seed: "The object The Pythia asks you to bring to the dispute."
           },
           "greek-story-euripides-ion-record": {
             name: "Ion Settlement",
             holder: "greek-ion-court",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-ion-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-ion-first",
@@ -7294,13 +7294,13 @@
           "greek-story-euripides-phoenician-women-object": {
             name: "Jocasta\u2019s Truce Bough",
             holder: "greek-jocasta-rooms",
-            art: "assets/greek-drama/olive-branch.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-object.webp",
             seed: "The object Jocasta asks you to bring to the dispute."
           },
           "greek-story-euripides-phoenician-women-record": {
             name: "Phoenician Women Settlement",
             holder: "greek-jocasta-rooms",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-phoenician-women-first",
@@ -7333,13 +7333,13 @@
           "greek-story-euripides-orestes-object": {
             name: "Electra\u2019s appeal board",
             holder: "greek-argive-jury",
-            art: "assets/greek-drama/refuge-tablet.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-orestes-object.webp",
             seed: "The object Electra asks you to bring to the dispute."
           },
           "greek-story-euripides-orestes-record": {
             name: "Orestes Settlement",
             holder: "greek-argive-jury",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-orestes-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-orestes-first",
@@ -7372,13 +7372,13 @@
           "greek-story-euripides-bacchae-object": {
             name: "Ivy-bound fennel staff",
             holder: "greek-cithaeron-shrine",
-            art: "assets/greek-drama/olive-branch.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-bacchae-object.webp",
             seed: "The object Cadmus asks you to bring to the dispute."
           },
           "greek-story-euripides-bacchae-record": {
             name: "Bacchae Settlement",
             holder: "greek-cithaeron-shrine",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-bacchae-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-bacchae-first",
@@ -7407,13 +7407,13 @@
           "greek-story-euripides-iphigenia-at-aulis-object": {
             name: "Wedding Summons",
             holder: "greek-aulis",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-object.webp",
             seed: "The object Clytemnestra asks you to bring to the dispute."
           },
           "greek-story-euripides-iphigenia-at-aulis-record": {
             name: "Iphigenia at Aulis Settlement",
             holder: "greek-aulis",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-iphigenia-at-aulis-first",
@@ -7442,7 +7442,7 @@
           "greek-story-euripides-rhesus-record": {
             name: "Rhesus Settlement",
             holder: "greek-trojan-camp",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-rhesus-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-rhesus-first",
@@ -7477,7 +7477,7 @@
           "greek-story-euripides-cyclops-record": {
             name: "Cyclops Settlement",
             holder: "greek-sicily",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-euripides-cyclops-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-cyclops-first",
@@ -7506,13 +7506,13 @@
           "greek-story-aristophanes-acharnians-object": {
             name: "Truce Seal",
             holder: "greek-acharnae",
-            art: "assets/greek-drama/household-token.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-object.webp",
             seed: "The object Dicaeopolis asks you to bring to the dispute."
           },
           "greek-story-aristophanes-acharnians-record": {
             name: "Acharnae Market Agreement",
             holder: "greek-acharnae",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-acharnians-first",
@@ -7541,13 +7541,13 @@
           "greek-story-aristophanes-knights-object": {
             name: "Covered Pantry Basket",
             holder: "greek-demos-house",
-            art: "assets/greek-drama/provision-basket.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-knights-object.webp",
             seed: "The object Demos asks you to bring to the dispute."
           },
           "greek-story-aristophanes-knights-record": {
             name: "Knights Settlement",
             holder: "greek-demos-house",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-knights-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-knights-first",
@@ -7576,13 +7576,13 @@
           "greek-story-aristophanes-clouds-object": {
             name: "Horse Debt Tablet",
             holder: "greek-thinkery",
-            art: "assets/greek-drama/refuge-tablet.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-object.webp",
             seed: "The object Strepsiades asks you to bring to the dispute."
           },
           "greek-story-aristophanes-clouds-record": {
             name: "Clouds Settlement",
             holder: "greek-thinkery",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-clouds-first",
@@ -7611,13 +7611,13 @@
           "greek-story-aristophanes-wasps-object": {
             name: "Kitchen Jury Pebble",
             holder: "greek-jury-house",
-            art: "assets/greek-drama/household-token.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-object.webp",
             seed: "The object Philocleon asks you to bring to the dispute."
           },
           "greek-story-aristophanes-wasps-record": {
             name: "Wasps Settlement",
             holder: "greek-jury-house",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-wasps-first",
@@ -7646,13 +7646,13 @@
           "greek-story-aristophanes-peace-object": {
             name: "Hauling Rope",
             holder: "greek-divine-heights",
-            art: "assets/greek-drama/ajax-shield.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-peace-object.webp",
             seed: "The object Trygaeus asks you to bring to the dispute."
           },
           "greek-story-aristophanes-peace-record": {
             name: "Peace Settlement",
             holder: "greek-divine-heights",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-peace-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-peace-first",
@@ -7681,7 +7681,7 @@
           "greek-story-aristophanes-birds-record": {
             name: "Birds Settlement",
             holder: "greek-bird-wilderness",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-birds-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-birds-first",
@@ -7710,13 +7710,13 @@
           "greek-story-aristophanes-lysistrata-object": {
             name: "Treasury Key",
             holder: "greek-acropolis",
-            art: "assets/greek-drama/household-token.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-object.webp",
             seed: "The object Lysistrata asks you to bring to the dispute."
           },
           "greek-story-aristophanes-lysistrata-record": {
             name: "Lysistrata Settlement",
             holder: "greek-acropolis",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-lysistrata-first",
@@ -7745,13 +7745,13 @@
           "greek-story-aristophanes-thesmophoria-object": {
             name: "Agathon's Borrowed Gown",
             holder: "greek-festival",
-            art: "assets/greek-drama/return-cloths.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-object.webp",
             seed: "The object The First Woman asks you to bring to the dispute."
           },
           "greek-story-aristophanes-thesmophoria-record": {
             name: "Women at the Thesmophoria Settlement",
             holder: "greek-festival",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-thesmophoria-first",
@@ -7780,13 +7780,13 @@
           "greek-story-aristophanes-frogs-object": {
             name: "Poet's Ferry Obol",
             holder: "greek-underworld",
-            art: "assets/greek-drama/household-token.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-object.webp",
             seed: "The object Aeschylus asks you to bring to the dispute."
           },
           "greek-story-aristophanes-frogs-record": {
             name: "Frogs Settlement",
             holder: "greek-underworld",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-frogs-first",
@@ -7815,7 +7815,7 @@
           "greek-story-aristophanes-assemblywomen-record": {
             name: "Assemblywomen Settlement",
             holder: "greek-assembly",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-assemblywomen-first",
@@ -7844,13 +7844,13 @@
           "greek-story-aristophanes-wealth-object": {
             name: "Wealth's First Coin",
             holder: "greek-attic-farm",
-            art: "assets/greek-drama/household-token.png",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-object.webp",
             seed: "The object Chremylus asks you to bring to the dispute."
           },
           "greek-story-aristophanes-wealth-record": {
             name: "Wealth Settlement",
             holder: "greek-attic-farm",
-            art: "assets/greek-drama/burial-account.webp",
+            art: "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-record.webp",
             seed: "A written account of the decision made here.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-wealth-first",
@@ -7879,7 +7879,7 @@
           "greek-marathon-captive-bond": {
             name: "The Captive\u2019s Bond",
             holder: "greek-marathon",
-            art: "assets/greek-drama/ajax-plea.png",
+            art: "assets/greek-drama/repertoire-greek-marathon-captive-bond.webp",
             seed: "The bearer stands surety for Eurystheus while the guards hold him at the altar.",
             requires: [
               {
@@ -19359,7 +19359,7 @@
               open: "The mooring lies below Polyphemus\u2019s cave.",
               cardName: "The Scylla",
               cardArt: "assets/greek-drama/scylla-card.webp",
-              backdrop: "assets/greek-drama/book-three-lemnos-day.webp"
+              backdrop: "assets/greek-drama/repertoire-greek-sicily-ship.webp"
             },
             transport: "greek-scylla"
           }
@@ -33194,7 +33194,7 @@
     "greek-ship": art("ship-deck-night"),
     "greek-scylla": art("scylla-deck-night"),
     "greek-road-athens-harbor": art("attic-road-night"),
-    "greek-road-athens-piraeus": art("attic-road-night"),
+    "greek-road-athens-piraeus": art("repertoire-greek-road-athens-piraeus-night"),
     "greek-road-athens-colonus": art("attic-road-night"),
     "greek-road-athens-eleusis": art("sacred-way-dipylon-night"),
     "greek-road-athens-marathon": art("repertoire-greek-road-athens-marathon-night"),
@@ -33208,9 +33208,9 @@
     "greek-thrace": art("thracian-shore-night"),
     "greek-troy-beach": art("homecoming-beach-night"),
     "greek-greek-camp": art("ajax-camp-night"),
-    "greek-ajax-landing": art("ajax-camp-night"),
-    "greek-ajax-household": art("ajax-camp-night"),
-    "greek-ajax-grave": art("ajax-camp-night")
+    "greek-ajax-landing": art("repertoire-greek-ajax-landing-night"),
+    "greek-ajax-household": art("repertoire-greek-ajax-household-night"),
+    "greek-ajax-grave": art("repertoire-greek-ajax-grave-night")
   };
   var dockedNightBackdrops = {
     [art("city-gate-closed-day")]: art("city-gate-closed-night"),
@@ -35321,6 +35321,16 @@
         )
       ),
       "assets/greek-drama/myrine.webp",
+      "assets/greek-drama/repertoire-greek-electra-aeschylus.png",
+      "assets/greek-drama/repertoire-greek-electra-euripides.png",
+      "assets/greek-drama/repertoire-greek-electra-sophocles.png",
+      "assets/greek-drama/repertoire-greek-helen-egypt.png",
+      "assets/greek-drama/repertoire-greek-helen-troy.png",
+      "assets/greek-drama/repertoire-greek-menelaus-egypt.png",
+      "assets/greek-drama/repertoire-greek-menelaus-troy.png",
+      "assets/greek-drama/repertoire-greek-orestes-aeschylus.png",
+      "assets/greek-drama/repertoire-greek-orestes-euripides.png",
+      "assets/greek-drama/repertoire-greek-orestes-sophocles.png",
       "assets/greek-drama/cilissa.webp",
       "assets/greek-drama/hoopoe.webp",
       "assets/greek-drama/polynices-shade.webp",

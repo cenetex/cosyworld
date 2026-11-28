@@ -111,6 +111,11 @@ describe("day and night in Greece", () => {
     ["greek-athens", "athens-grand-agora", "in the Athenian Agora"],
     ["greek-colonus", "open-door-colonus", "in Colonus Grove"],
     ["greek-eleusis", "open-door-eleusis", "at the Eleusinian Sanctuary"],
+    [
+      "greek-eleusis-lower-precinct",
+      "repertoire-greek-eleusis-lower-precinct",
+      "at Lower Precinct",
+    ],
     ["greek-road-athens-eleusis", "sacred-way-dipylon", "on the Sacred Way"],
     ["greek-marathon", "open-door-marathon", "at Marathon Altar"],
     ["greek-ship", "ship-deck", "aboard the Charybdis"],
@@ -159,8 +164,12 @@ describe("day and night in Greece", () => {
         world.turn = world.revision = turn;
         const phase = turn === DAYLIGHT_TURNS ? "night" : "day";
         const suffix = phase === "night" ? "-night" : "";
-        const file =
-          road === "greek-road-athens-marathon" ? `repertoire-${road}` : "attic-road";
+        const file = [
+          "greek-road-athens-marathon",
+          "greek-road-athens-piraeus",
+        ].includes(road)
+          ? `repertoire-${road}`
+          : "attic-road";
         const painting = `./assets/greek-drama/${file}${suffix}.webp`;
         for (const from of greek.places[road].road) {
           world.actors.vale.place = from;
@@ -272,26 +281,51 @@ describe("day and night in Greece", () => {
     expect(backdrop(place, world)).toBe(day);
   });
 
-  it("gives the Trojan camp's local places a shared day and night", () => {
-    const world = createWorld({ packScopes: { "greek-drama": "full" } });
-    for (const place of [
+  it.each([
+    [
       "greek-greek-camp",
-      "greek-ajax-landing",
-      "greek-ajax-household",
-      "greek-ajax-grave",
-    ]) {
-      world.turn = world.revision = 0;
-      expect(backdrop(place, world)).toBe(
-        "./assets/greek-drama/ajax-camp-day.webp",
-      );
-      world.turn = world.revision = DAYLIGHT_TURNS;
-      expect(backdrop(place, world)).toBe(
-        "./assets/greek-drama/ajax-camp-night.webp",
-      );
-      expect(locationDaylight(world, place).description).toBe(
-        "It is night at the Greek camp near Troy.",
-      );
-    }
+      "ajax-camp-day",
+      "ajax-camp-night",
+      "the Greek camp near Troy",
+    ],
+    [
+      "greek-trojan-camp-lane",
+      "repertoire-greek-trojan-camp-lane",
+      "repertoire-greek-trojan-camp-lane-night",
+      "Camp Lane",
+    ],
+    ...["greek-ajax-landing", "greek-ajax-household", "greek-ajax-grave"].map(
+      (id) => [
+        id,
+        `repertoire-${id}`,
+        `repertoire-${id}-night`,
+        "the Greek camp near Troy",
+      ],
+    ),
+  ])("gives %s its own day and night painting", (place, day, night, where) => {
+    const world = createWorld({ packScopes: { "greek-drama": "full" } });
+    expect(backdrop(place, world)).toBe(`./assets/greek-drama/${day}.webp`);
+    world.turn = world.revision = DAYLIGHT_TURNS;
+    expect(backdrop(place, world)).toBe(`./assets/greek-drama/${night}.webp`);
+    expect(locationDaylight(world, place).description).toBe(
+      `It is night at ${where}.`,
+    );
+  });
+
+  it("shows the Sicilian berth when the Scylla docks there", () => {
+    const world = createWorld({ packScopes: { "greek-drama": "full" } });
+    world.crossings["pond-greek-harbor"].discovered = true;
+    world.actors.vale.place = "greek-sicily";
+    expect(currentScene(world).background).toBe(
+      "./assets/greek-drama/repertoire-greek-sicily.webp",
+    );
+    summonTransport(world, "greek-scylla", "greek-sicily");
+    expect(currentScene(world).background).toBe(
+      "./assets/greek-drama/repertoire-greek-sicily-ship.webp",
+    );
+    expect(travelCard(world, "greek-scylla").art).toBe(
+      "./assets/greek-drama/scylla-deck.webp",
+    );
   });
 
   it("shows the road's night painting on both approach cards and in the scene", () => {

@@ -1,0 +1,2560 @@
+{
+  "assets": {
+    "scenery": {
+      "greek-city-road-fork": {
+        "name": "City Road Fork",
+        "oldArt": "assets/greek-drama/dipylon-road.svg",
+        "file": "assets/greek-drama/repertoire-greek-city-road-fork.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "371a1bfd2babdb59796b2949e8198fbf16b8cce82f1b00cd3a896d36560b313c"
+      },
+      "greek-north-gate": {
+        "name": "North Gate",
+        "oldArt": "assets/greek-drama/city-gate-day.webp",
+        "file": "assets/greek-drama/repertoire-greek-north-gate.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "43a87652dfcb9da938442a111ee33a65c174f0af896cc2617e4a64cc633ea0bd"
+      },
+      "greek-eleusis-lower-precinct": {
+        "name": "Lower Precinct",
+        "oldArt": "assets/greek-drama/attic-road.webp",
+        "file": "assets/greek-drama/repertoire-greek-eleusis-lower-precinct.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "f35866c7ff94482aae4d33fef68b3ca5709344143c8127082fb38dfa994345b3"
+      },
+      "greek-eleusis-lower-precinct-night": {
+        "name": "Lower Precinct",
+        "oldArt": "assets/greek-drama/attic-road-night.webp",
+        "target": "authored backdrops in v2/content/greek-drama/card-world.json",
+        "file": "assets/greek-drama/repertoire-greek-eleusis-lower-precinct-night.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "3bb090cc546107cc126700c9f1789b6ba6d50c951d5556221f32f6f748537e44"
+      },
+      "greek-road-athens-piraeus": {
+        "name": "The Long Walls",
+        "oldArt": "assets/greek-drama/attic-road.webp",
+        "file": "assets/greek-drama/repertoire-greek-road-athens-piraeus.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "fea6400774ab9929d9bfa3b5715a94d5edc30283255f305c193c8121c77ea3b1"
+      },
+      "greek-road-athens-piraeus-night": {
+        "name": "The Long Walls",
+        "oldArt": "assets/greek-drama/attic-road-night.webp",
+        "target": "nightBackdrops in v2/card-game/daylight.mjs",
+        "file": "assets/greek-drama/repertoire-greek-road-athens-piraeus-night.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "d817c511ce6746d6486740b887b60c6b18da30de2c6553a067fdda8f6151d96c"
+      },
+      "greek-argolid-road": {
+        "name": "The Argolid Crossroads",
+        "oldArt": "assets/greek-drama/grove.svg",
+        "file": "assets/greek-drama/repertoire-greek-argolid-road.webp",
+        "width": 1088,
+        "height": 612,
+        "hasAlpha": false,
+        "sha256": "b62200b65b5ee0efd966fc2e4c0a23687bdbaacec7c9616416746f3ec346b339"
+      },
+      "greek-delphi": {
+        "name": "Delphic Temple",
+        "oldArt": "assets/greek-drama/palace.svg",
+        "file": "assets/greek-drama/repertoire-greek-delphi.webp",
+        "width": 1088,
+        "height": 612,
+        "hasAlpha": false,
+        "sha256": "838fc79ac521b2493d01edb8bf7dda7915adb2b8ef0932ed58b936231a2a9164"
+      },
+      "greek-road-sacred-way": {
+        "name": "The Road to Delphi",
+        "oldArt": "assets/greek-drama/sacred-way.svg",
+        "file": "assets/greek-drama/repertoire-greek-road-sacred-way.webp",
+        "width": 1088,
+        "height": 612,
+        "hasAlpha": false,
+        "sha256": "032e3b01a34c77577a858d91d7186bf8f79ec33bd4aa3e0d85b1f286013b8f8e"
+      },
+      "greek-oeta": {
+        "name": "The Oeta Road",
+        "oldArt": "assets/greek-drama/oeta-road.svg",
+        "file": "assets/greek-drama/repertoire-greek-oeta.webp",
+        "width": 1088,
+        "height": 612,
+        "hasAlpha": false,
+        "sha256": "87cd8f11b28235e62904ac3f745b9e9bed61cfab85dd4f4acd246f8b1cd17f74"
+      },
+      "greek-trojan-camp-lane": {
+        "name": "Camp Lane",
+        "oldArt": "assets/greek-drama/ajax-camp-day.webp",
+        "file": "assets/greek-drama/repertoire-greek-trojan-camp-lane.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "4c1abcbed1f6c3a57d7f449e3b0d8d7e6fd030a767434f797f930efddf0c9c8f"
+      },
+      "greek-trojan-camp-lane-night": {
+        "name": "Camp Lane",
+        "oldArt": "assets/greek-drama/ajax-camp-night.webp",
+        "target": "authored backdrops in v2/content/greek-drama/card-world.json",
+        "file": "assets/greek-drama/repertoire-greek-trojan-camp-lane-night.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "abe613c90bb67de82ae371d3d6963eeed3c4b87a98ea7ab482dc19a12efe2f5e"
+      },
+      "greek-ajax-landing": {
+        "name": "The Trojan Camp Landing",
+        "oldArt": "assets/greek-drama/ajax-camp-day.webp",
+        "file": "assets/greek-drama/repertoire-greek-ajax-landing.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "9b1f680cca5ef07b86aff6956ace94ca1fc37252c535ba164267da4bf70d813e"
+      },
+      "greek-ajax-landing-night": {
+        "name": "The Trojan Camp Landing",
+        "oldArt": "assets/greek-drama/ajax-camp-night.webp",
+        "target": "nightBackdrops in v2/card-game/daylight.mjs",
+        "file": "assets/greek-drama/repertoire-greek-ajax-landing-night.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "533d500cb48d6371867d2ecec8afb4a9a0b26df18f3bf81c60cd8923be409332"
+      },
+      "greek-ajax-household": {
+        "name": "Ajax’s Household Tent",
+        "oldArt": "assets/greek-drama/ajax-camp-day.webp",
+        "file": "assets/greek-drama/repertoire-greek-ajax-household.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "5a826817fb9f53c2715f102f88e1ab6cd933f4e0d87388cd7bf8a39e13596429"
+      },
+      "greek-ajax-household-night": {
+        "name": "Ajax’s Household Tent",
+        "oldArt": "assets/greek-drama/ajax-camp-night.webp",
+        "target": "nightBackdrops in v2/card-game/daylight.mjs",
+        "file": "assets/greek-drama/repertoire-greek-ajax-household-night.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "4a46eaf70710fbac4df944b4a5ccbc2d75da151ebb68fdfe9b9b3dd1952479d0"
+      },
+      "greek-ajax-grave": {
+        "name": "Ajax’s Grave",
+        "oldArt": "assets/greek-drama/ajax-camp-day.webp",
+        "file": "assets/greek-drama/repertoire-greek-ajax-grave.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "05542ed9924dbd7e57432f2c3fc6cc8532536ab10b8c5674d0bdc6ce9f7d0679"
+      },
+      "greek-ajax-grave-night": {
+        "name": "Ajax’s Grave",
+        "oldArt": "assets/greek-drama/ajax-camp-night.webp",
+        "target": "nightBackdrops in v2/card-game/daylight.mjs",
+        "file": "assets/greek-drama/repertoire-greek-ajax-grave-night.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "90bbfc5c9d96c11d8083ed3acc90272df013af0ef3eda2f2ee098784755d523e"
+      },
+      "greek-sicily-ship": {
+        "name": "Scylla berth in Sicily",
+        "oldArt": "assets/greek-drama/book-three-lemnos-day.webp",
+        "target": "scenery.backdrop in v2/worlds/greek-drama/card-bridge.json",
+        "file": "assets/greek-drama/repertoire-greek-sicily-ship.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sha256": "c3990c4a7f796653f9c2c3453ed3e7754cb60b94e716a64941389845f0320e9b"
+      }
+    },
+    "portraits": {
+      "greek-helen-egypt": {
+        "name": "Helen",
+        "oldArt": "assets/greek-drama/chthonic-helen.png",
+        "file": "assets/greek-drama/repertoire-greek-helen-egypt.png",
+        "width": 1024,
+        "height": 1536,
+        "hasAlpha": true,
+        "sha256": "c3d4723dc69d96055cabcb0917d9ca5f437a0ae622037eba9757b3d67cd6c241"
+      },
+      "greek-helen-troy": {
+        "name": "Helen",
+        "oldArt": "assets/greek-drama/chthonic-helen.png",
+        "file": "assets/greek-drama/repertoire-greek-helen-troy.png",
+        "width": 1024,
+        "height": 1536,
+        "hasAlpha": true,
+        "sha256": "a09c73162bf6313444f8a2e892be8a7d7aa2752118ec061b827a51c2b2635662"
+      },
+      "greek-menelaus-egypt": {
+        "name": "Menelaus",
+        "oldArt": "assets/greek-drama/chthonic-menelaus.png",
+        "file": "assets/greek-drama/repertoire-greek-menelaus-egypt.png",
+        "width": 1024,
+        "height": 1536,
+        "hasAlpha": true,
+        "sha256": "5648e31a431c3926a2e8beec92d9bf6b097417f856083b7a8f0e2f12df9c468d"
+      },
+      "greek-menelaus-troy": {
+        "name": "Menelaus",
+        "oldArt": "assets/greek-drama/chthonic-menelaus.png",
+        "file": "assets/greek-drama/repertoire-greek-menelaus-troy.png",
+        "width": 1024,
+        "height": 1536,
+        "hasAlpha": true,
+        "sha256": "e0692688b51ab226d2901e9e51e200e696350f8a4c52e6b728384259713983fa"
+      },
+      "greek-electra-aeschylus": {
+        "name": "Electra",
+        "oldArt": "assets/greek-drama/chthonic-electra.png",
+        "file": "assets/greek-drama/repertoire-greek-electra-aeschylus.png",
+        "width": 560,
+        "height": 840,
+        "hasAlpha": true,
+        "sha256": "5a65b6b824cc5192a72f0af82986c0a40f2dfafad853bb55b6133905cfe70687"
+      },
+      "greek-orestes-aeschylus": {
+        "name": "Orestes",
+        "oldArt": "assets/greek-drama/chthonic-orestes.png",
+        "file": "assets/greek-drama/repertoire-greek-orestes-aeschylus.png",
+        "width": 560,
+        "height": 840,
+        "hasAlpha": true,
+        "sha256": "96938e9a0cf4d54ed6c998dbf910995e782902fe39b249ab86bca121f9339553"
+      },
+      "greek-electra-sophocles": {
+        "name": "Electra",
+        "oldArt": "assets/greek-drama/chthonic-electra.png",
+        "file": "assets/greek-drama/repertoire-greek-electra-sophocles.png",
+        "width": 560,
+        "height": 840,
+        "hasAlpha": true,
+        "sha256": "9206244f2f03557c849334c5f589fce04cf398d28abb5d43705260b028b57ad9"
+      },
+      "greek-orestes-sophocles": {
+        "name": "Orestes",
+        "oldArt": "assets/greek-drama/chthonic-orestes.png",
+        "file": "assets/greek-drama/repertoire-greek-orestes-sophocles.png",
+        "width": 560,
+        "height": 840,
+        "hasAlpha": true,
+        "sha256": "b96952bcaacda0055ebfc4738e8a1c2b5901f7562b35eb5ef96b6f5dd9c49d92"
+      },
+      "greek-electra-euripides": {
+        "name": "Electra",
+        "oldArt": "assets/greek-drama/chthonic-electra.png",
+        "file": "assets/greek-drama/repertoire-greek-electra-euripides.png",
+        "width": 560,
+        "height": 840,
+        "hasAlpha": true,
+        "sha256": "8608c00f303576923cc409bad7d0d34e3e215aa64b6d76ccbbbff58fb91dbe5b"
+      },
+      "greek-orestes-euripides": {
+        "name": "Orestes",
+        "oldArt": "assets/greek-drama/chthonic-orestes.png",
+        "file": "assets/greek-drama/repertoire-greek-orestes-euripides.png",
+        "width": 560,
+        "height": 840,
+        "hasAlpha": true,
+        "sha256": "ff138f7dfdd934785de0c22f2d0542fad6b5c73de08f93bdcd0a1951ead35b40"
+      }
+    },
+    "objects": {
+      "greek-story-aeschylus-persians-object": {
+        "name": "Salamis Roll",
+        "oldArt": "assets/greek-drama/burial-petition.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-persians-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "ea5d70417aa5bd1fe1c94029301b2de8281dc61557a58bef796a3d508999e560"
+      },
+      "greek-story-aeschylus-seven-thebes-object": {
+        "name": "Seven-Gate Tally",
+        "oldArt": "assets/greek-drama/guard-tablet.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "4772ffaf50d9171ddb4c50b05b6c2e2adbbf31becbff873db062ae05572995c3"
+      },
+      "greek-story-aeschylus-suppliant-women-object": {
+        "name": "Danaids’ Wool-Bound Bough",
+        "oldArt": "assets/greek-drama/olive-branch.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "c18dcd785c0c538071a2b1d82af434e9af06a19455ab0f74372de7a376858f0a"
+      },
+      "greek-story-aeschylus-agamemnon-object": {
+        "name": "Purple Welcome Cloth",
+        "oldArt": "assets/greek-drama/return-cloths.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "8fd6b0418163d0f50d81929b1e54404171deec5f20d2a1f7a2035cf748e90928"
+      },
+      "greek-story-aeschylus-eumenides-object": {
+        "name": "Court Ballot Stone",
+        "oldArt": "assets/greek-drama/household-token.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "c2afdc9f1d570be8897067f03dd19cc62b727bb51099ec79c6aa69fd3f7b506d"
+      },
+      "greek-story-sophocles-women-of-trachis-object": {
+        "name": "Deianeira’s Robe Chest",
+        "oldArt": "assets/greek-drama/provision-basket.png",
+        "file": "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "d36c4038a197ee095bc9fc7439c9a5abe9125e899e8456d08f0a8ec665ff9087"
+      },
+      "greek-story-sophocles-oedipus-tyrannus-object": {
+        "name": "Shepherd’s Summons",
+        "oldArt": "assets/greek-drama/burial-petition.png",
+        "file": "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "dcfd911a599af9174965d817671bb03fce262b2aab25ff78b4383431a5f1079e"
+      },
+      "greek-story-sophocles-philoctetes-object": {
+        "name": "Bow of Heracles",
+        "oldArt": "assets/greek-drama/ajax-tools.png",
+        "file": "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "6d31a52e7f9cb650ef661e64a8084b667df5054672c55e8cb473832046f78e37"
+      },
+      "greek-story-euripides-alcestis-object": {
+        "name": "Alcestis’s mourning cloth",
+        "oldArt": "assets/greek-drama/ajax-cloth.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-alcestis-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "bbebbb9aa4428c14133080520815d595d0db4fb01ed6cb434c96c3276b7df512"
+      },
+      "greek-story-euripides-medea-object": {
+        "name": "Corinthian passage tally",
+        "oldArt": "assets/greek-drama/return-list.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-medea-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "712bf62d2ff0e28e040df29c70315967e30f2e3d8e1ed04ed1b00b8135179216"
+      },
+      "greek-story-euripides-hippolytus-object": {
+        "name": "Phaedra’s sealed tablet",
+        "oldArt": "assets/greek-drama/palace-testimony.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "7cecc654b5b17d3d8981e9b2144f6dc1efc909ea45c81bb7468e8ecb13a8f1b2"
+      },
+      "greek-story-euripides-andromache-object": {
+        "name": "Thetis altar binding",
+        "oldArt": "assets/greek-drama/funeral-cloth.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-andromache-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "15c93b0f2ebcaa37a1d6c650abbd4abcd4ffa85a2028696e2500b41e58687d26"
+      },
+      "greek-story-euripides-hecuba-object": {
+        "name": "Purse with the Trojan Seal",
+        "oldArt": "assets/greek-drama/household-token.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-hecuba-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "4f7e655bd27c1cb23d6275f8e0def58c891652ab262cd5c75459fd6a77685a7e"
+      },
+      "greek-story-euripides-heracles-object": {
+        "name": "Wool-bound suppliant bough",
+        "oldArt": "assets/greek-drama/shelter-blanket.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-heracles-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "31b5f5acdb1c8fdd4c2d12b6c1d8548da0d69a1956d9697fdcc46255b7c06f79"
+      },
+      "greek-story-euripides-trojan-women-object": {
+        "name": "Departure Roll",
+        "oldArt": "assets/greek-drama/return-list.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "c060b26526e3fcde3b53d8f56f734c45ef999231d7885526e57bc2c71e6f2eb3"
+      },
+      "greek-story-euripides-tauris-object": {
+        "name": "Letter to Argos",
+        "oldArt": "assets/greek-drama/burial-petition.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-tauris-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "36a600649d965312af3d20f266744ac21f36bb74e23092b97f2416fd42c62c63"
+      },
+      "greek-story-euripides-ion-object": {
+        "name": "Delphic cradle basket",
+        "oldArt": "assets/greek-drama/provision-basket.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-ion-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "35ce444f231aee9e9c37739b43e18cd39645f0aaad758a0687b3ef374e09c049"
+      },
+      "greek-story-euripides-phoenician-women-object": {
+        "name": "Jocasta’s Truce Bough",
+        "oldArt": "assets/greek-drama/olive-branch.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "7026735b329e1fc108ed3c42825cb58afc2db1d2e4e3af788dccafc1586290be"
+      },
+      "greek-story-euripides-orestes-object": {
+        "name": "Electra’s appeal board",
+        "oldArt": "assets/greek-drama/refuge-tablet.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-orestes-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "b8ecc075b098faf5c6405533615e5c930d3b9995b897722cb6e797bc9f5ea4e0"
+      },
+      "greek-story-euripides-bacchae-object": {
+        "name": "Ivy-bound fennel staff",
+        "oldArt": "assets/greek-drama/olive-branch.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-bacchae-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "68ac46d7ee11cff7e7bac639bb005953d7cb8a6dccd347294372dbf8d5176623"
+      },
+      "greek-story-euripides-iphigenia-at-aulis-object": {
+        "name": "Wedding Summons",
+        "oldArt": "assets/greek-drama/burial-petition.png",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "a523280244d0362359afaa071b7ce3491c1d29f74388040691c658da683f73e5"
+      },
+      "greek-marathon-captive-bond": {
+        "name": "The Captive’s Bond",
+        "oldArt": "assets/greek-drama/ajax-plea.png",
+        "file": "assets/greek-drama/repertoire-greek-marathon-captive-bond.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "01619a918f17a00971e9016549cab961c163f59976fb7590d7e8f09e736a27bb"
+      },
+      "greek-story-aristophanes-acharnians-object": {
+        "name": "Truce Seal",
+        "oldArt": "assets/greek-drama/household-token.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "78e5c645c746bc522c3f2c9d3e8fd1be81d859835d58b8709178b991e548c91b"
+      },
+      "greek-story-aristophanes-knights-object": {
+        "name": "Covered Pantry Basket",
+        "oldArt": "assets/greek-drama/provision-basket.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "21456bfb12de4b499da726b786cef0f6514ca1a7c087d6bcd20480de38125896"
+      },
+      "greek-story-aristophanes-clouds-object": {
+        "name": "Horse Debt Tablet",
+        "oldArt": "assets/greek-drama/refuge-tablet.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "ff3092c853d4b1f6f4fe4ac5ca1a00de603d337582485595b1be0a9544b5f1b2"
+      },
+      "greek-story-aristophanes-wasps-object": {
+        "name": "Kitchen Jury Pebble",
+        "oldArt": "assets/greek-drama/household-token.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "ec248390083155c2afac8a49ea290b27a89d8783b571bd8a40afb0aaa8620129"
+      },
+      "greek-story-aristophanes-peace-object": {
+        "name": "Hauling Rope",
+        "oldArt": "assets/greek-drama/ajax-shield.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "18fe486ba668b7a61883d4906df1577a38e78efbaaa6db484aac58e567a88470"
+      },
+      "greek-story-aristophanes-lysistrata-object": {
+        "name": "Treasury Key",
+        "oldArt": "assets/greek-drama/household-token.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "97632ade17aa30dbb8322f2fa14a50eb6aee994eb2d1e19d50e2f534d1de1078"
+      },
+      "greek-story-aristophanes-thesmophoria-object": {
+        "name": "Agathon's Borrowed Gown",
+        "oldArt": "assets/greek-drama/return-cloths.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "597ef283738e9ef2668a50198d3ac4fbcbb3c93944759a8d83073aa6548d8e42"
+      },
+      "greek-story-aristophanes-frogs-object": {
+        "name": "Poet's Ferry Obol",
+        "oldArt": "assets/greek-drama/household-token.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "6eafd9cd4a582a1ca15f6a4d10c206a34bcbf5feb8914817a7fc8dee5e71c625"
+      },
+      "greek-story-aristophanes-wealth-object": {
+        "name": "Wealth's First Coin",
+        "oldArt": "assets/greek-drama/household-token.png",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-object.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "1be66290d475ff47311ab02458deed58dce1b8f304c9671324164e9992d8fd5f"
+      }
+    },
+    "records": {
+      "greek-story-aeschylus-persians-record": {
+        "name": "Persians Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-persians-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "5b3087ffab2daee55de95080d9c5dacfd5aa0ac9fa4a8e2b688c52e6f77b347f"
+      },
+      "greek-story-aeschylus-seven-thebes-record": {
+        "name": "Seven Against Thebes Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "867f9a55ade1734540cf842d83408883531f0de3f6061110c22df41b4830ea88"
+      },
+      "greek-story-aeschylus-suppliant-women-record": {
+        "name": "Suppliant Women Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "82cd7c90ef4f44a0a00a6791f21e2bd18a1cd60ba5bef8f851205281358f9ae2"
+      },
+      "greek-story-aeschylus-prometheus-bound-record": {
+        "name": "Prometheus Bound Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "3f34092fc1e06c9b84734e904eb8edd9aae791d6db864988637490b95cf373ba"
+      },
+      "greek-story-aeschylus-agamemnon-record": {
+        "name": "Agamemnon Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "5a46e81b81095907cf13a35a9f5acad521f9ce2f37a284e34f79b8df6b68a444"
+      },
+      "greek-story-aeschylus-eumenides-record": {
+        "name": "Judgment of the Areopagus",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "990d8b765cd253484c228ade4b034ee5fae861c46b860e35ffe82b298ddf8870"
+      },
+      "greek-story-sophocles-women-of-trachis-record": {
+        "name": "Women of Trachis Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "59df3c133d2459d70102a9c86fbc4db439d822d91d1627172c63b7ee410f7489"
+      },
+      "greek-story-sophocles-oedipus-tyrannus-record": {
+        "name": "Oedipus Tyrannus Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "c0aa0afaa3468a49744304ec76e696113bf7adbf5896f0de557dcb477b04e5c7"
+      },
+      "greek-story-sophocles-philoctetes-record": {
+        "name": "Lemnian Passage Agreement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "1dbdcfd6ac0017500660952182e72d181c55e0dbf59481b01c24a45a7cb83141"
+      },
+      "greek-story-euripides-alcestis-record": {
+        "name": "Alcestis Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-alcestis-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "fccc1a0b94accb16436f6864d5ffca3bd6577f4399bd12b878f3ff3b556e1f92"
+      },
+      "greek-story-euripides-medea-record": {
+        "name": "Medea Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-medea-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "0dbabf05337585c0c5dd3c1a517af5b7a990273320c06237adb6b2bae52a1ccc"
+      },
+      "greek-story-euripides-hippolytus-record": {
+        "name": "Hippolytus Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "d19347faa66308d06f0782924e23410d91f6c773498b9b033f37585d0d000bee"
+      },
+      "greek-story-euripides-andromache-record": {
+        "name": "Andromache Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-andromache-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "9291f494e0e430471ff0d47d5d2a130883a65a4dc19340652a4634b1a8793d55"
+      },
+      "greek-story-euripides-hecuba-record": {
+        "name": "Hecuba Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-hecuba-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "14932d9a811f7d613be7a4b0b37291f97578175d4d3afa3157650b5c786c87b1"
+      },
+      "greek-story-euripides-heracles-record": {
+        "name": "Heracles Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-heracles-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "d2b70f5ba87c77900b12ada3e0066242ff8585dfd073b965b9f01f4cb5cf8fa4"
+      },
+      "greek-story-euripides-trojan-women-record": {
+        "name": "Trojan Departure Roll",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "5a216d3c5bea825800d6637ed5864db3d31f2076d55551c7bf5e138acd6592b1"
+      },
+      "greek-story-euripides-tauris-record": {
+        "name": "Taurian Departure Order",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-tauris-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "268d0dab869daad3589da3aabef9f7ec20e3c86b26d16a734168f34e78232b52"
+      },
+      "greek-story-euripides-ion-record": {
+        "name": "Ion Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-ion-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "9580e8687b7d9683dca22e3fc5a3f0bf31aa1d7934619298846b06ac6cddd05b"
+      },
+      "greek-story-euripides-phoenician-women-record": {
+        "name": "Phoenician Women Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "997538de110ecb346b6fcf73097d9d574f3385b4fe893a6a24c895f2bc32088b"
+      },
+      "greek-story-euripides-orestes-record": {
+        "name": "Orestes Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-orestes-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "1c1870f08425f31cb631378dcd68b114b7620d66e81e70cb154018e1f23a2af2"
+      },
+      "greek-story-euripides-bacchae-record": {
+        "name": "Bacchae Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-bacchae-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "91bc6b10fe3c8f35f944b97b2c44c7be694337cf2e39f68a994625bc505d93e9"
+      },
+      "greek-story-euripides-iphigenia-at-aulis-record": {
+        "name": "Iphigenia at Aulis Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "076c5c78e8629bde9952332503d0612f6e982903cd64f1eef800b150b04aef40"
+      },
+      "greek-story-euripides-rhesus-record": {
+        "name": "Rhesus Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-rhesus-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "f717a8489e0d3fd51b0bc54f4bd4e50f4642be041efc1691c59edb6cc1d4b1a3"
+      },
+      "greek-story-euripides-cyclops-record": {
+        "name": "Cyclops Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-euripides-cyclops-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "64fc6fed8a1d8596a85fa914df3f7ce0fbad3874f32edb717cbef27dfaa88d31"
+      },
+      "greek-story-aristophanes-acharnians-record": {
+        "name": "Acharnae Market Agreement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "5c4370129688e4fa09f9b404e93ec247c3f4b18f8643c9c5c5423b832cf2c0f1"
+      },
+      "greek-story-aristophanes-knights-record": {
+        "name": "Knights Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "ba66e80a712f7041ae1d9c02ed1248b7e28ae8034a78176a57e33102ad85ac23"
+      },
+      "greek-story-aristophanes-clouds-record": {
+        "name": "Clouds Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "683a2640ecdf3fc7143ee67cc01fe6fcaffb8b7837e490e85c37ec59677b49c9"
+      },
+      "greek-story-aristophanes-wasps-record": {
+        "name": "Wasps Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "891cc26e8f7e11d009468e38bb7862307c0fa5eeb907bb7e8fba161bf3ed764f"
+      },
+      "greek-story-aristophanes-peace-record": {
+        "name": "Peace Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "8b8a2db3edfe71a9d0a581c1032f0cbb05e37ab6ec711ad4c23d27e7f3351cc9"
+      },
+      "greek-story-aristophanes-birds-record": {
+        "name": "Birds Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-birds-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "946f3ba34b8b4fa4e302f148b44ca65f786535b617f8786b4b0b56aa229d8cbe"
+      },
+      "greek-story-aristophanes-lysistrata-record": {
+        "name": "Lysistrata Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "e103964a1329db5a5c719856ebf621c0622b6bc1b4b9fe5fc72176febffae527"
+      },
+      "greek-story-aristophanes-thesmophoria-record": {
+        "name": "Women at the Thesmophoria Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "3bfe2b110814d9e76290f4ec5d0cb8383d4c5a1903deb9a8596d6af9d4f2e9a0"
+      },
+      "greek-story-aristophanes-frogs-record": {
+        "name": "Frogs Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "577830d81c56d57ce98b034789309f4241adf3bd51baefe19457dfbf45f27cdb"
+      },
+      "greek-story-aristophanes-assemblywomen-record": {
+        "name": "Assemblywomen Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "51d8204a2fc823f3995503622e9d30ad7b58e37fdd4e6da4594aed3d3b003a97"
+      },
+      "greek-story-aristophanes-wealth-record": {
+        "name": "Wealth Settlement",
+        "oldArt": "assets/greek-drama/burial-account.webp",
+        "file": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-record.webp",
+        "width": 512,
+        "height": 512,
+        "hasAlpha": true,
+        "sha256": "07559f771e2754096053f2225f869aa9274ad8fa143ceb8552e50f09190388b8"
+      }
+    }
+  },
+  "generation": {
+    "avatars-inland": {
+      "tool": "image_gen",
+      "export": "ImageMagick atlas-cell extraction with transparent centering on 560 × 840 without resampling.",
+      "source": {
+        "file": "source/atreid-accounts-atlas.png",
+        "generatedFile": "exec-27264bd1-4ce2-4ee7-9a6c-2b99d8d577ee.png",
+        "width": 1024,
+        "height": 1536,
+        "sha256": "930ba307ed1e773d478461b1cf4e0a034c6c8fd90066515b491cfd21b3b5fd78",
+        "referenceFiles": [
+          "v2/card-game/assets/greek-drama/chthonic-electra.png",
+          "v2/card-game/assets/greek-drama/chthonic-orestes.png",
+          "v2/card-game/assets/greek-drama/repertoire-greek-story-euripides-orestes-first.png"
+        ],
+        "prompt": "Create six new original high-quality full-body transparent solo cutouts for these TWO specific referenced game characters as they appear in three incompatible narratives of the House of Atreus. First attached ref gives Electra's face and body, second gives her brother Orestes's face and body. Third gives Electra's related look at the jury scene, reference only. Preserve both EXACT recognizable characters with unchanged face shapes, nose, brow, apparent age, proportion, warm olive complexions, eyes and dark hair. They can be recognized as siblings but keep the specific different faces they have. Keep Electra's short dark cropped hair, distinct narrow nose, quiet intense eye, slender long limbs. Keep Orestes's black curly silhouette, straight jaw, pensive eye and slim strong legs. NO generic face substitutions. All six appearances change posture, drape and materials for the scene. Original naturalistic hand-painted MATTE OIL realism like the references, matte worn folds, ancient Greek shapes, restrained mineral palette. No letters, text, layout marks, titles, plates, frames, borders, props, shadows, or background. True RGBA transparency outside bodies.\n\nExact square image, mathematical 3 columns and 2 rows, identical-sized rectangular 2:3 cells. One wholly self-contained person per cell, complete head and both feet within its cell, generous transparent gutters and 9% air above head and below feet. Center the figure within its cell with safe margin left and right. Never overlap, no panorama. All full-body figures, individually distinct stances, in three-quarter view, oriented slightly left wherever natural. Color and shape are visible from face to torso even in a tiny thumbnail. Keep head side profile clean enough for future card crop.\n\nTop row all ELECTRA, in this exact left to right order: \n1. Aeschylus tomb mourner. Long layered coal-black shawl peaks to one shoulder and angles across her claret undertunic. A flat rough red strip sits high across chest. She inclines her head gently and draws one forearm inward to her sternum, the other arm relaxed. Dark mourning silhouette and intact sandals. Hair visible.\n2. Sophocles Mycenae palace threshold. Narrow soot-brown full skirt and a PARCHMENT-CREAM wool mantle that sits sharply over both shoulders, a single narrow faded madder vertical edge. Upright confrontational stance, chin set, holds one loose mantle fold high by collarbone. Formal straight arm, no jewelry, same young Electra with short black hair. A pale tall shoulder square to distinguish the palace look.\n3. Euripides Argive farmhouse. Worn cropped umber work wrap over gray-olive rough linen, faded MADDER waist sash and clay-red narrow edge visible at neckline, sleeves tied back at shoulders and strong square elbow. No palace refinement. Slight tilt as she finishes work, one bare forearm resting across waist and the other hand at hip. Same Electra short hair and face, lean and practical, ankle-length skirt remains complete.\n\nBottom row all ORESTES, in this exact left to right order:\n4. Aeschylus tomb traveler, with dark olive tunic, charcoal-brown traveler wrap folded into a tall diagonal sloping to right shoulder, tiny old bronze clasp, and one hand gently open below waist. No sword, no staff. Both legs and sandals fully visible. Same dark curly clean-shaven young face as reference.\n5. Sophocles Mycenae arrival. Wear a sharply folded muted SLATE BLUE short travel cloak over a pale flax tunic, high seam near neck, lean guarded stance and spare cloth at elbow. Opposite hand gathers cloak at mid-rib. A tighter cloak and cooler silhouette to distinguish this palace arrival. Same dark curls, no hat, same smooth young face.\n6. Euripides Argive farmhouse visitor. Low loosely draped TOBACCO OCHRE, weathered half cloak on one shoulder over a cool desaturated olive tunic, cloth pin at left shoulder, sun-faded weather marks at knees. He crouches slightly into a conversational, empty-handed pose, looking toward the farmer's door. Same young Orestes face and visible curly hair. Show complete legs and sandals with margin.\n\nMaintain six clear spots, exact cell order, nominal torso and head heights consistent within each person row. Wide gutters, headroom, full sandal room. Transparent stage sprite atlas for production slicing. No stylized icons, anime, acrylic covers, or studio backdrop."
+      },
+      "avatars": [
+        {
+          "residentId": "greek-electra-aeschylus",
+          "file": "greek-electra-aeschylus.png",
+          "sourceCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 344,
+            "height": 768
+          },
+          "width": 560,
+          "height": 840,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            144,
+            59,
+            398,
+            797
+          ],
+          "sha256": "5a65b6b824cc5192a72f0af82986c0a40f2dfafad853bb55b6133905cfe70687"
+        },
+        {
+          "residentId": "greek-electra-sophocles",
+          "file": "greek-electra-sophocles.png",
+          "sourceCrop": {
+            "x": 344,
+            "y": 0,
+            "width": 339,
+            "height": 768
+          },
+          "width": 560,
+          "height": 840,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            131,
+            58,
+            406,
+            796
+          ],
+          "sha256": "9206244f2f03557c849334c5f589fce04cf398d28abb5d43705260b028b57ad9"
+        },
+        {
+          "residentId": "greek-electra-euripides",
+          "file": "greek-electra-euripides.png",
+          "sourceCrop": {
+            "x": 683,
+            "y": 0,
+            "width": 341,
+            "height": 768
+          },
+          "width": 560,
+          "height": 840,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            143,
+            57,
+            415,
+            795
+          ],
+          "sha256": "8608c00f303576923cc409bad7d0d34e3e215aa64b6d76ccbbbff58fb91dbe5b"
+        },
+        {
+          "residentId": "greek-orestes-aeschylus",
+          "file": "greek-orestes-aeschylus.png",
+          "sourceCrop": {
+            "x": 0,
+            "y": 768,
+            "width": 345,
+            "height": 768
+          },
+          "width": 560,
+          "height": 840,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            129,
+            47,
+            443,
+            788
+          ],
+          "sha256": "96938e9a0cf4d54ed6c998dbf910995e782902fe39b249ab86bca121f9339553"
+        },
+        {
+          "residentId": "greek-orestes-sophocles",
+          "file": "greek-orestes-sophocles.png",
+          "sourceCrop": {
+            "x": 345,
+            "y": 768,
+            "width": 302,
+            "height": 768
+          },
+          "width": 560,
+          "height": 840,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            171,
+            49,
+            419,
+            788
+          ],
+          "sha256": "b96952bcaacda0055ebfc4738e8a1c2b5901f7562b35eb5ef96b6f5dd9c49d92"
+        },
+        {
+          "residentId": "greek-orestes-euripides",
+          "file": "greek-orestes-euripides.png",
+          "sourceCrop": {
+            "x": 647,
+            "y": 768,
+            "width": 377,
+            "height": 768
+          },
+          "width": 560,
+          "height": 840,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            103,
+            78,
+            449,
+            786
+          ],
+          "sha256": "ff138f7dfdd934785de0c22f2d0542fad6b5c73de08f93bdcd0a1951ead35b40"
+        }
+      ]
+    },
+    "avatars-overseas": {
+      "atlas": {
+        "exec-3fa76484-5194-4bec-82f1-449b85cc3676.png": {
+          "prompt": "Two PAINTED FULL BODY GAME STANDEES. Exactly TWO figures, two isolated cells side by side left and right, EACH a vertical 2:3 box with complete head and both feet and ten percent transparent breathing room, on a horizontal 4:3 image canvas. Large totally empty transparent gap between figures. Both naturally face slightly LEFT so they fit the game's stage mirroring. The single reference establishes one identical person and rich, finely textured realistic matte oils, with their face and hair as the anchor. Retain that portrait’s full details and regenerate its clothing and silhouette with the directions below. Show expressive material and a strong small-scale head and shoulder shape. Authentic historic Greek woven linen and wool, matte patina, calm and confident render. Transparent RGBA outside figures, no painted background, no floor shadows, no columns, text, borders, decorative boxes, labels or indexing. Even quiet lighting. Helen in the reference is a grown woman with the same warm olive oval face, straight nose, level brows, and auburn-brown center parted hair held in a compact low braided knot in both portraits. In the LEFT EGYPT figure she has a tall pale shoulder silhouette in a wrapped unbleached linen sanctuary shawl drawn up over both shoulders, lapis-blue woven edge, restrained Egyptian faience bead at the collar, a dove-gray straight dress with many small vertical pleats and a closed protected stance, hands close at waist as she makes a careful statement. She is Greek and dresses as a refuge guest, no pharaonic costume. In the RIGHT TROY figure she stands low and open on the homecoming beach with well-used dark oxblood wool travel cloak diagonally on a single shoulder, warm sand-colored belted chiton, wind-blown nape strands and one practical open low hand. Same adult queen, same face and facial proportions. Different arm shapes and movement. Nothing handheld, no background.",
+          "reference": "https://github.com/cenetex/cosyworld/blob/main/v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "assets": [
+            "greek-helen-egypt",
+            "greek-helen-troy"
+          ]
+        },
+        "exec-61a9d708-e0fb-4ea5-a3d4-628dbf015f73.png": {
+          "prompt": "Two PAINTED FULL BODY GAME STANDEES. Exactly TWO figures, two isolated cells side by side left and right, EACH a vertical 2:3 box with complete head and both feet and ten percent transparent breathing room, on a horizontal 4:3 image canvas. Large totally empty transparent gap between figures. Both naturally face slightly LEFT so they fit the game's stage mirroring. The single reference establishes one identical person and rich, finely textured realistic matte oils, with their face and hair as the anchor. Retain that portrait’s full details and regenerate its clothing and silhouette with the directions below. Show expressive material and a strong small-scale head and shoulder shape. Authentic historic Greek woven linen and wool, matte patina, calm and confident render. Transparent RGBA outside figures, no painted background, no floor shadows, no columns, text, borders, decorative boxes, labels or indexing. Even quiet lighting. Menelaus in the reference is a mature strong olive-faced Greek man with the same substantial grizzled brown beard, compact curls on a high receding forehead, and wide nose in both portraits. In the LEFT EGYPT figure show a crumpled, asymmetrical, shoulder-high pale undyed sailcloth tied with a short charcoal cord, a dark red remnant waistband, a bare forearm, curled guest’s stance as a visibly shipwrecked king gathered into his plain cloak, sandals scuffed; all anatomy completely normal. In the RIGHT TROY figure he stands as a dignified homecoming leader under a distinct high fastened burgundy heavy wool shoulder cape, coppery oval bronze clasp and subtle wine-red braid; pale flax base tunic, broad leather belt, one grounded bootless sandaled stride, shoulders open and balanced. Both mature, same recognizable facial anatomy. No crown or helmet, no object in his hands, no scenery. Avoid the 'open asking palm' of the reference for either, so the roles have their own gesture.",
+          "reference": "https://github.com/cenetex/cosyworld/blob/main/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "assets": [
+            "greek-menelaus-egypt",
+            "greek-menelaus-troy"
+          ]
+        }
+      },
+      "verified": {
+        "greek-helen-egypt.png": {
+          "sha256": "c3d4723dc69d96055cabcb0917d9ca5f437a0ae622037eba9757b3d67cd6c241",
+          "alpha_bounds": [
+            272,
+            84,
+            751,
+            1476
+          ],
+          "native_facing": "left"
+        },
+        "greek-helen-troy.png": {
+          "sha256": "a09c73162bf6313444f8a2e892be8a7d7aa2752118ec061b827a51c2b2635662",
+          "alpha_bounds": [
+            182,
+            84,
+            841,
+            1476
+          ],
+          "native_facing": "left"
+        },
+        "greek-menelaus-egypt.png": {
+          "sha256": "5648e31a431c3926a2e8beec92d9bf6b097417f856083b7a8f0e2f12df9c468d",
+          "alpha_bounds": [
+            243,
+            84,
+            780,
+            1476
+          ],
+          "native_facing": "left"
+        },
+        "greek-menelaus-troy.png": {
+          "sha256": "e0692688b51ab226d2901e9e51e200e696350f8a4c52e6b728384259713983fa",
+          "alpha_bounds": [
+            158,
+            84,
+            865,
+            1476
+          ],
+          "native_facing": "left"
+        }
+      },
+      "format": {
+        "canvas": [
+          1024,
+          1536
+        ],
+        "mode": "RGBA"
+      },
+      "export": "Cut the two 724×1086 cells from each original atlas. Normalized narrow low-alpha fringe. Sized proportionally and padded to a common footing.",
+      "audit_scope": "Compared all 110 live avatar portrait paths at Greek Drama pack revision 48. Only the four Atreid (Electra and Orestes) and overseas (Helen and Menelaus) identity groups reuse within identity; there are no cross-character shared paths. The Ajax trio and Patroclus reviewed here are already distinct, individually drawn original portraits."
+    },
+    "inland": {
+      "tool": "image_gen",
+      "styleReference": "Delphi-concept-board.png",
+      "assets": [
+        {
+          "id": "greek-argolid-road",
+          "name": "The Argolid Crossroads",
+          "generatedFile": "exec-699ff6a6-0345-4ff5-9a78-c8ffe17f9080.png",
+          "file": "greek-argolid-road.webp",
+          "previousBackdrop": "grove.svg",
+          "panel": "top",
+          "crop": {
+            "x": 83,
+            "y": 3,
+            "width": 1088,
+            "height": 612
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. Final image format SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one complete landscape in TOP half of canvas and the different other one in BOTTOM half. Both panels equal height, full width edge to edge. The ONLY seam is a perfectly horizontal solid hot-magenta (#ff00ff) separator line through center, from edge to edge. No margins of any kind, external frames, logos, titles, type, other marks or lettering. No vertical seams, no additional panels. Finish both separately in naturalistic fine matte oil-paint textures, like the authentic architectural and landscape art in the two left panels of the supplied Delphi style reference (no copying its layout or characters). Period believable material textures. Each design has its strongest landmark at the center (x 50 percent and y about 40 percent of its own panel), so it reads when just the central quarter of the width is cropped for portrait. Keep the whole broad natural bottom third in each picture empty quiet visibly walkable ground, a stage apron for separately placed figures. View at consistent eye height. Elevation expressed above the foreground. NO people, figures, animals, lettering, fantasy effects, game interface or map iconography. Entirely opaque. TOP location is The Argolid Crossroads. Wide red-brown Argolid foothill cart track fanning out in a clean three-way Y. A weathered gray narrow route stele and low split dry-stone wall catch side light at the center of the fork, with no legible inscription. A well-worn right fork falls toward a distant sea sliver and dry reeds. A dry gravel left branch rises into hill country behind a half-wild olive terrace. A few late poppies far in the roadside grass, cinnamon dust and warm late afternoon, nondescript uneven olive hills. The stone and the division in the tracks must define this specific place. BOTTOM location is Delphic Temple. Delphic public approach and exterior threshold in Greece, a proper modest broad-fronted ancient temple on the steep northern slope of Delphi, with worn buff limestone Doric columns and an especially legible upright dark doorway visible through the pair of columns across the central quarter of the image. In the wings transparent blue-lavender mountain cliffs and lower retaining terraces, faded terracotta acroterion off one wing, silver laurel. Crisp early sunlight on worn stone and enough shadow to make the centered doorway readable. The broad forecourt is the public crossroads linking uphill Oeta, the road to Athens and the narrow side terrace that runs to Apollo's court. Do not show a tripod. This scene is in the same geological setting as the Delphi reference but the main place here is the exterior temple with the columns and doorway as main landmark. Two full-bleed wide independent environments, perfectly horizontal divider."
+        },
+        {
+          "id": "greek-delphi",
+          "name": "Delphic Temple",
+          "generatedFile": "exec-699ff6a6-0345-4ff5-9a78-c8ffe17f9080.png",
+          "file": "greek-delphi.webp",
+          "previousBackdrop": "palace.svg",
+          "panel": "bottom",
+          "crop": {
+            "x": 83,
+            "y": 637,
+            "width": 1088,
+            "height": 612
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. Final image format SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one complete landscape in TOP half of canvas and the different other one in BOTTOM half. Both panels equal height, full width edge to edge. The ONLY seam is a perfectly horizontal solid hot-magenta (#ff00ff) separator line through center, from edge to edge. No margins of any kind, external frames, logos, titles, type, other marks or lettering. No vertical seams, no additional panels. Finish both separately in naturalistic fine matte oil-paint textures, like the authentic architectural and landscape art in the two left panels of the supplied Delphi style reference (no copying its layout or characters). Period believable material textures. Each design has its strongest landmark at the center (x 50 percent and y about 40 percent of its own panel), so it reads when just the central quarter of the width is cropped for portrait. Keep the whole broad natural bottom third in each picture empty quiet visibly walkable ground, a stage apron for separately placed figures. View at consistent eye height. Elevation expressed above the foreground. NO people, figures, animals, lettering, fantasy effects, game interface or map iconography. Entirely opaque. TOP location is The Argolid Crossroads. Wide red-brown Argolid foothill cart track fanning out in a clean three-way Y. A weathered gray narrow route stele and low split dry-stone wall catch side light at the center of the fork, with no legible inscription. A well-worn right fork falls toward a distant sea sliver and dry reeds. A dry gravel left branch rises into hill country behind a half-wild olive terrace. A few late poppies far in the roadside grass, cinnamon dust and warm late afternoon, nondescript uneven olive hills. The stone and the division in the tracks must define this specific place. BOTTOM location is Delphic Temple. Delphic public approach and exterior threshold in Greece, a proper modest broad-fronted ancient temple on the steep northern slope of Delphi, with worn buff limestone Doric columns and an especially legible upright dark doorway visible through the pair of columns across the central quarter of the image. In the wings transparent blue-lavender mountain cliffs and lower retaining terraces, faded terracotta acroterion off one wing, silver laurel. Crisp early sunlight on worn stone and enough shadow to make the centered doorway readable. The broad forecourt is the public crossroads linking uphill Oeta, the road to Athens and the narrow side terrace that runs to Apollo's court. Do not show a tripod. This scene is in the same geological setting as the Delphi reference but the main place here is the exterior temple with the columns and doorway as main landmark. Two full-bleed wide independent environments, perfectly horizontal divider."
+        },
+        {
+          "id": "greek-road-sacred-way",
+          "name": "The Road to Delphi",
+          "generatedFile": "exec-28e256fd-227f-47a0-9b86-cc9015e51273.png",
+          "file": "greek-road-sacred-way.webp",
+          "previousBackdrop": "sacred-way.svg",
+          "panel": "top",
+          "crop": {
+            "x": 83,
+            "y": 3,
+            "width": 1088,
+            "height": 612
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. Final image format SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one complete landscape in TOP half of canvas and the different other one in BOTTOM half. Both panels equal height, full width edge to edge. The ONLY seam is a perfectly horizontal solid hot-magenta (#ff00ff) separator line through center, from edge to edge. No margins of any kind, external frames, logos, titles, type, other marks or lettering. No vertical seams, no additional panels. Finish both separately in naturalistic fine matte oil-paint textures, like the authentic architectural and landscape art in the two left panels of the supplied Delphi style reference (no copying its layout or characters). Period believable material textures. Each design has its strongest landmark at the center (x 50 percent and y about 40 percent of its own panel), so it reads when just the central quarter of the width is cropped for portrait. Keep the whole broad natural bottom third in each picture empty quiet visibly walkable ground, a stage apron for separately placed figures. View at consistent eye height. Elevation expressed above the foreground. NO people, figures, animals, lettering, fantasy effects, game interface or map iconography. Entirely opaque. TOP location is The Road to Delphi. Climbing approach through the mountain country near Delphi. Clearly ancient footworn flagstone paved pilgrim carriage road, a gentle curved switchback leads over a centered small limestone lip toward a bluish saddle in hazy gray Mount Parnassus directly overhead in the center. One low stone curb follows the paved road and patches of low gray olive scrub lie in the wings. Use gentle curves in the landscape against the slightly blue-green Parnassus skyline, with golden grasses trained by wind. Dappled morning haze; a broad low-detail walkable section of ancient paved road in the foreground. No temple visible. BOTTOM location is The Oeta Road. A high steep Mount Oeta pass between close strongly textured gray diagonal slabs, a rough loose stone track climbs through a sharply defined sliver of sky above its rocky notch in the center. A plain ancient empty canvas carrying litter of wood and canvas rests safely on an alcove off to the side of the track, relatively unremarkable against the land. Show scattered sparse gray shale, short tawny scrub and dark mountain woods below in the outside wings. Cool blue and near-purple cloud shadows against flecks of warm dusty path and some patches of muted highland moss. Near center and middle ground the path rises, but a completely clear flat broad near-stone apron extends full frame across the lower third, where figures can stand. Distinctly more exposed and steeper than the lower Parnassus road, with no regular paving and no buildings. Two full-bleed wide independent environments, perfectly horizontal divider."
+        },
+        {
+          "id": "greek-oeta",
+          "name": "The Oeta Road",
+          "generatedFile": "exec-28e256fd-227f-47a0-9b86-cc9015e51273.png",
+          "file": "greek-oeta.webp",
+          "previousBackdrop": "oeta-road.svg",
+          "panel": "bottom",
+          "crop": {
+            "x": 83,
+            "y": 637,
+            "width": 1088,
+            "height": 612
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. Final image format SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one complete landscape in TOP half of canvas and the different other one in BOTTOM half. Both panels equal height, full width edge to edge. The ONLY seam is a perfectly horizontal solid hot-magenta (#ff00ff) separator line through center, from edge to edge. No margins of any kind, external frames, logos, titles, type, other marks or lettering. No vertical seams, no additional panels. Finish both separately in naturalistic fine matte oil-paint textures, like the authentic architectural and landscape art in the two left panels of the supplied Delphi style reference (no copying its layout or characters). Period believable material textures. Each design has its strongest landmark at the center (x 50 percent and y about 40 percent of its own panel), so it reads when just the central quarter of the width is cropped for portrait. Keep the whole broad natural bottom third in each picture empty quiet visibly walkable ground, a stage apron for separately placed figures. View at consistent eye height. Elevation expressed above the foreground. NO people, figures, animals, lettering, fantasy effects, game interface or map iconography. Entirely opaque. TOP location is The Road to Delphi. Climbing approach through the mountain country near Delphi. Clearly ancient footworn flagstone paved pilgrim carriage road, a gentle curved switchback leads over a centered small limestone lip toward a bluish saddle in hazy gray Mount Parnassus directly overhead in the center. One low stone curb follows the paved road and patches of low gray olive scrub lie in the wings. Use gentle curves in the landscape against the slightly blue-green Parnassus skyline, with golden grasses trained by wind. Dappled morning haze; a broad low-detail walkable section of ancient paved road in the foreground. No temple visible. BOTTOM location is The Oeta Road. A high steep Mount Oeta pass between close strongly textured gray diagonal slabs, a rough loose stone track climbs through a sharply defined sliver of sky above its rocky notch in the center. A plain ancient empty canvas carrying litter of wood and canvas rests safely on an alcove off to the side of the track, relatively unremarkable against the land. Show scattered sparse gray shale, short tawny scrub and dark mountain woods below in the outside wings. Cool blue and near-purple cloud shadows against flecks of warm dusty path and some patches of muted highland moss. Near center and middle ground the path rises, but a completely clear flat broad near-stone apron extends full frame across the lower third, where figures can stand. Distinctly more exposed and steeper than the lower Parnassus road, with no regular paving and no buildings. Two full-bleed wide independent environments, perfectly horizontal divider."
+        }
+      ]
+    },
+    "objects-comedy": {
+      "tool": "image_gen",
+      "generated": "2026-11-28",
+      "encoding": "512×512 WebP quality 94 with lossless alpha, cut from composite PNG originals",
+      "sheets": [
+        {
+          "generatedImage": "exec-4a1459d1-39c6-4d32-b40f-4951a8dd50f9.png",
+          "sha256": "6b38e48983fb4439e9f21421ec36b47cd2bacaaade932b0e4b2bf35b134f7031",
+          "size": [
+            1536,
+            1024
+          ],
+          "rows": 2,
+          "columns": 3
+        },
+        {
+          "generatedImage": "exec-d885ec39-23f5-466c-af4d-086f075ea13f.png",
+          "sha256": "7046554250656488d033dd59b9d62cb9c6ae60c0b7853dec38b2ce9d4583c45c",
+          "size": [
+            1254,
+            1254
+          ],
+          "rows": 2,
+          "columns": 2
+        }
+      ],
+      "assets": [
+        {
+          "id": "greek-story-aristophanes-acharnians-object",
+          "name": "Truce Seal",
+          "file": "greek-story-aristophanes-acharnians-object.webp",
+          "replaces": "assets/greek-drama/household-token.png",
+          "generatedImage": "exec-4a1459d1-39c6-4d32-b40f-4951a8dd50f9.png",
+          "cell": {
+            "row": 1,
+            "column": 1
+          },
+          "sha256": "78e5c645c746bc522c3f2c9d3e8fd1be81d859835d58b8709178b991e548c91b"
+        },
+        {
+          "id": "greek-story-aristophanes-knights-object",
+          "name": "Covered Pantry Basket",
+          "file": "greek-story-aristophanes-knights-object.webp",
+          "replaces": "assets/greek-drama/provision-basket.png",
+          "generatedImage": "exec-4a1459d1-39c6-4d32-b40f-4951a8dd50f9.png",
+          "cell": {
+            "row": 1,
+            "column": 2
+          },
+          "sha256": "21456bfb12de4b499da726b786cef0f6514ca1a7c087d6bcd20480de38125896"
+        },
+        {
+          "id": "greek-story-aristophanes-clouds-object",
+          "name": "Horse Debt Tablet",
+          "file": "greek-story-aristophanes-clouds-object.webp",
+          "replaces": "assets/greek-drama/refuge-tablet.png",
+          "generatedImage": "exec-4a1459d1-39c6-4d32-b40f-4951a8dd50f9.png",
+          "cell": {
+            "row": 1,
+            "column": 3
+          },
+          "sha256": "ff3092c853d4b1f6f4fe4ac5ca1a00de603d337582485595b1be0a9544b5f1b2"
+        },
+        {
+          "id": "greek-story-aristophanes-wasps-object",
+          "name": "Kitchen Jury Pebble",
+          "file": "greek-story-aristophanes-wasps-object.webp",
+          "replaces": "assets/greek-drama/household-token.png",
+          "generatedImage": "exec-4a1459d1-39c6-4d32-b40f-4951a8dd50f9.png",
+          "cell": {
+            "row": 2,
+            "column": 1
+          },
+          "sha256": "ec248390083155c2afac8a49ea290b27a89d8783b571bd8a40afb0aaa8620129"
+        },
+        {
+          "id": "greek-story-aristophanes-peace-object",
+          "name": "Hauling Rope",
+          "file": "greek-story-aristophanes-peace-object.webp",
+          "replaces": "assets/greek-drama/ajax-shield.png",
+          "generatedImage": "exec-4a1459d1-39c6-4d32-b40f-4951a8dd50f9.png",
+          "cell": {
+            "row": 2,
+            "column": 2
+          },
+          "sha256": "18fe486ba668b7a61883d4906df1577a38e78efbaaa6db484aac58e567a88470"
+        },
+        {
+          "id": "greek-story-aristophanes-lysistrata-object",
+          "name": "Treasury Key",
+          "file": "greek-story-aristophanes-lysistrata-object.webp",
+          "replaces": "assets/greek-drama/household-token.png",
+          "generatedImage": "exec-4a1459d1-39c6-4d32-b40f-4951a8dd50f9.png",
+          "cell": {
+            "row": 2,
+            "column": 3
+          },
+          "sha256": "97632ade17aa30dbb8322f2fa14a50eb6aee994eb2d1e19d50e2f534d1de1078"
+        },
+        {
+          "id": "greek-story-aristophanes-thesmophoria-object",
+          "name": "Agathon's Borrowed Gown",
+          "file": "greek-story-aristophanes-thesmophoria-object.webp",
+          "replaces": "assets/greek-drama/return-cloths.png",
+          "generatedImage": "exec-d885ec39-23f5-466c-af4d-086f075ea13f.png",
+          "cell": {
+            "row": 1,
+            "column": 1
+          },
+          "sha256": "597ef283738e9ef2668a50198d3ac4fbcbb3c93944759a8d83073aa6548d8e42"
+        },
+        {
+          "id": "greek-story-aristophanes-frogs-object",
+          "name": "Poet's Ferry Obol",
+          "file": "greek-story-aristophanes-frogs-object.webp",
+          "replaces": "assets/greek-drama/household-token.png",
+          "generatedImage": "exec-d885ec39-23f5-466c-af4d-086f075ea13f.png",
+          "cell": {
+            "row": 1,
+            "column": 2
+          },
+          "sha256": "6eafd9cd4a582a1ca15f6a4d10c206a34bcbf5feb8914817a7fc8dee5e71c625"
+        },
+        {
+          "id": "greek-story-aristophanes-wealth-object",
+          "name": "Wealth's First Coin",
+          "file": "greek-story-aristophanes-wealth-object.webp",
+          "replaces": "assets/greek-drama/household-token.png",
+          "generatedImage": "exec-d885ec39-23f5-466c-af4d-086f075ea13f.png",
+          "cell": {
+            "row": 2,
+            "column": 1
+          },
+          "sha256": "1be66290d475ff47311ab02458deed58dce1b8f304c9671324164e9992d8fd5f"
+        }
+      ]
+    },
+    "objects-tragedy": {
+      "tool": "image_gen",
+      "format": "512 × 512 WebP with alpha",
+      "atlases": [
+        {
+          "source": "exec-bbc02f0a-2bfd-4ba8-9fd4-4204bacb9c5b.png",
+          "sourceSha256": "76dbe117cc973105f314f56b0301984a4bbbdf427b38a68a1473745d0a9f6ffa",
+          "prompt": "Generate an exact 1536×1024 transparent RGBA atlas, 3 columns by 2 rows, all six squares equally 512×512 and each object centered separately. SIX disconnected sprites with plenty of empty transparent padding. Absolute zero alpha wherever there is no actual solid object, throughout the background. No cast shadows, diffuse clouds, translucent halos, tabletop, captions, text, background colour, border, grid lines or checkered motif. The background must be fully transparent. Naturalistic ancient Greek artefact iconography, matte oil illustration, warm daylight, subtle tactile brushwork, clearly recognizable silhouette at card thumbnail size, similar object sizes. Do not merge or reorder. ROW 1, COLUMN 1: Salamis Roll. Draw rolled tan dispatch from Salamis, indigo cord and flattened dark lapis-like clay seal.\nROW 1, COLUMN 2: Seven-Gate Tally. Draw slim bronze tally plate with seven deep incised notches along its edge and a bent suspension loop.\nROW 1, COLUMN 3: Danaids’ Wool-Bound Bough. Draw fresh forked olive sprig with round dusty leaves, thick clean white wool wound three times around stem.\nROW 2, COLUMN 1: Purple Welcome Cloth. Draw small folded piece of weighed-down deep Tyrian purple ceremonial floor cloth, restrained geometric gold hem.\nROW 2, COLUMN 2: Court Ballot Stone. Draw single smooth gray limestone ballot stone with one worn edge and a pale flat face.\nROW 2, COLUMN 3: Deianeira’s Robe Chest. Draw small rectangular dark cedar robe chest with two bronze hoops and lid just cracked to reveal russet linen.",
+          "items": [
+            {
+              "id": "greek-story-aeschylus-persians-object",
+              "design": "rolled tan dispatch from Salamis, indigo cord and flattened dark lapis-like clay seal",
+              "oldArt": "assets/greek-drama/burial-petition.png",
+              "file": "greek-story-aeschylus-persians-object.webp",
+              "sha256": "ea5d70417aa5bd1fe1c94029301b2de8281dc61557a58bef796a3d508999e560",
+              "cell": [
+                1,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-aeschylus-seven-thebes-object",
+              "design": "slim bronze tally plate with seven deep incised notches along its edge and a bent suspension loop",
+              "oldArt": "assets/greek-drama/guard-tablet.webp",
+              "file": "greek-story-aeschylus-seven-thebes-object.webp",
+              "sha256": "4772ffaf50d9171ddb4c50b05b6c2e2adbbf31becbff873db062ae05572995c3",
+              "cell": [
+                1,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-aeschylus-suppliant-women-object",
+              "design": "fresh forked olive sprig with round dusty leaves, thick clean white wool wound three times around stem",
+              "oldArt": "assets/greek-drama/olive-branch.webp",
+              "file": "greek-story-aeschylus-suppliant-women-object.webp",
+              "sha256": "c18dcd785c0c538071a2b1d82af434e9af06a19455ab0f74372de7a376858f0a",
+              "cell": [
+                1,
+                3
+              ]
+            },
+            {
+              "id": "greek-story-aeschylus-agamemnon-object",
+              "design": "small folded piece of weighed-down deep Tyrian purple ceremonial floor cloth, restrained geometric gold hem",
+              "oldArt": "assets/greek-drama/return-cloths.png",
+              "file": "greek-story-aeschylus-agamemnon-object.webp",
+              "sha256": "8fd6b0418163d0f50d81929b1e54404171deec5f20d2a1f7a2035cf748e90928",
+              "cell": [
+                2,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-aeschylus-eumenides-object",
+              "design": "single smooth gray limestone ballot stone with one worn edge and a pale flat face",
+              "oldArt": "assets/greek-drama/household-token.png",
+              "file": "greek-story-aeschylus-eumenides-object.webp",
+              "sha256": "c2afdc9f1d570be8897067f03dd19cc62b727bb51099ec79c6aa69fd3f7b506d",
+              "cell": [
+                2,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-sophocles-women-of-trachis-object",
+              "design": "small rectangular dark cedar robe chest with two bronze hoops and lid just cracked to reveal russet linen",
+              "oldArt": "assets/greek-drama/provision-basket.png",
+              "file": "greek-story-sophocles-women-of-trachis-object.webp",
+              "sha256": "d36c4038a197ee095bc9fc7439c9a5abe9125e899e8456d08f0a8ec665ff9087",
+              "cell": [
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "source": "exec-bb86e2ab-d2a4-43e3-aa4f-320e7fda4818.png",
+          "sourceSha256": "5d952fe0e2226402dd6f5ebd81d065ffc49047c015747a6cfb680746edb89e63",
+          "prompt": "Generate one wide 3-column by 2-row transparent item sprite atlas for a storybook tabletop game. Exactly 6 distinct ANCIENT GREEK object sprites in the specified cells, equal square cells, 3:2 total canvas aspect, with no lines or layout decorations. Each item is small enough in its own cell to leave at least a 15 percent clear transparent gutter around it. Each is isolated with no supporting surface, no background, no cast shadow, no checkerboard pixels, no label and no typography; unused cells stay transparent. Rich tactile matte oil illustrative painting, warm light from the upper left, dark chthonic Greek drama props, historical materials and simple classical forms. One compact object silhouette per cell, high contrast that reads as 100px game art, same perspective and finish across atlas. Render exact order left to right, top to bottom, do not reorder. Use only specified cell contents.\nrow 1, column 1: Shepherd’s Summons, folded square packet on pale papyrus with a faded claret clay seal and undyed linen string\nrow 1, column 2: Bow of Heracles, compact ancient reflex bow of amber wood with pale sinew, visible bowstring, one striking semicircular silhouette\nrow 1, column 3: Alcestis’s mourning cloth, folded light gray undyed mourning linen with a narrow soot-colored woven band\nrow 2, column 1: Corinthian passage tally, short whitewashed wooden ferry tally scored at one end, a hole punched through the other for a faded blue cord\nrow 2, column 2: Phaedra’s sealed tablet, two squat hinged dark olivewood wax tablets tightly fastened with twine and burnt red wax seal\nrow 2, column 3: Thetis altar binding, loosely coiled flat blue-gray woven linen altar binding with ends lightly frayed and a simple knotted loop",
+          "items": [
+            {
+              "id": "greek-story-sophocles-oedipus-tyrannus-object",
+              "design": "folded square packet on pale papyrus with a faded claret clay seal and undyed linen string",
+              "oldArt": "assets/greek-drama/burial-petition.png",
+              "file": "greek-story-sophocles-oedipus-tyrannus-object.webp",
+              "sha256": "dcfd911a599af9174965d817671bb03fce262b2aab25ff78b4383431a5f1079e",
+              "cell": [
+                1,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-sophocles-philoctetes-object",
+              "design": "compact ancient reflex bow of amber wood with pale sinew, visible bowstring, one striking semicircular silhouette",
+              "oldArt": "assets/greek-drama/ajax-tools.png",
+              "file": "greek-story-sophocles-philoctetes-object.webp",
+              "sha256": "6d31a52e7f9cb650ef661e64a8084b667df5054672c55e8cb473832046f78e37",
+              "cell": [
+                1,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-euripides-alcestis-object",
+              "design": "folded light gray undyed mourning linen with a narrow soot-colored woven band",
+              "oldArt": "assets/greek-drama/ajax-cloth.png",
+              "file": "greek-story-euripides-alcestis-object.webp",
+              "sha256": "bbebbb9aa4428c14133080520815d595d0db4fb01ed6cb434c96c3276b7df512",
+              "cell": [
+                1,
+                3
+              ]
+            },
+            {
+              "id": "greek-story-euripides-medea-object",
+              "design": "short whitewashed wooden ferry tally scored at one end, a hole punched through the other for a faded blue cord",
+              "oldArt": "assets/greek-drama/return-list.png",
+              "file": "greek-story-euripides-medea-object.webp",
+              "sha256": "712bf62d2ff0e28e040df29c70315967e30f2e3d8e1ed04ed1b00b8135179216",
+              "cell": [
+                2,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-euripides-hippolytus-object",
+              "design": "two squat hinged dark olivewood wax tablets tightly fastened with twine and burnt red wax seal",
+              "oldArt": "assets/greek-drama/palace-testimony.png",
+              "file": "greek-story-euripides-hippolytus-object.webp",
+              "sha256": "7cecc654b5b17d3d8981e9b2144f6dc1efc909ea45c81bb7468e8ecb13a8f1b2",
+              "cell": [
+                2,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-euripides-andromache-object",
+              "design": "loosely coiled flat blue-gray woven linen altar binding with ends lightly frayed and a simple knotted loop",
+              "oldArt": "assets/greek-drama/funeral-cloth.png",
+              "file": "greek-story-euripides-andromache-object.webp",
+              "sha256": "15c93b0f2ebcaa37a1d6c650abbd4abcd4ffa85a2028696e2500b41e58687d26",
+              "cell": [
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "source": "exec-be1f24da-dbfc-4589-8c76-febf1a6fc488.png",
+          "sourceSha256": "54ef62803ee9d232e04661cda596a26ba700da03603e758acdae1e62f907b5fd",
+          "prompt": "Generate one wide 3-column by 2-row transparent item sprite atlas for a storybook tabletop game. Exactly 6 distinct ANCIENT GREEK object sprites in the specified cells, equal square cells, 3:2 total canvas aspect, with no lines or layout decorations. Each item is small enough in its own cell to leave at least a 15 percent clear transparent gutter around it. Each is isolated with no supporting surface, no background, no cast shadow, no checkerboard pixels, no label and no typography; unused cells stay transparent. Rich tactile matte oil illustrative painting, warm light from the upper left, dark chthonic Greek drama props, historical materials and simple classical forms. One compact object silhouette per cell, high contrast that reads as 100px game art, same perspective and finish across atlas. Render exact order left to right, top to bottom, do not reorder. Use only specified cell contents.\nrow 1, column 1: Purse with the Trojan Seal, small gathered wine-red leather purse with thick drawstring and a hammered bronze Trojan horse silhouette seal dangling on it\nrow 1, column 2: Wool-bound suppliant bough, short leafy sprig of ash, pale fusiform wool wrapping enclosing its base with a trailing pair of tips\nrow 1, column 3: Departure Roll, tight official papyrus departure scroll with two ends and a faded rust cloth band\nrow 2, column 1: Letter to Argos, narrow lightly folded cream letter with ochre thread tied in a sailor knot and a palm-sized green clay impression\nrow 2, column 2: Delphic cradle basket, shallow curled oval Delphic cradle of woven honey-yellow reeds, soft cream swaddling fabric folded over its empty edge\nrow 2, column 3: Jocasta’s Truce Bough, blunt two-pronged olive truce bough, broad dark green leaves with madder-red cord threaded through a loose undyed wool tie",
+          "items": [
+            {
+              "id": "greek-story-euripides-hecuba-object",
+              "design": "small gathered wine-red leather purse with thick drawstring and a hammered bronze Trojan horse silhouette seal dangling on it",
+              "oldArt": "assets/greek-drama/household-token.png",
+              "file": "greek-story-euripides-hecuba-object.webp",
+              "sha256": "4f7e655bd27c1cb23d6275f8e0def58c891652ab262cd5c75459fd6a77685a7e",
+              "cell": [
+                1,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-euripides-heracles-object",
+              "design": "short leafy sprig of ash, pale fusiform wool wrapping enclosing its base with a trailing pair of tips",
+              "oldArt": "assets/greek-drama/shelter-blanket.png",
+              "file": "greek-story-euripides-heracles-object.webp",
+              "sha256": "31b5f5acdb1c8fdd4c2d12b6c1d8548da0d69a1956d9697fdcc46255b7c06f79",
+              "cell": [
+                1,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-euripides-trojan-women-object",
+              "design": "tight official papyrus departure scroll with two ends and a faded rust cloth band",
+              "oldArt": "assets/greek-drama/return-list.png",
+              "file": "greek-story-euripides-trojan-women-object.webp",
+              "sha256": "c060b26526e3fcde3b53d8f56f734c45ef999231d7885526e57bc2c71e6f2eb3",
+              "cell": [
+                1,
+                3
+              ]
+            },
+            {
+              "id": "greek-story-euripides-tauris-object",
+              "design": "narrow lightly folded cream letter with ochre thread tied in a sailor knot and a palm-sized green clay impression",
+              "oldArt": "assets/greek-drama/burial-petition.png",
+              "file": "greek-story-euripides-tauris-object.webp",
+              "sha256": "36a600649d965312af3d20f266744ac21f36bb74e23092b97f2416fd42c62c63",
+              "cell": [
+                2,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-euripides-ion-object",
+              "design": "shallow curled oval Delphic cradle of woven honey-yellow reeds, soft cream swaddling fabric folded over its empty edge",
+              "oldArt": "assets/greek-drama/provision-basket.png",
+              "file": "greek-story-euripides-ion-object.webp",
+              "sha256": "35ce444f231aee9e9c37739b43e18cd39645f0aaad758a0687b3ef374e09c049",
+              "cell": [
+                2,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-euripides-phoenician-women-object",
+              "design": "blunt two-pronged olive truce bough, broad dark green leaves with madder-red cord threaded through a loose undyed wool tie",
+              "oldArt": "assets/greek-drama/olive-branch.webp",
+              "file": "greek-story-euripides-phoenician-women-object.webp",
+              "sha256": "7026735b329e1fc108ed3c42825cb58afc2db1d2e4e3af788dccafc1586290be",
+              "cell": [
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "source": "exec-a42ebe79-f39e-4eec-b220-01a389418a18.png",
+          "sourceSha256": "2c0009633fe031cbcef5ada9e6da9bd6d743ab4ce2192c3fd0192a97c1529607",
+          "prompt": "Generate one wide 3-column by 2-row transparent item sprite atlas for a storybook tabletop game. Exactly 4 distinct ANCIENT GREEK object sprites in the specified cells, equal square cells, 3:2 total canvas aspect, with no lines or layout decorations. Each item is small enough in its own cell to leave at least a 15 percent clear transparent gutter around it. Each is isolated with no supporting surface, no background, no cast shadow, no checkerboard pixels, no label and no typography; unused cells stay transparent. Rich tactile matte oil illustrative painting, warm light from the upper left, dark chthonic Greek drama props, historical materials and simple classical forms. One compact object silhouette per cell, high contrast that reads as 100px game art, same perspective and finish across atlas. Render exact order left to right, top to bottom, do not reorder. Use only specified cell contents.\nrow 1, column 1: Electra’s appeal board, small rectangular appeal board of light unfinished cypress wood with slanted corners and a red wax impression in one corner\nrow 1, column 2: Ivy-bound fennel staff, short fennel thyrsus staff diagonally placed with dark ivy winding upward to a closed pinecone in warm light\nrow 1, column 3: Wedding Summons, neat slim cream wedding summons, folded then sealed with a terracotta disk pressed with a simple rosette and a pale saffron tie\nrow 2, column 1: The Captive’s Bond, two folded parchment leaves bound by a heavy bronze ring seal and black twine, uneven edges and an off-white face",
+          "items": [
+            {
+              "id": "greek-story-euripides-orestes-object",
+              "design": "small rectangular appeal board of light unfinished cypress wood with slanted corners and a red wax impression in one corner",
+              "oldArt": "assets/greek-drama/refuge-tablet.png",
+              "file": "greek-story-euripides-orestes-object.webp",
+              "sha256": "b8ecc075b098faf5c6405533615e5c930d3b9995b897722cb6e797bc9f5ea4e0",
+              "cell": [
+                1,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-euripides-bacchae-object",
+              "design": "short fennel thyrsus staff diagonally placed with dark ivy winding upward to a closed pinecone in warm light",
+              "oldArt": "assets/greek-drama/olive-branch.webp",
+              "file": "greek-story-euripides-bacchae-object.webp",
+              "sha256": "68ac46d7ee11cff7e7bac639bb005953d7cb8a6dccd347294372dbf8d5176623",
+              "cell": [
+                1,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-euripides-iphigenia-at-aulis-object",
+              "design": "neat slim cream wedding summons, folded then sealed with a terracotta disk pressed with a simple rosette and a pale saffron tie",
+              "oldArt": "assets/greek-drama/burial-petition.png",
+              "file": "greek-story-euripides-iphigenia-at-aulis-object.webp",
+              "sha256": "a523280244d0362359afaa071b7ce3491c1d29f74388040691c658da683f73e5",
+              "cell": [
+                1,
+                3
+              ]
+            },
+            {
+              "id": "greek-marathon-captive-bond",
+              "design": "two folded parchment leaves bound by a heavy bronze ring seal and black twine, uneven edges and an off-white face",
+              "oldArt": "assets/greek-drama/ajax-plea.png",
+              "file": "greek-marathon-captive-bond.webp",
+              "sha256": "01619a918f17a00971e9016549cab961c163f59976fb7590d7e8f09e736a27bb",
+              "cell": [
+                2,
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "overseas": {
+      "tool": "image_gen",
+      "encoding": "Opaque 1672x941 canvas, WebP quality 92. The landing night generation was resized by one pixel in width.",
+      "notes": [
+        "The main Greek Camp retains its existing painting.",
+        "Keep the Trojan Camp Landing’s existing ship-at-berth day and night paintings as crossing overrides.",
+        "The Camp Lane night frame replaces its authored shared night backdrop. The other three Troy night frames replace shared dawn-clock fallbacks."
+      ],
+      "assets": [
+        {
+          "id": "greek-trojan-camp-lane",
+          "phase": "day",
+          "file": "greek-trojan-camp-lane.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-41141e8f-33ef-4e01-96d0-2d295da775c3.png",
+          "generatedSha256": "39a0bd35019c7e28198e16610f4ba2e37a84b5a2f690c48675c8abb25ed42a15",
+          "sha256": "4c1abcbed1f6c3a57d7f449e3b0d8d7e6fd030a767434f797f930efddf0c9c8f",
+          "references": [
+            "Delphi-concept-board.png"
+          ],
+          "prompt": "Paint ONE immersive wide horizontal 16:9 opaque gameplay background for the original narrative game CosyWorld, grounded late Bronze Age Aegean setting, museum-quality matte naturalist oil painting and tactile pigments, somber but legible. Tiny details are for landscape, distinct silhouette is essential to the narrow portrait crop. Canvas is entirely a single borderless scene, no panels, no text, no people or creatures, no UI, no modern objects, no fantasy towers. Eye-level middistance. Place the principal landmark inside the CENTRAL 25 PERCENT of the width from x=38–62%, strongly recognizable in the portrait crop, at y=27–54%. Reserve the lower 35% as wide open uncluttered and quiet level ground where game characters can stand, with safe footing on the same ground plane through x=25–75%. Let the wings open up the geography. Scene in clear Aegean daylight with natural color separation. Camp Lane, between the encampment tents where a path divides toward Ajax's household tent and grave. Central focal subject is a forked, weathered plain wooden post with two diagonal low rope lines converging above a clearly visible Y shaped fork in pale trampled dirt, a tall peaked tawny canvas tent beyond the fork, topmost red tie on the post. Suede and ochre napped woven tent tops above limestone foothills. Closest cloth tent walls at both extreme edges frame a canyon-like corridor. Far paths angle outward past different tent groupings. No shore, no ship visible, no tools or loose items. Keep lower foreground clear and the overall geometry unmistakably a lane passing between tents."
+        },
+        {
+          "id": "greek-ajax-landing",
+          "phase": "day",
+          "file": "greek-ajax-landing.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-465680d3-81ae-4fb1-9366-2c78f39e8d42.png",
+          "generatedSha256": "ae699a9a0db400ff3f439b7f4269596f4a6e725a9a0dc39ed973b3f12d42b68d",
+          "sha256": "9b1f680cca5ef07b86aff6956ace94ca1fc37252c535ba164267da4bf70d813e",
+          "references": [
+            "Delphi-concept-board.png"
+          ],
+          "prompt": "Paint ONE immersive wide horizontal 16:9 opaque gameplay background for the original narrative game CosyWorld, grounded late Bronze Age Aegean setting, museum-quality matte naturalist oil painting and tactile pigments, somber but legible. Tiny details are for landscape, distinct silhouette is essential to the narrow portrait crop. Canvas is entirely a single borderless scene, no panels, no text, no people or creatures, no UI, no modern objects, no fantasy towers. Eye-level middistance. Place the principal landmark inside the CENTRAL 25 PERCENT of the width from x=38–62%, strongly recognizable in the portrait crop, at y=27–54%. Reserve the lower 35% as wide open uncluttered and quiet level ground where game characters can stand, with safe footing on the same ground plane through x=25–75%. Let the wings open up the geography. Scene in clear Aegean daylight with natural color separation. The Trojan Camp Landing at low tide with empty berth, a distinct view of the same coast that can receive the Scylla. A forked black driftwood mooring post on a low weathered stone slipway points toward a pale ochre fortress under a low triangular headland at the same central x coordinate. The empty bay opens broadly into the right wing, space for a vessel to pull in beyond the pier. Small canvas tents and low olive branches on the left extreme wing echo the Greek camp. Leave generous flat gravel staging apron in foreground, a clear way approaching the slipway. Do not paint any boats or people. Mediterranean teal sea and russet clay divide widely, unlike the interior camp lane or other spaces."
+        },
+        {
+          "id": "greek-ajax-household",
+          "phase": "day",
+          "file": "greek-ajax-household.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-9b06e958-8aa9-4b8d-9ac0-2766a915ffba.png",
+          "generatedSha256": "d8d90445d7c4ce668e7173c49e3e5c349f22117b91b2bace63cffa37443d672f",
+          "sha256": "5a826817fb9f53c2715f102f88e1ab6cd933f4e0d87388cd7bf8a39e13596429",
+          "references": [
+            "Delphi-concept-board.png"
+          ],
+          "prompt": "Paint ONE immersive wide horizontal 16:9 opaque gameplay background for the original narrative game CosyWorld, grounded late Bronze Age Aegean setting, museum-quality matte naturalist oil painting and tactile pigments, somber but legible. Tiny details are for landscape, distinct silhouette is essential to the narrow portrait crop. Canvas is entirely a single borderless scene, no panels, no text, no people or creatures, no UI, no modern objects, no fantasy towers. Eye-level middistance. Place the principal landmark inside the CENTRAL 25 PERCENT of the width from x=38–62%, strongly recognizable in the portrait crop, at y=27–54%. Reserve the lower 35% as wide open uncluttered and quiet level ground where game characters can stand, with safe footing on the same ground plane through x=25–75%. Let the wings open up the geography. Scene in clear Aegean daylight with natural color separation. Ajax's household tent is a domestic space for a grieving family. View into the tent from under its half-raised awning. Tall central tripod-shaped gap between pale warm ivory wool curtains, tied away along both sides, with a fixed upright simple wooden warp-weighted loom in the space beyond the fabric opening. The panel of the loom appears unfinished with blue wool on the upper third and many vertical taut thread lines. Deep faded madder inner fabric and a sliver of sea glimmer through a far seam. Rafters and patches of warm daylight play over layered textile walls, built structure entirely around edges or raised behind center. Entire bottom quiet flat matte dirt floor for characters. No armor, no boat, no graves, no funeral shroud, no people, no loose objects."
+        },
+        {
+          "id": "greek-ajax-grave",
+          "phase": "day",
+          "file": "greek-ajax-grave.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-755ae952-25e1-4eca-8bcb-8bdac18e2941.png",
+          "generatedSha256": "f9400bd4465e58e9105f4a7cf844cb5e83872b01279e6cd3c11c1537cc19ad75",
+          "sha256": "05542ed9924dbd7e57432f2c3fc6cc8532536ab10b8c5674d0bdc6ce9f7d0679",
+          "references": [
+            "Delphi-concept-board.png"
+          ],
+          "prompt": "Paint ONE immersive wide horizontal 16:9 opaque gameplay background for the original narrative game CosyWorld, grounded late Bronze Age Aegean setting, museum-quality matte naturalist oil painting and tactile pigments, somber but legible. Tiny details are for landscape, distinct silhouette is essential to the narrow portrait crop. Canvas is entirely a single borderless scene, no panels, no text, no people or creatures, no UI, no modern objects, no fantasy towers. Eye-level middistance. Place the principal landmark inside the CENTRAL 25 PERCENT of the width from x=38–62%, strongly recognizable in the portrait crop, at y=27–54%. Reserve the lower 35% as wide open uncluttered and quiet level ground where game characters can stand, with safe footing on the same ground plane through x=25–75%. Let the wings open up the geography. Scene in clear Aegean daylight with natural color separation. Ajax's grave site in the barren windswept ridge above Troy, before the burial. Anchor the central portrait silhouette with one upright dark slate water-worn stone slab, unlettered, rising above a very low crescent of unworked stones on a distant slope; adjacent ground is undisturbed so it works before and after burial. Slate blue-gray stone and flattened silver grass. A faint silver stripe of sea through one wide edge and the pale ridge beyond the other. Huge quiet bare field of firm pale rocky ground in near foreground, lowest grass brushes at edges. No bones, no weapons, no tent, no offerings, no cloth, no piles of flowers, no digging tools. The unlit landmark should evoke stillness and dignity."
+        },
+        {
+          "id": "greek-sicily-ship",
+          "phase": "day",
+          "file": "greek-sicily-ship.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-efa28346-ec86-47e7-9519-e761201fa510.png",
+          "generatedSha256": "b64dab7730cf63597c99fbe1d232776e70e71c69fdf6d70f6fca9ca18fa58745",
+          "sha256": "c3990c4a7f796653f9c2c3453ed3e7754cb60b94e716a64941389845f0320e9b",
+          "references": [
+            "Delphi-concept-board.png",
+            "scylla-card.webp",
+            "repertoire-greek-sicily.webp"
+          ],
+          "prompt": "Paint ONE immersive wide horizontal 16:9 opaque gameplay background for the original narrative game CosyWorld, grounded late Bronze Age Aegean setting, museum-quality matte naturalist oil painting and tactile pigments, somber but legible. Tiny details are for landscape, distinct silhouette is essential to the narrow portrait crop. Canvas is entirely a single borderless scene, no panels, no text, no people or creatures, no UI, no modern objects, no fantasy towers. Eye-level middistance. Place the principal landmark inside the CENTRAL 25 PERCENT of the width from x=38–62%, strongly recognizable in the portrait crop, at y=27–54%. Reserve the lower 35% as wide open uncluttered and quiet level ground where game characters can stand, with safe footing on the same ground plane through x=25–75%. Let the wings open up the geography. Scene in clear Aegean daylight with natural color separation. Sicily, shore directly outside the volcanic cave of Polyphemus. From standing height at the landward end of a flat black lava landing with fine dry gravel, look out at the named Scylla actually docked close to shore at center-right. Match her specific ancient wooden ship to reference 2: deep indigo curved hull, narrow hand-painted cream curling wave band, dark rust-red square sail furled or partly reefed, one timber mast, a sensible rope tied to rock, high modest curved prow. Central overlap of dark basalt cave cliff edge and the clearly visible indigo ship's striped bow is the focal silhouette kept in the narrow portrait crop. Full berth, ship, Mediterranean surf and basalt cliff wings revealed on desktop. Match the masonry-free layered lava geologic texture and ochre-scored cave setting from reference 3. Keep the dark-ground, blue-water and ivory hull decoration distinct from Trojan harbor. Keep the lower 35% clear solid dark volcanic shore, no boats besides the Scylla. No figures on or off the ship."
+        },
+        {
+          "id": "greek-trojan-camp-lane",
+          "phase": "night",
+          "file": "greek-trojan-camp-lane-night.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-7826c57c-1678-4fac-ad86-dc9aafbd547a.png",
+          "generatedSha256": "c6541490cdc0951a2a1cc4a6ff85aab80b9f6a97bc760d79a16916c2d2ad2031",
+          "sha256": "abe613c90bb67de82ae371d3d6963eeed3c4b87a98ea7ab482dc19a12efe2f5e",
+          "references": [
+            "exec-41141e8f-33ef-4e01-96d0-2d295da775c3.png"
+          ],
+          "prompt": "Modify the provided completed painting into a moonlit gameplay background from the EXACT SAME LOCKED CAMERA and same 16:9 composition, no object repositioning, no change of terrain, tents, stone placement or foreground ground plane. Convert the sky to muted clear midnight ultramarine, natural small stars, cool soft illumination bright enough for the characteristic silhouette and walkable foreground, localized dim warm light only where explicitly requested. Retain matte traditional naturalist oil paint, tactile material surfaces and period. No people, creatures, typography, UI, frame, vignette, modern equipment, all left and right margins intact. Full single bleed horizontal background, opaque. The tents beyond the central fork post receive a soft, weak lantern glow from already-existing tent openings. Keep post and Y-path fully readable and breathable in the middle foreground. No additional lamp furniture in the near ground."
+        },
+        {
+          "id": "greek-ajax-landing",
+          "phase": "night",
+          "file": "greek-ajax-landing-night.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-e131570f-422f-438d-9909-bb2fa95a1d13.png",
+          "generatedSha256": "a4275188acd8470370ec17659be87b5a5d6dc5826a29a4f7c7152b0d0fb4006f",
+          "sha256": "533d500cb48d6371867d2ecec8afb4a9a0b26df18f3bf81c60cd8923be409332",
+          "references": [
+            "exec-465680d3-81ae-4fb1-9366-2c78f39e8d42.png"
+          ],
+          "prompt": "Modify the provided completed painting into a moonlit gameplay background from the EXACT SAME LOCKED CAMERA and same 16:9 composition, no object repositioning, no change of terrain, tents, stone placement or foreground ground plane. Convert the sky to muted clear midnight ultramarine, natural small stars, cool soft illumination bright enough for the characteristic silhouette and walkable foreground, localized dim warm light only where explicitly requested. Retain matte traditional naturalist oil paint, tactile material surfaces and period. No people, creatures, typography, UI, frame, vignette, modern equipment, all left and right margins intact. Full single bleed horizontal background, opaque. Reflected moonlight forms a weak thin cool band on the empty bay near the existing forked mooring post. Add slight distant amber light from city walls. No boats. Coast and pebble apron stay clearly legible."
+        },
+        {
+          "id": "greek-ajax-household",
+          "phase": "night",
+          "file": "greek-ajax-household-night.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-19929052-72e5-4bb0-baf7-edbf0ff6b92d.png",
+          "generatedSha256": "4b4254877d044b342cf6370367f563d5b7bb312e5e6bfc871b80cbf6464fd87d",
+          "sha256": "4a46eaf70710fbac4df944b4a5ccbc2d75da151ebb68fdfe9b9b3dd1952479d0",
+          "references": [
+            "exec-9b06e958-8aa9-4b8d-9ac0-2766a915ffba.png"
+          ],
+          "prompt": "Modify the provided completed painting into a moonlit gameplay background from the EXACT SAME LOCKED CAMERA and same 16:9 composition, no object repositioning, no change of terrain, tents, stone placement or foreground ground plane. Convert the sky to muted clear midnight ultramarine, natural small stars, cool soft illumination bright enough for the characteristic silhouette and walkable foreground, localized dim warm light only where explicitly requested. Retain matte traditional naturalist oil paint, tactile material surfaces and period. No people, creatures, typography, UI, frame, vignette, modern equipment, all left and right margins intact. Full single bleed horizontal background, opaque. Preserve prominent ivory tent curtains and the fixed loom, with gentle warm lamplight spilling softly on the inner wool from an unseen point behind canvas. Outside openings show cool moonlit headland. Maintain quiet flat light on the stage foreground and every fabric geometry unchanged."
+        },
+        {
+          "id": "greek-ajax-grave",
+          "phase": "night",
+          "file": "greek-ajax-grave-night.webp",
+          "width": 1672,
+          "height": 941,
+          "hasAlpha": false,
+          "generatedFile": "exec-585045cb-66e6-4ab5-bf3d-3005a95fdbb7.png",
+          "generatedSha256": "2989fce0bb30d9b505c8309a2ef962972ec02e39b22d6d9efc80f61259196b44",
+          "sha256": "90bbfc5c9d96c11d8083ed3acc90272df013af0ef3eda2f2ee098784755d523e",
+          "references": [
+            "exec-755ae952-25e1-4eca-8bcb-8bdac18e2941.png"
+          ],
+          "prompt": "Modify the provided completed painting into a moonlit gameplay background from the EXACT SAME LOCKED CAMERA and same 16:9 composition, no object repositioning, no change of terrain, tents, stone placement or foreground ground plane. Convert the sky to muted clear midnight ultramarine, natural small stars, cool soft illumination bright enough for the characteristic silhouette and walkable foreground, localized dim warm light only where explicitly requested. Retain matte traditional naturalist oil paint, tactile material surfaces and period. No people, creatures, typography, UI, frame, vignette, modern equipment, all left and right margins intact. Full single bleed horizontal background, opaque. Quiet cool silver-blue moonlight falls obliquely on the same lone slate stele, so its height and outline read against sky and distant ridge. Moon above outside frame, no new flames, grave offerings, body, or ceremonial objects. Leave the plain foreground dry and legible."
+        }
+      ]
+    },
+    "records-comedy": {
+      "tool": "image_gen",
+      "generated": "2026-11-28",
+      "encoding": "512×512 WebP quality 94 with lossless alpha, cut from composite PNG originals",
+      "sheets": [
+        {
+          "generatedImage": "exec-d08c0041-8c77-4ba9-8459-9e7adea5a712.png",
+          "sha256": "55ea4bfd77e9ceae8054fe81dd05ea3675639578a0d433b4744fe3a1e1548a1e",
+          "size": [
+            1536,
+            1024
+          ],
+          "rows": 2,
+          "columns": 3
+        },
+        {
+          "generatedImage": "exec-90c75587-f3c1-4b4f-870b-180407ecef32.png",
+          "sha256": "34dd9d3d506ab979191764228a4f23e1e1a2a85775dbc6d6248aace00c2845c7",
+          "size": [
+            1536,
+            1024
+          ],
+          "rows": 2,
+          "columns": 3
+        }
+      ],
+      "assets": [
+        {
+          "id": "greek-story-aristophanes-acharnians-record",
+          "name": "Acharnae Market Agreement",
+          "design": "Olivewood market board with clasped-hands relief and salt seal.",
+          "file": "greek-story-aristophanes-acharnians-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-d08c0041-8c77-4ba9-8459-9e7adea5a712.png",
+          "cellCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 527,
+            "height": 516
+          },
+          "sha256": "5c4370129688e4fa09f9b404e93ec247c3f4b18f8643c9c5c5423b832cf2c0f1"
+        },
+        {
+          "id": "greek-story-aristophanes-knights-record",
+          "name": "Knights Settlement",
+          "design": "Household papyrus roll with a tucked tally and brown pantry seal.",
+          "file": "greek-story-aristophanes-knights-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-d08c0041-8c77-4ba9-8459-9e7adea5a712.png",
+          "cellCrop": {
+            "x": 527,
+            "y": 0,
+            "width": 484,
+            "height": 516
+          },
+          "sha256": "ba66e80a712f7041ae1d9c02ed1248b7e28ae8034a78176a57e33102ad85ac23"
+        },
+        {
+          "id": "greek-story-aristophanes-clouds-record",
+          "name": "Clouds Settlement",
+          "design": "Fanned papyrus sheets with sky-blue thread and cloud stamp.",
+          "file": "greek-story-aristophanes-clouds-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-d08c0041-8c77-4ba9-8459-9e7adea5a712.png",
+          "cellCrop": {
+            "x": 1011,
+            "y": 0,
+            "width": 525,
+            "height": 516
+          },
+          "sha256": "683a2640ecdf3fc7143ee67cc01fe6fcaffb8b7837e490e85c37ec59677b49c9"
+        },
+        {
+          "id": "greek-story-aristophanes-wasps-record",
+          "name": "Wasps Settlement",
+          "design": "Dark upright wax docket with paired wasp-wing seal.",
+          "file": "greek-story-aristophanes-wasps-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-d08c0041-8c77-4ba9-8459-9e7adea5a712.png",
+          "cellCrop": {
+            "x": 0,
+            "y": 516,
+            "width": 461,
+            "height": 508
+          },
+          "sha256": "891cc26e8f7e11d009468e38bb7862307c0fa5eeb907bb7e8fba161bf3ed764f"
+        },
+        {
+          "id": "greek-story-aristophanes-peace-record",
+          "name": "Peace Settlement",
+          "design": "Square umber wood panel with olive ties and an olive-leaf seal.",
+          "file": "greek-story-aristophanes-peace-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-d08c0041-8c77-4ba9-8459-9e7adea5a712.png",
+          "cellCrop": {
+            "x": 461,
+            "y": 516,
+            "width": 594,
+            "height": 508
+          },
+          "sha256": "8b8a2db3edfe71a9d0a581c1032f0cbb05e37ab6ec711ad4c23d27e7f3351cc9"
+        },
+        {
+          "id": "greek-story-aristophanes-birds-record",
+          "name": "Birds Settlement",
+          "design": "Stepped council record with turquoise thread and incised feather seal.",
+          "file": "greek-story-aristophanes-birds-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-d08c0041-8c77-4ba9-8459-9e7adea5a712.png",
+          "cellCrop": {
+            "x": 1055,
+            "y": 516,
+            "width": 481,
+            "height": 508
+          },
+          "sha256": "946f3ba34b8b4fa4e302f148b44ca65f786535b617f8786b4b0b56aa229d8cbe"
+        },
+        {
+          "id": "greek-story-aristophanes-lysistrata-record",
+          "name": "Lysistrata Settlement",
+          "design": "Oblong pale treasury docket with madder cord and chest seal.",
+          "file": "greek-story-aristophanes-lysistrata-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-90c75587-f3c1-4b4f-870b-180407ecef32.png",
+          "cellCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 520,
+            "height": 512
+          },
+          "sha256": "e103964a1329db5a5c719856ebf621c0622b6bc1b4b9fe5fc72176febffae527"
+        },
+        {
+          "id": "greek-story-aristophanes-thesmophoria-record",
+          "name": "Women at the Thesmophoria Settlement",
+          "design": "Triangular folded papyrus with violet ribbon and pomegranate seal.",
+          "file": "greek-story-aristophanes-thesmophoria-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-90c75587-f3c1-4b4f-870b-180407ecef32.png",
+          "cellCrop": {
+            "x": 520,
+            "y": 0,
+            "width": 491,
+            "height": 512
+          },
+          "sha256": "3bfe2b110814d9e76290f4ec5d0cb8383d4c5a1903deb9a8596d6af9d4f2e9a0"
+        },
+        {
+          "id": "greek-story-aristophanes-frogs-record",
+          "name": "Frogs Settlement",
+          "design": "Smoky reed-paper roll with pale blue cord and a bronze lyre stamp.",
+          "file": "greek-story-aristophanes-frogs-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-90c75587-f3c1-4b4f-870b-180407ecef32.png",
+          "cellCrop": {
+            "x": 1011,
+            "y": 0,
+            "width": 525,
+            "height": 512
+          },
+          "sha256": "577830d81c56d57ce98b034789309f4241adf3bd51baefe19457dfbf45f27cdb"
+        },
+        {
+          "id": "greek-story-aristophanes-assemblywomen-record",
+          "name": "Assemblywomen Settlement",
+          "design": "Paired grain wax leaves laced with ochre flax.",
+          "file": "greek-story-aristophanes-assemblywomen-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-90c75587-f3c1-4b4f-870b-180407ecef32.png",
+          "cellCrop": {
+            "x": 0,
+            "y": 512,
+            "width": 511,
+            "height": 512
+          },
+          "sha256": "51d8204a2fc823f3995503622e9d30ad7b58e37fdd4e6da4594aed3d3b003a97"
+        },
+        {
+          "id": "greek-story-aristophanes-wealth-record",
+          "name": "Wealth Settlement",
+          "design": "Angular folded petition with a hanging stamped barley seal.",
+          "file": "greek-story-aristophanes-wealth-record.webp",
+          "replaces": "assets/greek-drama/burial-account.webp",
+          "generatedImage": "exec-90c75587-f3c1-4b4f-870b-180407ecef32.png",
+          "cellCrop": {
+            "x": 511,
+            "y": 512,
+            "width": 499,
+            "height": 512
+          },
+          "sha256": "07559f771e2754096053f2225f869aa9274ad8fa143ceb8552e50f09190388b8"
+        }
+      ]
+    },
+    "records-euripides": {
+      "tool": "image_gen",
+      "format": "512 × 512 WebP with alpha",
+      "atlases": [
+        {
+          "source": "exec-a3c88dfb-21bc-4aaf-8dff-36f377306ceb.png",
+          "sourceSha256": "3e1019ae865f532f4fbcd7b2e15d77dfbb1ce2cf6435ac3556fc65a15e04fe96",
+          "prompt": "Generate an exact 1536×1024 transparent RGBA atlas, 3 columns by 2 rows, all six squares equally 512×512 and each object centered separately. SIX disconnected sprites with plenty of empty transparent padding. Absolute zero alpha wherever there is no actual solid object, throughout the background. No cast shadows, diffuse clouds, translucent halos, tabletop, captions, text, background colour, border, grid lines or checkered motif. The background must be fully transparent. Naturalistic ancient Greek artefact iconography, matte oil illustration, warm daylight, subtle tactile brushwork, clearly recognizable silhouette at card thumbnail size, similar object sizes. Do not merge or reorder. ROW 1, COLUMN 1: Phoenician Women Settlement. Draw two pale hinged wood tablets tied together by claret wool, with pale round paired clay seal on the front to suggest opposing Theban princes.\nROW 1, COLUMN 2: Orestes Settlement. Draw short matte black wooden verdict tablet with bronze-edged rim and one round gray ballot inset into its clay seal.\nROW 1, COLUMN 3: Bacchae Settlement. Draw short dark birch witness tablet with copper clasp and a tiny sharply legible stamped ivy leaf on its grape-red sealing disc.\nROW 2, COLUMN 1: Iphigenia at Aulis Settlement. Draw slim tied sea-buff papyrus roll, cinnabar ribbon and an ivory seashell-shaped seal.\nROW 2, COLUMN 2: Rhesus Settlement. Draw a small oblong honey-brown leather-bound wax report, bound with an indigo cloth strip and two small round bronze rivets suggesting a chariot.\nROW 2, COLUMN 3: Cyclops Settlement. Draw three thin rough charcoal-stained olivewood tablets bound by a thick cream twisted cord with a single black stone circular seal.",
+          "items": [
+            {
+              "id": "greek-story-euripides-phoenician-women-record",
+              "design": "two pale hinged wood tablets tied together by claret wool, with pale round paired clay seal on the front to suggest opposing Theban princes",
+              "oldArt": "assets/greek-drama/burial-account.webp",
+              "file": "greek-story-euripides-phoenician-women-record.webp",
+              "sha256": "997538de110ecb346b6fcf73097d9d574f3385b4fe893a6a24c895f2bc32088b",
+              "cell": [
+                1,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-euripides-orestes-record",
+              "design": "short matte black wooden verdict tablet with bronze-edged rim and one round gray ballot inset into its clay seal",
+              "oldArt": "assets/greek-drama/burial-account.webp",
+              "file": "greek-story-euripides-orestes-record.webp",
+              "sha256": "1c1870f08425f31cb631378dcd68b114b7620d66e81e70cb154018e1f23a2af2",
+              "cell": [
+                1,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-euripides-bacchae-record",
+              "design": "short dark birch witness tablet with copper clasp and a tiny sharply legible stamped ivy leaf on its grape-red sealing disc",
+              "oldArt": "assets/greek-drama/burial-account.webp",
+              "file": "greek-story-euripides-bacchae-record.webp",
+              "sha256": "91bc6b10fe3c8f35f944b97b2c44c7be694337cf2e39f68a994625bc505d93e9",
+              "cell": [
+                1,
+                3
+              ]
+            },
+            {
+              "id": "greek-story-euripides-iphigenia-at-aulis-record",
+              "design": "slim tied sea-buff papyrus roll, cinnabar ribbon and an ivory seashell-shaped seal",
+              "oldArt": "assets/greek-drama/burial-account.webp",
+              "file": "greek-story-euripides-iphigenia-at-aulis-record.webp",
+              "sha256": "076c5c78e8629bde9952332503d0612f6e982903cd64f1eef800b150b04aef40",
+              "cell": [
+                2,
+                1
+              ]
+            },
+            {
+              "id": "greek-story-euripides-rhesus-record",
+              "design": "a small oblong honey-brown leather-bound wax report, bound with an indigo cloth strip and two small round bronze rivets suggesting a chariot",
+              "oldArt": "assets/greek-drama/burial-account.webp",
+              "file": "greek-story-euripides-rhesus-record.webp",
+              "sha256": "f717a8489e0d3fd51b0bc54f4bd4e50f4642be041efc1691c59edb6cc1d4b1a3",
+              "cell": [
+                2,
+                2
+              ]
+            },
+            {
+              "id": "greek-story-euripides-cyclops-record",
+              "design": "three thin rough charcoal-stained olivewood tablets bound by a thick cream twisted cord with a single black stone circular seal",
+              "oldArt": "assets/greek-drama/burial-account.webp",
+              "file": "greek-story-euripides-cyclops-record.webp",
+              "sha256": "64fc6fed8a1d8596a85fa914df3f7ce0fbad3874f32edb717cbef27dfaa88d31",
+              "cell": [
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "records-tragedy": {
+      "tool": "image_gen",
+      "export": "ImageMagick bounding-crop extraction from each source atlas, 424px maximum visible scale and transparent centering on a 512 × 512 WebP with alpha quality 100.",
+      "atlases": [
+        {
+          "file": "source/aeschylus-atlas.png",
+          "generatedFile": "exec-c929f297-3652-4ed1-b829-c3f38884a89c.png",
+          "width": 1536,
+          "height": 1024,
+          "prompt": "Six separate transparent ancient-world game inventory sprites as a wide 3:2 atlas, EXACT strict mathematical 3 equal columns by 2 equal rows, one complete compact object in each square cell. Put centers at x = 16.7%, 50%, 83.3% and y = 25%, 75%. Objects are centered, occupying about 66% of each cell center; 16% pure alpha padding on every side of each cell, large transparent gutters; no overlap under any circumstances. No border, dividers, backdrop, floor, cast shadow, sparkles, ornamental frame, labels or graphics outside the silhouettes. TRUE RGBA transparent outside each item, even between straps and paper folds. No fake checkerboard. Material realism, detailed muted matte oil paint, antique fibers and woods, small-isometric inventory rendering diagonal angle from slightly above, gentle upper-left daylight for tangible edges. Historical-mythic Aegean and contemporary Persian material culture, no modern stationery or post-Classical parchment books. Each design is a portable official written record from the story, not a logo. Bold 2D silhouettes, folded edges, material differences and one pictorial clay/bronze seal read at 48 pixels. Where useful use a few shallow non-letter tally incisions and blurred ink traces for an ancient record; absolutely no readable text, glyphs, numbers, or titles. Output exactly six elaborately crafted objects and isolate each.\n\nExact cells in reading order:\nTop left — Persian settlement: an upright slim off-white papyrus roll with lapis ribbon and a deep scarlet clay cylinder-seal impression showing a small stylized ship. Visible flared curl at lower right, diagonal roll silhouette.\nTop middle — Seven Against Thebes settlement: a compact twin dark-walnut tally tablet, twice as tall as wide, with rough notches on one long edge and one high broad bronze fastening loop; matte warm sepia wax panel with shallow strokes.\nTop right — Suppliant Women settlement: wide fan-shaped pale papyrus sheets gathered at one end by soft off-white wool and a tiny olive sprig woven into the binding, tan terracotta votive disk attached, rustic Argive sanctuary texture.\nBottom left — Prometheus Bound settlement: rough, dark graphite-gray slate slab with an asymmetrical triangular broken edge and a shallow warm winding route line cut into it, copper ring at the apex; chunky, jagged shape.\nBottom middle — Agamemnon settlement: broad rectangular rank-purple cloth-bound folded ivory memorandum, wrapped low at a diagonal and clamped at its middle with a small archaic bronze flower rosette, visible layers of parchment.\nBottom right — Judgment of the Areopagus: a thick cream-colored rounded clay docket, squared off at the bottom, shallow record marks and a dark round owl-impressed judicial seal pressed into its upper-right face; small chalk-white ballot pebble in its shallow recessed holder. Contrast chalk disk with dark seal.",
+          "sha256": "44d670c55adad1d8ebff603930e7b1ccb63e2368253899554509febe98940f47"
+        },
+        {
+          "file": "source/sophocles-and-western-euripides-atlas.png",
+          "generatedFile": "exec-c4a7c652-4dd6-43e3-bc34-e6624c2664a4.png",
+          "width": 1536,
+          "height": 1024,
+          "prompt": "Six separate transparent ancient-world game inventory sprites as a wide 3:2 atlas, EXACT strict mathematical 3 equal columns by 2 equal rows, one complete compact object in each square cell. Put centers at x = 16.7%, 50%, 83.3% and y = 25%, 75%. Objects are centered, occupying about 66% of each cell center; 16% pure alpha padding on every side of each cell, large transparent gutters; no overlap under any circumstances. No border, dividers, backdrop, floor, cast shadow, sparkles, ornamental frame, labels or graphics outside the silhouettes. TRUE RGBA transparent outside each item, even between straps and paper folds. No fake checkerboard. Material realism, detailed muted matte oil paint, antique fibers and woods, small-isometric inventory rendering diagonal angle from slightly above, gentle upper-left daylight for tangible edges. Historical-mythic Aegean and contemporary Persian material culture, no modern stationery or post-Classical parchment books. Each design is a portable official written record from the story, not a logo. Bold 2D silhouettes, folded edges, material differences and one pictorial clay/bronze seal read at 48 pixels. Where useful use a few shallow non-letter tally incisions and blurred ink traces for an ancient record; absolutely no readable text, glyphs, numbers, or titles. Output exactly six elaborately crafted objects and isolate each.\n\nExact cells in reading order:\nTop left — Women of Trachis settlement: warm red-brown narrow cedar dispatch tile with orange-red thread wound over both ends and one amber household seal, triangular unpainted side wedge and shallow record marks.\nTop middle — Oedipus Tyrannus settlement: an opened square sienna wooden dispatch tablet with ivory wax writing face and precisely angled linen flap, tight indigo cord and a broad sphinx-impressed bronze seal, sharp square geometry.\nTop right — Lemnian Passage Agreement: long driftwood-colored reed slips fanned loosely at one end, bound by coarse sea-blue linen with a small triangular clay seal impressed with a boat hull, weathered coastal edges, a sideways spear-point silhouette.\nBottom left — Alcestis settlement: soft gray thin oblong pottery shard record, cream flax knot at one end and charcoal tally marks on the broken white-slip surface; the shard has rounded lip edge and rough chipped opposite side.\nBottom middle — Medea settlement: vivid madder-red flax cord crosses two folded cream papyrus panels in a low compact triangle, with a dark red cylindrical official exit seal at the crossing, sharply creased edges.\nBottom right — Hippolytus settlement: black beeswax DOUBLE diptych tablet open like a narrow V, pale worn bleached wood handles, two flax pegs and dark plum official seal. The black inset wax faces have abstract shallow marks, bold angular V shape.",
+          "sha256": "e2f6efea2f2ad7eb3f23eb4ca5aafb32113354b7ac94021df821c6cd5e8d1554"
+        },
+        {
+          "file": "source/eastern-euripides-atlas.png",
+          "generatedFile": "exec-fe51f6ee-f4be-4e29-a6d3-4e04b546bc47.png",
+          "width": 1536,
+          "height": 1024,
+          "prompt": "Six separate transparent ancient-world game inventory sprites as a wide 3:2 atlas, EXACT strict mathematical 3 equal columns by 2 equal rows, one complete compact object in each square cell. Put centers at x = 16.7%, 50%, 83.3% and y = 25%, 75%. Objects are centered, occupying about 66% of each cell center; 16% pure alpha padding on every side of each cell, large transparent gutters; no overlap under any circumstances. No border, dividers, backdrop, floor, cast shadow, sparkles, ornamental frame, labels or graphics outside the silhouettes. TRUE RGBA transparent outside each item, even between straps and paper folds. No fake checkerboard. Material realism, detailed muted matte oil paint, antique fibers and woods, small-isometric inventory rendering diagonal angle from slightly above, gentle upper-left daylight for tangible edges. Historical-mythic Aegean and contemporary Persian material culture, no modern stationery or post-Classical parchment books. Each design is a portable official written record from the story, not a logo. Bold 2D silhouettes, folded edges, material differences and one pictorial clay/bronze seal read at 48 pixels. Where useful use a few shallow non-letter tally incisions and blurred ink traces for an ancient record; absolutely no readable text, glyphs, numbers, or titles. Output exactly six elaborately crafted objects and isolate each.\n\nExact cells in reading order:\nTop left — Andromache settlement: narrow bright white rigid linen dispatch tied along pale olivewood slat with a sage-green wool binding and one small antique bronze shell clasp near the top, the fringed piece folds over the bottom.\nTop middle — Hecuba settlement: russet oval leather-backed folded record with a worn bronze horse signet inset near upper right and a pale strip of papyrus visibly emerging through an open leather notch, pinched bottom edge. Patinated and sand-scarred.\nTop right — Heracles settlement: broad cream folded papyrus atop small bulbous burnt-orange terracotta plaque, flared gritty edges and a bold ochre lightning-shaped seal impression, tied together with faded pale flax.\nBottom left — Trojan Departure Roll: horizontally extended weathered pale tan chart with both left and right edges rolled, two dark red route triangles near corners and a rough salt-stained rope edging with neatly knotted bow. Clearly wide panorama-shaped object but within its square.\nBottom middle — Taurian Departure Order: small folded tear-shaped parchment packet with dark sea-green cord leading to a pointed thick turquoise-blue wax seal impressed with a crescent, firm zigzag creases at left and stern wedge silhouette.\nBottom right — Ion settlement: hinged open ivoried olivewood record with two small stacked chips in its broad ivory double panel, little split golden bronze clasp with a raised laurel motif, distinct pure plaster/cream tone with antique bronze highlights.",
+          "sha256": "41d6996ae70a351630e972fbad4a9e02e3498665cd5cc54c91ab2b34b8ff268c"
+        }
+      ],
+      "items": [
+        {
+          "itemId": "greek-story-aeschylus-persians-record",
+          "file": "greek-story-aeschylus-persians-record.webp",
+          "atlas": "source/aeschylus-atlas.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 107,
+            "y": 20,
+            "width": 313,
+            "height": 481
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            122,
+            48,
+            389,
+            464
+          ],
+          "sha256": "5b3087ffab2daee55de95080d9c5dacfd5aa0ac9fa4a8e2b688c52e6f77b347f"
+        },
+        {
+          "itemId": "greek-story-aeschylus-seven-thebes-record",
+          "file": "greek-story-aeschylus-seven-thebes-record.webp",
+          "atlas": "source/aeschylus-atlas.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 628,
+            "y": 23,
+            "width": 245,
+            "height": 477
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            152,
+            48,
+            361,
+            464
+          ],
+          "sha256": "867f9a55ade1734540cf842d83408883531f0de3f6061110c22df41b4830ea88"
+        },
+        {
+          "itemId": "greek-story-aeschylus-suppliant-women-record",
+          "file": "greek-story-aeschylus-suppliant-women-record.webp",
+          "atlas": "source/aeschylus-atlas.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 1066,
+            "y": 27,
+            "width": 444,
+            "height": 466
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            59,
+            48,
+            454,
+            464
+          ],
+          "sha256": "82cd7c90ef4f44a0a00a6791f21e2bd18a1cd60ba5bef8f851205281358f9ae2"
+        },
+        {
+          "itemId": "greek-story-aeschylus-prometheus-bound-record",
+          "file": "greek-story-aeschylus-prometheus-bound-record.webp",
+          "atlas": "source/aeschylus-atlas.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 42,
+            "y": 537,
+            "width": 428,
+            "height": 473
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            68,
+            48,
+            444,
+            463
+          ],
+          "sha256": "3f34092fc1e06c9b84734e904eb8edd9aae791d6db864988637490b95cf373ba"
+        },
+        {
+          "itemId": "greek-story-aeschylus-agamemnon-record",
+          "file": "greek-story-aeschylus-agamemnon-record.webp",
+          "atlas": "source/aeschylus-atlas.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 519,
+            "y": 564,
+            "width": 466,
+            "height": 434
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            48,
+            62,
+            464,
+            448
+          ],
+          "sha256": "5a46e81b81095907cf13a35a9f5acad521f9ce2f37a284e34f79b8df6b68a444"
+        },
+        {
+          "itemId": "greek-story-aeschylus-eumenides-record",
+          "file": "greek-story-aeschylus-eumenides-record.webp",
+          "atlas": "source/aeschylus-atlas.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 1064,
+            "y": 547,
+            "width": 424,
+            "height": 445
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            59,
+            49,
+            453,
+            463
+          ],
+          "sha256": "990d8b765cd253484c228ade4b034ee5fae861c46b860e35ffe82b298ddf8870"
+        },
+        {
+          "itemId": "greek-story-sophocles-women-of-trachis-record",
+          "file": "greek-story-sophocles-women-of-trachis-record.webp",
+          "atlas": "source/sophocles-and-western-euripides-atlas.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 32,
+            "y": 108,
+            "width": 467,
+            "height": 350
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            49,
+            101,
+            463,
+            411
+          ],
+          "sha256": "59df3c133d2459d70102a9c86fbc4db439d822d91d1627172c63b7ee410f7489"
+        },
+        {
+          "itemId": "greek-story-sophocles-oedipus-tyrannus-record",
+          "file": "greek-story-sophocles-oedipus-tyrannus-record.webp",
+          "atlas": "source/sophocles-and-western-euripides-atlas.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 545,
+            "y": 43,
+            "width": 422,
+            "height": 439
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            56,
+            49,
+            455,
+            464
+          ],
+          "sha256": "c0aa0afaa3468a49744304ec76e696113bf7adbf5896f0de557dcb477b04e5c7"
+        },
+        {
+          "itemId": "greek-story-sophocles-philoctetes-record",
+          "file": "greek-story-sophocles-philoctetes-record.webp",
+          "atlas": "source/sophocles-and-western-euripides-atlas.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 1016,
+            "y": 74,
+            "width": 496,
+            "height": 392
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            48,
+            92,
+            464,
+            419
+          ],
+          "sha256": "1dbdcfd6ac0017500660952182e72d181c55e0dbf59481b01c24a45a7cb83141"
+        },
+        {
+          "itemId": "greek-story-euripides-alcestis-record",
+          "file": "greek-story-euripides-alcestis-record.webp",
+          "atlas": "source/sophocles-and-western-euripides-atlas.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 19,
+            "y": 614,
+            "width": 462,
+            "height": 331
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            48,
+            108,
+            463,
+            404
+          ],
+          "sha256": "fccc1a0b94accb16436f6864d5ffca3bd6577f4399bd12b878f3ff3b556e1f92"
+        },
+        {
+          "itemId": "greek-story-euripides-medea-record",
+          "file": "greek-story-euripides-medea-record.webp",
+          "atlas": "source/sophocles-and-western-euripides-atlas.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 519,
+            "y": 560,
+            "width": 461,
+            "height": 383
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            49,
+            84,
+            464,
+            427
+          ],
+          "sha256": "0dbabf05337585c0c5dd3c1a517af5b7a990273320c06237adb6b2bae52a1ccc"
+        },
+        {
+          "itemId": "greek-story-euripides-hippolytus-record",
+          "file": "greek-story-euripides-hippolytus-record.webp",
+          "atlas": "source/sophocles-and-western-euripides-atlas.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 1051,
+            "y": 534,
+            "width": 453,
+            "height": 449
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            48,
+            50,
+            463,
+            462
+          ],
+          "sha256": "d19347faa66308d06f0782924e23410d91f6c773498b9b033f37585d0d000bee"
+        },
+        {
+          "itemId": "greek-story-euripides-andromache-record",
+          "file": "greek-story-euripides-andromache-record.webp",
+          "atlas": "source/eastern-euripides-atlas.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 113,
+            "y": 22,
+            "width": 294,
+            "height": 487
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            132,
+            48,
+            380,
+            464
+          ],
+          "sha256": "9291f494e0e430471ff0d47d5d2a130883a65a4dc19340652a4634b1a8793d55"
+        },
+        {
+          "itemId": "greek-story-euripides-hecuba-record",
+          "file": "greek-story-euripides-hecuba-record.webp",
+          "atlas": "source/eastern-euripides-atlas.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 571,
+            "y": 25,
+            "width": 374,
+            "height": 482
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            96,
+            48,
+            415,
+            464
+          ],
+          "sha256": "14932d9a811f7d613be7a4b0b37291f97578175d4d3afa3157650b5c786c87b1"
+        },
+        {
+          "itemId": "greek-story-euripides-heracles-record",
+          "file": "greek-story-euripides-heracles-record.webp",
+          "atlas": "source/eastern-euripides-atlas.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 1027,
+            "y": 68,
+            "width": 479,
+            "height": 422
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            48,
+            73,
+            464,
+            439
+          ],
+          "sha256": "d2b70f5ba87c77900b12ada3e0066242ff8585dfd073b965b9f01f4cb5cf8fa4"
+        },
+        {
+          "itemId": "greek-story-euripides-trojan-women-record",
+          "file": "greek-story-euripides-trojan-women-record.webp",
+          "atlas": "source/eastern-euripides-atlas.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 12,
+            "y": 588,
+            "width": 498,
+            "height": 342
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            48,
+            114,
+            464,
+            397
+          ],
+          "sha256": "5a216d3c5bea825800d6637ed5864db3d31f2076d55551c7bf5e138acd6592b1"
+        },
+        {
+          "itemId": "greek-story-euripides-tauris-record",
+          "file": "greek-story-euripides-tauris-record.webp",
+          "atlas": "source/eastern-euripides-atlas.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 552,
+            "y": 552,
+            "width": 410,
+            "height": 436
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            61,
+            48,
+            451,
+            464
+          ],
+          "sha256": "268d0dab869daad3589da3aabef9f7ec20e3c86b26d16a734168f34e78232b52"
+        },
+        {
+          "itemId": "greek-story-euripides-ion-record",
+          "file": "greek-story-euripides-ion-record.webp",
+          "atlas": "source/eastern-euripides-atlas.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 1019,
+            "y": 550,
+            "width": 480,
+            "height": 434
+          },
+          "width": 512,
+          "height": 512,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            48,
+            68,
+            463,
+            442
+          ],
+          "sha256": "9580e8687b7d9683dca22e3fc5a3f0bf31aa1d7934619298846b06ac6cddd05b"
+        }
+      ]
+    },
+    "theban-attic": {
+      "generatedOn": "2026-11-28",
+      "generationTool": "image_gen",
+      "dayStyleReference": "Delphi-concept-board.png",
+      "dayStyleReferenceSha256": "7c16f7870c7890d312043efc9f1faec55a77bb3a8e6a52c0af561ede90863e89",
+      "encoding": "ImageMagick WebP quality 94, native full canvas, opaque RGB",
+      "verification": "Crop proof shows the native master, centered 740 × 360 crop and narrow portrait crops near x 44%, 50%, and 56%. It represents scenery without actors or runtime UI.",
+      "assets": [
+        {
+          "placeId": "greek-city-road-fork",
+          "name": "City Road Fork",
+          "phase": "day",
+          "generatedImage": "exec-2d14245d-266c-4be8-86e6-86b091683a65.png",
+          "generatedSha256": "66987d9a0d8855d2c75c68e213b14f384dab32095096ec9726e27a18c23849e6",
+          "runtimeImage": "greek-city-road-fork.webp",
+          "runtimeSha256": "371a1bfd2babdb59796b2949e8198fbf16b8cce82f1b00cd3a896d36560b313c",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "One original standalone 16:9 horizontal video-game background, 1672×941 or near. Naturalistic matte oil painting for CosyWorld's ancient Greek drama. Use the attached original concept only to calibrate brushwork and handling of weathered materials. Grounded historical setting, carefully constructed forms, tactile limestone, plaster and dusky vegetation. Different setting and palette, with no copied Delphi props, no duplicate tripod, no smoke, no holy bowl. No people, no creatures, no text or signage, no watermark, no frame, no UI, no border. Opaque composition covering the whole image, standing eye-level camera. Keep flat and walkable open lower third for separately composited character standees. The primary landmark must stay readable in the central quarter of the width through a very narrow 317×704 portrait crop. Put expansion and narrative context in landscape wings. In bright windy Athens, ancient city routes divide at a civic junction. An unmistakable upright square Attic boundary pillar of weathered honey limestone, topped by a chipped acorn-like rounded cap, stands precisely at center where three pale lanes radiate away in a visible Y paved with old shallow-set limestone. Leave the nearest 30% of frame open at standing level. Mature gray-green olive leaves enter high right. The center lanes show contrasting wide white wheel ruts and darker compacted roadway stripes going right and left behind the boundary pillar; the columns of the civic avenue are only in one wing, distant gate-wall paths go into the other wings. Sky and plaster facades bright pale lavender-gray, ochre, and cool leaf accents. Ordinary urban route junction, not a temple courtyard or grand front staircase."
+        },
+        {
+          "placeId": "greek-north-gate",
+          "name": "North Gate",
+          "phase": "day",
+          "generatedImage": "exec-df855b75-8438-4e9d-be54-507d832ebc90.png",
+          "generatedSha256": "f90640066e0b0a6ccc3a81ff7533bef7a078b0317e59aa1bcb307d364671557d",
+          "runtimeImage": "greek-north-gate.webp",
+          "runtimeSha256": "43a87652dfcb9da938442a111ee33a65c174f0af896cc2617e4a64cc633ea0bd",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "One original standalone 16:9 horizontal video-game background, 1672×941 or near. Naturalistic matte oil painting for CosyWorld's ancient Greek drama. Use the attached original concept only to calibrate brushwork and handling of weathered materials. Grounded historical setting, carefully constructed forms, tactile limestone, plaster and dusky vegetation. Different setting and palette, with no copied Delphi props, no duplicate tripod, no smoke, no holy bowl. No people, no creatures, no text or signage, no watermark, no frame, no UI, no border. Opaque composition covering the whole image, standing eye-level camera. Keep flat and walkable open lower third for separately composited character standees. The primary landmark must stay readable in the central quarter of the width through a very narrow 317×704 portrait crop. Put expansion and narrative context in landscape wings. Seen from inside ancient Athens, the North Gate is an actual through passage to a sunlit pale dry field and a cypress at middle distance. The center is a broad horizontal lintel with stacked pale chalk-block walls and two wings of flat faded blue-painted bronze-clad timber doors pulled fully open. Place a cool triangular canopy shadow across one side and a distinctive patch of open warm sunlight filling the passage, keep gates and far field at x=45–55%. Wing reveals a corner of the limestone bastion, a small branch route curving uphill toward the assembly and a trampled lane into Marathon. Keep the staging apron in the bottom third, bone-white flagstone on pale dusty gray. Light blue-gray and chalk palette, graceful civic gate with no medieval elements or dark slot. It must be visibly different from a dark red mudbrick siege gate. Exterior from gate level, no arches."
+        },
+        {
+          "placeId": "greek-eleusis-lower-precinct",
+          "name": "Lower Precinct",
+          "phase": "day",
+          "generatedImage": "exec-683e1e51-12c7-43a2-ba03-42d5026d2608.png",
+          "generatedSha256": "9f51e60d2ce12349df374691a86871b1d0d7f3bb3dc30ad29a81fa22a5549495",
+          "runtimeImage": "greek-eleusis-lower-precinct.webp",
+          "runtimeSha256": "f35866c7ff94482aae4d33fef68b3ca5709344143c8127082fb38dfa994345b3",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "One original standalone 16:9 horizontal video-game background, 1672×941 or near. Naturalistic matte oil painting for CosyWorld's ancient Greek drama. Use the attached original concept only to calibrate brushwork and handling of weathered materials. Grounded historical setting, carefully constructed forms, tactile limestone, plaster and dusky vegetation. Different setting and palette, with no copied Delphi props, no duplicate tripod, no smoke, no holy bowl. No people, no creatures, no text or signage, no watermark, no frame, no UI, no border. Opaque composition covering the whole image, standing eye-level camera. Keep flat and walkable open lower third for separately composited character standees. The primary landmark must stay readable in the central quarter of the width through a very narrow 317×704 portrait crop. Put expansion and narrative context in landscape wings. Eleusis's lower precinct, a modest ancient sanctuary terrace at the moment one chooses whether to descend under the hill, climb to the upper sanctuary, or cross through the farms. A small, deep triangular stone hood over an unlit fixed torch bracket above a distinctly visible narrow descending stair channel in the center. Three steps of the stair go down behind an empty solid paved terrace in the foreground, never make the near floor seem like a drop. Sanctuary retaining wall blocks low, earth and old limestone with soft olive patina. The right wing shows an upward exterior staircase to the sanctuary, left an open ungated farm path between low dry stone and a single cypress. Colors bone gray stone, moss, and a burnt ochre sun patch. Soft sober quiet. Clear central triangular hood and descending shadow distinguish this scene from the high precinct and underworld landing, with no river, votive shrine furniture, smoke, fire or temple columns."
+        },
+        {
+          "placeId": "greek-eleusis-lower-precinct",
+          "name": "Lower Precinct",
+          "phase": "night",
+          "generatedImage": "exec-c24ed041-071b-431b-a5fb-145255f1bfa4.png",
+          "generatedSha256": "861a7f5075b23e14bc99b09812df3d9074dc763b8a250cc3e78ec6c299145c38",
+          "runtimeImage": "greek-eleusis-lower-precinct-night.webp",
+          "runtimeSha256": "3bb090cc546107cc126700c9f1789b6ba6d50c951d5556221f32f6f748537e44",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Make an exact camera-locked nighttime lighting variant of this single original 16:9 Attic sanctuary stage painting. Relight only. Keep original fixed architecture pixel-aligned as much as possible: hip-height limestone walls and three exits, same near stone paving, dark downward stone stair under the central triangular hood, rising stairs on the right, cypress and far farm path on the left. Keep reference 1672×941 proportions and print no borders. Replace early dusk with a genuinely deep indigo Greek night, highlights from cool blue-gray moonlight coming from upper left, deep slate shadows and muted old limestone. Let a small warm steady flame light the central fixed iron bowl sconce directly under the triangular hood, casting a controlled honey light on nearby stone without filling or masking the stair; faint valley moonlight leads into the left farm path. No new lanterns, fire bowls, magic, people, creatures, mist or letters. Keep the same matte paint, angle/perspective, staging surface and clearly legible center motif in narrow portrait. An opaque painted night scene with low but legible foreground contrast.",
+          "dayReference": "exec-683e1e51-12c7-43a2-ba03-42d5026d2608.png",
+          "dayReferenceSha256": "9f51e60d2ce12349df374691a86871b1d0d7f3bb3dc30ad29a81fa22a5549495"
+        },
+        {
+          "placeId": "greek-road-athens-piraeus",
+          "name": "The Long Walls",
+          "phase": "day",
+          "generatedImage": "exec-81d1465a-7f87-4e81-9308-c817fd853455.png",
+          "generatedSha256": "fb7e52a3904fd364167de3394659aa668bd2a5514e5336650ea6b8c5c3a1a7a2",
+          "runtimeImage": "greek-road-athens-piraeus.webp",
+          "runtimeSha256": "fea6400774ab9929d9bfa3b5715a94d5edc30283255f305c193c8121c77ea3b1",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "One original standalone 16:9 horizontal video-game background, 1672×941 or near. Naturalistic matte oil painting for CosyWorld's ancient Greek drama. Use the attached original concept only to calibrate brushwork and handling of weathered materials. Grounded historical setting, carefully constructed forms, tactile limestone, plaster and dusky vegetation. Different setting and palette, with no copied Delphi props, no duplicate tripod, no smoke, no holy bowl. No people, no creatures, no text or signage, no watermark, no frame, no UI, no border. Opaque composition covering the whole image, standing eye-level camera. Keep flat and walkable open lower third for separately composited character standees. The primary landmark must stay readable in the central quarter of the width through a very narrow 317×704 portrait crop. Put expansion and narrative context in landscape wings. Ground-level journey along the historically inspired ancient Long Walls linking Athens to Piraeus; parallel huge pale stone foundations capped by ochre weathered mudbrick steadily converge. Distinctive tiny but clear strip of cobalt-blue sea where the corridor ends directly centered, framed by a high paired opening between raised chalk limestone buttresses in the middle distance. In the central quarter two bold converging shadow lines direct the eye to the blue throat of the road. Midday walls one sunlit and one in cool gray shadow, pick out rough scuffed blocks and wheel grooves, upper wall line and stratified stone continue into landscape wings. Foreground road is wide open and relatively quiet for stage actors, no boulders or vegetation in middle lower third. Stark warm ochre, chalk, wine blue, moderate blue sky. Fortification lane has two extended barriers parallel to travel, not a gatehouse or winding open country road."
+        },
+        {
+          "placeId": "greek-road-athens-piraeus",
+          "name": "The Long Walls",
+          "phase": "night",
+          "generatedImage": "exec-9e58903d-95b6-4158-b912-f879af9c6776.png",
+          "generatedSha256": "7562c2ae3b117d74c3960339edd2e6b7a744b76353376a05438fc192db3f1d5a",
+          "runtimeImage": "greek-road-athens-piraeus-night.webp",
+          "runtimeSha256": "d817c511ce6746d6486740b887b60c6b18da30de2c6553a067fdda8f6151d96c",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Create an exact camera-locked night relight of the attested original game stage image of the ancient Long Walls road. Preserve the reference image composition, object locations, geometry, crop and precise viewpoint with no new props. 1672×941 single 16:9 opaque environment only, no borders. Moonlight from high right determines the scene, with soft nickel-blue limestone edges, deep blue-gray shadows, and low golden-clay notes remaining in the mudbrick. Use a deep neutral-blue star-dusted sky and an understated silver-blue line of sea at the exact central vanishing point to keep the corridor legible in a very narrow portrait center crop. The recurring left and right vertical buttress edges, converging walls and open matte stone lower third remain exactly where they were. An old Athenian fortified road, matte oil on textured material. No added torches, sconce, fires, lamps, glowing architecture, text, lettering, watermarks, people, animals or symbols. Let the walkway in the foreground remain quietly visible.",
+          "dayReference": "exec-81d1465a-7f87-4e81-9308-c817fd853455.png",
+          "dayReferenceSha256": "fb7e52a3904fd364167de3394659aa668bd2a5514e5336650ea6b8c5c3a1a7a2"
+        }
+      ]
+    }
+  }
+}
