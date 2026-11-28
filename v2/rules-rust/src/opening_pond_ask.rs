@@ -1,6 +1,6 @@
 use super::{
     authored_order::Order,
-    initial_wants, opening_content, opening_crossings, opening_mirror_move,
+    initial_wants, opening_content, opening_crossings, opening_hub_residents, opening_mirror_move,
     opening_pickups::item_as_named,
     opening_place_cards::{self, Deck},
     opening_pond_place_returns, opening_roster,
@@ -23,6 +23,13 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let vale = &world["actors"][VALE];
     let turn = world["turn"].as_u64()?;
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    if turn == 2 && began == 0 {
+        opening_mirror_move::second_arrival(world)?;
+    } else if turn.checked_sub(1) != Some(began)
+        || (began != 0 && files["v2/card-game/world-history.json"]["turns"] != began)
+    {
+        return None;
+    }
     let log = world["log"].as_array()?;
     let arrival = log
         .iter()
@@ -33,9 +40,7 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let mut want = forest["people"][PIP]["want"].as_object()?.clone();
     want.insert("since".into(), json!(0));
     want.insert("refusals".into(), json!(0));
-    if turn.checked_sub(1) != Some(began)
-        || (began != 0 && files["v2/card-game/world-history.json"]["turns"] != began)
-        || world["opening"]["crossed"] != true
+    if world["opening"]["crossed"] != true
         || world["opening"]["met"][PIP] != turn
         || world["playerActorId"] != VALE
         || ["heldActors", "controlledActors", "presentActors"]
@@ -170,7 +175,7 @@ pub(super) fn settle(
     deck: &Deck<'_>,
 ) -> Option<()> {
     quiet_pond(world, geo)?;
-    if world["turn"] == 1 {
+    if world["began"].is_null() || world["began"] == 0 {
         deck.settle(world, geo, None)?;
         let visited = world["actors"][VALE]["visited"].as_array_mut()?;
         if !visited.iter().any(|place| place == POND) {
@@ -224,7 +229,7 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let evidence = ResidentEvidence::new(&files)?;
     let mut world = opening_mirror_move::begin(before, &geo, &authored, &order, &evidence, carry)?;
     let deck = Deck::new(&world, &geo)?;
-    if world["turn"] != 1 {
+    if world["began"].as_u64().is_some_and(|began| began > 0) {
         let card_order = opening_place_cards::saved_order(request, before)?;
         opening_pond_place_returns::settle(
             &mut world,
@@ -237,6 +242,9 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         )?;
     }
     settle(&mut world, &geo, &authored, &order, &evidence, &deck)?;
+    if world["turn"] == 2 && (world["began"].is_null() || world["began"] == 0) {
+        opening_hub_residents::keeper_idle_after_move(&world, &geo)?;
+    }
     let mut response = json!({"ok":true});
     response["world"] = world;
     Some(response)

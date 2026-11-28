@@ -3,7 +3,7 @@ use super::{
     lamp_state,
     opening::{self, MAX_REVISION},
     opening_content, opening_crossings, opening_full_wait, opening_play, opening_roster,
-    opening_second_attic_tail, opening_second_round, opening_wait,
+    opening_second_attic_tail, opening_second_round, opening_wait, opening_wait_response,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     Geography, LampPosition,
@@ -42,6 +42,50 @@ pub(super) fn move_world(request: &Value) -> Option<(&Value, bool)> {
         return None;
     }
     Some((before, carry))
+}
+
+pub(super) fn second_arrival(world: &Value) -> Option<()> {
+    let receipt = &world["arrival"];
+    let seq = receipt["seq"].as_u64()?;
+    if world["turn"] != 2
+        || world.get("began").is_some_and(|began| began != 0)
+        || world["sharedVersion"] != 1
+        || world["actors"][VALE]["place"] != POND
+        || world["opening"]["crossed"] != true
+        || world["opening"]["met"]["moth"] != 2
+        || world["locations"][ATTIC]["anchored"] != true
+        || world["playerActorId"] != VALE
+        || ["heldActors", "controlledActors", "presentActors"]
+            .iter()
+            .any(|key| {
+                !world[*key]
+                    .as_array()
+                    .is_some_and(|ids| ids.len() == 1 && ids[0] == VALE)
+            })
+        || receipt["locationId"] != POND
+        || receipt["fromLocationId"] != ATTIC
+        || world["eventSeq"].as_u64()? < seq
+    {
+        return None;
+    }
+    let mut plays = world["log"]
+        .as_array()?
+        .iter()
+        .filter(|entry| opening_wait_response::vale_action(entry));
+    let wait = plays.next()?;
+    let travel = plays.next()?;
+    (opening_wait_response::ordinary_attic_wait(wait)
+        && wait["turn"] == 1
+        && wait["seq"].as_u64()? < seq
+        && travel["seq"] == seq
+        && travel["turn"] == 2
+        && travel["verb"] == "move"
+        && travel["fromLocationId"] == ATTIC
+        && travel["locationId"] == POND
+        && travel["targetId"] == POND
+        && (travel["itemId"].is_null() || travel["itemId"] == LAMP)
+        && plays.next().is_none())
+    .then_some(())
 }
 
 fn quiet_route(before: &Value, geo: &Geography<'_>) -> Option<()> {
