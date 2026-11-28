@@ -6,9 +6,8 @@
 // The inputs come from the crate itself: every quoted relative path or
 // card_assets key in its sources (include_str!, include_bytes!, files the
 // tests read, modules they import through Node) that names a real file or
-// directory, owned by the module that names it. A filter is that module's
-// test path, read from the `mod` tree, since #[path] renames files
-// (src/card_narrative.rs is routes::card_game::narrative).
+// directory, owned by the module that names it. Filters follow the `mod` tree
+// so `#[path]` module names match their libtest paths.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, posix } from "node:path";
 import process from "node:process";
