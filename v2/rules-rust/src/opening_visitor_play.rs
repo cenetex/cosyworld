@@ -3,8 +3,10 @@ use super::{
     opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
     opening_pond_call_view::{completion_owners, drop_receipt},
-    opening_pond_ship_board, opening_roster, opening_station_move, opening_station_read,
-    opening_station_view, opening_visitor_routes,
+    opening_pond_ship_board,
+    opening_pond_ship_settlement::course_before_sailing,
+    opening_roster, opening_station_move, opening_station_read, opening_station_view,
+    opening_visitor_routes,
     opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -18,7 +20,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 
 fn quiet_turn(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
-    if !matches!(turn, 2..=8)
+    if !matches!(turn, 2..=9)
         || world.get("began").is_some_and(|began| began != 0)
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
@@ -50,6 +52,7 @@ fn quiet_turn(world: &Value) -> Option<u64> {
             opening_station_move::departure_turn(world).map(|_| ())
         }
         (8, "greek-ship") => opening_pond_ship_board::arrival(world).map(|_| ()),
+        (9, "greek-ship") => course_before_sailing(world).map(|_| ()),
         (5, "station") => opening_station_view::keeper_return::gift_head(world).map(|_| ()),
         (7, "pond") => pond_drop_scene(world),
         (_, "station") => opening_station_move::arrival(world)
@@ -262,7 +265,7 @@ fn quiet_departure_wait(
         opening_station_move::abandoned_train_arrival(world).is_some() || read.is_some();
     let round = world["turn"].as_u64()?;
     let station_departure = round == 7 || opening_station_move::departure_turn(world).is_some();
-    let boarded = round == 8;
+    let boarded = matches!(round, 8 | 9);
     if (!same_room && !station_departure && !boarded && round != 3)
         || (!station_departure && !boarded && world["actors"]["vale"]["place"] != "station")
         || here == "station"
@@ -346,7 +349,7 @@ fn quiet_ada_aboard(world: &Value, geo: &Geography<'_>, custody: &Custody) -> Op
     let ship = "greek-ship";
     let ada = &world["actors"]["ada"];
     let target = ada["want"]["target"].as_str()?;
-    let arrival = opening_pond_ship_board::arrival(world)?;
+    let arrival = world["arrival"]["seq"].as_u64()?;
     let transport = &world["transports"][ship];
     if opening_pond_ship_board::ada_boarding_receipt(world)? >= arrival
         || ada["visited"] != json!(["loft", ship])
@@ -364,7 +367,7 @@ fn quiet_ada_aboard(world: &Value, geo: &Geography<'_>, custody: &Custody) -> Op
         || world["opening"]["met"]["ada"] != 8
         || world["packs"]["shared-homes"]["met"]["ada"] != 8
         || !world["routeKnowledge"]["ada"].is_null()
-        || transport["phase"] != "docked"
+        || !matches!(transport["phase"].as_str(), Some("docked" | "course"))
         || transport["dock"] != "pond"
         || transport["riders"] != json!([])
         || !geo.visiting_resident(world, "ada")
@@ -508,7 +511,7 @@ fn perform_visitor(
         return None;
     }
     if a["place"] != home {
-        if turn == 8 && actor == "ada" && a["place"] == "greek-ship" {
+        if matches!(turn, 8 | 9) && actor == "ada" && a["place"] == "greek-ship" {
             return quiet_ada_aboard(world, geo, custody);
         }
         return quiet_departure_wait(world, geo, order, custody, actor, home, item);
@@ -529,7 +532,7 @@ fn perform_visitor(
     let destination = home_destination(world, geo, actor, home)?;
     if (historic_to.is_some() && destination != historic_to)
         || (destination.is_some()
-            && (turn == 8 || opening_station_move::departure_turn(world).is_some()))
+            && (matches!(turn, 8 | 9) || opening_station_move::departure_turn(world).is_some()))
         || (turn == 7
             && destination.is_some_and(|to| {
                 world["items"]["lamp"]["lit"] != true || !pond_drop_route(actor, home, to)

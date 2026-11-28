@@ -8,14 +8,28 @@ const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const key = "course:vale::greek-harbor";
 const primary = "opening_pond_ship_course";
 const depart = "opening_pond_ship_course_depart";
+const residents = "opening_ship_course_residents";
 
 function captureCourse(source) {
   const action =
     "    const respondent = perform(next, exact, round2, residents2);";
   const sailed = "    settleVoyageCargo(next, voyages, nameOf2, worldLine);";
-  assert.equal(source.split(action).length, 2);
-  assert.equal(source.split(sailed).length, 2);
+  const after = "    const rings2 = next.log.filter(";
+  const plan =
+    "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
+  for (const cut of [action, sailed, after, plan])
+    assert.equal(source.split(cut).length, 2);
   return source
+    .replace(
+      after,
+      "    if (next.turn === 9) globalThis.afterResidents = structuredClone(next);\n$&",
+    )
+    .replace(
+      plan,
+      `      const chosen = read2 ?? plan(next, id).action;
+      if (next.turn === 9) globalThis.plans.push([id,chosen.key,Boolean(read2 || beginLearning(next,chosen) || transportArrival(next,id) || packWaitChoice(next,id) || chosen.sleep || chosen.guards)]);
+      perform(next, chosen, round2, residents2);`,
+    )
     .replace(
       action,
       "$&\n    if (next.turn === 9) globalThis.course = structuredClone(next);",
@@ -74,6 +88,7 @@ test("the first Course matches the pinned action and departure", async () => {
           action: canonical ? { key } : key,
           revision: boarded.revision,
         };
+        reference.plans = [];
         const reply = run(request);
         const course = captured("course");
         const sailed = captured("departed");
@@ -82,6 +97,31 @@ test("the first Course matches the pinned action and departure", async () => {
         assert.ok(
           isDeepStrictEqual(wasm(sample), { ok: true, world: course }),
           label,
+        );
+        const waiting = captured("afterResidents");
+        assert.deepEqual(waiting, course);
+        assert.deepEqual(reference.plans.map(([id]) => id).toSorted(), [
+          "ada",
+          "ash",
+          "keeper",
+          "mara",
+          "moth",
+          "nell",
+          "orin",
+          "rue",
+          "tavi",
+        ]);
+        assert.ok(
+          reference.plans.every(
+            ([id, key, effect]) => key === `wait:${id}::` && !effect,
+          ),
+        );
+        assert.ok(
+          isDeepStrictEqual(wasm({ op: residents, world: course }), {
+            ok: true,
+            world: waiting,
+          }),
+          `${label} residents`,
         );
         setting = { op: depart, world: course };
         assert.ok(
@@ -112,4 +152,19 @@ test("the first Course matches the pinned action and departure", async () => {
   const wrongCourse = structuredClone(setting.world);
   wrongCourse.transports["greek-ship"].destination = "pond";
   assert.equal(wasm({ ...setting, world: wrongCourse }), null);
+  for (const change of [
+    (world) => {
+      world.transports["greek-ship"].phase = "sea";
+    },
+    (world) => {
+      world.actors.moth.want.refusals = 1;
+    },
+    (world) => {
+      world.actors.tavi.dwellUntil = 9;
+    },
+  ]) {
+    const world = structuredClone(setting.world);
+    change(world);
+    assert.equal(wasm({ op: residents, world }), null);
+  }
 });
