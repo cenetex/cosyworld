@@ -3,7 +3,7 @@ use super::{
     opening::{self, MAX_REVISION},
     opening_content,
     opening_full_wait::visible_items,
-    opening_pond_ship_board, opening_roster, opening_settlement,
+    opening_pond_ship_board, opening_pond_ship_view, opening_roster, opening_settlement,
     opening_station_move::departure_witnesses,
     opening_visitor_transport,
     opening_wait_response::vale_action,
@@ -39,11 +39,39 @@ pub(super) fn course_world(request: &Value) -> Option<&Value> {
 }
 
 pub(super) fn event(world: &Value) -> Option<&Value> {
-    let seq = world["arrival"]["seq"].as_u64()?.checked_add(1)?;
-    let event = world["log"]
-        .as_array()?
+    course_event(world, |_, _| Some(()))
+}
+
+fn course_event(
+    world: &Value,
+    check_caption: impl Fn(&Value, &str) -> Option<()>,
+) -> Option<&Value> {
+    let log = world["log"].as_array()?;
+    let at = log
         .iter()
-        .find(|event| event["seq"] == seq)?;
+        .position(|entry| entry["seq"] == world["arrival"]["seq"])?;
+    let (board, suffix) = log.get(at..)?.split_first()?;
+    let mut suffix = suffix.iter().peekable();
+    let mut seq = board["seq"].as_u64()?;
+    if board["turn"] != 8
+        || !vale_action(board)
+        || board["verb"] != "move"
+        || board["fromLocationId"] != "pond"
+        || board["locationId"] != SHIP
+        || board["targetId"] != SHIP
+        || !(board["itemId"].is_null() || board["itemId"] == "cloth")
+    {
+        return None;
+    }
+    while suffix.peek().is_some_and(|entry| entry["turn"] == 8) {
+        let caption = suffix.next()?;
+        seq = seq.checked_add(1)?;
+        if caption["seq"] != seq {
+            return None;
+        }
+        check_caption(caption, boarding_caption(board, caption)?)?;
+    }
+    let event = suffix.next()?;
     (world["turn"] == 9
         && world["actors"][VALE]["place"] == SHIP
         && world["arrival"]["locationId"] == SHIP
@@ -54,6 +82,7 @@ pub(super) fn event(world: &Value) -> Option<&Value> {
             world["transports"][SHIP]["phase"].as_str(),
             Some("course" | "sea")
         )
+        && event["seq"] == seq.checked_add(1)?
         && vale_action(event)
         && event["turn"] == 9
         && event["verb"] == "course"
@@ -62,6 +91,30 @@ pub(super) fn event(world: &Value) -> Option<&Value> {
         && event["targetId"] == HARBOR
         && event["itemId"].is_null())
     .then_some(event)
+}
+
+fn boarding_caption<'a>(board: &Value, caption: &'a Value) -> Option<&'a str> {
+    let cast = board["cast"].as_array()?;
+    let present = caption["cast"].as_array()?;
+    let voice = match caption["kind"].as_str()? {
+        "dialogue" => {
+            let speaker = caption["actorId"].as_str()?;
+            (caption["entityId"] == speaker
+                && matches!(speaker, VALE | "ada")
+                && cast.iter().any(|id| id == speaker))
+            .then_some(speaker)?
+        }
+        "narration" if caption["entityId"] == SHIP && caption["actorId"].is_null() => SHIP,
+        _ => return None,
+    };
+    (caption["generated"] == true
+        && caption["locationId"] == SHIP
+        && caption["items"] == board["items"]
+        && caption["light"] == false
+        && caption.get("elysiumName").is_none()
+        && present.len() == cast.len()
+        && cast.iter().all(|id| present.contains(id)))
+    .then_some(voice)
 }
 
 pub(super) fn begin_with<T>(
@@ -74,9 +127,7 @@ pub(super) fn begin_with<T>(
 ) -> Option<(Value, T)> {
     let boarded = opening_pond_ship_board::arrival_event(before)?;
     let actor = &before["actors"][VALE];
-    if boarded["seq"] != before["eventSeq"]
-        || before["log"].as_array()?.last()? != boarded
-        || before["sharedVersion"] != 1
+    if before["sharedVersion"] != 1
         || before.get("began").is_some_and(|turn| turn != 0)
         || before["transports"][SHIP] != transport("docked", 8, None)
         || !before["standoffs"].as_array()?.is_empty()
@@ -89,6 +140,15 @@ pub(super) fn begin_with<T>(
         || before["items"]["lamp"]["lit"] != true
     {
         return None;
+    }
+    if boarded["seq"] == before["eventSeq"] {
+        if before["log"].as_array()?.last()? != boarded {
+            return None;
+        }
+    } else {
+        opening_pond_ship_view::settled_speakers(before, geo, |id| {
+            evidence.profile(id)?["name"].as_str()
+        })?;
     }
     opening_visitor_transport::permits_course(before, geo, VALE, SHIP, HARBOR)?;
     let revision = before["revision"].as_u64()?.checked_add(1)?;
@@ -141,7 +201,10 @@ pub(super) fn sail(
     order: &[&str],
     evidence: &ResidentEvidence,
 ) -> Option<()> {
-    if event(world)?["seq"] != world["eventSeq"]
+    let course = course_event(world, |caption, speaker| {
+        (caption["speaker"] == evidence.profile(speaker)?["name"]).then_some(())
+    })?;
+    if course["seq"] != world["eventSeq"]
         || world["transports"][SHIP] != transport("course", 9, Some(HARBOR))
         || !geo.entity_active(world, VALE)?
         || opening_settlement::sail_course(world, catalog, SHIP)?

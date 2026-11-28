@@ -94,10 +94,39 @@ test("the first Course matches the pinned action and departure", async () => {
       if (canonical) world.actors = sorted(world.actors);
       world = play(world, "drop:vale:lamp:pond");
       for (const item of ["", "cloth"]) {
-        const boarded = play(
+        let boarded = play(
           world,
           ["move", "vale", item, "greek-ship"].join(":"),
         );
+        const boardingSeq = boarded.eventSeq;
+        if (item === "cloth") {
+          boarded = run({
+            ...seats,
+            op: "speech",
+            world: boarded,
+            room: "greek-ship",
+            lines: [
+              { actorId: "vale", text: "The deck feels quiet." },
+              ...(seed === undefined
+                ? [{ actorId: "ada", text: "The water carries us." }]
+                : []),
+              { entityId: "greek-ship", text: "The hull creaks softly." },
+            ],
+          }).world;
+          boarded = run({
+            ...seats,
+            op: "speech",
+            world: boarded,
+            present: [],
+            lines: [
+              { entityId: "greek-ship", text: "Ripples spread from the hull." },
+            ],
+          }).world;
+          assert.equal(
+            boarded.eventSeq,
+            boardingSeq + 3 + Number(seed === undefined),
+          );
+        }
         if (canonical) boarded.actors = sorted(boarded.actors);
         const request = {
           ...seats,
@@ -178,6 +207,7 @@ test("the first Course matches the pinned action and departure", async () => {
           boarded.actors.vale.waitSpeech,
         );
         assert.deepEqual(reply.events, [course.log.at(-1), sailed.log.at(-1)]);
+        assert.equal(course.log.at(-1).seq, boarded.eventSeq + 1);
         assert.deepEqual(reply.exits, []);
         assert.deepEqual(
           course.log.at(-1).witnesses,
@@ -192,6 +222,15 @@ test("the first Course matches the pinned action and departure", async () => {
   const other = structuredClone(sample.world);
   other.actors.ada.place = "greek-ship";
   assert.equal(wasm({ ...sample, world: other }), null);
+  const wrongCaption = structuredClone(sample.world);
+  wrongCaption.log.at(-1).speaker = "Unwitnessed speaker";
+  assert.equal(wasm({ ...sample, world: wrongCaption }), null);
+  const unwitnessed = structuredClone(setting.world);
+  unwitnessed.log.at(-2).cast.push("ada");
+  assert.equal(wasm({ ...setting, world: unwitnessed }), null);
+  const mislabeled = structuredClone(setting.world);
+  mislabeled.log.at(-2).speaker = "Unwitnessed speaker";
+  assert.equal(wasm({ ...setting, world: mislabeled }), null);
   const wrongCourse = structuredClone(setting.world);
   wrongCourse.transports["greek-ship"].destination = "pond";
   assert.equal(wasm({ ...setting, world: wrongCourse }), null);

@@ -649,7 +649,6 @@ describe("the roads home keep the Greek story gates", () => {
 
   for (const stage of ["open door", "ajax"])
     it(`opens the Agora to a sea arrival and to a walker alike: ${stage}`, () => {
-      // Myrto has packed a load of provisions (rules 95).
       const s = holding(
         stowProvisions(stages[stage](), "greek-harbor"),
         "greek-creon-writ",
