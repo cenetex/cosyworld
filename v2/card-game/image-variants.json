@@ -2942,33 +2942,6 @@
       "phone": "assets/optimized/phone/webp/greek-drama/bacchae-cithaeron-day.webp",
       "phoneHash": "8b2664d486db00c824bc4369360b1c5cf2d4f2394af28fc937ffdd4f2b77ed4e"
     },
-    "assets/greek-drama/book-three-achilles.png": {
-      "sourceHash": "fc6c481696dd63c7da09571cf0d8e7c2d5972e4ebf805ff208965a8983b35dfc",
-      "stage": "assets/optimized/stage/png/greek-drama/book-three-achilles.webp",
-      "stageHash": "c31ca02e0688fdee8139236ba05a8922cfc03ed0cd31c999391db0806c086f96",
-      "card": "assets/optimized/card/png/greek-drama/book-three-achilles.webp",
-      "cardHash": "1d45f5dfc77e21545ae42300c532f9b96f8d0623a9eb63062e11cdab554c88a7",
-      "phone": "assets/optimized/phone/png/greek-drama/book-three-achilles.webp",
-      "phoneHash": "c56e7a48917496198972b1ed956fecb448e4a959ddffaacb19e490ab4b96326f"
-    },
-    "assets/greek-drama/book-three-clytemnestra.png": {
-      "sourceHash": "de3702b884f8430a1f3db7c9e1ed3d94ec4ffedee31491e705fd3e33c7a0ef19",
-      "stage": "assets/optimized/stage/png/greek-drama/book-three-clytemnestra.webp",
-      "stageHash": "223356a331678d48e8d0a89ece415ed7997c94b64df10f4e0b1a4c808cea2d8a",
-      "card": "assets/optimized/card/png/greek-drama/book-three-clytemnestra.webp",
-      "cardHash": "29facb131af4dc708c7670a1cedc82e951a7be3d23e61928a3ea80c5f445c9aa",
-      "phone": "assets/optimized/phone/png/greek-drama/book-three-clytemnestra.webp",
-      "phoneHash": "77f63d4d83c6ae50fab8a8f943326e45bbeea3926d59aa821cf5d8ea8c10536a"
-    },
-    "assets/greek-drama/book-three-iphigenia.png": {
-      "sourceHash": "a8b9176f8fd51aa48cbfaf37ef44c8fee51cc4138604c1c661d31ba3e86a10bb",
-      "stage": "assets/optimized/stage/png/greek-drama/book-three-iphigenia.webp",
-      "stageHash": "eeb2dca7e4d32ff253718e36da41775c8cd6cd05a941f175ae77089aaf8cf810",
-      "card": "assets/optimized/card/png/greek-drama/book-three-iphigenia.webp",
-      "cardHash": "ea9b864d76062150b03a878cb58eb16f10499cf71b96f00ead708997b9c0c7f2",
-      "phone": "assets/optimized/phone/png/greek-drama/book-three-iphigenia.webp",
-      "phoneHash": "1095309f7fbb81dd750adb07268405f38dad77a52b666e39106ee442262b6757"
-    },
     "assets/greek-drama/book-three-lemnos-day.webp": {
       "sourceHash": "e258ce08d483b2dd5d8f163e93b2891d0255baea3939d2854df4e5087a2af961",
       "stage": "assets/greek-drama/book-three-lemnos-day.webp",
@@ -2977,15 +2950,6 @@
       "cardHash": "5ee81c9c76529d1ac32e07e17af698568d1fddcaa5ba271cdc89e45ce42c3bfd",
       "phone": "assets/optimized/phone/webp/greek-drama/book-three-lemnos-day.webp",
       "phoneHash": "7cdef99bff646ff0f3bbbaf15acc3d681c14c3e1c67c0c7ed8a72a1313e81e63"
-    },
-    "assets/greek-drama/book-three-neoptolemus.png": {
-      "sourceHash": "974d3bf51254ba8a631044baf2cfc4d34223ebddb25451eb075b8f64de459c89",
-      "stage": "assets/optimized/stage/png/greek-drama/book-three-neoptolemus.webp",
-      "stageHash": "c7699c8d90a9adc60c28b1b2730fcbf7f4df34a2eb47045860277300dcf9bcfd",
-      "card": "assets/optimized/card/png/greek-drama/book-three-neoptolemus.webp",
-      "cardHash": "e59caceb0575cfeb17d394c073a8af4c88dc61c449e64d5b0e8b9dc0802f8943",
-      "phone": "assets/optimized/phone/png/greek-drama/book-three-neoptolemus.webp",
-      "phoneHash": "d630044a9191e92b80eabd9fe43ea3475acd1673cbd69d769ca87ea0b772d220"
     },
     "assets/greek-drama/book-three-susa-day.webp": {
       "sourceHash": "67fdb625eb21ba74606c48509418e171296b027d001321a3b332c799066aa1b1",
@@ -4003,6 +3967,942 @@
       "cardHash": "e7eecf2ea75bcbe7d2ceb470e2ea05d5f225744bbd686eae6c093e1ae4eeb965",
       "phone": "assets/optimized/phone/png/greek-drama/refuge-tablet.webp",
       "phoneHash": "7a0fc514117600eda6494cdee53e0fb3161c6c514b9cf87613dcab7b94ca9935"
+    },
+    "assets/greek-drama/repertoire-greek-acharnae-stall.webp": {
+      "sourceHash": "9d507fc0a648f88593a69fd6fd91a1249b2dc55a7e899747c64bda99f3eb7c98",
+      "stage": "assets/greek-drama/repertoire-greek-acharnae-stall.webp",
+      "stageHash": "9d507fc0a648f88593a69fd6fd91a1249b2dc55a7e899747c64bda99f3eb7c98",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-acharnae-stall.webp",
+      "cardHash": "a6046f31bb6af3942a9a4c7016d2ebafcf0337b07990b7975bc3d5ca8fb25316",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-acharnae-stall.webp",
+      "phoneHash": "e1c1a1a33427d81332a1d12cfc76ce754724d05606aa3890694abc3b230d0f77"
+    },
+    "assets/greek-drama/repertoire-greek-acharnae.webp": {
+      "sourceHash": "92b23801157858b6dd3e1992623ee85cefbe283de5d98d2e2179004e39f5fb2c",
+      "stage": "assets/greek-drama/repertoire-greek-acharnae.webp",
+      "stageHash": "92b23801157858b6dd3e1992623ee85cefbe283de5d98d2e2179004e39f5fb2c",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-acharnae.webp",
+      "cardHash": "84723d694d67e34b05896cbcf08487ac084af42ef9e4219eb5a15fece96b9b0e",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-acharnae.webp",
+      "phoneHash": "c28d217dfe2002448063ed16746f2cbd14bcaedb7038ff25e0e4826c1972c814"
+    },
+    "assets/greek-drama/repertoire-greek-acropolis.webp": {
+      "sourceHash": "d226647beffab859796014590b9b7569c28a3361ae8815e4366b275f5a9d71f4",
+      "stage": "assets/greek-drama/repertoire-greek-acropolis.webp",
+      "stageHash": "d226647beffab859796014590b9b7569c28a3361ae8815e4366b275f5a9d71f4",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-acropolis.webp",
+      "cardHash": "9824b5392857ac39b0e9f0678a3d6fc02c650d3e10c8cca517d376c0fada78ac",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-acropolis.webp",
+      "phoneHash": "94dd68dd59527db091714448b88515d78f7b0d7f1017204e76271afb4cfa8503"
+    },
+    "assets/greek-drama/repertoire-greek-areopagus.webp": {
+      "sourceHash": "3a2aacc6a8a8b67580221d35e30632bad6d303b6e8db6d5c24709b8c482dfb05",
+      "stage": "assets/greek-drama/repertoire-greek-areopagus.webp",
+      "stageHash": "3a2aacc6a8a8b67580221d35e30632bad6d303b6e8db6d5c24709b8c482dfb05",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-areopagus.webp",
+      "cardHash": "0807421b2b4ea996f4a2b35ca3a3726c626510548d5cb2817f79fa52553d784f",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-areopagus.webp",
+      "phoneHash": "80c9b29f28c0480dab40c1acb63e6306aa6fff494796c49a5fd7b164b8826153"
+    },
+    "assets/greek-drama/repertoire-greek-argive-jury.webp": {
+      "sourceHash": "20b6b58af8f3dfda214d0394bdd09bafb269e3388c09840b661746e5f63990c6",
+      "stage": "assets/greek-drama/repertoire-greek-argive-jury.webp",
+      "stageHash": "20b6b58af8f3dfda214d0394bdd09bafb269e3388c09840b661746e5f63990c6",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-argive-jury.webp",
+      "cardHash": "42340a6f1ca835f675dd009060b2f9e12bebd138e14beeb58d15551b16abbe83",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-argive-jury.webp",
+      "phoneHash": "52c128f50d2268fb7e695cee390c0fca890c9abc87416dbb9c40298192473f9a"
+    },
+    "assets/greek-drama/repertoire-greek-assembly.webp": {
+      "sourceHash": "f6f9dcd9f231487c70bb79ed961f9e8d66f00c102c3099e9b3c2251d58393dfa",
+      "stage": "assets/greek-drama/repertoire-greek-assembly.webp",
+      "stageHash": "f6f9dcd9f231487c70bb79ed961f9e8d66f00c102c3099e9b3c2251d58393dfa",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-assembly.webp",
+      "cardHash": "3656159fd28e110cd175faa8fb279cb719b3091be8c10a8173ceaf2b8b9d178a",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-assembly.webp",
+      "phoneHash": "7c184315a90fb1f1cda6a39b5c569b6d5376a46301fec69bc64aa277a6630cc0"
+    },
+    "assets/greek-drama/repertoire-greek-attic-farm.webp": {
+      "sourceHash": "ed69cba84238dc284c09b8734d7464f172f004f0e11319e1fdb2e850cf5e87a7",
+      "stage": "assets/greek-drama/repertoire-greek-attic-farm.webp",
+      "stageHash": "ed69cba84238dc284c09b8734d7464f172f004f0e11319e1fdb2e850cf5e87a7",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-attic-farm.webp",
+      "cardHash": "3beb58e97b0b66fac844d33b2d6b7119be288e1bf7a9bbf70967506a05ea03c9",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-attic-farm.webp",
+      "phoneHash": "d437ceae1844bc5464d4eee5183ed2cb7e99b6e5adecd813474034c97c8954a3"
+    },
+    "assets/greek-drama/repertoire-greek-bird-wilderness.webp": {
+      "sourceHash": "43ba32b39d250f687745402e24449d41fa8d23dc92b2598a6a3503dea6466802",
+      "stage": "assets/greek-drama/repertoire-greek-bird-wilderness.webp",
+      "stageHash": "43ba32b39d250f687745402e24449d41fa8d23dc92b2598a6a3503dea6466802",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-bird-wilderness.webp",
+      "cardHash": "a4121b16de29e3971263be32b1a8e59f107057c5c5be84e25f38a381aa947384",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-bird-wilderness.webp",
+      "phoneHash": "2c729f027f22c5782f4af6cd5ddd724a4a8582337f8b260e1b8070a164cb79aa"
+    },
+    "assets/greek-drama/repertoire-greek-cadmea-street.webp": {
+      "sourceHash": "5015386c00419be63fd7f15f9a64739cba494c1c0a9a6f29cca979db53abfbbd",
+      "stage": "assets/greek-drama/repertoire-greek-cadmea-street.webp",
+      "stageHash": "5015386c00419be63fd7f15f9a64739cba494c1c0a9a6f29cca979db53abfbbd",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-cadmea-street.webp",
+      "cardHash": "d68c3858aff2aed8a6bca67815585acaf97e39fea216d81c8fcc1505c6d1d9eb",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-cadmea-street.webp",
+      "phoneHash": "a099ad52ffeeb4cffccf730cea981cf028f8234d60c09c22012f77278902dcc4"
+    },
+    "assets/greek-drama/repertoire-greek-cithaeron-shrine.webp": {
+      "sourceHash": "cefe766d9ac4291b17c53ec3f7b3a48ff087f992084c54af40fe72f83586fee2",
+      "stage": "assets/greek-drama/repertoire-greek-cithaeron-shrine.webp",
+      "stageHash": "cefe766d9ac4291b17c53ec3f7b3a48ff087f992084c54af40fe72f83586fee2",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-cithaeron-shrine.webp",
+      "cardHash": "757dff6deb0f8a1342e74a40ab01959a7324f636652dd68be720f8b8f7dbdbb7",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-cithaeron-shrine.webp",
+      "phoneHash": "340d3486c767a51c8c1d0927431d83ce82296d997861d37eee8c577dd549f2fa"
+    },
+    "assets/greek-drama/repertoire-greek-colonus-theseus.png": {
+      "sourceHash": "c272c161da58f4e740531e945ae2776f17c49af730956c387e760f1545366e78",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-colonus-theseus.webp",
+      "stageHash": "a80d16d50b6c6598816fdeed97184c88d96c6912a52c26f5b89d5c4426159abc",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-colonus-theseus.webp",
+      "cardHash": "4c4030f72f95404e7f8c9216c606ba74c8121973cc8495066c46a97377cebe68",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-colonus-theseus.webp",
+      "phoneHash": "cd33e4c3e359f1aca6bc3d74e22f17005edb3eb8ee88a119794ae6b7403602d5"
+    },
+    "assets/greek-drama/repertoire-greek-corinth.webp": {
+      "sourceHash": "5f9efb3ecee82efecdee5f9fffc14da3047d992d982f4a9d977e6718c98f9616",
+      "stage": "assets/greek-drama/repertoire-greek-corinth.webp",
+      "stageHash": "5f9efb3ecee82efecdee5f9fffc14da3047d992d982f4a9d977e6718c98f9616",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-corinth.webp",
+      "cardHash": "1b8998921daf83909258dd7457495786554d47e7175ef743e747c731931b85c1",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-corinth.webp",
+      "phoneHash": "b4c28905bff774dad71180e92c3430ebae9e51fdd7db6772e4888f35c214e399"
+    },
+    "assets/greek-drama/repertoire-greek-demos-house.webp": {
+      "sourceHash": "0885e095c059e71aac7e67fa997da0d9cf461d94060aae51dfa9f31218b865cc",
+      "stage": "assets/greek-drama/repertoire-greek-demos-house.webp",
+      "stageHash": "0885e095c059e71aac7e67fa997da0d9cf461d94060aae51dfa9f31218b865cc",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-demos-house.webp",
+      "cardHash": "248116aea02249adf9adcf7b62ac99295dbd64f4c37026e8e7bb2d957f7b98e2",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-demos-house.webp",
+      "phoneHash": "e9f9e25216baa7e188c709695bfe3b3e31734e8759867ae4edbc71195f41078d"
+    },
+    "assets/greek-drama/repertoire-greek-divine-heights.webp": {
+      "sourceHash": "fd3d59c131eae1d7e48392eef13c604b2e0021596c7b124aff3b50aed76f82f2",
+      "stage": "assets/greek-drama/repertoire-greek-divine-heights.webp",
+      "stageHash": "fd3d59c131eae1d7e48392eef13c604b2e0021596c7b124aff3b50aed76f82f2",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-divine-heights.webp",
+      "cardHash": "4cdfff04258765db6c2550c9b4525862209b5107b9bf86ad591179fdedcdd2f4",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-divine-heights.webp",
+      "phoneHash": "7378cd41c336ea255de353b045ce91567110cdb5032ba0b28da99711a04304b7"
+    },
+    "assets/greek-drama/repertoire-greek-festival.webp": {
+      "sourceHash": "7dac314605021f63fdd3cd8f91124f33bf3a18ebd1a0bee14c750557d942970d",
+      "stage": "assets/greek-drama/repertoire-greek-festival.webp",
+      "stageHash": "7dac314605021f63fdd3cd8f91124f33bf3a18ebd1a0bee14c750557d942970d",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-festival.webp",
+      "cardHash": "e2a37afc5a5ed7de1dcbbd70ca2f6e97dffc79c8b6062f449d453eb7acae0885",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-festival.webp",
+      "phoneHash": "feb71403abacc4f914d58d18d8d8093ba946f2cef4f96e05a33588cb97555af8"
+    },
+    "assets/greek-drama/repertoire-greek-heracles-altar.webp": {
+      "sourceHash": "7b9ddc115249fced2bf7463153516893ef696c428205baf91b1cfda480fc12ce",
+      "stage": "assets/greek-drama/repertoire-greek-heracles-altar.webp",
+      "stageHash": "7b9ddc115249fced2bf7463153516893ef696c428205baf91b1cfda480fc12ce",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-heracles-altar.webp",
+      "cardHash": "83152410c03b23c8011c0d0d6e5b0a263059b91b91cb345305515774b390084e",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-heracles-altar.webp",
+      "phoneHash": "0098889cece7e3270279c8e729881adb9cc33c07794bb7b22efaaf32c0922c4d"
+    },
+    "assets/greek-drama/repertoire-greek-ion-court.webp": {
+      "sourceHash": "f408671873ce27ccdd014a7aa27e01db5b1ba89a13e5f566e2943bf0dda52aa0",
+      "stage": "assets/greek-drama/repertoire-greek-ion-court.webp",
+      "stageHash": "f408671873ce27ccdd014a7aa27e01db5b1ba89a13e5f566e2943bf0dda52aa0",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-ion-court.webp",
+      "cardHash": "4b8b3c070ed348344a52216cb6566351e1f360c1610ced142f6f6ddcdd45089a",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-ion-court.webp",
+      "phoneHash": "40d016f9c1b5c7a35c2004405af8f640131f01d2ebbf378686bc05bfd8b3658f"
+    },
+    "assets/greek-drama/repertoire-greek-jocasta-rooms.webp": {
+      "sourceHash": "c4cbde645affc06baaf9913a7d35639878f285a571e48f0d8bbfdbbf4fbac735",
+      "stage": "assets/greek-drama/repertoire-greek-jocasta-rooms.webp",
+      "stageHash": "c4cbde645affc06baaf9913a7d35639878f285a571e48f0d8bbfdbbf4fbac735",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-jocasta-rooms.webp",
+      "cardHash": "cd3d3836002653879965e78bd434b2feebca767ad908e4ba2017365eeafe7811",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-jocasta-rooms.webp",
+      "phoneHash": "99b4b0a85f8ba7d1054227ef114da8bd09a52efaba9d1e122ddbba10f187d3d7"
+    },
+    "assets/greek-drama/repertoire-greek-jury-house.webp": {
+      "sourceHash": "35ee3f9ef982fffabcb062ec774dbc161b1137219fa19c34700aac7225b8cace",
+      "stage": "assets/greek-drama/repertoire-greek-jury-house.webp",
+      "stageHash": "35ee3f9ef982fffabcb062ec774dbc161b1137219fa19c34700aac7225b8cace",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-jury-house.webp",
+      "cardHash": "20b4101ce26cca0553336b38db12497152539627d9048d3ac44b1099c4f43a1b",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-jury-house.webp",
+      "phoneHash": "280b014766d5637ee3eb2d091e8fbb64ad88864171ca0bf07172f467d57664a0"
+    },
+    "assets/greek-drama/repertoire-greek-marathon-alcmene.png": {
+      "sourceHash": "760f8866fbc77dfd73b81385687f1217341dc3c3ce8c4a59b5ea4d76fa7901bb",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-marathon-alcmene.webp",
+      "stageHash": "81c3858bc9cf9818d86691775f279fd69bc5ea9949b543e4f9d6fcb2e450e9b9",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-marathon-alcmene.webp",
+      "cardHash": "e78fa3d61a4efe6a6e796865fd64d5d7b1247323ed3893b958841f918ff215eb",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-marathon-alcmene.webp",
+      "phoneHash": "4bca475873ce8cb39f6d3483580e11184e87204fcf5b3ab97aa4b72df627a799"
+    },
+    "assets/greek-drama/repertoire-greek-oedipus-court.webp": {
+      "sourceHash": "6a117a3810c803501df3197e2c26011f9d428bbeb22d80beace88018252b1c21",
+      "stage": "assets/greek-drama/repertoire-greek-oedipus-court.webp",
+      "stageHash": "6a117a3810c803501df3197e2c26011f9d428bbeb22d80beace88018252b1c21",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-oedipus-court.webp",
+      "cardHash": "6900c2e01dd9df3652bb803f4fcd0b5a26dd29a831ee69ed4439cd1de8d587c3",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-oedipus-court.webp",
+      "phoneHash": "160b246cadb691fcc104ca89eb0db9983cd1a620b5ee81c035629b6a05200e10"
+    },
+    "assets/greek-drama/repertoire-greek-pagasae-night.webp": {
+      "sourceHash": "19f455c56c5f3ed15074b77ef30bdc3e88fdaa04fd21ac51d1aa9093b66757ff",
+      "stage": "assets/greek-drama/repertoire-greek-pagasae-night.webp",
+      "stageHash": "19f455c56c5f3ed15074b77ef30bdc3e88fdaa04fd21ac51d1aa9093b66757ff",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-pagasae-night.webp",
+      "cardHash": "73048a82c8227a56b7aecf73acf92cabd13332c92cc409ff826227a5539dc1b2",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-pagasae-night.webp",
+      "phoneHash": "7daf64b60a2ecc50989914e74377c4c6a94d6d4343689be5a7462d369e154103"
+    },
+    "assets/greek-drama/repertoire-greek-pagasae-pilot.webp": {
+      "sourceHash": "479797f9c6f1dbfe4c83bc9e4e99ef1d5444f2f307252de415043d27819cee0c",
+      "stage": "assets/greek-drama/repertoire-greek-pagasae-pilot.webp",
+      "stageHash": "479797f9c6f1dbfe4c83bc9e4e99ef1d5444f2f307252de415043d27819cee0c",
+      "card": "assets/greek-drama/repertoire-greek-pagasae-pilot.webp",
+      "cardHash": "479797f9c6f1dbfe4c83bc9e4e99ef1d5444f2f307252de415043d27819cee0c",
+      "phone": "assets/greek-drama/repertoire-greek-pagasae-pilot.webp",
+      "phoneHash": "479797f9c6f1dbfe4c83bc9e4e99ef1d5444f2f307252de415043d27819cee0c"
+    },
+    "assets/greek-drama/repertoire-greek-pagasae.webp": {
+      "sourceHash": "e06f030bc70638bce48c129a422794041439018ea58dd00ab2e28cb67e8440a1",
+      "stage": "assets/greek-drama/repertoire-greek-pagasae.webp",
+      "stageHash": "e06f030bc70638bce48c129a422794041439018ea58dd00ab2e28cb67e8440a1",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-pagasae.webp",
+      "cardHash": "719f02a3b62a85d0bf81c7f7e79a86441f12050456660deb8560116c618801bc",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-pagasae.webp",
+      "phoneHash": "3f2caf400b30924e4185136630aca54b986c402d78ac138c84d8f1d29e9af991"
+    },
+    "assets/greek-drama/repertoire-greek-piraeus-pilot.webp": {
+      "sourceHash": "ae57168d804c45bac530c4610e4ce236776a7abe843a5670616e4ccf26e669fe",
+      "stage": "assets/greek-drama/repertoire-greek-piraeus-pilot.webp",
+      "stageHash": "ae57168d804c45bac530c4610e4ce236776a7abe843a5670616e4ccf26e669fe",
+      "card": "assets/greek-drama/repertoire-greek-piraeus-pilot.webp",
+      "cardHash": "ae57168d804c45bac530c4610e4ce236776a7abe843a5670616e4ccf26e669fe",
+      "phone": "assets/greek-drama/repertoire-greek-piraeus-pilot.webp",
+      "phoneHash": "ae57168d804c45bac530c4610e4ce236776a7abe843a5670616e4ccf26e669fe"
+    },
+    "assets/greek-drama/repertoire-greek-road-athens-marathon-night.webp": {
+      "sourceHash": "37f3161beeacd7435ebc85e54bf860f7220f22a4faad21a17a6a8f1cba37e8e5",
+      "stage": "assets/greek-drama/repertoire-greek-road-athens-marathon-night.webp",
+      "stageHash": "37f3161beeacd7435ebc85e54bf860f7220f22a4faad21a17a6a8f1cba37e8e5",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-road-athens-marathon-night.webp",
+      "cardHash": "55e6b54cac502a8d8bab05f2cb12e219d468bdc3287e99c3b594f060600fd715",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-road-athens-marathon-night.webp",
+      "phoneHash": "1a45d03a44bbed01de8a9995152303c5c02298b44c40cd0397e71e15076f98eb"
+    },
+    "assets/greek-drama/repertoire-greek-road-athens-marathon.webp": {
+      "sourceHash": "df1a7b4628a7cd23778f3424dd5239503dbd22555e9ab56006019d6d6a4c6f83",
+      "stage": "assets/greek-drama/repertoire-greek-road-athens-marathon.webp",
+      "stageHash": "df1a7b4628a7cd23778f3424dd5239503dbd22555e9ab56006019d6d6a4c6f83",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-road-athens-marathon.webp",
+      "cardHash": "adc5737dee1062825a7d02b9fe96aa40b8cffecf9e2bfcb8a2f198c2b5409574",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-road-athens-marathon.webp",
+      "phoneHash": "f0ce14ec6596ea57907eebf6674a25ea719f0731306b406e87e9285439f167a2"
+    },
+    "assets/greek-drama/repertoire-greek-road-royal.webp": {
+      "sourceHash": "5b2c43d14b92e3eb801ef5aee6cffdbfe4b3e820e54cca911142142b6e35db35",
+      "stage": "assets/greek-drama/repertoire-greek-road-royal.webp",
+      "stageHash": "5b2c43d14b92e3eb801ef5aee6cffdbfe4b3e820e54cca911142142b6e35db35",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-road-royal.webp",
+      "cardHash": "1180bc1ac7ff8465d52d4bfe8b33ca38835fbe44d342214cc5757f4b60ad53f1",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-road-royal.webp",
+      "phoneHash": "5ae22d1283286247d96b2bb1d61a4849e523c9f69e8ac08967e2ac40d03fdd40"
+    },
+    "assets/greek-drama/repertoire-greek-road-scythia.webp": {
+      "sourceHash": "1106d7658cfb5792aaab18d9eee5257193abea4ba7ceb38d73adf662f2c99c7e",
+      "stage": "assets/greek-drama/repertoire-greek-road-scythia.webp",
+      "stageHash": "1106d7658cfb5792aaab18d9eee5257193abea4ba7ceb38d73adf662f2c99c7e",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-road-scythia.webp",
+      "cardHash": "c967114f27ad298ac469f53931f99ea6e1aa1145a90516f5f66d5462013f9e17",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-road-scythia.webp",
+      "phoneHash": "0b04c4ae005a516fe57cc4802613775d4e0b15df68d8cdc991e9962a5582756e"
+    },
+    "assets/greek-drama/repertoire-greek-seven-gates.webp": {
+      "sourceHash": "f60660ce2421ef0f267042e2b576f122cfec0ba3a6e9bee0a1d2e3486d04b1a1",
+      "stage": "assets/greek-drama/repertoire-greek-seven-gates.webp",
+      "stageHash": "f60660ce2421ef0f267042e2b576f122cfec0ba3a6e9bee0a1d2e3486d04b1a1",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-seven-gates.webp",
+      "cardHash": "b9d9e18ec590c86d65f492bcea5508886bd6b7730fa685da605861f6bd3a3078",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-seven-gates.webp",
+      "phoneHash": "c3493183e69f42ffce40d4ae9199c156cc5e7d82635d12f2f2fa7ce9a634e307"
+    },
+    "assets/greek-drama/repertoire-greek-sicily.webp": {
+      "sourceHash": "5bf10d0c72399a67b12f934d6ae7bc5fadf59380a11fba8d44ffaaa594e78efe",
+      "stage": "assets/greek-drama/repertoire-greek-sicily.webp",
+      "stageHash": "5bf10d0c72399a67b12f934d6ae7bc5fadf59380a11fba8d44ffaaa594e78efe",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-sicily.webp",
+      "cardHash": "565f8dc4c0d53c073670a698da65663932d2801cc8b084fab2a0aeaca6edecac",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-sicily.webp",
+      "phoneHash": "30f366a6953907c428f316507985e393ea23366431f57821ef68b9e97df96cbc"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-first.png": {
+      "sourceHash": "b32f59849f5ac63524371afdc3798241aa68f9c62c3545cb9ebcc6b463a5a890",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-agamemnon-first.webp",
+      "stageHash": "ed57fa484c873f2b1579d7b59ee1410b3e2e1252241ffb7252db80f94ee2342f",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-agamemnon-first.webp",
+      "cardHash": "ed57fa484c873f2b1579d7b59ee1410b3e2e1252241ffb7252db80f94ee2342f",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-agamemnon-first.webp",
+      "phoneHash": "ed57fa484c873f2b1579d7b59ee1410b3e2e1252241ffb7252db80f94ee2342f"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-second.png": {
+      "sourceHash": "625bd7d70372bdea184dc521244130dee91cbd5952c73dd1ec3e2d64b12c31f5",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-agamemnon-second.webp",
+      "stageHash": "ffad855780bc515e18559c69a72bc564ef3f6c015a8bb4db9329c3449c603ed2",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-agamemnon-second.webp",
+      "cardHash": "ffad855780bc515e18559c69a72bc564ef3f6c015a8bb4db9329c3449c603ed2",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-agamemnon-second.webp",
+      "phoneHash": "ffad855780bc515e18559c69a72bc564ef3f6c015a8bb4db9329c3449c603ed2"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-first.png": {
+      "sourceHash": "213493c3b27b630bd14cd63b46c6d88c5dba2c3b21c4d6a91f16c9f120c4e122",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-eumenides-first.webp",
+      "stageHash": "838bd7b1db8eac9c73e64f81c8e794c2e8cd4b46c76357656a9d85c31661ed9a",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-eumenides-first.webp",
+      "cardHash": "838bd7b1db8eac9c73e64f81c8e794c2e8cd4b46c76357656a9d85c31661ed9a",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-eumenides-first.webp",
+      "phoneHash": "838bd7b1db8eac9c73e64f81c8e794c2e8cd4b46c76357656a9d85c31661ed9a"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-second.png": {
+      "sourceHash": "49fbdfd8b7986f03f38b3754acb32b82af79c5a4675a65a4ef02e2b161055e9c",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-eumenides-second.webp",
+      "stageHash": "bcf0abf29c6dd6b726e08f46d4f3000d7b35341a9ad00145c9c2d301fa864400",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-eumenides-second.webp",
+      "cardHash": "bcf0abf29c6dd6b726e08f46d4f3000d7b35341a9ad00145c9c2d301fa864400",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-eumenides-second.webp",
+      "phoneHash": "bcf0abf29c6dd6b726e08f46d4f3000d7b35341a9ad00145c9c2d301fa864400"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-persians-first.png": {
+      "sourceHash": "5bf44d61eb3cf8bc666f4a015a10377dab602663ae13f77e96a510024ebffa9e",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-persians-first.webp",
+      "stageHash": "515e365144a376f57ef455797d6c660a1a2f16df9755e6fdb6c5cdf9e95b616e",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-persians-first.webp",
+      "cardHash": "515e365144a376f57ef455797d6c660a1a2f16df9755e6fdb6c5cdf9e95b616e",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-persians-first.webp",
+      "phoneHash": "515e365144a376f57ef455797d6c660a1a2f16df9755e6fdb6c5cdf9e95b616e"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-persians-second.png": {
+      "sourceHash": "b3a0527a99e2d451e913beeb4e22049dfdd650042d5442662254ca35af715886",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-persians-second.webp",
+      "stageHash": "1a51c6358207079f67a4f15118d6bb7e587edf79c608a5321bf1f4e51a9b1da4",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-persians-second.webp",
+      "cardHash": "1a51c6358207079f67a4f15118d6bb7e587edf79c608a5321bf1f4e51a9b1da4",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-persians-second.webp",
+      "phoneHash": "1a51c6358207079f67a4f15118d6bb7e587edf79c608a5321bf1f4e51a9b1da4"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-first.png": {
+      "sourceHash": "6e50572d3aac6459776f8c896f817117acae2e34e6ea300923174660b16c593d",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-first.webp",
+      "stageHash": "1fba859d1b9a8f6cd33196c9a9128b47ac04791832f4bca6211e6c97bdf9b89e",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-first.webp",
+      "cardHash": "1fba859d1b9a8f6cd33196c9a9128b47ac04791832f4bca6211e6c97bdf9b89e",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-first.webp",
+      "phoneHash": "1fba859d1b9a8f6cd33196c9a9128b47ac04791832f4bca6211e6c97bdf9b89e"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-second.png": {
+      "sourceHash": "f311eeb6da88e94c0015966278d4812dae82c66af981957178a2d3dd4f1b1a51",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-second.webp",
+      "stageHash": "62bf6e6f25d4c6098e50a2ef45b660423714ced5f26635e4139e26a35250e48c",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-second.webp",
+      "cardHash": "62bf6e6f25d4c6098e50a2ef45b660423714ced5f26635e4139e26a35250e48c",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-second.webp",
+      "phoneHash": "62bf6e6f25d4c6098e50a2ef45b660423714ced5f26635e4139e26a35250e48c"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-first.png": {
+      "sourceHash": "ca6e6067ffb8f3210a9776f80dd60fce329fae882566346435caa9d547732678",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-first.webp",
+      "stageHash": "67ab81c5d261665e7a3885ebb176c99d3a1656873af24bd32e23d283b32e3bc5",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-first.webp",
+      "cardHash": "67ab81c5d261665e7a3885ebb176c99d3a1656873af24bd32e23d283b32e3bc5",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-first.webp",
+      "phoneHash": "67ab81c5d261665e7a3885ebb176c99d3a1656873af24bd32e23d283b32e3bc5"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-second.png": {
+      "sourceHash": "d5265513a9628414a91a0439a28a8b19e169bc001dd667859ddbe35b723cb8da",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-second.webp",
+      "stageHash": "dde6ae0068f1506dbd3a160f998725344945b67fb280c0c091d833722fce3ba2",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-second.webp",
+      "cardHash": "dde6ae0068f1506dbd3a160f998725344945b67fb280c0c091d833722fce3ba2",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-second.webp",
+      "phoneHash": "dde6ae0068f1506dbd3a160f998725344945b67fb280c0c091d833722fce3ba2"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-first.png": {
+      "sourceHash": "19f3f8bc896ed746bf0597dcc3b5be52b34bf871836953ac76bb8f8e8b2921e8",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-first.webp",
+      "stageHash": "bdaecaa86528a13933baa64931f7467e750c5ea3bc66adfaf996ea8d1c20048f",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-first.webp",
+      "cardHash": "bdaecaa86528a13933baa64931f7467e750c5ea3bc66adfaf996ea8d1c20048f",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-first.webp",
+      "phoneHash": "bdaecaa86528a13933baa64931f7467e750c5ea3bc66adfaf996ea8d1c20048f"
+    },
+    "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-second.png": {
+      "sourceHash": "b227843763b742ff8f2c3ce42a64d59200e2bae19ae514919b272e1b6411751d",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-second.webp",
+      "stageHash": "3980ec0d55ad4c5aadcb67ca3b6f9b104e7aa9b1b88bfbfe70153df4d38f3e54",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-second.webp",
+      "cardHash": "3980ec0d55ad4c5aadcb67ca3b6f9b104e7aa9b1b88bfbfe70153df4d38f3e54",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-second.webp",
+      "phoneHash": "3980ec0d55ad4c5aadcb67ca3b6f9b104e7aa9b1b88bfbfe70153df4d38f3e54"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-first.webp": {
+      "sourceHash": "133ff0b062f4fc50c94f7d2d8f38f022f9d36e72d5c673d2879b3ef6a84cc8fc",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-first.webp",
+      "stageHash": "133ff0b062f4fc50c94f7d2d8f38f022f9d36e72d5c673d2879b3ef6a84cc8fc",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-first.webp",
+      "cardHash": "133ff0b062f4fc50c94f7d2d8f38f022f9d36e72d5c673d2879b3ef6a84cc8fc",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-first.webp",
+      "phoneHash": "133ff0b062f4fc50c94f7d2d8f38f022f9d36e72d5c673d2879b3ef6a84cc8fc"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-second.webp": {
+      "sourceHash": "883ca6d165b813c96a5f3f6cdaeabef42e6e5990c63375932438691711995cf5",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-second.webp",
+      "stageHash": "883ca6d165b813c96a5f3f6cdaeabef42e6e5990c63375932438691711995cf5",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-second.webp",
+      "cardHash": "883ca6d165b813c96a5f3f6cdaeabef42e6e5990c63375932438691711995cf5",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-second.webp",
+      "phoneHash": "883ca6d165b813c96a5f3f6cdaeabef42e6e5990c63375932438691711995cf5"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-first.webp": {
+      "sourceHash": "30ff8a8a7fde6fc6f0283ec5ea16ff50895e86bbb35ad80dae092d0d81124f30",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-first.webp",
+      "stageHash": "30ff8a8a7fde6fc6f0283ec5ea16ff50895e86bbb35ad80dae092d0d81124f30",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-first.webp",
+      "cardHash": "30ff8a8a7fde6fc6f0283ec5ea16ff50895e86bbb35ad80dae092d0d81124f30",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-first.webp",
+      "phoneHash": "30ff8a8a7fde6fc6f0283ec5ea16ff50895e86bbb35ad80dae092d0d81124f30"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-second.webp": {
+      "sourceHash": "bd6a65bfa074128c7670a5e5202abd22015e2131d70fef9c03056e003488c208",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-second.webp",
+      "stageHash": "bd6a65bfa074128c7670a5e5202abd22015e2131d70fef9c03056e003488c208",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-second.webp",
+      "cardHash": "bd6a65bfa074128c7670a5e5202abd22015e2131d70fef9c03056e003488c208",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-second.webp",
+      "phoneHash": "bd6a65bfa074128c7670a5e5202abd22015e2131d70fef9c03056e003488c208"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-birds-first.webp": {
+      "sourceHash": "b7de4d8b79c363ecc5e9ddcfe65147210efe1c6b8aba19e8caeffe8c0bca6aa2",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-birds-first.webp",
+      "stageHash": "b7de4d8b79c363ecc5e9ddcfe65147210efe1c6b8aba19e8caeffe8c0bca6aa2",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-birds-first.webp",
+      "cardHash": "b7de4d8b79c363ecc5e9ddcfe65147210efe1c6b8aba19e8caeffe8c0bca6aa2",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-birds-first.webp",
+      "phoneHash": "b7de4d8b79c363ecc5e9ddcfe65147210efe1c6b8aba19e8caeffe8c0bca6aa2"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-first.webp": {
+      "sourceHash": "083f9ca5148fbe2723107e7f608237d911b05007d351434606241d20cf2fa449",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-first.webp",
+      "stageHash": "083f9ca5148fbe2723107e7f608237d911b05007d351434606241d20cf2fa449",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-first.webp",
+      "cardHash": "083f9ca5148fbe2723107e7f608237d911b05007d351434606241d20cf2fa449",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-first.webp",
+      "phoneHash": "083f9ca5148fbe2723107e7f608237d911b05007d351434606241d20cf2fa449"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-second.webp": {
+      "sourceHash": "90f3fdeeb10b1855e39de59fd2dc8b405391031c04ad7e241c6ef4c0c79b0d5c",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-second.webp",
+      "stageHash": "90f3fdeeb10b1855e39de59fd2dc8b405391031c04ad7e241c6ef4c0c79b0d5c",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-second.webp",
+      "cardHash": "90f3fdeeb10b1855e39de59fd2dc8b405391031c04ad7e241c6ef4c0c79b0d5c",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-second.webp",
+      "phoneHash": "90f3fdeeb10b1855e39de59fd2dc8b405391031c04ad7e241c6ef4c0c79b0d5c"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-first.webp": {
+      "sourceHash": "3176ad6052f7f1c63d30a1916c6383cfc3aa05cd385eb42cf9e5b5ff2a150239",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-first.webp",
+      "stageHash": "3176ad6052f7f1c63d30a1916c6383cfc3aa05cd385eb42cf9e5b5ff2a150239",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-first.webp",
+      "cardHash": "3176ad6052f7f1c63d30a1916c6383cfc3aa05cd385eb42cf9e5b5ff2a150239",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-first.webp",
+      "phoneHash": "3176ad6052f7f1c63d30a1916c6383cfc3aa05cd385eb42cf9e5b5ff2a150239"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-second.webp": {
+      "sourceHash": "e8148ce01f6f6b191357b43b2977be8fac1657b932d5715abe3577863d5b6251",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-second.webp",
+      "stageHash": "e8148ce01f6f6b191357b43b2977be8fac1657b932d5715abe3577863d5b6251",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-second.webp",
+      "cardHash": "e8148ce01f6f6b191357b43b2977be8fac1657b932d5715abe3577863d5b6251",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-second.webp",
+      "phoneHash": "e8148ce01f6f6b191357b43b2977be8fac1657b932d5715abe3577863d5b6251"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-knights-first.webp": {
+      "sourceHash": "2e20eae44f4fed306b2afb45d1f77778596f80e187f8a7c6ff8035939d94a2b2",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-first.webp",
+      "stageHash": "2e20eae44f4fed306b2afb45d1f77778596f80e187f8a7c6ff8035939d94a2b2",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-first.webp",
+      "cardHash": "2e20eae44f4fed306b2afb45d1f77778596f80e187f8a7c6ff8035939d94a2b2",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-first.webp",
+      "phoneHash": "2e20eae44f4fed306b2afb45d1f77778596f80e187f8a7c6ff8035939d94a2b2"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-knights-second.webp": {
+      "sourceHash": "f92cf5fccbdbc8dede9731053502494f08cc97f270f86a6e49ee6040017cf88d",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-second.webp",
+      "stageHash": "f92cf5fccbdbc8dede9731053502494f08cc97f270f86a6e49ee6040017cf88d",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-second.webp",
+      "cardHash": "f92cf5fccbdbc8dede9731053502494f08cc97f270f86a6e49ee6040017cf88d",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-second.webp",
+      "phoneHash": "f92cf5fccbdbc8dede9731053502494f08cc97f270f86a6e49ee6040017cf88d"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-first.webp": {
+      "sourceHash": "56c2fe196bb039fbcd1851cc074a0ab58b1542445f7047a64ce67d9bdb51a20d",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-first.webp",
+      "stageHash": "56c2fe196bb039fbcd1851cc074a0ab58b1542445f7047a64ce67d9bdb51a20d",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-first.webp",
+      "cardHash": "56c2fe196bb039fbcd1851cc074a0ab58b1542445f7047a64ce67d9bdb51a20d",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-first.webp",
+      "phoneHash": "56c2fe196bb039fbcd1851cc074a0ab58b1542445f7047a64ce67d9bdb51a20d"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-second.webp": {
+      "sourceHash": "68fa082f40f7f34984ac66262ce5f8d7ab10606ec01118cb1e0fdc410aba24f6",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-second.webp",
+      "stageHash": "68fa082f40f7f34984ac66262ce5f8d7ab10606ec01118cb1e0fdc410aba24f6",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-second.webp",
+      "cardHash": "68fa082f40f7f34984ac66262ce5f8d7ab10606ec01118cb1e0fdc410aba24f6",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-second.webp",
+      "phoneHash": "68fa082f40f7f34984ac66262ce5f8d7ab10606ec01118cb1e0fdc410aba24f6"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-peace-first.webp": {
+      "sourceHash": "cfc3ad350fc7c788d102fa71a58fdfeb2709b4a3b60869deb134920e9d1e4770",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-first.webp",
+      "stageHash": "cfc3ad350fc7c788d102fa71a58fdfeb2709b4a3b60869deb134920e9d1e4770",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-first.webp",
+      "cardHash": "cfc3ad350fc7c788d102fa71a58fdfeb2709b4a3b60869deb134920e9d1e4770",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-first.webp",
+      "phoneHash": "cfc3ad350fc7c788d102fa71a58fdfeb2709b4a3b60869deb134920e9d1e4770"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-peace-second.webp": {
+      "sourceHash": "dbe588f636f127d32f9d4dfbabddcd57046a34bd2360d510c364e9bbf9b29da4",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-second.webp",
+      "stageHash": "dbe588f636f127d32f9d4dfbabddcd57046a34bd2360d510c364e9bbf9b29da4",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-second.webp",
+      "cardHash": "dbe588f636f127d32f9d4dfbabddcd57046a34bd2360d510c364e9bbf9b29da4",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-second.webp",
+      "phoneHash": "dbe588f636f127d32f9d4dfbabddcd57046a34bd2360d510c364e9bbf9b29da4"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-first.webp": {
+      "sourceHash": "a2205b77a5f960ae97a23bb8f4c5fb9886bc06e71b094091afba98551397a895",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-first.webp",
+      "stageHash": "a2205b77a5f960ae97a23bb8f4c5fb9886bc06e71b094091afba98551397a895",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-first.webp",
+      "cardHash": "a2205b77a5f960ae97a23bb8f4c5fb9886bc06e71b094091afba98551397a895",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-first.webp",
+      "phoneHash": "a2205b77a5f960ae97a23bb8f4c5fb9886bc06e71b094091afba98551397a895"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-second.webp": {
+      "sourceHash": "bfd2f3f15f332442fa544d7f29065cf401bbc3243d5455c05871792e63f17d7d",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-second.webp",
+      "stageHash": "bfd2f3f15f332442fa544d7f29065cf401bbc3243d5455c05871792e63f17d7d",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-second.webp",
+      "cardHash": "bfd2f3f15f332442fa544d7f29065cf401bbc3243d5455c05871792e63f17d7d",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-second.webp",
+      "phoneHash": "bfd2f3f15f332442fa544d7f29065cf401bbc3243d5455c05871792e63f17d7d"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-first.webp": {
+      "sourceHash": "bb02cfb7dabee2dc3f12d238ebb6b171046bc077c45ed52d72c5eacb94cb27c5",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-first.webp",
+      "stageHash": "bb02cfb7dabee2dc3f12d238ebb6b171046bc077c45ed52d72c5eacb94cb27c5",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-first.webp",
+      "cardHash": "bb02cfb7dabee2dc3f12d238ebb6b171046bc077c45ed52d72c5eacb94cb27c5",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-first.webp",
+      "phoneHash": "bb02cfb7dabee2dc3f12d238ebb6b171046bc077c45ed52d72c5eacb94cb27c5"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-second.webp": {
+      "sourceHash": "dd9c71074aba191a75225601394c3a7eb2f7dc28c82e13dd163efe68abf7da96",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-second.webp",
+      "stageHash": "dd9c71074aba191a75225601394c3a7eb2f7dc28c82e13dd163efe68abf7da96",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-second.webp",
+      "cardHash": "dd9c71074aba191a75225601394c3a7eb2f7dc28c82e13dd163efe68abf7da96",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-second.webp",
+      "phoneHash": "dd9c71074aba191a75225601394c3a7eb2f7dc28c82e13dd163efe68abf7da96"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-first.webp": {
+      "sourceHash": "d3bb280d56fc590ca49bd5fa572fe2c1dd4e0e9e13c3f2be0ee8a6a3ba591a82",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-first.webp",
+      "stageHash": "d3bb280d56fc590ca49bd5fa572fe2c1dd4e0e9e13c3f2be0ee8a6a3ba591a82",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-first.webp",
+      "cardHash": "d3bb280d56fc590ca49bd5fa572fe2c1dd4e0e9e13c3f2be0ee8a6a3ba591a82",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-first.webp",
+      "phoneHash": "d3bb280d56fc590ca49bd5fa572fe2c1dd4e0e9e13c3f2be0ee8a6a3ba591a82"
+    },
+    "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-second.webp": {
+      "sourceHash": "62ad9643b95046f76b4581a1bad213623de1b034f8d56dadb8ea21f22eb03e05",
+      "stage": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-second.webp",
+      "stageHash": "62ad9643b95046f76b4581a1bad213623de1b034f8d56dadb8ea21f22eb03e05",
+      "card": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-second.webp",
+      "cardHash": "62ad9643b95046f76b4581a1bad213623de1b034f8d56dadb8ea21f22eb03e05",
+      "phone": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-second.webp",
+      "phoneHash": "62ad9643b95046f76b4581a1bad213623de1b034f8d56dadb8ea21f22eb03e05"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-alcestis-first.png": {
+      "sourceHash": "63f06048ef5810ff3297e1988525515494e8d08dcde4060b5557984982866783",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-alcestis-first.webp",
+      "stageHash": "1194ece22698346886d67c19d8dc616f093719fb5fc5d54c8c3a240446aeb913",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-alcestis-first.webp",
+      "cardHash": "90c17a9267812510051f50fd2feaded43f93d509a73b6a85163c288a446b2339",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-alcestis-first.webp",
+      "phoneHash": "cee8d7d7b55291708d45ac597a27caa85d7e9a89ce74eecf7e567d0d5b1c0bef"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-alcestis-second.png": {
+      "sourceHash": "d8ca7d37cb11137453353a2b236a4cc129e32f5c5cbf778a0ff79f58b15a5ca3",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-alcestis-second.webp",
+      "stageHash": "e2b05b6be4565f15ed962317da18f44b5a4cf105b76e46e4ffa5e322102a1e60",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-alcestis-second.webp",
+      "cardHash": "54e27921b95aa0deab7f33c8fa8bd4f33f6ab6a169104159feca558ae1866640",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-alcestis-second.webp",
+      "phoneHash": "69f9de4b8cf118d2fc4ff3f6ac5270212c14460b0af13412d13d2a853847b3eb"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-andromache-first.png": {
+      "sourceHash": "3829df81687e48f523a84a697a1247d640e95f15e26180755d533b7040bca69e",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-andromache-first.webp",
+      "stageHash": "decb14e8e57232ec1828cd39b17b8e53cada32c548df9d97997aeec9e481f208",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-andromache-first.webp",
+      "cardHash": "8daf2c66c3f7f2a1100ff3e564ca8c0585f56f1e2c027110c04ee55773ecd7e0",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-andromache-first.webp",
+      "phoneHash": "fd0739539fd83fc8aa36f196a97d7ede3d16908424c4b0dd4b671a95cdc8e0bf"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-andromache-second.png": {
+      "sourceHash": "a2369ffe1187bf5a11cdd09b46ad7230b3801adcaa3c03fc2ae1bd497711c264",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-andromache-second.webp",
+      "stageHash": "d20ce97ab1fdcf5b4980f4bd56f61b3c79adbbf7659d7526b0d7d11fc065ac63",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-andromache-second.webp",
+      "cardHash": "d0017fc16d8a3d7ea3f10e293470f9a39e7fa5278f632ca5f90bd51e83772373",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-andromache-second.webp",
+      "phoneHash": "695cc769110018181f229d842a927f72f13b5a5c574adbb0f964216ee8b45755"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-bacchae-first.png": {
+      "sourceHash": "f29e1d83a1c15c8fc07a131dd908492ba7d1b2737d6f58d385ebf1582ad3fa3f",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-bacchae-first.webp",
+      "stageHash": "6af5b19c4d1526c8f7bcc63ccd0574661306e706d02dbd80a24f983696581137",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-bacchae-first.webp",
+      "cardHash": "d1c3340535a5e21dbc65325a13d3f0d82a16706d4543acb4233d1681ad867e28",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-bacchae-first.webp",
+      "phoneHash": "e06483a6201a22754f17f44828def43b09add5a7aba30ad471319b07901f0c25"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-bacchae-second.png": {
+      "sourceHash": "fa450a9ca98cb80154f728c8cb5623468e178230753eeaf804b6339e0f70118e",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-bacchae-second.webp",
+      "stageHash": "05f89278369bbd89e70ca0fec484a00ab91a8ed935c79e76dd461e877be15247",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-bacchae-second.webp",
+      "cardHash": "ec3fb8b27e1423a55c5c6f7cc8eac90dfe6435670a1f3b9c367831c2f22570bd",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-bacchae-second.webp",
+      "phoneHash": "f6795c0bed21eef1dee46bd9b1ddcdf720dc4962b338eff37c00f8132708f6c1"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-cyclops-first.png": {
+      "sourceHash": "07eec2313cffc48a2d21c673dbf8c874d0c667cc4430049ec37794342db0cef6",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-cyclops-first.webp",
+      "stageHash": "eea671e3a87a5512600b876d831387e726b8364c37dbac30c1e8bd942d3f60d6",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-cyclops-first.webp",
+      "cardHash": "35025c2890d145cc57c2bd12670e7e8652653b48c0114675b226e79ed7dec1c4",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-cyclops-first.webp",
+      "phoneHash": "162b5584a7b7968d5c6e7e8354ea94fbcbe9941c43833ac3450a515b09a298fd"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-cyclops-second.png": {
+      "sourceHash": "9e909c408e2ab0be7c67eb33ff1e9654abda049a72126f27cf78890f37a6a9c5",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-cyclops-second.webp",
+      "stageHash": "2e233104f922197cf8e3aee647f405596a8841d7ac758b63ceede6512c9c8a5a",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-cyclops-second.webp",
+      "cardHash": "78e443cd5c266037c6042c15d500b89802a5c1f52060fb86acf7518011f729d8",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-cyclops-second.webp",
+      "phoneHash": "1f85e8b1f9838fb0780bbdd3910b9252bc59cb3f0c916ac64436ec4db07acb68"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-hecuba-first.png": {
+      "sourceHash": "de4c08fdc742ca6551b9318695c6340b0b7c67089fecfedb7943fe72715512a6",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-hecuba-first.webp",
+      "stageHash": "7509c05cc940e0b0e2090e35bf4583782e82bf85565c6b0d9931cacc9166209d",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-hecuba-first.webp",
+      "cardHash": "2da6ed70febfbe6288a8b6996d942a0e0d011abcf533f086ba39c1ddc5658d43",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-hecuba-first.webp",
+      "phoneHash": "5bd8d7ec730426f3e108a8af022617639f9faf9db27f78ac3a55d4e1a18a2372"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-hecuba-second.png": {
+      "sourceHash": "360f406419718bff15b862e47f167f2e7e4a3028c65daf7f69ed93a1ee944cab",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-hecuba-second.webp",
+      "stageHash": "9894f01ab713de85ee9045d7d3b9a86b5e63f179603e176d38dd57f23fec674d",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-hecuba-second.webp",
+      "cardHash": "08115d22b9f8a36a67d12891abbe82ec9abb6e3f9f0d435ac53efc668c32cb92",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-hecuba-second.webp",
+      "phoneHash": "08acbf8ba0af5ab332784a1aa4b9a4cc2ea5a097a008ffb2a58b31d84022682b"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-heracles-first.png": {
+      "sourceHash": "49fcc25755f025449b735d21a5511cdac5a5df73857280730d2ec9717e44f451",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-heracles-first.webp",
+      "stageHash": "0a980edf18b32294a3887957212c21cfa15867d4c296913772c5382a131b6b92",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-heracles-first.webp",
+      "cardHash": "79addbe670c46443c697c3626d8aa699acd25743adb6b56464494b8e28ee75ea",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-heracles-first.webp",
+      "phoneHash": "bbfc2ea0742473ba5feeb92045e623971f4df4037f970d551c454131c8a4bd96"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-heracles-second.png": {
+      "sourceHash": "45777f7b0a32dc587bdca55ccf80f425d0ca93db42106be1d968ace3046f9790",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-heracles-second.webp",
+      "stageHash": "ac61edc7f1381a5f3d1c0105e94e76f00509f17a10577bdf665f0ac4d0afeaf6",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-heracles-second.webp",
+      "cardHash": "130a30ba677083b0ec9107afc06bf86e46e05ddf29d9077210fb48891a4fc7ff",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-heracles-second.webp",
+      "phoneHash": "13bbe59d5867817e932d46d2cc147b584cab7eb7b304a8f7e96707aea758d362"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-first.png": {
+      "sourceHash": "d6a4c1df64e0b4d875ed5972bf5f2e41914515397c2b68453611488aaee91c8d",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-hippolytus-first.webp",
+      "stageHash": "2987d3e4ed2da50d4ec4d6bebedc776d09bec4c2b5a2ebce90811e07df054815",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-hippolytus-first.webp",
+      "cardHash": "f5c199c3c557ed491bb0dfded2c168cfcfb1af93f7a79586bb7064292457569a",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-hippolytus-first.webp",
+      "phoneHash": "f78bc81dbd56a8aeda75e3e067af8ed7f78a07c0c86129c5d16ac77183020184"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-second.png": {
+      "sourceHash": "8c4c0b9bc6bfb50ed85926b498543eb0d2e0cb4dde19de9e7254c692f6a3b5a2",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-hippolytus-second.webp",
+      "stageHash": "64eb195b2abdd02b4a46633fe181764ce85ec0dfa8eb733169a45c97217e756d",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-hippolytus-second.webp",
+      "cardHash": "4d2226e1af6c57a16f71b60d12586fc004597a18ab1bdde9e0661a483592120e",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-hippolytus-second.webp",
+      "phoneHash": "587f063ee17838fdf1560c38c60f7e5c53704a27531bc313a4b3a8e57da69984"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-ion-first.png": {
+      "sourceHash": "90e35492e2b012841da8ce830676f246d99f9f83822de2f38fb2849337ff984c",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-ion-first.webp",
+      "stageHash": "3d9b6912afcb153e4fbeabe8fa44b83a34545f110993c51d7b15e8b54b88cb56",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-ion-first.webp",
+      "cardHash": "845f581d40d202d59be79da5eab937433ad5cc72b20974e690c2e44f1d2de3b3",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-ion-first.webp",
+      "phoneHash": "f8964c863eb3ecbea0b3f4c6bf51d54a14f18b82ad1873cecd8484cf03e0e05a"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-ion-second.png": {
+      "sourceHash": "b96322f653c3f6562ab70055b88b0452df367690572e541220013ee2a56c9784",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-ion-second.webp",
+      "stageHash": "fbff8a2e45ac11bab679a3af95efcb90a8197881ab50d6cc773b3e4cc37ee20a",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-ion-second.webp",
+      "cardHash": "004ee3acd855ebdad0dd3f2a8461538d73ef7d938f1760cdc40f803d0b445ebc",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-ion-second.webp",
+      "phoneHash": "9fd919935279f835a585fe346f6ce0b1c981b8716598489a28596e698d223968"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-first.png": {
+      "sourceHash": "e157a85440ad09afd28cb54f2f71677bb9d83283c47fdaee623e2943aa3f3e78",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-first.webp",
+      "stageHash": "0a9efc884445eb285b4cd25c049c13c09846784c2b9ad508f2198c8bcf64cbc7",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-first.webp",
+      "cardHash": "565418c4b9f24e0a8718edb7cf362df1b2376fdaa80ccb10babb1e99b3e0725d",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-first.webp",
+      "phoneHash": "f9b5557f32a837aae536341f5d3581e1d4e9acdf5124423fa188cffcd78645ad"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-second.png": {
+      "sourceHash": "94f082bfb482fa085146fe382ca5ebb620e358dcc1ffdfd52ddbafbde5c01877",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-second.webp",
+      "stageHash": "9be879348f4e0dca5840def9a99247835a44bd9f78fdfe8aa092af78dbb5ac71",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-second.webp",
+      "cardHash": "82d563e5bdb6e1babee5a4f05269bc5b1b3b78f2b922a28744f96760573b4fe4",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-second.webp",
+      "phoneHash": "1d45e93b5c71f0284f747b1c3c1d56776cc113000c6e885032c1f55045e44dca"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-medea-first.png": {
+      "sourceHash": "6304d0c07aca0d0b9cfdbd08c9a05f7eb949c018afdc59a114b21919d834152e",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-medea-first.webp",
+      "stageHash": "8c209b23441f56031320c2a27cd51a1acbe569719cf4190e348022f06a7fecdb",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-medea-first.webp",
+      "cardHash": "d87f88fa1449de74b9aafa22f7016b88b70dd458cd4d8773e05d32a668af5b94",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-medea-first.webp",
+      "phoneHash": "76cfdb205f301d31a7c43bd9dd661ffd4545078a62adf4d49245c55dfd14fb30"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-medea-second.png": {
+      "sourceHash": "6c3962e4f7141e103e8285437fa2fc5f803afc70fb783db030344c203418ceda",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-medea-second.webp",
+      "stageHash": "c1b5a2fcad12a78d0989ef6e3e861cdaa9c82e90fa2ce94ccbf4b507db0a2c33",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-medea-second.webp",
+      "cardHash": "1a777fba8deb9aa9c1138979280cb0d080e0cef3380d7f62e8900aadd6254a91",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-medea-second.webp",
+      "phoneHash": "55eeaec2f0d24ec723686b59ebfda22a10e9f22303407dc1aa34c5718e44dddd"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-orestes-first.png": {
+      "sourceHash": "a25df5aa77353cf5b9a263d5f13d6980527ffa116c75a1f86c48e3ae4515866d",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-orestes-first.webp",
+      "stageHash": "1d7310d53639f505d8c64d37c76e304aa3033e61b6e6f8734228ad8e3d9c328e",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-orestes-first.webp",
+      "cardHash": "2987f61e630ee655f1c09421c6154716045442299d3a012f99121950c524b65f",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-orestes-first.webp",
+      "phoneHash": "6ac0e440def89f171d012ecd235ff4d9610693945415d1ccf51a7720775f89ab"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-orestes-second.png": {
+      "sourceHash": "9b29b714fc7b5488ef523a64ba22d5a1a524896ddb3a8f98f2d4d22d2b33aa96",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-orestes-second.webp",
+      "stageHash": "dae413aaf0915edfac5c79546cb398e7736328b38bcea4f37c9b6e7bc285c824",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-orestes-second.webp",
+      "cardHash": "00558ead459af2be81b034d19d844b583c09909459aa60f17d35894d0466e4ba",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-orestes-second.webp",
+      "phoneHash": "53f8ca88c9f580ef978fdd3b9048854d23a62b102b589981a1a9255c6abc17df"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-first.png": {
+      "sourceHash": "f11d3ea3cef69243992adc0e8cfafd6816a27d2a13775805379a3a13b7b23ef9",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-phoenician-women-first.webp",
+      "stageHash": "f1c9175dfb46d7dd1a7858f19c704f0d478b485478db01ba87a47bd76ae483d7",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-phoenician-women-first.webp",
+      "cardHash": "4cecdf099290f0ef7062f333e5686a45174bac8db26e56be66c66d9604f4c44c",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-phoenician-women-first.webp",
+      "phoneHash": "35820d9693207111c525cdf8513bf5d3fcab65c873c102df21b0ef2f1237d66c"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-second.png": {
+      "sourceHash": "7a936af0336f3124d1e1aebcc7c3b419ec64c7b15b9b3e5a9b23272a5bb4d18c",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-phoenician-women-second.webp",
+      "stageHash": "af4f5d8da5f02f863ef83daa6a2cbfc7d371ed9d57b351f6fb90694913bec005",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-phoenician-women-second.webp",
+      "cardHash": "170a3efaec944ada912324c910645a4a6f5519c36be533b64ca5e8d3bd03a29a",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-phoenician-women-second.webp",
+      "phoneHash": "7fd8ba70297c60fb46e7a99664df58310f47d7e64d11c5726e41c015594d8bbb"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-rhesus-first.png": {
+      "sourceHash": "daf493f4155166750cfd7e475740cc33d056b32871707399d6d56531a67fb77b",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-rhesus-first.webp",
+      "stageHash": "6f4106acea029eeaf77c3ba59033b963693787bb78574ed51e3e8cd10a9d7d28",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-rhesus-first.webp",
+      "cardHash": "0ca55f0bbbaa37d8023ff60c02aeb872bf4104c304c5115668d6fe1ac6e00501",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-rhesus-first.webp",
+      "phoneHash": "eba1255539d24f5ddeb4854ac2df1649d38286a8bc45d68fa7f4a6670e84d143"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-rhesus-second.png": {
+      "sourceHash": "4ba4f7eb712f185154508868f2deb374aa7e4a10b817f90e90125077138a5199",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-rhesus-second.webp",
+      "stageHash": "d5770d72159c1efa0a11e83cbd9375a137077b0b93c03192eb82b04188d06f7a",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-rhesus-second.webp",
+      "cardHash": "0c4adb5c421ad1d42a315d2f16c85c85cb244ec96d5968b21f5da62c53ee1974",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-rhesus-second.webp",
+      "phoneHash": "6b79d4a271c233c973b68a32e6584367aad42c00681b4c03c83055b9fe028076"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-tauris-first.png": {
+      "sourceHash": "b113e29f1a0ad3179281168b5e0e924526d0d11d9e9a58cb300aaa7fd30f8ed0",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-tauris-first.webp",
+      "stageHash": "2002ec36db7a44f065a20c488e540f13931b00a89b18c6ae70d208e39c11e828",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-tauris-first.webp",
+      "cardHash": "67e7f694cefcdd7d7b19c9232e49e68331d8ea5bd29d9a33756ab7d8dc445b85",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-tauris-first.webp",
+      "phoneHash": "c92de8adc2cd1d07cef490811c0c70d4c1d6f35ca3ee445e65f516117c3ebd04"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-tauris-second.png": {
+      "sourceHash": "578b6559b42e3527363203608309d0040e15e3bb811b8f96a4fcd1ee01a37f8a",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-tauris-second.webp",
+      "stageHash": "bcefe1eaa6c1accde0341a403c95b2c47afd2886cca1c728955a2af7d43928d2",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-tauris-second.webp",
+      "cardHash": "33c60c5b5d7fb300981b163ef80b3eeef761cb6804ec664796b0fbb89d89a3b2",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-tauris-second.webp",
+      "phoneHash": "92845313380d3a868a459567ca0b999b0a444df69ae1289375115497b88bf961"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-first.png": {
+      "sourceHash": "69da977fab9db4ab10ecf29b78f1efaf78aa333be3429ef9a507de2c3455b7cb",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-trojan-women-first.webp",
+      "stageHash": "dcf0e5f3d3074d3730a6b57947295651f7beeb4bcf18504276be061212ff630d",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-trojan-women-first.webp",
+      "cardHash": "1e13503191a1061c37cff98c1a7f6ef4413bffee61063239613b80180c396986",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-trojan-women-first.webp",
+      "phoneHash": "d2729b33216f96da2df43d42f96084e4e635026f2b0b7e01c61cf915d5506f82"
+    },
+    "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-second.png": {
+      "sourceHash": "cc7a8922957eb2d8587793e106e975cbab1079861315001155e1979008101883",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-euripides-trojan-women-second.webp",
+      "stageHash": "eefdb2037e6af11e187fa6616f3370871061a5d14c9e321d4d3d8d108e1f889e",
+      "card": "assets/optimized/card/png/greek-drama/repertoire-greek-story-euripides-trojan-women-second.webp",
+      "cardHash": "c5b4c48842b5b612004e41095547583916465970a87fd688fc04337733b8a076",
+      "phone": "assets/optimized/phone/png/greek-drama/repertoire-greek-story-euripides-trojan-women-second.webp",
+      "phoneHash": "68ce38f9b166e75b04e3b6574e9f77dd64da4e944e08ef542dae1c95b043dab8"
+    },
+    "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-first.png": {
+      "sourceHash": "871f1497004ab189c0ed3ac24e9c92910604525cf838043ce12643451301fa12",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-first.webp",
+      "stageHash": "681f76013848cef8b37117229874cf6442c0bd922e435c0a5a496396f34a8815",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-first.webp",
+      "cardHash": "681f76013848cef8b37117229874cf6442c0bd922e435c0a5a496396f34a8815",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-first.webp",
+      "phoneHash": "681f76013848cef8b37117229874cf6442c0bd922e435c0a5a496396f34a8815"
+    },
+    "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-second.png": {
+      "sourceHash": "08dc17df5e902bc98a92e921c4a7219a8e7500bd8513f2ef0bdc919c3b1aa73b",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-second.webp",
+      "stageHash": "6f78b236235049f8da4253361e5da0b86cff38ecb5929c7f6777b95a06c761c4",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-second.webp",
+      "cardHash": "6f78b236235049f8da4253361e5da0b86cff38ecb5929c7f6777b95a06c761c4",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-second.webp",
+      "phoneHash": "6f78b236235049f8da4253361e5da0b86cff38ecb5929c7f6777b95a06c761c4"
+    },
+    "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-first.png": {
+      "sourceHash": "ca769a67b836bfb15d23d6aff5e6ccabb2f96b792197330a9ea4bc7f92f70ba1",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-philoctetes-first.webp",
+      "stageHash": "dcb70d59975bd202f6da9afa2810ea2904d6afef78cc5b2b8239e40f3552d61d",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-philoctetes-first.webp",
+      "cardHash": "dcb70d59975bd202f6da9afa2810ea2904d6afef78cc5b2b8239e40f3552d61d",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-philoctetes-first.webp",
+      "phoneHash": "dcb70d59975bd202f6da9afa2810ea2904d6afef78cc5b2b8239e40f3552d61d"
+    },
+    "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-second.png": {
+      "sourceHash": "177dbbe567ed31ab807a347bd7c8ce2fa367aaf2c6458fd9b51ea73775e9e91a",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-philoctetes-second.webp",
+      "stageHash": "ae800a0054770a60b1192eb523c16423c4cb0c41589c539f6b2c7cc69c1c7b90",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-philoctetes-second.webp",
+      "cardHash": "ae800a0054770a60b1192eb523c16423c4cb0c41589c539f6b2c7cc69c1c7b90",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-philoctetes-second.webp",
+      "phoneHash": "ae800a0054770a60b1192eb523c16423c4cb0c41589c539f6b2c7cc69c1c7b90"
+    },
+    "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-first.png": {
+      "sourceHash": "560fff8f0c4de101ee2662f8a913d419502465a803cee9fd324768002107bcd6",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-first.webp",
+      "stageHash": "ca47751d068da236205bc9014f5243713b6918e71c575e63c37ea0e9a64a9f08",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-first.webp",
+      "cardHash": "ca47751d068da236205bc9014f5243713b6918e71c575e63c37ea0e9a64a9f08",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-first.webp",
+      "phoneHash": "ca47751d068da236205bc9014f5243713b6918e71c575e63c37ea0e9a64a9f08"
+    },
+    "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-second.png": {
+      "sourceHash": "5858bc4f8f58a543a5bc2c8a7a2b1e6842dd8699bc17ad98359c92d4da4c001b",
+      "stage": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-second.webp",
+      "stageHash": "9b2be4c67e9c229ae30b17dcf5d1e680c88292c90cc61848950177dcb450ea9f",
+      "card": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-second.webp",
+      "cardHash": "9b2be4c67e9c229ae30b17dcf5d1e680c88292c90cc61848950177dcb450ea9f",
+      "phone": "assets/optimized/stage/png/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-second.webp",
+      "phoneHash": "9b2be4c67e9c229ae30b17dcf5d1e680c88292c90cc61848950177dcb450ea9f"
+    },
+    "assets/greek-drama/repertoire-greek-thetis.webp": {
+      "sourceHash": "2e064f139deea643bb473a04f600a3f85dea36a3e7e8d85eb34d8f70800b85fe",
+      "stage": "assets/greek-drama/repertoire-greek-thetis.webp",
+      "stageHash": "2e064f139deea643bb473a04f600a3f85dea36a3e7e8d85eb34d8f70800b85fe",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-thetis.webp",
+      "cardHash": "7dd02cf7a7bd3ebb1ccacc001572e43c3ac6fbc986463f1038ebd17694a8be2d",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-thetis.webp",
+      "phoneHash": "a7654671490611f724d8703357d9001622b02a6ee56ea181e3d6dba3582317d5"
+    },
+    "assets/greek-drama/repertoire-greek-thinkery.webp": {
+      "sourceHash": "23297ced2557187cc09e333a2791335e7682882ab5347b40abc89ca7fef72469",
+      "stage": "assets/greek-drama/repertoire-greek-thinkery.webp",
+      "stageHash": "23297ced2557187cc09e333a2791335e7682882ab5347b40abc89ca7fef72469",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-thinkery.webp",
+      "cardHash": "318021ed5e8e254bec25679c09535ab223f17b5dd23d6c6fff5acbb0a473713f",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-thinkery.webp",
+      "phoneHash": "de0f8428142455eb81b4618f0865b3ad1ff9ff60572062b877fbef863cc97b0b"
+    },
+    "assets/greek-drama/repertoire-greek-troezen.webp": {
+      "sourceHash": "a05632b2f496a30d28e0e6e4493bba3f15d4634e23c3ea49d629ea17cbd7bc2e",
+      "stage": "assets/greek-drama/repertoire-greek-troezen.webp",
+      "stageHash": "a05632b2f496a30d28e0e6e4493bba3f15d4634e23c3ea49d629ea17cbd7bc2e",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-troezen.webp",
+      "cardHash": "86f26369f41d51ff0875ceb45cb48a9daab0d0b1c4590477259f00c852036d72",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-troezen.webp",
+      "phoneHash": "c40d7b37e2a0c8bb1f6fc4c13fcc4faf7aef6630ea113ae9125c94896d6d7b85"
+    },
+    "assets/greek-drama/repertoire-greek-underworld.webp": {
+      "sourceHash": "3448ab0a396d7a297652efee5d52a14c85d0e32903e00cbbacee0638902e1685",
+      "stage": "assets/greek-drama/repertoire-greek-underworld.webp",
+      "stageHash": "3448ab0a396d7a297652efee5d52a14c85d0e32903e00cbbacee0638902e1685",
+      "card": "assets/optimized/card/webp/greek-drama/repertoire-greek-underworld.webp",
+      "cardHash": "a20dba9c23d54074395b57a0dbf2e17298a11b1cd2e031873b89d71711378846",
+      "phone": "assets/optimized/phone/webp/greek-drama/repertoire-greek-underworld.webp",
+      "phoneHash": "b1c204ae5cdd45efdd14909d68922cf9e63b096806ebfc4dd09727927e22e71f"
     },
     "assets/greek-drama/return-cloths.png": {
       "sourceHash": "89a66f6d976431331deb35b1a28db10a6cd965e97eeb9ca49c0136d0ece27f5c",
