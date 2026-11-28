@@ -133,7 +133,9 @@ describe("fast check Rust test selection", () => {
     expect(packs).toContain("card_shared::content::");
     expect(packs).toContain("card_shared::world_life_tests::");
     expect(packs).not.toContain(N); // routes::card_game:: covers it
-    expect(pick("v2/core-c/src/card_table.c")).toEqual(["card_shared::"]);
+    expect(pick(`${SRC}/card_shared/seat_guard.rs`)).toEqual([
+      "card_shared::seat_guard::",
+    ]);
   });
 
   it("runs the default for crate-wide files", () => {

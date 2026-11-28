@@ -34,7 +34,7 @@ npm run play:cards:local
 
 CosyWorld is a solo and shared card world with a hard boundary between a deterministic rules core and a language model.
 
-- One rules program serves the browser and the shared server. The server runs it in QuickJS, a C interpreter with no filesystem, network, clock, or randomness, inside a Rust process that owns IO. A small C guard checks shared seats and room capacity. The layout is in [ARCHITECTURE.md](ARCHITECTURE.md).
+- One rules program serves the browser and the shared server. The server runs it in QuickJS, a C interpreter with no filesystem, network, clock, or randomness, inside a Rust process that owns IO and checks shared seats and room capacity. The layout is in [ARCHITECTURE.md](ARCHITECTURE.md).
 - A card is journaled and reduced before anyone speaks. Generated speech is stored as speech. It is not the state the next card is dealt from. A line can contradict the table. Card text, the accepted action, and world messages are the account a replay agrees on.
 - Shared worlds are a SQLite journal. Released rules bundles from `full-card-world/133` onward stay in the server so an old journal still reduces on the rules that wrote it. The app and rules versions are tracked independently. [App manifest](package.json) · [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
 - A branch is held to 400 handwritten lines (`scripts/change-budget.json`). A change to the shared rules engine is a separate warning unless the pull request carries the `engine` label. Tests cover the rules, the journal, and the speech path.
@@ -60,7 +60,6 @@ A short recording of one play, from card to world message to reply, is enough.
 | --------------------------- | ------------------------------------------------- |
 | `v2/card-game/`             | Browser client and the authored rules             |
 | `v2/orchestrator-rust/`     | Shared worlds, the journal, and the model gateway |
-| `v2/core-c/`                | C guard for shared seats and room capacity        |
 | `v2/content/`, `v2/worlds/` | Sources for the mounted world packs               |
 | `v2/local/`                 | Offline server and local dialogue                 |
 

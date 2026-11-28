@@ -7,9 +7,6 @@ publish = false
 [features]
 embedded-llama = ["dep:llama-cpp-2"]
 
-[build-dependencies]
-cc = "1"
-
 [dependencies]
 axum = "0.8"
 base64 = "0.22"

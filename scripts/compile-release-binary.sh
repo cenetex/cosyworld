@@ -10,7 +10,7 @@ set -eu
 # compiler the real version, so env!("CARGO_PKG_VERSION") is unchanged.
 crate=/app/v2/orchestrator-rust
 mkdir -p "$crate"
-cp -a /src/Cargo.toml /src/Cargo.lock /src/build.rs /src/src "$crate/"
+cp -a /src/Cargo.toml /src/Cargo.lock /src/src "$crate/"
 cd "$crate"
 version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
 case "$version" in
