@@ -1,4 +1,7 @@
-use super::{create_geography::Geography, pack_state::Catalog};
+use super::{
+    create_geography::Geography, opening, opening_content, opening_visitor_transport,
+    pack_state::Catalog,
+};
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, VecDeque};
 
@@ -10,6 +13,16 @@ pub(super) fn crossing_open(
     world: &Value,
     geo: &Geography,
     actor: &str,
+    pack: &str,
+    crossing: &Value,
+) -> Option<bool> {
+    crossing_open_for(world, geo, Some(actor), pack, crossing)
+}
+
+fn crossing_open_for(
+    world: &Value,
+    geo: &Geography,
+    actor: Option<&str>,
     pack: &str,
     crossing: &Value,
 ) -> Option<bool> {
@@ -47,7 +60,7 @@ pub(super) fn crossing_open(
         {
             return Some(false);
         }
-        return geo.crossing_conditions(world, pack, &crossing["requires"], Some(actor));
+        return geo.crossing_conditions(world, pack, &crossing["requires"], actor);
     }
     if let Some(signal) = crossing.get("signal") {
         let window = if signal["opens"].is_null() {
@@ -59,7 +72,7 @@ pub(super) fn crossing_open(
             return Some(false);
         }
     }
-    geo.crossing_conditions(world, pack, &crossing["requires"], Some(actor))
+    geo.crossing_conditions(world, pack, &crossing["requires"], actor)
 }
 
 fn blocked(world: &Value, geo: &Geography, actor: &str, post: &str, beyond: &str) -> Option<bool> {
@@ -86,46 +99,52 @@ fn blocked(world: &Value, geo: &Geography, actor: &str, post: &str, beyond: &str
     Some(false)
 }
 
-pub(super) fn exits<'a>(
+fn add<'a>(ways: &mut Vec<&'a str>, to: &'a str) {
+    if !ways.contains(&to) {
+        ways.push(to);
+    }
+}
+
+fn ordinary_exits<'a>(
     world: &Value,
     geo: &Geography<'a>,
     actor: &str,
     from: &str,
-) -> Option<BTreeSet<&'a str>> {
-    let mut ways = BTreeSet::new();
+    previous: Option<&str>,
+) -> Option<Vec<&'a str>> {
+    let mut ways = Vec::new();
     let mut personal = BTreeSet::new();
     let mut allowed = BTreeSet::new();
-    let base = geo.base_exits(from)?;
-    for exit in base {
-        ways.insert(exit.as_str()?);
+    for exit in geo.base_exits(from)? {
+        add(&mut ways, exit.as_str()?);
     }
     let forest = &geo.files()["v2/card-game/forest.json"];
     for route in entries(&forest["reflectionRoutes"]).filter(|route| route["from"] == from) {
         if geo.reflection_open(world, route)? {
-            ways.insert(route["to"].as_str()?);
+            add(&mut ways, route["to"].as_str()?);
         }
     }
     for pack in geo.packs() {
-        if pack["transports"]
-            .as_object()
-            .is_some_and(|ships| ships.values().any(|ship| ship["place"] == from))
-        {
-            return None;
-        }
         let id = pack["id"].as_str()?;
         for crossing in entries(&pack["crossings"]).filter(|crossing| crossing["from"] == from) {
             if crossing_open(world, geo, actor, id, crossing)? {
                 if let Some(transport) = crossing["transport"].as_str() {
                     if let Some(ship) =
-                        super::opening_visitor_transport::board(world, geo, actor, transport, from)?
+                        opening_visitor_transport::board(world, geo, actor, transport, from)?
                     {
-                        ways.insert(ship);
+                        add(&mut ways, ship);
                     }
                 } else {
-                    ways.insert(crossing["to"].as_str()?);
+                    add(&mut ways, crossing["to"].as_str()?);
                 }
             }
         }
+    }
+    for to in opening_visitor_transport::exits(world, geo, actor, from, previous)? {
+        add(&mut ways, to);
+    }
+    for pack in geo.packs() {
+        let id = pack["id"].as_str()?;
         for route in entries(&pack["routes"]).filter(|route| route["from"] == from) {
             let to = route["to"].as_str()?;
             if entries(&route["travelerRequires"]).next().is_some() {
@@ -135,24 +154,49 @@ pub(super) fn exits<'a>(
                 && geo.conditions_met(world, id, &route["travelerRequires"], Some(actor))?
             {
                 allowed.insert(to);
-                ways.insert(to);
+                add(&mut ways, to);
             }
         }
     }
-    for (post, beyond) in entries(&geo.files()["v2/card-game/world-life.json"]["guardable"])
-        .filter_map(|route| Some((route["from"].as_str()?, route["to"].as_str()?)))
-        .filter(|&(post, beyond)| post == from || beyond == from)
-    {
-        let to = if post == from { beyond } else { post };
-        if blocked(world, geo, actor, post, beyond)? {
-            ways.remove(to);
-        } else {
-            ways.insert(to);
+    let guardable = &geo.files()["v2/card-game/world-life.json"]["guardable"];
+    for (here, there) in [("from", "to"), ("to", "from")] {
+        for route in entries(guardable).filter(|route| route[here] == from) {
+            let post = route["from"].as_str()?;
+            let beyond = route["to"].as_str()?;
+            let to = route[there].as_str()?;
+            if blocked(world, geo, actor, post, beyond)? {
+                ways.retain(|way| *way != to);
+            } else {
+                add(&mut ways, to);
+            }
         }
     }
+    let mut visited = Vec::new();
+    for to in ways {
+        if (!personal.contains(to) || allowed.contains(to)) && geo.entity_active(world, to)? {
+            visited.push(to);
+        }
+    }
+    Some(visited)
+}
+
+pub(super) fn exits<'a>(
+    world: &Value,
+    geo: &Geography<'a>,
+    actor: &str,
+    from: &str,
+) -> Option<BTreeSet<&'a str>> {
+    if geo.packs().any(|pack| {
+        pack["transports"]
+            .as_object()
+            .is_some_and(|ships| ships.values().any(|ship| ship["place"] == from))
+    }) {
+        return None;
+    }
+    let mut ways = ordinary_exits(world, geo, actor, from, None)?;
     if from == "station" {
         let mut admitted = BTreeSet::new();
-        for road in base {
+        for road in geo.base_exits(from)? {
             let road = road.as_str()?;
             if geo.entity_active(world, road)? {
                 admitted.insert(road);
@@ -171,13 +215,143 @@ pub(super) fn exits<'a>(
         );
         ways.retain(|to| admitted.contains(to));
     }
-    let mut visited = BTreeSet::new();
-    for to in ways {
-        if (!personal.contains(to) || allowed.contains(to)) && geo.entity_active(world, to)? {
-            visited.insert(to);
+    Some(ways.into_iter().collect())
+}
+
+fn station_exits<'a>(world: &Value, geo: &Geography<'a>) -> Option<Vec<&'a str>> {
+    let station = "station";
+    if entries(&geo.files()["v2/card-game/forest.json"]["reflectionRoutes"])
+        .any(|route| route["from"] == station)
+        || geo
+            .packs()
+            .any(|pack| entries(&pack["routes"]).any(|route| route["from"] == station))
+    {
+        return None;
+    }
+    let mut roads = Vec::new();
+    for road in geo.base_exits(station)? {
+        let road = road.as_str()?;
+        if geo.entity_active(world, road)? {
+            add(&mut roads, road);
         }
     }
-    Some(visited)
+    let mut visitors = vec![None];
+    for (actor, a) in world["actors"].as_object()? {
+        if a["place"] == station
+            && (!opening::is_seat(actor)
+                || geo.human_present(world, actor)
+                || geo.visiting_resident(world, actor))
+            && geo.entity_active(world, actor)?
+        {
+            visitors.push(Some(actor.as_str()));
+        }
+    }
+    let mut available = Vec::new();
+    for pack in geo.packs() {
+        let pack_id = pack["id"].as_str()?;
+        for crossing in entries(&pack["crossings"]).filter(|crossing| crossing["from"] == station) {
+            if crossing.get("transport").is_some() {
+                return None;
+            }
+            let to = crossing["to"].as_str()?;
+            if roads.contains(&to) {
+                continue;
+            }
+            for &visitor in &visitors {
+                if crossing_open_for(world, geo, visitor, pack_id, crossing)? {
+                    add(&mut available, to);
+                    break;
+                }
+            }
+        }
+    }
+    for saved in world["stationExitOrder"].as_array()? {
+        if let Some(&to) = available.iter().find(|&&to| saved == to) {
+            add(&mut roads, to);
+        }
+    }
+    for to in available {
+        add(&mut roads, to);
+    }
+    roads.truncate(3);
+    Some(roads)
+}
+
+pub(super) fn projected_exits<'a>(
+    world: &Value,
+    geo: &Geography<'a>,
+    actor: &str,
+    from: &str,
+    previous: Option<&str>,
+) -> Option<Vec<&'a str>> {
+    let ways = ordinary_exits(world, geo, actor, from, previous)?;
+    if from == "station" {
+        return Some(
+            station_exits(world, geo)?
+                .into_iter()
+                .filter(|to| ways.contains(to))
+                .collect(),
+        );
+    }
+    Some(ways)
+}
+
+pub(super) fn person_step<'a>(
+    world: &mut Value,
+    geo: &Geography<'a>,
+    actor: &str,
+) -> Option<Option<&'a str>> {
+    let turn = world["turn"].as_u64()?;
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    let avatar = entries(&geo.files()["v2/card-game/shared-cast.json"]["avatars"])
+        .find(|avatar| avatar["id"] == actor)?;
+    let record = world["actors"].get(actor)?;
+    let want = &record["want"];
+    let from = record["place"].as_str()?.to_owned();
+    let item = avatar["item"]["id"].as_str()?;
+    if began.checked_add(2)? != turn
+        || from != avatar["home"]["id"].as_str()?
+        || !geo.visiting_resident(world, actor)
+        || entries(&world["heldActors"]).any(|id| id == actor)
+        || world["hidden"]["actor"] == actor
+        || world["routeKnowledge"].get(actor).is_some()
+        || want["kind"] != "person"
+        || !want["step"].is_null()
+        || world["items"][item]["holder"] != actor
+    {
+        return None;
+    }
+    let target = want["target"].as_str()?;
+    let target = world["actors"][target]["place"].as_str()?.to_owned();
+    if from == target {
+        return None;
+    }
+    let mut visited = BTreeSet::from([from.as_str()]);
+    let mut queue = VecDeque::from([(from.as_str(), None, None)]);
+    while let Some((here, previous, first)) = queue.pop_front() {
+        if here == target {
+            return Some(first);
+        }
+        let slot = world["actors"].get_mut(actor)?.get_mut("place")?;
+        let saved = std::mem::replace(slot, json!(here));
+        let next = projected_exits(world, geo, actor, here, previous);
+        world["actors"][actor]["place"] = saved;
+        for to in next? {
+            if visited.insert(to) {
+                queue.push_back((to, Some(here), first.or(Some(to))));
+            }
+        }
+    }
+    Some(None)
+}
+
+pub(super) fn person_step_projection(request: &Value) -> Option<Value> {
+    let files = opening_content::files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let mut world = request.get("world")?.clone();
+    let step = person_step(&mut world, &geo, request["actor"].as_str()?)?;
+    Some(json!({"ok":true,"step":step}))
 }
 
 pub(super) fn reachable<'a>(

@@ -152,6 +152,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("seed_opening") => seed::opening_projection(request).unwrap_or(Value::Null),
         Some("seed_arrivals") => seed_arrivals::projection(request).unwrap_or(Value::Null),
         Some("visitor_reach") => opening_visitor_routes::projection(request).unwrap_or(Value::Null),
+        Some("visitor_person_step") => {
+            opening_visitor_routes::person_step_projection(request).unwrap_or(Value::Null)
+        }
         Some("visitor_transport") => {
             opening_visitor_transport::projection(request).unwrap_or(Value::Null)
         }
