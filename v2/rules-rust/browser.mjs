@@ -55,6 +55,7 @@ export function browserRules(bytes) {
           "opening_mirror_move",
           "opening_pond_ask",
           "opening_pond_place_returns",
+          "opening_pond_resident_sleep",
           "opening_full_move",
         ].includes(request.op) ||
         atticPlay ||
