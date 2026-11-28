@@ -273,7 +273,8 @@ jobs:
           COSYWORLD_RULES_WASM="$artifact" node --test v2/rules-rust/tests/*.test.mjs
           COSYWORLD_RULES_WASM="$artifact" RUST_MIN_STACK=16777216 \
             cargo test --locked --manifest-path v2/orchestrator-rust/Cargo.toml \
-            --features rules-wasm,local-tooling --bin cosyworld-orchestrator sqlite_rules_wasm_parity -- --nocapture
+            --features rules-wasm,local-tooling --bin cosyworld-orchestrator \
+            sqlite_rules_wasm_parity -- --nocapture --test-threads=1
       - name: Check local tooling
         run: |
           cargo test --locked --manifest-path v2/orchestrator-rust/Cargo.toml \

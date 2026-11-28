@@ -157,8 +157,7 @@ impl World {
                 next.present[a] = 0;
                 (SeatAction::Release, json!({}))
             }
-            // The owner's delete: the avatar starts over (#1825). Rules that
-            // predate it refuse the request, so it is never journaled for them.
+            // Reset starts the avatar over. Older rules refuse it before journaling (#1825).
             "reset" => {
                 let result = reduce(
                     &self.version,
