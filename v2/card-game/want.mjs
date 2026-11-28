@@ -288,7 +288,6 @@ export function lostOf(s, w) {
   ].find((id) => typeof id === "string" && neverBack(s, id));
 }
 
-// An authored want as the actor holds it: its kind, target, light and step.
 const heldWant = (s, w) => ({
   ...newWant(w.kind, w.target, s.turn),
   ...(w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}),
