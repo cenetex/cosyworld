@@ -28,6 +28,19 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if matches!(key, Some("move:vale::station" | "move:vale:lamp:station")) {
         return super::opening_full_station_move::reduce(request);
     }
+    if request["world"]["actors"]["vale"]["place"] == "station"
+        && matches!(
+            key,
+            Some(
+                "move:vale::behind-station"
+                    | "move:vale:lamp:behind-station"
+                    | "move:vale::pond"
+                    | "move:vale:lamp:pond"
+            )
+        )
+    {
+        return super::opening_station_departure::reduce(request);
+    }
     if key == Some(super::opening_station_read::KEY) {
         return super::opening_full_station_read::reduce(request);
     }

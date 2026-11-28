@@ -10,7 +10,6 @@
 // bedtime), stepping off a docked ship, an accepted invitation to travel,
 // an authored journey, or anything a player does to or with the resident:
 // those moves never ask the planner's dwell test.
-// The caller supplies world life and journey state, so this module needs no imports.
 
 // Story and liveness suites can turn dwell off with test/helpers/no-dwell.mjs.
 export const dwellRule = { on: true };
