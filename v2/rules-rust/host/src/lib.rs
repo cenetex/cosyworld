@@ -115,12 +115,14 @@ fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, S
         .ok_or("Rules Wasm needs a request object with pack content.")?
         .clone();
     request.remove("actorOrder");
+    request.remove("placeCardOrder");
     let op = request.get("op").and_then(Value::as_str);
     let ordered = op == Some("opening_wait_roster")
         || (op == Some("play")
             && request
                 .get("action")
                 .is_some_and(|action| action == "wait:vale::" || action["key"] == "wait:vale::"));
+    let ordered_cards = op == Some("opening_place_return");
     if ordered {
         if let Some(actors) = request
             .get("world")
@@ -128,6 +130,15 @@ fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, S
         {
             let order = actors.keys().cloned().map(Value::String).collect();
             request.insert("actorOrder".into(), Value::Array(order));
+        }
+    }
+    if ordered_cards {
+        if let Some(cards) = request
+            .get("world")
+            .and_then(|world| world["placeCard"].as_object())
+        {
+            let order = cards.keys().cloned().map(Value::String).collect();
+            request.insert("placeCardOrder".into(), Value::Array(order));
         }
     }
     request.insert("packContentJson".into(), Value::String(pack_json.into()));
@@ -178,8 +189,11 @@ mod tests {
     #[test]
     fn preserves_raw_pack_content_and_checks_request_and_pack_sizes() {
         let pack = "{\n  \"z\": \"étang\", \"a\": 1\n}\n";
-        let input =
-            encode_request(&json!({"op":"view","actorOrder":["vale"]}), Some(pack)).unwrap();
+        let input = encode_request(
+            &json!({"op":"view","actorOrder":["vale"],"placeCardOrder":["attic"]}),
+            Some(pack),
+        )
+        .unwrap();
         assert_eq!(
             serde_json::from_slice::<Value>(&input).unwrap(),
             json!({"op":"view", "packContentJson":pack})
@@ -193,6 +207,15 @@ mod tests {
             .keys()
             .collect();
         assert_eq!(encoded["actorOrder"], json!(keys));
+        let returns = json!({"op":"opening_place_return", "world":{"placeCard":{"z":"glass","a":"thermos"}}, "placeCardOrder":["other"]});
+        let input = encode_request(&returns, Some(pack)).unwrap();
+        let encoded: Value = serde_json::from_slice(&input).unwrap();
+        let keys: Vec<_> = returns["world"]["placeCard"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect();
+        assert_eq!(encoded["placeCardOrder"], json!(keys));
         let long = "x".repeat(MAX_JSON_BYTES + 1);
         assert!(encode_request(&json!({"op":"view"}), Some(&long)).is_err());
         assert!(encode_request(&json!({"op":"view", "world":long}), Some(pack)).is_err());

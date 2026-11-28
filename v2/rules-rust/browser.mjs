@@ -44,8 +44,19 @@ export function browserRules(bytes) {
         actors && typeof actors === "object" && !Array.isArray(actors)
           ? Object.keys(actors)
           : undefined;
+      const cards =
+        request.op === "opening_place_return" ? request.world?.placeCard : null;
+      const placeCardOrder =
+        cards && typeof cards === "object" && !Array.isArray(cards)
+          ? Object.keys(cards)
+          : undefined;
       input = encoder.encode(
-        JSON.stringify({ ...request, packContentJson, actorOrder }),
+        JSON.stringify({
+          ...request,
+          packContentJson,
+          actorOrder,
+          placeCardOrder,
+        }),
       );
       if (input.length > MAX_WIRE_BYTES)
         throw new Error("Rules WASM input is too large");

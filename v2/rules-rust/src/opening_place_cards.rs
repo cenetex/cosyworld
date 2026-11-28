@@ -115,20 +115,19 @@ impl<'a> Deck<'a> {
         Some(())
     }
 
-    pub(super) fn settle_return(
+    pub(super) fn settle_returns(
         &self,
         world: &mut Value,
         geo: &Geography,
         evidence: &ResidentEvidence,
-    ) -> Option<Option<Value>> {
-        let returned =
-            completed_at_home(world)?.map(|(home, item)| (home.to_owned(), item.to_owned()));
-        let event = match returned {
-            Some((home, item)) => Some(record_return(world, geo, evidence, &home, &item)?),
-            None => None,
-        };
+        order: &[&str],
+    ) -> Option<Vec<Value>> {
+        let mut events = Vec::new();
+        for (home, item) in completed_at_home(world, order)? {
+            events.push(record_return(world, geo, evidence, home, &item)?);
+        }
         self.settle(world, geo, Some("attic"))?;
-        Some(event)
+        Some(events)
     }
 }
 
@@ -143,19 +142,41 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     Some(json!({"ok":true,"placeCard":world["placeCard"]}))
 }
 
-fn completed_at_home(world: &Value) -> Option<Option<(&str, &str)>> {
-    let mut returned = None;
-    for (home, card) in world["placeCard"].as_object().into_iter().flatten() {
-        let item = card.as_str()?;
-        if world["items"].get(item)?["holder"] == *home
+pub(super) fn saved_order<'a>(request: &'a Value, world: &'a Value) -> Option<Vec<&'a str>> {
+    let provided = request.get("placeCardOrder");
+    let Some(cards) = world.get("placeCard") else {
+        return provided.map_or(Some(Vec::new()), |order| {
+            order.as_array()?.is_empty().then(Vec::new)
+        });
+    };
+    let cards = cards.as_object()?;
+    let Some(order) = provided else {
+        return Some(cards.keys().map(String::as_str).collect());
+    };
+    let order = order.as_array()?;
+    if order.len() != cards.len() {
+        return None;
+    }
+    let mut seen = BTreeSet::new();
+    order
+        .iter()
+        .map(|home| {
+            let home = home.as_str()?;
+            (cards.contains_key(home) && seen.insert(home)).then_some(home)
+        })
+        .collect()
+}
+
+fn completed_at_home<'a>(world: &Value, order: &[&'a str]) -> Option<Vec<(&'a str, String)>> {
+    let mut returned = Vec::new();
+    for &home in order {
+        let item = world["placeCard"].get(home)?.as_str()?;
+        if world["items"].get(item)?["holder"] == home
             && !includes(&world["gone"], item)
             && !includes(&world["usedUp"], item)
             && !includes(&world["placeMet"][home], item)
         {
-            if returned.is_some() {
-                return None;
-            }
-            returned = Some((home.as_str(), item));
+            returned.push((home, item.to_owned()));
         }
     }
     Some(returned)
@@ -214,14 +235,19 @@ pub(super) fn returned_projection(request: &Value) -> Option<Value> {
     if request["claimed"] != json!(["vale"]) || request["present"] != json!(["vale"]) {
         return None;
     }
+    let saved = opening_wait::wait_world(request)?;
+    let order = saved_order(request, saved)?;
     let (mut world, _, files) = opening_wait::begin(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let deck = Deck::new(&world, &geo)?;
     let evidence = ResidentEvidence::new(&files)?;
-    let event = deck.settle_return(&mut world, &geo, &evidence)??;
+    let events = deck.settle_returns(&mut world, &geo, &evidence, &order)?;
+    if events.is_empty() {
+        return None;
+    }
     Some(json!({
-        "ok":true, "event":event, "placeCard":world["placeCard"], "placeMet":world["placeMet"],
+        "ok":true, "events":events, "placeCard":world["placeCard"], "placeMet":world["placeMet"],
         "memories":{
             "vale":world["memories"]["vale"], "attic":world["memories"]["attic"],
             "lamp":world["memories"]["lamp"],

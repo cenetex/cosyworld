@@ -72,7 +72,7 @@ test("one returned place card records the pinned history completion and memory",
       assert.equal(event.verb, "want_met");
       assert.deepEqual(wasm({ ...request, op: "opening_place_return" }), {
         ok: true,
-        event,
+        events: [event],
         placeCard: expected.world.placeCard,
         placeMet: expected.world.placeMet,
         memories: Object.fromEntries(
@@ -84,11 +84,41 @@ test("one returned place card records the pinned history completion and memory",
       });
     }
   }
+});
+
+test("simultaneous history returns use the caller's saved card order", async () => {
+  const { pinned, wasm } = await reducers();
   const { world } = pinned({ op: "create", history: true });
-  const request = { ...seats, world, action: "wait:vale::" };
-  const expected = pinned({ ...request, op: "play" });
-  assert.ok(
-    expected.events.filter((entry) => entry.verb === "want_met").length > 1,
-  );
-  assert.equal(wasm({ ...request, op: "opening_place_return" }), null);
+  const cards = Object.entries(world.placeCard);
+  const returned = cards
+    .filter(([home, item]) => world.items[item].holder === home)
+    .map(([home]) => home);
+  assert.ok(returned.length > 1);
+  for (const reversed of [false, true]) {
+    const placeCard = Object.fromEntries(reversed ? cards.toReversed() : cards);
+    const request = {
+      ...seats,
+      world: { ...world, placeCard },
+      action: "wait:vale::",
+    };
+    const expected = pinned({ ...request, op: "play" });
+    assert.equal(expected.ok, true, expected.error);
+    const events = expected.events.filter((entry) => entry.verb === "want_met");
+    assert.deepEqual(
+      events.map((entry) => entry.ownerId),
+      reversed ? returned.toReversed() : returned,
+    );
+    assert.deepEqual(wasm({ ...request, op: "opening_place_return" }), {
+      ok: true,
+      events,
+      placeCard: expected.world.placeCard ?? null,
+      placeMet: expected.world.placeMet,
+      memories: Object.fromEntries(
+        ["vale", "attic", "lamp"].map((id) => [
+          id,
+          expected.world.memories[id],
+        ]),
+      ),
+    });
+  }
 });
