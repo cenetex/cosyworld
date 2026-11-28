@@ -5,6 +5,7 @@ import {
   holdDialogueChoice,
   loadClientViewModel,
   phase,
+  roomCardOrder,
 } from "../v2/card-game/presentation.mjs";
 import { lockedStack } from "../v2/card-game/mystery-view.mjs";
 
@@ -16,7 +17,7 @@ function combinations(fields) {
   );
 }
 
-it("keeps dialogue, hand focus, and card stacks identical with the Rust module", async () => {
+it("keeps dialogue and hand presentation identical with the Rust module", async () => {
   const phases = combinations([
     "reviewing",
     "revealing",
@@ -50,6 +51,10 @@ it("keeps dialogue, hand focus, and card stacks identical with the Rust module",
   const preferred = [[], ["missing"], [undefined], ...ids.map((id) => [id])];
   preferred.push(["a", "c", "b"], ["b", "a", "missing"]);
   const stackStates = combinations(["open", "holderExpanded"]);
+  const roomRoles = combinations(
+    ids.flatMap((id) => [`local:${id}`, `way:${id}`]),
+  );
+  const roomEnds = [null, "a", "c", "missing"];
   const project = () => [
     phases.map(phase),
     choices.map(holdDialogueChoice),
@@ -58,6 +63,19 @@ it("keeps dialogue, hand focus, and card stacks identical with the Rust module",
       [...ids, "missing"].map((id) =>
         stackStates.map(({ open, holderExpanded }) =>
           lockedStack(ids.slice(0, count), id, open, holderExpanded),
+        ),
+      ),
+    ),
+    roomRoles.flatMap((roles) =>
+      roomEnds.flatMap((back) =>
+        roomEnds.map((featured) =>
+          roomCardOrder(
+            ids,
+            back,
+            featured,
+            (id) => roles[`local:${id}`],
+            (id) => roles[`way:${id}`],
+          ),
         ),
       ),
     ),
@@ -75,6 +93,7 @@ it("keeps dialogue, hand focus, and card stacks identical with the Rust module",
   const { instance } = await WebAssembly.instantiate(wasm);
   expect(instance.exports.hand_focus).toBeTypeOf("function");
   expect(instance.exports.locked_stack).toBeTypeOf("function");
+  expect(instance.exports.room_card_order).toBeTypeOf("function");
   expect(
     await loadClientViewModel(
       `data:application/wasm;base64,${wasm.toString("base64")}`,

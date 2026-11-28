@@ -80,29 +80,29 @@ export function tapPrompt(verb, complete, label = verb) {
   if (/^Tap /u.test(verb ?? "")) return { hint: verb, label };
   return { hint: word ? `Tap to ${word}` : "", label };
 }
+function handInput(length) {
+  if (!viewModel?.hand_input || !viewModel.memory || length > 0xffff)
+    return null;
+  const offset = viewModel.hand_input(length);
+  return offset
+    ? new Int32Array(viewModel.memory.buffer, offset, length)
+    : null;
+}
 export function handFocusId(frames, ids) {
   const preferred = [...ids];
-  const length = frames.length + preferred.length;
-  if (
-    viewModel?.hand_input &&
-    viewModel.hand_focus &&
-    viewModel.memory &&
-    length <= 0xffff
-  ) {
-    const offset = viewModel.hand_input(length);
-    if (offset) {
-      const indexes = new Map();
-      frames.forEach(({ id }, index) => {
-        if (!Number.isNaN(id) && !indexes.has(id)) indexes.set(id, index);
-      });
-      const indexOf = (id) => indexes.get(id) ?? -1;
-      const input = new Int32Array(viewModel.memory.buffer, offset, length);
-      frames.forEach(({ hidden, holder }, index) => {
-        input[index] = hidden ? (holder ? indexOf(holder) : -1) : -2;
-      });
-      input.set(preferred.map(indexOf), frames.length);
-      return frames[viewModel.hand_focus(frames.length)]?.id;
-    }
+  const input =
+    viewModel?.hand_focus && handInput(frames.length + preferred.length);
+  if (input) {
+    const indexes = new Map();
+    frames.forEach(({ id }, index) => {
+      if (!Number.isNaN(id) && !indexes.has(id)) indexes.set(id, index);
+    });
+    const indexOf = (id) => indexes.get(id) ?? -1;
+    frames.forEach(({ hidden, holder }, index) => {
+      input[index] = hidden ? (holder ? indexOf(holder) : -1) : -2;
+    });
+    input.set(preferred.map(indexOf), frames.length);
+    return frames[viewModel.hand_focus(frames.length)]?.id;
   }
   for (const id of preferred.reverse()) {
     let at = frames.findIndex((frame) => frame.id === id);
@@ -123,6 +123,41 @@ export function handFocusId(frames, ids) {
         if (frames[index] && !frames[index].hidden) return frames[index].id;
   }
   return frames.find((frame) => !frame.hidden)?.id;
+}
+export function roomCardOrder(cards, back, featured, isLocal, isWay) {
+  if (viewModel?.room_card_order) {
+    const roles = cards.map(
+      (id) =>
+        Number(Boolean(isLocal(id))) |
+        (Number(Boolean(isWay(id))) << 1) |
+        (Number(id === back) << 2) |
+        (Number(id === featured) << 3),
+    );
+    const maxOutput = 2 * cards.length + 2;
+    const input = handInput(roles.length + maxOutput);
+    if (input) {
+      input.set(roles);
+      const count = viewModel.room_card_order(
+        cards.length,
+        Boolean(back),
+        Boolean(featured),
+      );
+      const ids = [...cards, back, featured];
+      return Array.from(
+        input.subarray(cards.length, cards.length + count),
+        (index) => ids[index],
+      );
+    }
+  }
+  const local = cards.filter(isLocal);
+  return [
+    ...(back ? [back] : []),
+    ...local.slice(0, 1),
+    ...(featured ? [featured] : []),
+    ...local.slice(1).filter((id) => id !== featured),
+    ...cards.filter((id) => !local.includes(id) && !isWay(id)),
+    ...cards.filter((id) => isWay(id) && id !== back),
+  ];
 }
 export function lockedStackProjection(count, index, open, holderExpanded) {
   if (
