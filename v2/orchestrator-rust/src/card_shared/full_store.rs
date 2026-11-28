@@ -195,8 +195,7 @@ pub(super) fn commit_with_reveal(
     .map_err(sql_error)?;
     let seq = c.last_insert_rowid();
     checkpoint(c, id, w, seq)?;
-    // A committed play's dialogue context comes from the narrator, never the
-    // rules. Replay applies commands directly and never asks for it.
+    // The narrator supplies dialogue context only after a live commit.
     // The play is already journaled, so nothing here may return an error.
     if command["op"] == "play" {
         let Ok(a) = actor_index(command["actor"].as_str().unwrap_or_default()) else {
