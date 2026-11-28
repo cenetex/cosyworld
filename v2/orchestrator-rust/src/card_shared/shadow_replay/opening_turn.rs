@@ -19,6 +19,7 @@ const TAKE: (&str, PlayAssertion) = ("take:vale:lamp:", check_lamp_take);
 const BARE_POND_MOVE: (&str, PlayAssertion) = ("move:vale::pond", check_bare_pond_move);
 const BARE_STATION_MOVE: (&str, PlayAssertion) = ("move:vale::station", check_bare_station_move);
 const HISTORIC_POND_MOVE: (&str, PlayAssertion) = (BARE_POND_MOVE.0, check_historic_pond_move);
+const KEEPER_LOG_READ: (&str, PlayAssertion) = ("read:vale:keeper-log:", check_keeper_log_read);
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
@@ -124,6 +125,16 @@ fn sqlite_rules_wasm_parity_replays_station_after_the_first_pond_move() -> Resul
         unseeded_opening()?,
         true,
         &[BARE_POND_MOVE, BARE_STATION_MOVE],
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_first_keeper_log_read() -> Result<()> {
+    replay_opening_turns(
+        "first-keeper-log-read",
+        unseeded_opening()?,
+        true,
+        &[BARE_POND_MOVE, BARE_STATION_MOVE, KEEPER_LOG_READ],
     )
 }
 
@@ -253,6 +264,37 @@ fn check_bare_station_move(lamp: &Value, reply: &Value) {
     assert_eq!(world["actors"]["moth"]["place"], "station");
     assert_eq!(world["opening"]["met"]["keeper"], world["turn"]);
     assert_eq!(world["speechVoices"]["vale"], json!(["vale", "keeper"]));
+}
+
+fn check_keeper_log_read(_: &Value, reply: &Value) {
+    let [read, wait] = reply["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected Vale's read followed by Pip's Wait");
+    };
+    assert_eq!(read["actorId"], "vale");
+    assert_eq!(read["verb"], "read");
+    assert_eq!(read["itemId"], "keeper-log");
+    assert_eq!(wait["actorId"], "moth");
+    assert_eq!(wait["verb"], "wait");
+    assert_eq!(
+        wait["seq"].as_u64(),
+        read["seq"].as_u64().map(|seq| seq + 1)
+    );
+    let world = &reply["world"];
+    assert_eq!(world["turn"], 3);
+    assert_eq!(read["locationId"], "station");
+    assert_eq!(wait["locationId"], "station");
+    assert_eq!(world["items"]["keeper-log"]["holder"], "station");
+    assert_eq!(world["eventSeq"], wait["seq"]);
+    assert_eq!(world["speechVoices"]["vale"], json!([]));
+    assert_eq!(
+        world["knowledge"]["known"]["vale"]["quest:keeper:pond"],
+        json!({"kind":"read","teller":null,"eventSeq":read["seq"],"learnedTurn":3,"book":"keeper-log"})
+    );
+    assert!(reply["actions"].as_array().unwrap().iter().any(|action| {
+        action["key"] == "accept:vale::keeper"
+            && action["kind"] == "accept"
+            && action["target"] == "keeper"
+    }));
 }
 
 fn check_bare_move(lamp: &Value, reply: &Value, from: &str, to: &str) {
