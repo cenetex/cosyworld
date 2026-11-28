@@ -158,7 +158,7 @@ test("visitor actions after the second pond crossing match pinned working states
   assert.equal(wasm({ ...request, world: forged }), null);
 });
 
-test("first Station arrivals replay quiet at-home visitor plays", async () => {
+test("first Station arrivals replay quiet visitor plays and dwelling travelers", async () => {
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(captureVisitorPlays);
   const counts = {
@@ -166,6 +166,7 @@ test("first Station arrivals replay quiet at-home visitor plays", async () => {
     move: 0,
     station: 0,
     awayWait: 0,
+    awayUnseen: 0,
     awayTalk: 0,
     afterTalk: 0,
   };
@@ -175,7 +176,7 @@ test("first Station arrivals replay quiet at-home visitor plays", async () => {
     return result.world;
   }
 
-  let verified;
+  let verified, away;
   for (const seed of [undefined, 2, 5, 7, 17, 99, 4242, 4_294_967_295]) {
     for (const mode of ["stowed", "dry"]) {
       let { world } = pinned({ op: "create", seed });
@@ -207,9 +208,24 @@ test("first Station arrivals replay quiet at-home visitor plays", async () => {
           const label = `${seed} ${mode} ${before.turn} ${action.key}`;
           const actual = wasm(request);
           if (before.actors[actor].crossed !== 0) {
-            assert.equal(actual, null, label);
-            assert.ok(["wait", "talk"].includes(action.kind), label);
-            counts[action.kind === "wait" ? "awayWait" : "awayTalk"]++;
+            if (action.kind === "talk") {
+              assert.equal(actual, null, label);
+              counts.awayTalk++;
+              continue;
+            }
+            assert.equal(action.kind, "wait", label);
+            assert.ok(isDeepStrictEqual(before, after), label);
+            assert.ok(
+              isDeepStrictEqual(actual, { ok: true, world: after }),
+              label,
+            );
+            const resident = before.actors[actor];
+            if (before.actors[resident.want.target].place === resident.place) {
+              counts.awayUnseen++;
+            } else {
+              counts.awayWait++;
+            }
+            if (seed === 5) away = request;
           } else if (action.key === `move:${actor}::station`) {
             assert.equal(actual, null, label);
             counts.station++;
@@ -235,7 +251,8 @@ test("first Station arrivals replay quiet at-home visitor plays", async () => {
     wait: 188,
     move: 10,
     station: 4,
-    awayWait: 10,
+    awayWait: 6,
+    awayUnseen: 4,
     awayTalk: 4,
     afterTalk: 8,
   });
@@ -261,5 +278,31 @@ test("first Station arrivals replay quiet at-home visitor plays", async () => {
     const world = structuredClone(verified.world);
     corrupt(world);
     assert.equal(wasm({ ...verified, world }), null);
+  }
+  assert.ok(away);
+  for (const corrupt of [
+    (world) => {
+      world.actors[away.actor].dwellUntil--;
+    },
+    (world) => {
+      world.actors[away.actor].want = { kind: "place", target: "station" };
+    },
+    (world) => {
+      const resident = world.actors[away.actor];
+      resident.want.target = "mara";
+      world.actors.mara.place = resident.place;
+    },
+    (world) => {
+      world.log.find(
+        (event) =>
+          event.actorId === away.actor &&
+          event.turn === 2 &&
+          event.verb === "move",
+      ).fromLocationId = "pond";
+    },
+  ]) {
+    const world = structuredClone(away.world);
+    corrupt(world);
+    assert.equal(wasm({ ...away, world }), null);
   }
 });
