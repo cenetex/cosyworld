@@ -1,5 +1,4 @@
-// The authored catalog: places, people, things and their names, shared by the
-// browser rules and the shared engine. Split out of world.mjs (#1390).
+// Authored game entities shared by the browser and server rules (#1390).
 import arcana from "../arcana.json" with { type: "json" };
 import forest from "../forest.json" with { type: "json" };
 import {
