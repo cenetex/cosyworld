@@ -199,12 +199,12 @@ describe("Fly commit image preparation", () => {
     expect(run).toContain("linux/amd64");
     expect(run).toContain("CARGO_BUILD_JOBS=4");
     for (const path of [
-      "v2/core-c",
       "v2/content",
       "v2/content-engine-version.txt",
       "v2/card-game",
       "v2/media",
       "v2/ai-model-rust",
+      "v2/rules-rust",
     ])
       expect(run).toContain(
         `type=bind,src=${resolve(path)},dst=/app/${path},readonly`,

@@ -104,7 +104,7 @@ describe("the Greek pack's locked boxes", () => {
     expect(new Set(wants).size).toBe(3);
   });
 
-  it("locks the Open Door's people on their own things, never on a flag", () => {
+  it("shows the Open Door's item locks and lets the Acharnae order bring out Thaleia", () => {
     const s = at(full(), "greek-athens");
     expect(flags(s)["greek-burial-performed"]).toBeFalsy();
     const ids = [
@@ -117,7 +117,7 @@ describe("the Greek pack's locked boxes", () => {
     for (const id of ids) {
       const read = JSON.stringify(pack.avatars[id].requires);
       expect(read, id).toMatch(/"kind":"item_(near|at)"/u);
-      expect(read, id).not.toMatch(/"kind":"(flag|choice)"/u);
+      if (id !== "greek-quay-host") expect(read, id).not.toMatch(/"kind":"(flag|choice)"/u);
       const w = {
         ...s,
         actors: {
@@ -127,6 +127,10 @@ describe("the Greek pack's locked boxes", () => {
       };
       expect(isLockedBox(w, id), id).toBe(true);
       expect(lockText(w, id), id).toMatch(/^(Bring .+ to|Lay .+ in) .+/u);
+      if (id === "greek-quay-host") {
+        choices(w)["greek-story-aristophanes-acharnians-outcome"] = "second";
+        expect(isLockedBox(w, id)).toBe(false);
+      }
     }
     // Marathon starts with a conversation. The blanket gates the rest of the tale.
     expect(pack.avatars["greek-marathon-keeper"].requires).toBeUndefined();

@@ -8,7 +8,7 @@ import { publicAssets } from "./public-assets.mjs";
 import radioCatalog from "./assets/music/radio-catalog.json" with { type: "json" };
 
 const playPolicy =
-  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
+  "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
 const authoringPolicy = playPolicy
   .replace("img-src 'self' data:", "img-src 'self' data: blob:")
   .replace(

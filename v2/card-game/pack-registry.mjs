@@ -670,7 +670,7 @@ export function packChoices(world, actor = "vale") {
   const here = world.actors[actor]?.place;
   return packDefinitions.flatMap((pack) =>
     (pack.choices || [])
-      .filter((c) => !c.on && c.at === here && choiceFeasible(world, pack, c, actor))
+      .filter((c) => !c.on && c.effects.length && c.at === here && choiceFeasible(world, pack, c, actor))
       .map((c) => ({
         kind: "choose",
         actor,

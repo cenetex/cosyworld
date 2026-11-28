@@ -102,7 +102,8 @@ export async function checkAjax(browser, origin) {
         )
           failedAssets.push(`${response.status()} ${response.url()}`);
       });
-      let current, clueRequest;
+      let current;
+      const requestedClues = new Set();
       try {
         await page.addInitScript(
           ({ key, save, seen }) => {
@@ -118,24 +119,14 @@ export async function checkAjax(browser, origin) {
         );
         await page.route("**/card-game/text", async (request) => {
           const input = request.request().postDataJSON();
+          for (const { factId } of input.disclosures || []) requestedClues.add(factId);
           const entries = input.entities.map(({ id }) => {
             const disclosure = input.disclosures?.find((fact) => fact.speaker === id);
             if (!disclosure) return { id, text: "I will keep your words in mind." };
             const { factId, listener, speaker, eventSeq, text } = disclosure;
             return { id, text, disclosed: { factId, listener, speaker, eventSeq } };
           });
-          const complete = { revision: input.revision, model: "ajax-browser-fixture", entries };
-          if (!input.disclosures?.some((fact) => fact.factId === shieldClue))
-            return request.fulfill({ json: complete });
-          clueRequest = input;
-          const frames = [
-            ...entries.map((entry) => ({ type: "delta", text: `${JSON.stringify(entry)}\n` })),
-            { type: "complete", ...complete },
-          ];
-          return request.fulfill({
-            contentType: "text/event-stream",
-            body: frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join(""),
-          });
+          return request.fulfill({ json: { revision: input.revision, model: "ajax-browser-fixture", entries } });
         });
         const state = () =>
           page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
@@ -280,13 +271,14 @@ export async function checkAjax(browser, origin) {
           const after = await state();
           assert.equal(after.turn, before.turn + 1, "Each action commits once");
           if (learningShield) {
-            assert(clueRequest.concealed.includes(tecmessa));
-            assert(clueRequest.disclosures[0].text.includes("Tecmessa"));
-            assert(after.log.some((line) => line.generated && line.disclosedFactId === shieldClue));
+            assert(!requestedClues.has(shieldClue));
+            assert(after.log.some((line) => !line.generated && line.disclosedFactId === shieldClue));
           }
           if (learningLemnos) {
             assert(knowsLane(after, "vale", pagasae, lemnos));
-            assert(after.log.some((line) => line.generated && line.disclosedFactId === `lane:${pagasae}>${lemnos}`));
+            const lane = `lane:${pagasae}>${lemnos}`;
+            assert(!requestedClues.has(lane));
+            assert(after.log.some((line) => !line.generated && line.disclosedFactId === lane));
           }
           if (choiceId)
             assert.equal(

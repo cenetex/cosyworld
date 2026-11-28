@@ -9,7 +9,7 @@ import { orchestratorBinary } from "./cargo-target.mjs";
 import { chromium } from "playwright";
 import { encodeSave } from "../card-game/world.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
-import { courseToward } from "../card-game/pack-transport.mjs";
+import { courseToward, learnLane } from "../card-game/pack-transport.mjs";
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import { stowProvisions } from "../../test/helpers/provisions.mjs";
 import {
@@ -18,7 +18,7 @@ import {
   crowdedAgoraWorld,
 } from "../../test/helpers/greek-capacity.mjs";
 
-// This uses five separate passkeys, the HTTP service, C session guard,
+// This uses five separate passkeys, the HTTP service, Rust seat guard,
 // QuickJS rules, SQLite journal, and a fixture speech provider.
 const dir = await mkdtemp(join(tmpdir(), "greek-capacity-"));
 const output = resolve("output/greek-capacity");
@@ -191,6 +191,7 @@ try {
     if (avatar === "vale") {
       const saved = crowdedAgoraWorld();
       saved.actors.vale.place = "greek-road-athens-piraeus";
+      learnLane(saved, "vale", "greek-piraeus", "greek-harbor");
       stowProvisions(saved, "greek-ship");
       const result = await request(
         page,

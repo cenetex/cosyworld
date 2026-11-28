@@ -10,8 +10,8 @@ WORKDIR /app/v2/orchestrator-rust
 
 FROM chef AS planner
 
-COPY v2/core-c /app/v2/core-c
 COPY v2/ai-model-rust /app/v2/ai-model-rust
+COPY v2/rules-rust /app/v2/rules-rust
 COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 
 RUN cargo chef prepare --recipe-path /app/recipe.json
@@ -19,8 +19,8 @@ RUN cargo chef prepare --recipe-path /app/recipe.json
 FROM chef AS dependencies
 
 COPY --from=planner /app/recipe.json /app/recipe.json
-COPY v2/core-c /app/v2/core-c
 COPY v2/ai-model-rust /app/v2/ai-model-rust
+COPY v2/rules-rust /app/v2/rules-rust
 
 # Cache third-party Rust dependencies in a separate layer.
 RUN cargo chef cook --release --recipe-path /app/recipe.json
@@ -29,8 +29,8 @@ FROM dependencies AS build
 
 ARG CARGO_BUILD_JOBS=1
 
-COPY v2/core-c /app/v2/core-c
 COPY v2/ai-model-rust /app/v2/ai-model-rust
+COPY v2/rules-rust /app/v2/rules-rust
 COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 
 # Keep the complete Cargo target between builds, including fingerprints and
@@ -38,8 +38,7 @@ COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 # source times so Cargo checks source copied from an older checkout as well.
 # Small builders use one worker; CI can set this to match its memory budget.
 RUN --mount=type=cache,id=cosyworld-release-target-v1,target=/app/v2/orchestrator-rust/target,from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked \
-  touch build.rs \
-  && find src ../ai-model-rust/src ../core-c -type f -exec touch {} + \
+  find src ../ai-model-rust/src ../rules-rust -type f -exec touch {} + \
   && CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} cargo build --release --locked \
   && mkdir -p /app/bin \
   && cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator

@@ -1245,23 +1245,24 @@ mod tests {
         let figure = image::load_from_memory(&bytes).unwrap();
         assert_eq!((figure.width(), figure.height()), (1024, 1536));
         assert!(!directory(&root, resident).join("name.txt").exists());
-        let calls = seen.lock().unwrap();
-        assert_eq!(calls.len(), 3);
-        assert_eq!(calls[0].0, "/chat/completions");
-        assert_eq!(calls[0].1["model"], model);
-        assert!(calls[0].1["messages"][1]["content"]
-            .as_str()
-            .unwrap()
-            .contains(resident.setting));
-        assert_eq!(calls[1].0, "/chat/completions");
-        assert_eq!(calls[1].1["model"], model);
-        assert_eq!(calls[0].1["reasoning"]["effort"], "low");
-        assert_eq!(calls[1].1["max_tokens"], 2048);
-        assert_eq!(calls[2].0, "/images");
-        let prompt = calls[2].1["prompt"].as_str().unwrap();
-        assert!(prompt.contains("A long silver coat. A round glass face."));
-        assert!(!prompt.contains("Private reflection"));
-        drop(calls);
+        {
+            let calls = seen.lock().unwrap();
+            assert_eq!(calls.len(), 3);
+            assert_eq!(calls[0].0, "/chat/completions");
+            assert_eq!(calls[0].1["model"], model);
+            assert!(calls[0].1["messages"][1]["content"]
+                .as_str()
+                .unwrap()
+                .contains(resident.setting));
+            assert_eq!(calls[1].0, "/chat/completions");
+            assert_eq!(calls[1].1["model"], model);
+            assert_eq!(calls[0].1["reasoning"]["effort"], "low");
+            assert_eq!(calls[1].1["max_tokens"], 2048);
+            assert_eq!(calls[2].0, "/images");
+            let prompt = calls[2].1["prompt"].as_str().unwrap();
+            assert!(prompt.contains("A long silver coat. A round glass face."));
+            assert!(!prompt.contains("Private reflection"));
+        }
         let portrait_trace = tokio::time::timeout(Duration::from_secs(1), async {
             loop {
                 let snapshot = portrait_activity();

@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 44,
+  "revision": 45,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -6762,6 +6762,88 @@
           "topic": [
             "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
             "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+            "claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+            "claim:greek-drama:greek-tomb-testimony:meeting"
+          ]
+        }
+      },
+      {
+        "id": "item:greek-areopagus-witness-water",
+        "kind": "item",
+        "title": "Witnesses’ Water appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "receipt(choiceId=greek-areopagus-open-witness-bench)"
+            }
+          ]
+        },
+        "words": "greek-areopagus-open-witness-bench has happened",
+        "ids": "greek-areopagus-open-witness-bench has happened",
+        "latch": [
+          "receipt(choiceId=greek-areopagus-open-witness-bench)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-areopagus-file-atreid-evidence",
+            "greek-areopagus-hear-cilissa",
+            "greek-areopagus-open-witness-bench",
+            "greek-atreid-aeschylus",
+            "greek-atreid-aeschylus-hearing",
+            "greek-atreid-aeschylus-refusal",
+            "greek-cilissa-agrees-to-testify",
+            "greek-hear-electra-aeschylus",
+            "greek-story-aeschylus-agamemnon-first-answer",
+            "greek-story-aeschylus-agamemnon-hear",
+            "greek-story-aeschylus-agamemnon-second-answer",
+            "greek-story-aeschylus-eumenides-hear"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus",
+            "greek-story-aeschylus-agamemnon-outcome=first",
+            "greek-story-aeschylus-agamemnon-outcome=second"
+          ],
+          "flag": [
+            "greek-areopagus-cilissa-agreed",
+            "greek-areopagus-cilissa-heard",
+            "greek-areopagus-household-evidence-filed",
+            "greek-atreid-heard-aeschylus",
+            "greek-story-aeschylus-agamemnon-heard",
+            "greek-story-aeschylus-eumenides-heard"
+          ],
+          "item": [
+            "greek-aeschylean-cassandra-deposition",
+            "greek-aeschylean-welcome-seal",
+            "greek-areopagus-cilissa-testimony",
+            "greek-areopagus-witness-order",
+            "greek-atreid-record",
+            "greek-story-aeschylus-agamemnon-object",
+            "greek-story-aeschylus-agamemnon-record",
+            "greek-tomb-testimony"
+          ],
+          "place": [
+            "greek-argos-palace",
+            "greek-argos-tomb"
+          ],
+          "resident": [
+            "greek-cilissa",
+            "greek-electra-aeschylus",
+            "greek-orestes-aeschylus",
+            "greek-story-aeschylus-agamemnon-first",
+            "greek-story-aeschylus-agamemnon-second",
+            "greek-story-aeschylus-eumenides-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+            "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+            "claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa",
             "claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence",
             "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
             "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
@@ -17023,6 +17105,7 @@
       {
         "id": "act:greek-story-aristophanes-acharnians-first-answer",
         "kind": "act",
+        "title": "Seal the household sale",
         "cond": {
           "op": "and",
           "of": [
@@ -17076,6 +17159,7 @@
       {
         "id": "act:greek-story-aristophanes-acharnians-second-answer",
         "kind": "act",
+        "title": "Open the Megarian’s stall",
         "cond": {
           "op": "and",
           "of": [
@@ -18798,6 +18882,172 @@
         ]
       },
       {
+        "id": "act:greek-acharnae-quay-travel-credit",
+        "kind": "act",
+        "title": "Ask for Travel Provisions",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "choice(key=greek-acharnae-quay-order,value=private)"
+            },
+            {
+              "op": "atom",
+              "atom": "trusted(actor=greek-quay-host,min=2)"
+            },
+            {
+              "op": "atom",
+              "atom": "knows(role=actor,topic=claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order)"
+            }
+          ]
+        },
+        "words": "greek-acharnae-quay-order chosen as private and Thaleia the Quay Host trusts the traveler (level 2) and the traveler knows the testimony in Acharnae Orders in the Quay Ledger",
+        "ids": "greek-acharnae-quay-order chosen as private and greek-quay-host trusts the traveler (level 2) and the traveler knows the testimony in greek-acharnae-quay-ledger",
+        "latch": [
+          "choice(key=greek-acharnae-quay-order,value=private)",
+          "knows(role=actor,topic=claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order)"
+        ],
+        "live": [
+          "trusted(actor=greek-quay-host,min=2)"
+        ],
+        "prerequisites": {
+          "act": [
+            "greek-acharnae-accept-private-order",
+            "greek-acharnae-accept-public-order",
+            "greek-acharnae-sign-household-bond",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
+          ],
+          "choice": [
+            "greek-acharnae-quay-order=private",
+            "greek-acharnae-quay-order=public",
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
+          ],
+          "flag": [
+            "greek-acharnae-household-bond-signed",
+            "greek-story-aristophanes-acharnians-heard"
+          ],
+          "item": [
+            "greek-acharnae-household-bond",
+            "greek-acharnae-quay-ledger",
+            "greek-story-aristophanes-acharnians-object",
+            "greek-story-aristophanes-acharnians-record",
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order",
+            "claim:greek-drama:greek-story-aristophanes-acharnians-record:greek-story-aristophanes-acharnians-second-answer"
+          ]
+        },
+        "at": "greek-piraeus",
+        "subject": "greek-quay-host",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-acharnae-quay-travel-credit-waiting",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "choice(key=greek-acharnae-quay-order,value=private)"
+            },
+            {
+              "op": "atom",
+              "atom": "trusted(actor=greek-quay-host,min=2)"
+            },
+            {
+              "op": "atom",
+              "atom": "knows(role=actor,topic=claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order)"
+            },
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "receipt(choiceId=greek-acharnae-quay-travel-credit)"
+                }
+              ]
+            },
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "item_used_up(item=greek-provisions)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "greek-acharnae-quay-order chosen as private and Thaleia the Quay Host trusts the traveler (level 2) and the traveler knows the testimony in Acharnae Orders in the Quay Ledger and not (greek-acharnae-quay-travel-credit has happened) and not (Travel Provisions is used up)",
+        "ids": "greek-acharnae-quay-order chosen as private and greek-quay-host trusts the traveler (level 2) and the traveler knows the testimony in greek-acharnae-quay-ledger and not (greek-acharnae-quay-travel-credit has happened) and not (greek-provisions is used up)",
+        "latch": [
+          "choice(key=greek-acharnae-quay-order,value=private)",
+          "knows(role=actor,topic=claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order)",
+          "receipt(choiceId=greek-acharnae-quay-travel-credit)"
+        ],
+        "live": [
+          "item_used_up(item=greek-provisions)",
+          "trusted(actor=greek-quay-host,min=2)"
+        ],
+        "prerequisites": {
+          "act": [
+            "greek-acharnae-accept-private-order",
+            "greek-acharnae-accept-public-order",
+            "greek-acharnae-sign-household-bond",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
+          ],
+          "choice": [
+            "greek-acharnae-quay-order=private",
+            "greek-acharnae-quay-order=public",
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
+          ],
+          "flag": [
+            "greek-acharnae-household-bond-signed",
+            "greek-story-aristophanes-acharnians-heard"
+          ],
+          "item": [
+            "greek-acharnae-household-bond",
+            "greek-acharnae-quay-ledger",
+            "greek-story-aristophanes-acharnians-object",
+            "greek-story-aristophanes-acharnians-record",
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order",
+            "claim:greek-drama:greek-story-aristophanes-acharnians-record:greek-story-aristophanes-acharnians-second-answer"
+          ]
+        },
+        "at": "greek-piraeus",
+        "subject": "greek-quay-host",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
         "id": "act:greek-acharnae-quay-needs-proof",
         "kind": "act",
         "cond": {
@@ -19072,6 +19322,102 @@
         "retires": []
       },
       {
+        "id": "act:greek-ismene-point-to-argos-evidence",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "choice(key=greek-atreid-account,value=aeschylus)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-areopagus-household-evidence-filed,value=false)"
+            }
+          ]
+        },
+        "words": "greek-atreid-account chosen as aeschylus and greek-areopagus-household-evidence-filed is not set",
+        "ids": "greek-atreid-account chosen as aeschylus and greek-areopagus-household-evidence-filed is not set",
+        "latch": [
+          "choice(key=greek-atreid-account,value=aeschylus)",
+          "flag(key=greek-areopagus-household-evidence-filed,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-atreid-aeschylus"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus"
+          ],
+          "item": [
+            "greek-atreid-record"
+          ]
+        },
+        "at": "greek-sanctuary",
+        "subject": "greek-ismene",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-electra-point-to-athenas-court",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-atreid-heard-aeschylus,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-areopagus-household-evidence-filed,value=false)"
+            }
+          ]
+        },
+        "words": "greek-atreid-heard-aeschylus is set and greek-areopagus-household-evidence-filed is not set",
+        "ids": "greek-atreid-heard-aeschylus is set and greek-areopagus-household-evidence-filed is not set",
+        "latch": [
+          "flag(key=greek-areopagus-household-evidence-filed,value=false)",
+          "flag(key=greek-atreid-heard-aeschylus,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-atreid-aeschylus",
+            "greek-hear-electra-aeschylus"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus"
+          ],
+          "flag": [
+            "greek-atreid-heard-aeschylus"
+          ],
+          "item": [
+            "greek-atreid-record"
+          ],
+          "place": [
+            "greek-argos-tomb"
+          ],
+          "resident": [
+            "greek-electra-aeschylus"
+          ]
+        },
+        "at": "greek-argos-tomb",
+        "subject": "greek-electra-aeschylus",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
         "id": "act:greek-cilissa-agrees-to-testify",
         "kind": "act",
         "cond": {
@@ -19243,6 +19589,364 @@
         "chooses": [],
         "gives": [],
         "retires": []
+      },
+      {
+        "id": "act:greek-areopagus-open-witness-bench",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "choice(key=greek-atreid-account,value=aeschylus)"
+            },
+            {
+              "op": "atom",
+              "atom": "receipt(choiceId=greek-areopagus-hear-cilissa)"
+            },
+            {
+              "op": "atom",
+              "atom": "knows(role=actor,topic=claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa)"
+            }
+          ]
+        },
+        "words": "greek-atreid-account chosen as aeschylus and greek-areopagus-hear-cilissa has happened and the traveler knows the testimony in Cilissa’s Testimony",
+        "ids": "greek-atreid-account chosen as aeschylus and greek-areopagus-hear-cilissa has happened and the traveler knows the testimony in greek-areopagus-cilissa-testimony",
+        "latch": [
+          "choice(key=greek-atreid-account,value=aeschylus)",
+          "knows(role=actor,topic=claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa)",
+          "receipt(choiceId=greek-areopagus-hear-cilissa)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-areopagus-file-atreid-evidence",
+            "greek-areopagus-hear-cilissa",
+            "greek-atreid-aeschylus",
+            "greek-atreid-aeschylus-hearing",
+            "greek-atreid-aeschylus-refusal",
+            "greek-cilissa-agrees-to-testify",
+            "greek-hear-electra-aeschylus",
+            "greek-story-aeschylus-agamemnon-first-answer",
+            "greek-story-aeschylus-agamemnon-hear",
+            "greek-story-aeschylus-agamemnon-second-answer",
+            "greek-story-aeschylus-eumenides-hear"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus",
+            "greek-story-aeschylus-agamemnon-outcome=first",
+            "greek-story-aeschylus-agamemnon-outcome=second"
+          ],
+          "flag": [
+            "greek-areopagus-cilissa-agreed",
+            "greek-areopagus-cilissa-heard",
+            "greek-areopagus-household-evidence-filed",
+            "greek-atreid-heard-aeschylus",
+            "greek-story-aeschylus-agamemnon-heard",
+            "greek-story-aeschylus-eumenides-heard"
+          ],
+          "item": [
+            "greek-aeschylean-cassandra-deposition",
+            "greek-aeschylean-welcome-seal",
+            "greek-areopagus-cilissa-testimony",
+            "greek-areopagus-witness-order",
+            "greek-atreid-record",
+            "greek-story-aeschylus-agamemnon-object",
+            "greek-story-aeschylus-agamemnon-record",
+            "greek-tomb-testimony"
+          ],
+          "place": [
+            "greek-argos-palace",
+            "greek-argos-tomb"
+          ],
+          "resident": [
+            "greek-cilissa",
+            "greek-electra-aeschylus",
+            "greek-orestes-aeschylus",
+            "greek-story-aeschylus-agamemnon-first",
+            "greek-story-aeschylus-agamemnon-second",
+            "greek-story-aeschylus-eumenides-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+            "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+            "claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa",
+            "claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+            "claim:greek-drama:greek-tomb-testimony:meeting"
+          ]
+        },
+        "at": "greek-areopagus",
+        "subject": "greek-story-aeschylus-eumenides-second",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-areopagus-ask-for-cilissas-statement",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "receipt(choiceId=greek-areopagus-hear-cilissa)"
+            },
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "receipt(choiceId=greek-areopagus-open-witness-bench)"
+                }
+              ]
+            },
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "knows(role=actor,topic=claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "greek-areopagus-hear-cilissa has happened and not (greek-areopagus-open-witness-bench has happened) and not (the traveler knows the testimony in Cilissa’s Testimony)",
+        "ids": "greek-areopagus-hear-cilissa has happened and not (greek-areopagus-open-witness-bench has happened) and not (the traveler knows the testimony in greek-areopagus-cilissa-testimony)",
+        "latch": [
+          "knows(role=actor,topic=claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa)",
+          "receipt(choiceId=greek-areopagus-hear-cilissa)",
+          "receipt(choiceId=greek-areopagus-open-witness-bench)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-areopagus-file-atreid-evidence",
+            "greek-areopagus-hear-cilissa",
+            "greek-atreid-aeschylus",
+            "greek-atreid-aeschylus-hearing",
+            "greek-atreid-aeschylus-refusal",
+            "greek-cilissa-agrees-to-testify",
+            "greek-hear-electra-aeschylus",
+            "greek-story-aeschylus-agamemnon-first-answer",
+            "greek-story-aeschylus-agamemnon-hear",
+            "greek-story-aeschylus-agamemnon-second-answer",
+            "greek-story-aeschylus-eumenides-hear"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus",
+            "greek-story-aeschylus-agamemnon-outcome=first",
+            "greek-story-aeschylus-agamemnon-outcome=second"
+          ],
+          "flag": [
+            "greek-areopagus-cilissa-agreed",
+            "greek-areopagus-household-evidence-filed",
+            "greek-atreid-heard-aeschylus",
+            "greek-story-aeschylus-agamemnon-heard",
+            "greek-story-aeschylus-eumenides-heard"
+          ],
+          "item": [
+            "greek-aeschylean-cassandra-deposition",
+            "greek-aeschylean-welcome-seal",
+            "greek-areopagus-witness-order",
+            "greek-atreid-record",
+            "greek-story-aeschylus-agamemnon-object",
+            "greek-story-aeschylus-agamemnon-record",
+            "greek-tomb-testimony"
+          ],
+          "place": [
+            "greek-argos-palace",
+            "greek-argos-tomb"
+          ],
+          "resident": [
+            "greek-cilissa",
+            "greek-electra-aeschylus",
+            "greek-orestes-aeschylus",
+            "greek-story-aeschylus-agamemnon-first",
+            "greek-story-aeschylus-agamemnon-second",
+            "greek-story-aeschylus-eumenides-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+            "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+            "claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+            "claim:greek-drama:greek-tomb-testimony:meeting"
+          ]
+        },
+        "at": "greek-areopagus",
+        "subject": "greek-story-aeschylus-eumenides-second",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-areopagus-show-witness-bench",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "receipt(choiceId=greek-areopagus-open-witness-bench)"
+            }
+          ]
+        },
+        "words": "greek-areopagus-open-witness-bench has happened",
+        "ids": "greek-areopagus-open-witness-bench has happened",
+        "latch": [
+          "receipt(choiceId=greek-areopagus-open-witness-bench)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-areopagus-file-atreid-evidence",
+            "greek-areopagus-hear-cilissa",
+            "greek-areopagus-open-witness-bench",
+            "greek-atreid-aeschylus",
+            "greek-atreid-aeschylus-hearing",
+            "greek-atreid-aeschylus-refusal",
+            "greek-cilissa-agrees-to-testify",
+            "greek-hear-electra-aeschylus",
+            "greek-story-aeschylus-agamemnon-first-answer",
+            "greek-story-aeschylus-agamemnon-hear",
+            "greek-story-aeschylus-agamemnon-second-answer",
+            "greek-story-aeschylus-eumenides-hear"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus",
+            "greek-story-aeschylus-agamemnon-outcome=first",
+            "greek-story-aeschylus-agamemnon-outcome=second"
+          ],
+          "flag": [
+            "greek-areopagus-cilissa-agreed",
+            "greek-areopagus-cilissa-heard",
+            "greek-areopagus-household-evidence-filed",
+            "greek-atreid-heard-aeschylus",
+            "greek-story-aeschylus-agamemnon-heard",
+            "greek-story-aeschylus-eumenides-heard"
+          ],
+          "item": [
+            "greek-aeschylean-cassandra-deposition",
+            "greek-aeschylean-welcome-seal",
+            "greek-areopagus-cilissa-testimony",
+            "greek-areopagus-witness-order",
+            "greek-atreid-record",
+            "greek-story-aeschylus-agamemnon-object",
+            "greek-story-aeschylus-agamemnon-record",
+            "greek-tomb-testimony"
+          ],
+          "place": [
+            "greek-argos-palace",
+            "greek-argos-tomb"
+          ],
+          "resident": [
+            "greek-cilissa",
+            "greek-electra-aeschylus",
+            "greek-orestes-aeschylus",
+            "greek-story-aeschylus-agamemnon-first",
+            "greek-story-aeschylus-agamemnon-second",
+            "greek-story-aeschylus-eumenides-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+            "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+            "claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa",
+            "claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+            "claim:greek-drama:greek-tomb-testimony:meeting"
+          ]
+        },
+        "at": "greek-areopagus",
+        "subject": "greek-story-aeschylus-eumenides-second",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-piraeus-bake-bread",
+        "kind": "act",
+        "title": "Bring Water for Bread",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "receipt(choiceId=greek-acharnae-quay-bread-supply)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=greek-water-jar,role=actor)"
+            }
+          ]
+        },
+        "words": "greek-acharnae-quay-bread-supply has happened and the traveler holds Water",
+        "ids": "greek-acharnae-quay-bread-supply has happened and the traveler holds greek-water-jar",
+        "latch": [
+          "receipt(choiceId=greek-acharnae-quay-bread-supply)"
+        ],
+        "live": [
+          "holding(item=greek-water-jar,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "greek-acharnae-accept-public-order",
+            "greek-acharnae-quay-bread-supply",
+            "greek-story-aristophanes-acharnians-first-answer",
+            "greek-story-aristophanes-acharnians-hear",
+            "greek-story-aristophanes-acharnians-second-answer"
+          ],
+          "choice": [
+            "greek-acharnae-quay-order=public",
+            "greek-story-aristophanes-acharnians-outcome=first",
+            "greek-story-aristophanes-acharnians-outcome=second"
+          ],
+          "flag": [
+            "greek-story-aristophanes-acharnians-heard"
+          ],
+          "item": [
+            "greek-story-aristophanes-acharnians-object",
+            "greek-story-aristophanes-acharnians-record",
+            "greek-water-jar",
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-quay-host",
+            "greek-story-aristophanes-acharnians-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-story-aristophanes-acharnians-record:greek-story-aristophanes-acharnians-second-answer"
+          ]
+        },
+        "at": "greek-piraeus",
+        "subject": "greek-quay-host",
+        "on": "give",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "greek-water-jar"
+        ]
       },
       {
         "id": "act:greek-story-aristophanes-wasps-set-bowl-aside",
@@ -21037,6 +21741,297 @@
         "retires": []
       },
       {
+        "id": "act:greek-areopagus-explain-household-proof",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "choice(key=greek-atreid-account,value=aeschylus)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-story-aeschylus-eumenides-heard,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-areopagus-household-evidence-filed,value=false)"
+            }
+          ]
+        },
+        "words": "greek-atreid-account chosen as aeschylus and greek-story-aeschylus-eumenides-heard is set and greek-areopagus-household-evidence-filed is not set",
+        "ids": "greek-atreid-account chosen as aeschylus and greek-story-aeschylus-eumenides-heard is set and greek-areopagus-household-evidence-filed is not set",
+        "latch": [
+          "choice(key=greek-atreid-account,value=aeschylus)",
+          "flag(key=greek-areopagus-household-evidence-filed,value=false)",
+          "flag(key=greek-story-aeschylus-eumenides-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-atreid-aeschylus",
+            "greek-story-aeschylus-eumenides-hear"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus"
+          ],
+          "flag": [
+            "greek-story-aeschylus-eumenides-heard"
+          ],
+          "item": [
+            "greek-atreid-record"
+          ]
+        },
+        "at": "greek-areopagus",
+        "subject": "greek-story-aeschylus-eumenides-first",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-areopagus-question-from-tomb",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-areopagus-household-evidence-filed,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-areopagus-cilissa-heard,value=false)"
+            },
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "holding(item=greek-tomb-testimony,role=actor)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "knows(role=actor,topic=claim:greek-drama:greek-tomb-testimony:meeting)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "knows(role=actor,topic=claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "knows(role=actor,topic=claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "greek-areopagus-household-evidence-filed is set and greek-areopagus-cilissa-heard is not set and (the traveler holds The Tomb Witness Tablet or the traveler knows the testimony in The Tomb Witness Tablet or the traveler knows the testimony in The Tomb Witness Tablet or the traveler knows the testimony in The Tomb Witness Tablet)",
+        "ids": "greek-areopagus-household-evidence-filed is set and greek-areopagus-cilissa-heard is not set and (the traveler holds greek-tomb-testimony or the traveler knows the testimony in greek-tomb-testimony or the traveler knows the testimony in greek-tomb-testimony or the traveler knows the testimony in greek-tomb-testimony)",
+        "latch": [
+          "flag(key=greek-areopagus-cilissa-heard,value=false)",
+          "flag(key=greek-areopagus-household-evidence-filed,value=true)",
+          "knows(role=actor,topic=claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing)",
+          "knows(role=actor,topic=claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal)",
+          "knows(role=actor,topic=claim:greek-drama:greek-tomb-testimony:meeting)"
+        ],
+        "live": [
+          "holding(item=greek-tomb-testimony,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "greek-areopagus-file-atreid-evidence",
+            "greek-atreid-aeschylus",
+            "greek-atreid-aeschylus-hearing",
+            "greek-atreid-aeschylus-refusal",
+            "greek-hear-electra-aeschylus",
+            "greek-story-aeschylus-agamemnon-first-answer",
+            "greek-story-aeschylus-agamemnon-hear",
+            "greek-story-aeschylus-agamemnon-second-answer",
+            "greek-story-aeschylus-eumenides-hear"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus",
+            "greek-story-aeschylus-agamemnon-outcome=first",
+            "greek-story-aeschylus-agamemnon-outcome=second"
+          ],
+          "flag": [
+            "greek-areopagus-household-evidence-filed",
+            "greek-atreid-heard-aeschylus",
+            "greek-story-aeschylus-agamemnon-heard",
+            "greek-story-aeschylus-eumenides-heard"
+          ],
+          "item": [
+            "greek-aeschylean-cassandra-deposition",
+            "greek-aeschylean-welcome-seal",
+            "greek-atreid-record",
+            "greek-story-aeschylus-agamemnon-object",
+            "greek-story-aeschylus-agamemnon-record",
+            "greek-tomb-testimony"
+          ],
+          "place": [
+            "greek-argos-palace",
+            "greek-argos-tomb"
+          ],
+          "resident": [
+            "greek-electra-aeschylus",
+            "greek-orestes-aeschylus",
+            "greek-story-aeschylus-agamemnon-first",
+            "greek-story-aeschylus-agamemnon-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+            "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+            "claim:greek-drama:greek-tomb-testimony:meeting"
+          ]
+        },
+        "at": "greek-areopagus",
+        "subject": "greek-story-aeschylus-eumenides-first",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-areopagus-question-from-palace",
+        "kind": "act",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-areopagus-household-evidence-filed,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-areopagus-cilissa-heard,value=false)"
+            },
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "or",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "holding(item=greek-aeschylean-welcome-seal,role=actor)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "holding(item=greek-aeschylean-cassandra-deposition,role=actor)"
+                    }
+                  ]
+                },
+                {
+                  "op": "or",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "knows(role=actor,topic=claim:greek-drama:greek-aeschylean-welcome-seal:welcome)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "knows(role=actor,topic=claim:greek-drama:greek-aeschylean-cassandra-deposition:warning)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "knows(role=actor,topic=claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "knows(role=actor,topic=claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "words": "greek-areopagus-household-evidence-filed is set and greek-areopagus-cilissa-heard is not set and ((the traveler holds The Elders’ Welcome Seal or the traveler holds Cassandra’s Deposition) or (the traveler knows the testimony in The Elders’ Welcome Seal or the traveler knows the testimony in Cassandra’s Deposition or the traveler knows the testimony in Agamemnon Settlement or the traveler knows the testimony in Agamemnon Settlement))",
+        "ids": "greek-areopagus-household-evidence-filed is set and greek-areopagus-cilissa-heard is not set and ((the traveler holds greek-aeschylean-welcome-seal or the traveler holds greek-aeschylean-cassandra-deposition) or (the traveler knows the testimony in greek-aeschylean-welcome-seal or the traveler knows the testimony in greek-aeschylean-cassandra-deposition or the traveler knows the testimony in greek-story-aeschylus-agamemnon-record or the traveler knows the testimony in greek-story-aeschylus-agamemnon-record))",
+        "latch": [
+          "flag(key=greek-areopagus-cilissa-heard,value=false)",
+          "flag(key=greek-areopagus-household-evidence-filed,value=true)",
+          "knows(role=actor,topic=claim:greek-drama:greek-aeschylean-cassandra-deposition:warning)",
+          "knows(role=actor,topic=claim:greek-drama:greek-aeschylean-welcome-seal:welcome)",
+          "knows(role=actor,topic=claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer)",
+          "knows(role=actor,topic=claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer)"
+        ],
+        "live": [
+          "holding(item=greek-aeschylean-cassandra-deposition,role=actor)",
+          "holding(item=greek-aeschylean-welcome-seal,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "greek-areopagus-file-atreid-evidence",
+            "greek-atreid-aeschylus",
+            "greek-atreid-aeschylus-hearing",
+            "greek-atreid-aeschylus-refusal",
+            "greek-hear-electra-aeschylus",
+            "greek-story-aeschylus-agamemnon-first-answer",
+            "greek-story-aeschylus-agamemnon-hear",
+            "greek-story-aeschylus-agamemnon-second-answer",
+            "greek-story-aeschylus-eumenides-hear"
+          ],
+          "choice": [
+            "greek-atreid-account=aeschylus",
+            "greek-story-aeschylus-agamemnon-outcome=first",
+            "greek-story-aeschylus-agamemnon-outcome=second"
+          ],
+          "flag": [
+            "greek-areopagus-household-evidence-filed",
+            "greek-atreid-heard-aeschylus",
+            "greek-story-aeschylus-agamemnon-heard",
+            "greek-story-aeschylus-eumenides-heard"
+          ],
+          "item": [
+            "greek-aeschylean-cassandra-deposition",
+            "greek-aeschylean-welcome-seal",
+            "greek-atreid-record",
+            "greek-story-aeschylus-agamemnon-object",
+            "greek-story-aeschylus-agamemnon-record",
+            "greek-tomb-testimony"
+          ],
+          "place": [
+            "greek-argos-palace",
+            "greek-argos-tomb"
+          ],
+          "resident": [
+            "greek-electra-aeschylus",
+            "greek-orestes-aeschylus",
+            "greek-story-aeschylus-agamemnon-first",
+            "greek-story-aeschylus-agamemnon-second",
+            "greek-story-aeschylus-eumenides-second"
+          ],
+          "topic": [
+            "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+            "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+            "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+            "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+            "claim:greek-drama:greek-tomb-testimony:meeting"
+          ]
+        },
+        "at": "greek-areopagus",
+        "subject": "greek-story-aeschylus-eumenides-second",
+        "on": "talk",
+        "sets": [],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
         "id": "act:greek-delphi-hear-ion",
         "kind": "act",
         "cond": {
@@ -22240,7 +23235,9 @@
           "item:greek-acharnae-quay-ledger"
         ],
         "acts": [
-          "act:greek-acharnae-accept-private-order"
+          "act:greek-acharnae-accept-private-order",
+          "act:greek-acharnae-quay-travel-credit",
+          "act:greek-acharnae-quay-travel-credit-waiting"
         ]
       },
       "greek-ajax-account-ready": {
@@ -22604,10 +23601,14 @@
           "act:greek-areopagus-hear-cilissa"
         ],
         "gates": [
-          "item:greek-areopagus-cilissa-testimony"
+          "item:greek-areopagus-cilissa-testimony",
+          "item:greek-areopagus-witness-water"
         ],
         "acts": [
-          "act:greek-areopagus-hear-cilissa"
+          "act:greek-areopagus-hear-cilissa",
+          "act:greek-areopagus-open-witness-bench",
+          "act:greek-areopagus-ask-for-cilissas-statement",
+          "act:greek-areopagus-show-witness-bench"
         ]
       },
       "greek-areopagus-cilissa-heard": {
@@ -22617,12 +23618,18 @@
         ],
         "clearedBy": [],
         "readBy": [
+          "act:greek-areopagus-question-from-palace",
+          "act:greek-areopagus-question-from-tomb",
           "item:greek-areopagus-cilissa-testimony"
         ],
         "gates": [
-          "item:greek-areopagus-cilissa-testimony"
+          "item:greek-areopagus-cilissa-testimony",
+          "item:greek-areopagus-witness-water"
         ],
-        "acts": []
+        "acts": [
+          "act:greek-areopagus-open-witness-bench",
+          "act:greek-areopagus-show-witness-bench"
+        ]
       },
       "greek-areopagus-household-evidence-filed": {
         "kind": "latch",
@@ -22632,19 +23639,30 @@
         "clearedBy": [],
         "readBy": [
           "act:greek-areopagus-admit-atreid-witnesses",
+          "act:greek-areopagus-explain-household-proof",
+          "act:greek-areopagus-question-from-palace",
+          "act:greek-areopagus-question-from-tomb",
           "act:greek-cilissa-agrees-to-testify",
+          "act:greek-electra-point-to-athenas-court",
+          "act:greek-ismene-point-to-argos-evidence",
           "item:greek-areopagus-witness-order",
           "resident:greek-cilissa"
         ],
         "gates": [
           "resident:greek-cilissa",
           "item:greek-areopagus-cilissa-testimony",
+          "item:greek-areopagus-witness-water",
           "item:greek-areopagus-witness-order"
         ],
         "acts": [
           "act:greek-cilissa-agrees-to-testify",
           "act:greek-areopagus-hear-cilissa",
-          "act:greek-areopagus-admit-atreid-witnesses"
+          "act:greek-areopagus-open-witness-bench",
+          "act:greek-areopagus-ask-for-cilissas-statement",
+          "act:greek-areopagus-show-witness-bench",
+          "act:greek-areopagus-admit-atreid-witnesses",
+          "act:greek-areopagus-question-from-tomb",
+          "act:greek-areopagus-question-from-palace"
         ]
       },
       "greek-areopagus-witnesses-admitted": {
@@ -22665,11 +23683,13 @@
         "clearedBy": [],
         "readBy": [
           "act:greek-atreid-aeschylus-hearing",
-          "act:greek-atreid-aeschylus-refusal"
+          "act:greek-atreid-aeschylus-refusal",
+          "act:greek-electra-point-to-athenas-court"
         ],
         "gates": [
           "resident:greek-cilissa",
           "item:greek-areopagus-cilissa-testimony",
+          "item:greek-areopagus-witness-water",
           "item:greek-areopagus-witness-order",
           "item:greek-antigone-grave-honey",
           "item:greek-mycenae-hearing-cup"
@@ -22677,12 +23697,18 @@
         "acts": [
           "act:greek-atreid-aeschylus-hearing",
           "act:greek-atreid-aeschylus-refusal",
+          "act:greek-electra-point-to-athenas-court",
           "act:greek-cilissa-agrees-to-testify",
           "act:greek-areopagus-hear-cilissa",
+          "act:greek-areopagus-open-witness-bench",
+          "act:greek-areopagus-ask-for-cilissas-statement",
+          "act:greek-areopagus-show-witness-bench",
           "act:greek-argos-hear-tomb-witness",
           "act:greek-electra-tomb-offering",
           "act:greek-areopagus-file-atreid-evidence",
           "act:greek-areopagus-admit-atreid-witnesses",
+          "act:greek-areopagus-question-from-tomb",
+          "act:greek-areopagus-question-from-palace",
           "act:greek-farmhouse-departure-loaf-supply",
           "act:greek-mycenae-electra-watch-bread-supply",
           "act:greek-aeschylean-electra-offering-supply"
@@ -23550,6 +24576,7 @@
           "resident:greek-story-aeschylus-agamemnon-second",
           "item:greek-story-aeschylus-agamemnon-record",
           "item:greek-areopagus-cilissa-testimony",
+          "item:greek-areopagus-witness-water",
           "item:greek-aeschylean-welcome-seal",
           "item:greek-aeschylean-cassandra-deposition",
           "item:greek-areopagus-witness-order"
@@ -23559,8 +24586,13 @@
           "act:greek-story-aeschylus-agamemnon-second-answer",
           "act:greek-cilissa-agrees-to-testify",
           "act:greek-areopagus-hear-cilissa",
+          "act:greek-areopagus-open-witness-bench",
+          "act:greek-areopagus-ask-for-cilissas-statement",
+          "act:greek-areopagus-show-witness-bench",
           "act:greek-areopagus-file-atreid-evidence",
-          "act:greek-areopagus-admit-atreid-witnesses"
+          "act:greek-areopagus-admit-atreid-witnesses",
+          "act:greek-areopagus-question-from-tomb",
+          "act:greek-areopagus-question-from-palace"
         ]
       },
       "greek-story-aeschylus-eumenides-heard": {
@@ -23570,6 +24602,7 @@
         ],
         "clearedBy": [],
         "readBy": [
+          "act:greek-areopagus-explain-household-proof",
           "act:greek-areopagus-file-atreid-evidence",
           "act:greek-story-aeschylus-eumenides-first-answer",
           "act:greek-story-aeschylus-eumenides-second-answer",
@@ -23580,6 +24613,7 @@
           "resident:greek-story-aeschylus-eumenides-second",
           "item:greek-story-aeschylus-eumenides-record",
           "item:greek-areopagus-cilissa-testimony",
+          "item:greek-areopagus-witness-water",
           "item:greek-areopagus-witness-order",
           "item:greek-antigone-grave-honey"
         ],
@@ -23588,9 +24622,15 @@
           "act:greek-story-aeschylus-eumenides-second-answer",
           "act:greek-cilissa-agrees-to-testify",
           "act:greek-areopagus-hear-cilissa",
+          "act:greek-areopagus-open-witness-bench",
+          "act:greek-areopagus-ask-for-cilissas-statement",
+          "act:greek-areopagus-show-witness-bench",
           "act:greek-furies-welcome-offering",
           "act:greek-areopagus-file-atreid-evidence",
           "act:greek-areopagus-admit-atreid-witnesses",
+          "act:greek-areopagus-explain-household-proof",
+          "act:greek-areopagus-question-from-tomb",
+          "act:greek-areopagus-question-from-palace",
           "act:greek-areopagus-first-offering-supply"
         ]
       },
@@ -23716,10 +24756,13 @@
           "act:greek-acharnae-sign-household-bond",
           "act:greek-acharnae-accept-public-order",
           "act:greek-acharnae-accept-private-order",
+          "act:greek-acharnae-quay-travel-credit",
+          "act:greek-acharnae-quay-travel-credit-waiting",
           "act:greek-acharnae-quay-needs-proof",
           "act:greek-acharnae-quay-bread-waiting",
           "act:greek-acharnae-quay-bread-ready",
           "act:greek-acharnae-quay-bread-set-out",
+          "act:greek-piraeus-bake-bread",
           "act:greek-acharnae-trader-loaf-supply",
           "act:greek-acharnae-private-loaf-supply",
           "act:greek-acharnae-quay-bread-supply"
@@ -24370,8 +25413,11 @@
         "name": "Water",
         "holder": "greek-well",
         "home": "greek-well",
-        "consumedBy": [],
+        "consumedBy": [
+          "greek-piraeus-bake-bread"
+        ],
         "readBy": [
+          "act:greek-piraeus-bake-bread",
           "act:greek-return-water-jar"
         ]
       },
@@ -24466,6 +25512,7 @@
           "greek-helen-troy-passage"
         ],
         "readBy": [
+          "act:greek-acharnae-quay-travel-credit-waiting",
           "act:greek-dione-recover-wheat",
           "act:greek-helen-egypt-passage",
           "act:greek-helen-troy-passage",
@@ -24512,6 +25559,7 @@
         "consumedBy": [],
         "readBy": [
           "act:greek-areopagus-file-atreid-evidence",
+          "act:greek-areopagus-question-from-tomb",
           "act:greek-argos-hear-tomb-witness",
           "act:greek-atreid-aeschylus-hearing",
           "act:greek-atreid-aeschylus-refusal"
@@ -24745,7 +25793,8 @@
         "holder": "greek-argos-palace",
         "consumedBy": [],
         "readBy": [
-          "act:greek-areopagus-file-atreid-evidence"
+          "act:greek-areopagus-file-atreid-evidence",
+          "act:greek-areopagus-question-from-palace"
         ]
       },
       {
@@ -25338,12 +26387,26 @@
         "name": "Acharnae Orders in the Quay Ledger",
         "holder": "greek-piraeus",
         "consumedBy": [],
-        "readBy": []
+        "readBy": [
+          "act:greek-acharnae-quay-travel-credit",
+          "act:greek-acharnae-quay-travel-credit-waiting"
+        ]
       },
       {
         "id": "greek-areopagus-cilissa-testimony",
         "name": "Cilissa’s Testimony",
         "holder": "greek-areopagus",
+        "consumedBy": [],
+        "readBy": [
+          "act:greek-areopagus-ask-for-cilissas-statement",
+          "act:greek-areopagus-open-witness-bench"
+        ]
+      },
+      {
+        "id": "greek-areopagus-witness-water",
+        "name": "Witnesses’ Water",
+        "holder": "greek-areopagus",
+        "home": "greek-areopagus",
         "consumedBy": [],
         "readBy": []
       },
@@ -25659,7 +26722,8 @@
         "holder": "greek-argos-palace",
         "consumedBy": [],
         "readBy": [
-          "act:greek-areopagus-file-atreid-evidence"
+          "act:greek-areopagus-file-atreid-evidence",
+          "act:greek-areopagus-question-from-palace"
         ]
       },
       {
@@ -25668,7 +26732,8 @@
         "holder": "greek-argos-palace",
         "consumedBy": [],
         "readBy": [
-          "act:greek-areopagus-file-atreid-evidence"
+          "act:greek-areopagus-file-atreid-evidence",
+          "act:greek-areopagus-question-from-palace"
         ]
       },
       {
@@ -25792,6 +26857,18 @@
         "choice:greek-story-aristophanes-acharnians-outcome=second",
         "place:greek-piraeus",
         "resident:greek-quay-host"
+      ],
+      "act:greek-acharnae-quay-travel-credit": [
+        "choice:greek-acharnae-quay-order=private",
+        "place:greek-piraeus",
+        "resident:greek-quay-host",
+        "topic:claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order"
+      ],
+      "act:greek-acharnae-quay-travel-credit-waiting": [
+        "choice:greek-acharnae-quay-order=private",
+        "place:greek-piraeus",
+        "resident:greek-quay-host",
+        "topic:claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order"
       ],
       "act:greek-acharnae-sign-household-bond": [
         "choice:greek-story-aristophanes-acharnians-outcome=first",
@@ -25999,6 +27076,17 @@
         "resident:greek-story-aeschylus-eumenides-second",
         "topic:claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence"
       ],
+      "act:greek-areopagus-ask-for-cilissas-statement": [
+        "act:greek-areopagus-hear-cilissa",
+        "place:greek-areopagus",
+        "resident:greek-story-aeschylus-eumenides-second"
+      ],
+      "act:greek-areopagus-explain-household-proof": [
+        "choice:greek-atreid-account=aeschylus",
+        "flag:greek-story-aeschylus-eumenides-heard",
+        "place:greek-areopagus",
+        "resident:greek-story-aeschylus-eumenides-first"
+      ],
       "act:greek-areopagus-file-atreid-evidence": [
         "choice:greek-atreid-account=aeschylus",
         "flag:greek-story-aeschylus-eumenides-heard",
@@ -26024,6 +27112,38 @@
         "flag:greek-areopagus-cilissa-agreed",
         "place:greek-areopagus",
         "resident:greek-cilissa"
+      ],
+      "act:greek-areopagus-open-witness-bench": [
+        "act:greek-areopagus-hear-cilissa",
+        "choice:greek-atreid-account=aeschylus",
+        "place:greek-areopagus",
+        "resident:greek-story-aeschylus-eumenides-second",
+        "topic:claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa"
+      ],
+      "act:greek-areopagus-question-from-palace": [
+        "flag:greek-areopagus-household-evidence-filed",
+        "item:greek-aeschylean-cassandra-deposition",
+        "item:greek-aeschylean-welcome-seal",
+        "place:greek-areopagus",
+        "resident:greek-story-aeschylus-eumenides-second",
+        "topic:claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+        "topic:claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+        "topic:claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+        "topic:claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer"
+      ],
+      "act:greek-areopagus-question-from-tomb": [
+        "flag:greek-areopagus-household-evidence-filed",
+        "item:greek-tomb-testimony",
+        "place:greek-areopagus",
+        "resident:greek-story-aeschylus-eumenides-first",
+        "topic:claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+        "topic:claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+        "topic:claim:greek-drama:greek-tomb-testimony:meeting"
+      ],
+      "act:greek-areopagus-show-witness-bench": [
+        "act:greek-areopagus-open-witness-bench",
+        "place:greek-areopagus",
+        "resident:greek-story-aeschylus-eumenides-second"
       ],
       "act:greek-argos-admit-appeal": [
         "choice:greek-story-euripides-orestes-outcome=first",
@@ -26136,6 +27256,11 @@
         "place:greek-courtyard",
         "place:greek-piraeus",
         "resident:greek-baker"
+      ],
+      "act:greek-electra-point-to-athenas-court": [
+        "flag:greek-atreid-heard-aeschylus",
+        "place:greek-argos-tomb",
+        "resident:greek-electra-aeschylus"
       ],
       "act:greek-electra-tomb-offering": [
         "act:greek-atreid-aeschylus-refusal",
@@ -26302,6 +27427,11 @@
         "place:greek-scythian-crag",
         "resident:greek-scythian-crag"
       ],
+      "act:greek-ismene-point-to-argos-evidence": [
+        "choice:greek-atreid-account=aeschylus",
+        "place:greek-sanctuary",
+        "resident:greek-ismene"
+      ],
       "act:greek-jocasta-lodge-refugees": [
         "choice:greek-story-euripides-phoenician-women-outcome=second",
         "place:greek-jocasta-rooms",
@@ -26452,6 +27582,12 @@
         "choice:greek-story-euripides-alcestis-outcome=first",
         "place:greek-pherae",
         "resident:greek-story-euripides-alcestis-first"
+      ],
+      "act:greek-piraeus-bake-bread": [
+        "act:greek-acharnae-quay-bread-supply",
+        "item:greek-water-jar",
+        "place:greek-piraeus",
+        "resident:greek-quay-host"
       ],
       "act:greek-piraeus-tend-iphis-lamp": [
         "choice:greek-eleusis-urn-disposition=quay",
@@ -27796,6 +28932,9 @@
         "choice:greek-atreid-account=aeschylus",
         "flag:greek-areopagus-household-evidence-filed"
       ],
+      "item:greek-areopagus-witness-water": [
+        "act:greek-areopagus-open-witness-bench"
+      ],
       "item:greek-argos-family-pledge-seal": [
         "choice:greek-story-euripides-orestes-outcome=second"
       ],
@@ -28404,11 +29543,19 @@
         "item:greek-helen-accounts",
         "resident:greek-elder"
       ],
+      "topic:claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order": [
+        "act:greek-acharnae-accept-private-order",
+        "item:greek-acharnae-quay-ledger"
+      ],
       "topic:claim:greek-drama:greek-aeschylean-cassandra-deposition:warning": [
         "item:greek-aeschylean-cassandra-deposition"
       ],
       "topic:claim:greek-drama:greek-aeschylean-welcome-seal:welcome": [
         "item:greek-aeschylean-welcome-seal"
+      ],
+      "topic:claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa": [
+        "act:greek-areopagus-hear-cilissa",
+        "item:greek-areopagus-cilissa-testimony"
       ],
       "topic:claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence": [
         "act:greek-areopagus-file-atreid-evidence",
@@ -29405,10 +30552,20 @@
       "class": "latch",
       "words": "greek-areopagus-cilissa-agreed is set"
     },
+    "flag(key=greek-areopagus-cilissa-heard,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-areopagus-cilissa-heard is not set"
+    },
     "flag(key=greek-areopagus-cilissa-heard,value=true)": {
       "kind": "flag",
       "class": "latch",
       "words": "greek-areopagus-cilissa-heard is set"
+    },
+    "flag(key=greek-areopagus-household-evidence-filed,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-areopagus-household-evidence-filed is not set"
     },
     "flag(key=greek-areopagus-household-evidence-filed,value=true)": {
       "kind": "flag",
@@ -30220,6 +31377,11 @@
       "class": "live",
       "words": "greek-provisions is used up"
     },
+    "knows(role=actor,topic=claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order)": {
+      "kind": "knows",
+      "class": "latch",
+      "words": "the traveler knows the testimony in greek-acharnae-quay-ledger"
+    },
     "knows(role=actor,topic=claim:greek-drama:greek-aeschylean-cassandra-deposition:warning)": {
       "kind": "knows",
       "class": "latch",
@@ -30229,6 +31391,11 @@
       "kind": "knows",
       "class": "latch",
       "words": "the traveler knows the testimony in greek-aeschylean-welcome-seal"
+    },
+    "knows(role=actor,topic=claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa)": {
+      "kind": "knows",
+      "class": "latch",
+      "words": "the traveler knows the testimony in greek-areopagus-cilissa-testimony"
     },
     "knows(role=actor,topic=claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence)": {
       "kind": "knows",
@@ -30415,6 +31582,21 @@
       "class": "latch",
       "words": "greek-acharnae-quay-bread-supply has happened"
     },
+    "receipt(choiceId=greek-acharnae-quay-travel-credit)": {
+      "kind": "receipt",
+      "class": "latch",
+      "words": "greek-acharnae-quay-travel-credit has happened"
+    },
+    "receipt(choiceId=greek-areopagus-hear-cilissa)": {
+      "kind": "receipt",
+      "class": "latch",
+      "words": "greek-areopagus-hear-cilissa has happened"
+    },
+    "receipt(choiceId=greek-areopagus-open-witness-bench)": {
+      "kind": "receipt",
+      "class": "latch",
+      "words": "greek-areopagus-open-witness-bench has happened"
+    },
     "receipt(choiceId=greek-atreid-aeschylus-refusal)": {
       "kind": "receipt",
       "class": "latch",
@@ -30429,6 +31611,11 @@
       "kind": "ship_at",
       "class": "live",
       "words": "greek-ship is docked at greek-piraeus"
+    },
+    "trusted(actor=greek-quay-host,min=2)": {
+      "kind": "trusted",
+      "class": "live",
+      "words": "greek-quay-host trusts the traveler (level 2)"
     }
   },
   "conditionKinds": [
@@ -30450,6 +31637,7 @@
     "met",
     "pack_item_present",
     "receipt",
-    "ship_at"
+    "ship_at",
+    "trusted"
   ]
 }

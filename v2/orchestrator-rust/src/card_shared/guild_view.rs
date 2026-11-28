@@ -120,7 +120,7 @@ fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{full_store, full_world::World, store};
+    use super::super::{content, full_store, full_world::World, store};
     use super::*;
 
     const GUILD: &str = "100000000000000001";
@@ -307,8 +307,31 @@ mod tests {
         let guard = entities.iter().find(|e| e["id"] == "greek-guard").unwrap();
         let known =
             view(&path, GUILD, &["greek-guard".into()]).unwrap()["greek-guard"]["known"].clone();
-        let decree = "in The Burial Decree, by Creon: No one may bury or mourn Polynices";
-        assert!(known.to_string().contains(decree), "{known}");
+        let catalog: Value = serde_json::from_str(content::current_text()).unwrap();
+        let greek = catalog["files"]["v2/card-game/packs.json"]["packs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|pack| pack["id"] == "greek-drama")
+            .unwrap();
+        let claim = greek["items"]["greek-decree"]["claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|claim| claim["id"] == "no-burial")
+            .unwrap();
+        let decree = format!(
+            "in The Burial Decree, by Creon: {}",
+            claim["text"].as_str().unwrap()
+        );
+        assert!(
+            known
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|fact| fact.as_str().is_some_and(|fact| fact.contains(&decree))),
+            "{known}"
+        );
         for line in known.as_array().unwrap() {
             assert!(guard["facts"].as_array().unwrap().contains(line), "{line}");
         }

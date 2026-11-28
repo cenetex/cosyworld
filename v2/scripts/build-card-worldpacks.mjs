@@ -1,8 +1,4 @@
-// Compile the card table's world packs and their bridges into one runtime file.
-//   node v2/scripts/build-card-worldpacks.mjs          # write card-game/packs.json
-// Sources: v2/worlds/card-table.json lists the hub and mounted packs; each pack is
-// v2/content/<id>/card-world.json with optional situations and a bridge in
-// v2/worlds/<id>/card-bridge.json. Both the browser and Rust use the compiled file.
+// Compile the hub table, pack sources, and bridges into the shared runtime file.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -97,7 +93,6 @@ for (const pack of packs) {
     ...Object.keys(pack.items || {}),
     ...(pack.crossings || []).map((c) => `crossing:${c.id}`),
     ...Object.keys(pack.transports || {}).map((id) => `transport:${id}`),
-    // One crossing per direction between two places, across every pack.
     ...(pack.crossings || []).map((c) => `route:${c.from}->${c.to}`),
   ]) {
     if (seen.has(id))
@@ -149,13 +144,8 @@ for (const pack of packs) {
   }
 }
 
-// Entries: each pack's ways in, as `{joins, at, arrive, via}`. `joins` is
-// the hub or another pack, `at` its place where this pack's travelers come
-// out, `arrive` this pack's place where they enter, and `via` the existing
-// crossing between the two, so passage keeps one source of truth. Every
-// place is in the pack's release. The hub declares its `start` and the
-// switchable groups. The rules read the entries from the hub
-// (`packEntries`), so no pack schema changes (v2/docs/card-packs.md).
+// Each pack entry references an existing crossing between released places.
+// The rules read these links from the compiled hub's packEntries.
 const hub = table.hub || {};
 const sides = {
   hub: { places: Object.fromEntries((hub.places || []).map((id) => [id, {}])) },

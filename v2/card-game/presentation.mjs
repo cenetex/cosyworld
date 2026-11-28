@@ -1,10 +1,37 @@
-// What the dialogue box presents now: one phase decides what is in front.
-// The action panel shows after the speech has reached its next-choice tap.
-//
 // A committed play's words that keep the Thinking card past this grace
 // stop holding the hand: the rules already ran, and dialogue never gates
 // play. The card stays and the late line types in when it comes.
 export const THINKING_GRACE_MS = 5000;
+const dialoguePhases = [
+  "idle",
+  "revealing",
+  "choosing",
+  "thinking",
+  "reviewing",
+];
+let viewModel;
+
+export async function loadClientViewModel(
+  url = new URL("./client-view-model.wasm", import.meta.url),
+) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return false;
+    const { instance } = await WebAssembly.instantiate(
+      await response.arrayBuffer(),
+    );
+    if (
+      typeof instance.exports.dialogue_phase !== "function" ||
+      typeof instance.exports.dialogue_choice !== "function"
+    )
+      return false;
+    viewModel = instance.exports;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Read older words through the reader's revealed cards. Keep the saved beat
 // intact, including the signed line used by the voice service.
 export function revealedBeat(beat, textOf) {
@@ -53,12 +80,41 @@ export function tapPrompt(verb, complete, label = verb) {
   if (/^Tap /u.test(verb ?? "")) return { hint: verb, label };
   return { hint: word ? `Tap to ${word}` : "", label };
 }
+function handInput(length) {
+  if (!viewModel?.hand_input || !viewModel.memory || length > 0xffff)
+    return null;
+  const offset = viewModel.hand_input(length);
+  return offset
+    ? new Int32Array(viewModel.memory.buffer, offset, length)
+    : null;
+}
 export function handFocusId(frames, ids) {
-  for (const id of [...ids].reverse()) {
+  const preferred = [...ids];
+  const input =
+    viewModel?.hand_focus && handInput(frames.length + preferred.length);
+  if (input) {
+    const indexes = new Map();
+    frames.forEach(({ id }, index) => {
+      if (!Number.isNaN(id) && !indexes.has(id)) indexes.set(id, index);
+    });
+    const indexOf = (id) => indexes.get(id) ?? -1;
+    frames.forEach(({ hidden, holder }, index) => {
+      input[index] = hidden ? (holder ? indexOf(holder) : -1) : -2;
+    });
+    input.set(preferred.map(indexOf), frames.length);
+    return frames[viewModel.hand_focus(frames.length)]?.id;
+  }
+  for (const id of preferred.reverse()) {
     let at = frames.findIndex((frame) => frame.id === id);
-    for (let step = 0; at >= 0 && frames[at].hidden && step < frames.length; step++) {
+    for (
+      let step = 0;
+      at >= 0 && frames[at].hidden && step < frames.length;
+      step++
+    ) {
       const holder = frames[at].holder;
-      const next = holder ? frames.findIndex((frame) => frame.id === holder) : -1;
+      const next = holder
+        ? frames.findIndex((frame) => frame.id === holder)
+        : -1;
       if (next < 0) break;
       at = next;
     }
@@ -68,7 +124,123 @@ export function handFocusId(frames, ids) {
   }
   return frames.find((frame) => !frame.hidden)?.id;
 }
+export function roomCardOrder(cards, back, featured, isLocal, isWay) {
+  if (viewModel?.room_card_order) {
+    const roles = cards.map(
+      (id) =>
+        Number(Boolean(isLocal(id))) |
+        (Number(Boolean(isWay(id))) << 1) |
+        (Number(id === back) << 2) |
+        (Number(id === featured) << 3),
+    );
+    const maxOutput = 2 * cards.length + 2;
+    const input = handInput(roles.length + maxOutput);
+    if (input) {
+      input.set(roles);
+      const count = viewModel.room_card_order(
+        cards.length,
+        Boolean(back),
+        Boolean(featured),
+      );
+      const ids = [...cards, back, featured];
+      return Array.from(
+        input.subarray(cards.length, cards.length + count),
+        (index) => ids[index],
+      );
+    }
+  }
+  const local = cards.filter(isLocal);
+  return [
+    ...(back ? [back] : []),
+    ...local.slice(0, 1),
+    ...(featured ? [featured] : []),
+    ...local.slice(1).filter((id) => id !== featured),
+    ...cards.filter((id) => !local.includes(id) && !isWay(id)),
+    ...cards.filter((id) => isWay(id) && id !== back),
+  ];
+}
+export function lockedStackProjection(count, index, open, holderExpanded) {
+  if (
+    !viewModel?.locked_stack ||
+    count > 0x1fffffff ||
+    typeof open !== "boolean" ||
+    typeof holderExpanded !== "boolean"
+  )
+    return null;
+  const state = viewModel.locked_stack(count, index, open, holderExpanded);
+  return {
+    kind: "locks",
+    open: Boolean(state & 1),
+    top: Boolean(state & 2),
+    under: state >>> 3,
+    shown: Boolean(state & 4),
+  };
+}
+export function questAction(offers, tarot, turnable, reward, discardable) {
+  const labels = ["Turn over", "Collect"];
+  const input = viewModel?.quest_action && handInput(offers.length);
+  if (input) {
+    offers.forEach((offer, index) => {
+      let role = 0;
+      if (offer.tarot === tarot) {
+        if (offer.kind === "accept") role = labels.indexOf(offer.label) + 1;
+        else if (offer.kind === "drop" && !offer.item) role = 3;
+      }
+      input[index] = role;
+    });
+    return offers[
+      viewModel.quest_action(
+        Boolean(turnable),
+        Boolean(reward),
+        Boolean(discardable),
+      )
+    ];
+  }
+  const label = turnable ? labels[0] : reward ? labels[1] : null;
+  return offers.find(
+    (offer) =>
+      offer.tarot === tarot &&
+      (label
+        ? offer.kind === "accept" && offer.label === label
+        : discardable && offer.kind === "drop" && !offer.item),
+  );
+}
+export function matchingPairAction(actions, kind, selected, exact = false) {
+  const ofKind = (action) =>
+    action.kind === kind && (!exact || action.cards.length === 2);
+  if (
+    viewModel?.matching_pair_action &&
+    selected.length === 2 &&
+    selected.every((id) => typeof id === "string") &&
+    selected[0] !== selected[1]
+  ) {
+    const offers = actions.filter(ofKind);
+    const cards = offers.flatMap((action) => [
+      ...action.cards.map((id) => selected.indexOf(id)),
+      -2,
+    ]);
+    const input = handInput(cards.length);
+    if (input) {
+      input.set(cards);
+      return offers[viewModel.matching_pair_action()];
+    }
+  }
+  return actions.find(
+    (action) =>
+      ofKind(action) && selected.every((id) => action.cards.includes(id)),
+  );
+}
 export function holdDialogueChoice({ queued, live, complete, speaking, next }) {
+  if (viewModel)
+    return Boolean(
+      viewModel.dialogue_choice(
+        Boolean(queued),
+        Boolean(live),
+        Boolean(complete),
+        Boolean(speaking),
+        Boolean(next),
+      ),
+    );
   return Boolean(queued || (live && (!complete || speaking || next)));
 }
 
@@ -81,6 +253,18 @@ export function phase({
   chosen = false,
   rested = false,
 } = {}) {
+  if (viewModel)
+    return dialoguePhases[
+      viewModel.dialogue_phase(
+        Boolean(reviewing),
+        Boolean(revealing),
+        Boolean(inFlight),
+        Boolean(lingering),
+        Boolean(raised),
+        Boolean(chosen),
+        Boolean(rested),
+      )
+    ];
   if (revealing) return "revealing";
   if (raised && chosen && !rested && (!inFlight || lingering))
     return "choosing";

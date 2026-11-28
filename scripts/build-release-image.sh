@@ -15,10 +15,8 @@ trap 'docker buildx rm "$builder" >/dev/null 2>&1 || true; [ -z "$prebuilt" ] ||
 
 binary_args=()
 if [ -n "$target_cache" ]; then
-  # Main pushes keep the release target between runs, so a UI or art change
-  # recompiles only what changed. Compile in the Dockerfile's own toolchain
-  # image, with the same source directories its build stage copies. See
-  # compile-release-binary.sh for why the crate version is held fixed.
+  # Reuse the target cache with the Dockerfile's toolchain and source tree.
+  # compile-release-binary.sh explains why the crate version is held fixed.
   [[ "$target_cache" = /* ]]
   toolchain="$(awk '$1 == "FROM" && $3 == "AS" && $4 == "chef" { print $2; exit }' "$root/Dockerfile")"
   [[ "$toolchain" =~ ^lukemathwalker/cargo-chef:[A-Za-z0-9._-]+$ ]]
@@ -26,14 +24,10 @@ if [ -n "$target_cache" ]; then
   prebuilt="$(mktemp -d)"
   mkdir -p "$prebuilt/app/bin"
   mounts=()
-  for path in v2/core-c v2/content v2/content-engine-version.txt v2/card-game \
-    v2/media v2/ai-model-rust v2/scripts/build-card-assets.mjs; do
+  for path in v2/content v2/content-engine-version.txt v2/card-game \
+    v2/media v2/ai-model-rust v2/rules-rust v2/scripts/build-card-assets.mjs; do
     mounts+=(--mount "type=bind,src=$root/$path,dst=/app/$path,readonly")
   done
-  # build.rs runs Node to generate the embedded card asset list. Official
-  # Node builds run on the toolchain image's Debian release.
-  node_binary="$(realpath "$(command -v node)")"
-  mounts+=(--mount "type=bind,src=$node_binary,dst=/usr/local/bin/node,readonly")
   compile() {
     docker run --rm --platform linux/amd64 "${mounts[@]}" \
       --mount "type=bind,src=$root/v2/orchestrator-rust,dst=/src,readonly" \

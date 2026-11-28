@@ -56,6 +56,7 @@ describe("fast check Rust test selection", () => {
     expect(pick("v2/card-game/voices.json")).toEqual([
       "routes::card_game::local::",
       "routes::card_voices::",
+      "startup::local_tooling::local_launcher::",
     ]);
     expect(pick("v2/card-game/index.html")).toEqual(["routes::card_game::"]);
   });
@@ -74,8 +75,7 @@ describe("fast check Rust test selection", () => {
   });
 
   it("runs consequence replay for rule modules and pinned evidence", () => {
-    // The old pinned traces (rules 130-132) retired with the rules 133 bump, so
-    // the rule modules the crate names, and the played-world helper it reads.
+    // Rules 133 retired the older pinned traces.
     expect(pick("v2/card-game/world.mjs")).toContain(
       "card_shared::world_life_tests::",
     );
@@ -133,7 +133,9 @@ describe("fast check Rust test selection", () => {
     expect(packs).toContain("card_shared::content::");
     expect(packs).toContain("card_shared::world_life_tests::");
     expect(packs).not.toContain(N); // routes::card_game:: covers it
-    expect(pick("v2/core-c/src/card_table.c")).toEqual(["card_shared::"]);
+    expect(pick(`${SRC}/card_shared/seat_guard.rs`)).toEqual([
+      "card_shared::seat_guard::",
+    ]);
   });
 
   it("runs the default for crate-wide files", () => {

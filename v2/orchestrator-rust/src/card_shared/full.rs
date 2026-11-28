@@ -1036,7 +1036,7 @@ fn finish_work_attempt(
                 scene["lines"] = result["lines"].clone();
                 let quest = crate::routes::shared_quest_residents(
                     &w.game,
-                    &actor_id(work.actor),
+                    actor_id(work.actor),
                     &work.context["turn"],
                     &scene["lines"],
                 );

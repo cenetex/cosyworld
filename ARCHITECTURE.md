@@ -16,7 +16,7 @@ QuickJS is a C interpreter. The Rust service in `v2/orchestrator-rust` hosts it 
 
 This QuickJS host is the bounded C interpreter named in the engine. CosyWorld did not invent a separate language for it.
 
-A second, smaller C file stands beside it. `v2/core-c/src/card_table.c` is compiled into the server. After the rules run, `ct_shared_guard` checks the session: claims are 0 or 1, someone present is claimed, a command changes only the acting avatar's claim and presence, room ids are bounded strings, and no room holds more than four present avatars. The header states the split in one sentence: the authored rules execute inside the bounded QuickJS interpreter, and this guard owns claim, presence, and capacity. Shipping shared play calls `ct_shared_guard`. The same file still contains `ct_apply`, an older nine-room table.
+After the rules run, the Rust session guard checks that every present avatar has claimed a seat, a command changes only the acting avatar's claim and presence, room IDs fit the replay format, and no room holds more than four present avatars.
 
 Views of a world may be cached. Commands always run in the interpreter.
 
@@ -34,7 +34,31 @@ Production dialogue goes out through the model gateway configured for [lonelyfor
 
 ## Shared worlds
 
-Each shared world is a SQLite journal. Writers for one database take a single turn, then the rules and the C guard accept or refuse the command. Replaying the journal rebuilds the world. The world stores the rules version it was written with. Released bundles from `full-card-world/133` onward stay available to the server, so an old journal still reduces on the rules that wrote it. A rules change mints the next bundle (`npm run v2:card:shared:next`). Released bundle bytes stay fixed. The active deployment reports its rules version in `/meta`. [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
+Each shared world is a SQLite journal. Writers for one database take a single turn, then the rules and the Rust session guard accept or refuse the command. Replaying the journal rebuilds the world. The world stores the rules version it was written with. Released bundles from `full-card-world/133` onward stay available to the server, so an old journal still reduces on the rules that wrote it. A rules change mints the next bundle (`npm run v2:card:shared:next`). Released bundle bytes stay fixed. The active deployment reports its rules version in `/meta`. [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
+
+The Rust rules candidate in `v2/rules-rust` covers lamp fuel, grounded station-door admission, and selected opening journal commands, including claims, resets, lamp holds, and accepting the mirror quest. It also handles the private lit-attic view and replays bounded recorded speech and reflections. The opening fixtures include worlds seeded with resident history. CI compares complete supported WASM responses with pinned JavaScript through the browser interface and with QuickJS through Wasmi in read-only SQLite replay. Wasmi limits memory, tables, and execution fuel for each server-side call.
+
+The candidate reproduces save validation refusals for unsupported schemas, incomplete saves, invalid seats, and malformed lamp metadata. Direct validation parity ignores only the recognized four-frame JavaScript diagnostic suffix on these save errors. The primary message and every other field must match.
+
+Replay passes the original, hash-verified pack JSON to the candidate as `packContentJson`. The guest receives these exact bytes in a JSON string, preserving author order for reducers that need it.
+
+With the Rust `wasm32-unknown-unknown` target installed, build and replay a candidate from the repository root.
+
+```sh
+artifact="$(node v2/scripts/build-rust-rules.mjs)"
+COSYWORLD_RULES_WASM="$artifact" node --test v2/rules-rust/tests/*.test.mjs
+COSYWORLD_RULES_WASM="$artifact" cargo test --locked \
+  --manifest-path v2/orchestrator-rust/Cargo.toml --features rules-wasm \
+  --bin cosyworld-orchestrator sqlite_rules_wasm_parity -- --nocapture
+```
+
+Set `COSYWORLD_REPLAY_DB` to a consistent, anonymized SQLite copy. Select a world with `COSYWORLD_REPLAY_WORLD`, or use `COSYWORLD_REPLAY_ALL=1` to check every active world in one read-only transaction. The verifier replays from each seed with pinned rules and content, checks its stored checkpoint against the rebuilt head, and reports unsupported calls by operation. `COSYWORLD_REQUIRE_FULL_REPLAY=1` requires all selected heads to use current rules and content, every current rules call to match, and at least one observed comparison across the selected worlds. Reverify the journal heads when writing a future epoch checkpoint.
+
+The same test exercises fresh and imported creation, a claimed seat's view, valid and malformed saves, and plays refused for absence, a stale revision, or an unavailable card. It compares the complete reply to the pinned QuickJS bundle. Ordinary runs report unsupported direct fixtures. Strict mode requires a match on each one.
+
+A journal claim requests `join_state` with the authenticated seat and any passkey progress. The QuickJS adapter projects the pinned `join` response to the complete journal result of `ok` and `world`. The view endpoint serves legal actions separately. The WASM candidate handles opening claims, including the arrival of absent avatars and the merge of progress earned in other worlds.
+
+With `COSYWORLD_REPLAY_ALL=1` and `COSYWORLD_REQUIRE_FULL_REPLAY=1`, set `COSYWORLD_EPOCH_PROOF` to a new JSON file path. After both parity checks succeed, the export records each hashed world ID, its journal head sequence as decimal text, and the SHA-256 of its exact checkpoint JSON. It also records the rule and content pins and candidate WASM digest. The file contains digests and coverage totals. It never overwrites a file or changes the SQLite copy.
 
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.
 
@@ -73,7 +97,6 @@ Keeping every released rules bundle means a world saved under an older version s
 - `v2/card-game/world.mjs` — rules the browser runs, including the split between generated lines and the log the rules read
 - `v2/card-game/shared-world.mjs` — create, play, speech, and reflect, as the interpreter sees them
 - `v2/orchestrator-rust/src/card_shared/engine.rs` — the QuickJS host and the versioned bundles
-- `v2/core-c/include/card_table.h` — what the C session guard is responsible for
 - `v2/orchestrator-rust/src/card_shared/full.rs` — journaled shared play, and where speech is attached
 - `v2/orchestrator-rust/src/card_narrative/` — dialogue after a committed scene, and what a reply is refused for
 - [DECISIONS.md](DECISIONS.md) — five choices and the reason for each

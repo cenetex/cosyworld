@@ -28,6 +28,7 @@ import {
 import { controlledByHuman } from "./human-cast.mjs";
 import { staysLabel } from "./world/company.mjs";
 import { staysByRole } from "./resident-guard.mjs";
+import { matchingPairAction } from "./presentation.mjs";
 
 // The boxes shut at the player's place: the one list the rules keep (rules
 // 133, world/boxes.mjs). The hand draws each face down and the context
@@ -340,8 +341,7 @@ function selectionPlay(world, selected, available = availableCards(world)) {
       "Pair with a person to give it, or this place to put it down.",
     );
   }
-  const usePair = actions.find((a) => a.kind === "use" && a.cards.length === 2 &&
-    cards.every((id) => a.cards.includes(id)));
+  const usePair = matchingPairAction(actions, "use", cards, true);
   if (usePair) return result(usePair);
   const item = cards.find((id) => things[id]);
   const location = cards.find((id) => places[id]);
@@ -401,9 +401,7 @@ function selectionPlay(world, selected, available = availableCards(world)) {
           ? `${nameOf(avatar)} needs carrying space for that.`
           : `Take ${theName(item)} first.`,
     );
-  const trade = actions.find(
-    (a) => a.kind === "trade" && cards.every((id) => a.cards.includes(id)),
-  );
+  const trade = matchingPairAction(actions, "trade", cards);
   if (trade) return result(trade);
   const heldByOther = cards.find(
     (id) =>
@@ -473,12 +471,8 @@ export function cardActions(world, selected) {
   return { actions, hint };
 }
 
-// Aboard a transport under way (course set or at sea), a Wait is the voyage:
-// each round passed carries it on (sailTransports in pack-transport.mjs). The
-// pack names that Wait (waitVerb, waitSentence) when the selection holds the
-// transport's own card: choosing the ship lets it carry us. The avatar alone
-// keeps Wait, and so does a docked ship, where a wait moves nothing. The rules
-// keep their wait and journal either way.
+// Wait advances a transport under way. A selected transport card uses the
+// pack's Wait label and sentence while preserving the rule and journal entry.
 function underWay(world, actor) {
   const here = world.actors[actor]?.place;
   return Object.entries(transports).find(

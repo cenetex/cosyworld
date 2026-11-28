@@ -2356,7 +2356,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 44,
+        revision: 45,
         name: "The Wine-Dark Sea",
         description: "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2398,6 +2398,7 @@
         places: {
           "greek-harbor": {
             name: "The Wine-Dark Harbor",
+            text: "Follow the Theban Harbor Road to the city, or take the Argolid Crossroads toward Argos and Corinth.",
             exits: [
               "greek-road-thebes",
               "greek-argolid-road"
@@ -2506,6 +2507,7 @@
           },
           "greek-athens": {
             name: "Athenian Agora",
+            text: "The Long Walls lead to the quays at Piraeus. Take the Road to Delphi to continue inland toward Pagasae.",
             exits: [
               "greek-assembly",
               "greek-acropolis",
@@ -2605,6 +2607,7 @@
           },
           "greek-eleusis": {
             name: "Eleusinian Sanctuary",
+            text: "Take the Sacred Way to the Athenian Agora. The Cithaeron Road leads back toward Thebes.",
             exits: [
               "greek-colonus",
               "greek-marathon",
@@ -2780,6 +2783,7 @@
           },
           "greek-delphi": {
             name: "Delphic Temple",
+            text: "The Oeta Road crosses the pass toward Trachis and Pherae. The south road returns to the Athenian Agora.",
             exits: [
               "greek-road-sacred-way",
               "greek-oeta",
@@ -2789,6 +2793,7 @@
           },
           "greek-trachis": {
             name: "House at Trachis",
+            text: "Follow the road down to Pherae for the coast. The Oeta Road climbs back to Delphi.",
             exits: [
               "greek-oeta",
               "greek-pherae"
@@ -2798,6 +2803,7 @@
           },
           "greek-oeta": {
             name: "The Oeta Road",
+            text: "The pass links Delphi and Trachis. Continue through Trachis for Pherae and the coast.",
             exits: [
               "greek-delphi",
               "greek-trachis"
@@ -2810,6 +2816,7 @@
           },
           "greek-pherae": {
             name: "The House of Admetus at Pherae",
+            text: "The shore path leads to Pagasae Anchorage. The road back toward Delphi passes through Trachis.",
             exits: [
               "greek-trachis",
               "greek-thetis",
@@ -2820,10 +2827,11 @@
           },
           "greek-pagasae": {
             name: "Pagasae Anchorage",
+            text: "Ask Philon about the Scylla\u2019s courses at the mooring stones. The shore path leads back to Pherae.",
             exits: [
               "greek-pherae"
             ],
-            backdrop: "assets/greek-drama/aulis-anchorage-day.webp",
+            backdrop: "assets/greek-drama/pagasae-anchorage.webp",
             seed: "At the Scylla\u2019s home berth, Philon tells travelers from Pherae how to reach Lemnos and Sicily."
           },
           "greek-thetis": {
@@ -3014,38 +3022,8 @@
             name: "The Scylla",
             seed: "The Scylla sails to the farther shores from Pagasae, with berths in Egypt and Troy when their accounts open.",
             exits: [],
-            backdrop: "assets/greek-drama/ship-deck.webp",
-            art: "assets/greek-drama/ship-card.webp",
-            backdrops: [
-              {
-                backdrop: "assets/greek-drama/ship-deck-at-sea-night.webp",
-                requires: [
-                  {
-                    kind: "ship_at",
-                    transport: "greek-scylla",
-                    dock: "@sea"
-                  },
-                  {
-                    kind: "daylight",
-                    phase: "night"
-                  }
-                ]
-              },
-              {
-                backdrop: "assets/greek-drama/ship-deck-at-sea-day.webp",
-                requires: [
-                  {
-                    kind: "ship_at",
-                    transport: "greek-scylla",
-                    dock: "@sea"
-                  },
-                  {
-                    kind: "daylight",
-                    phase: "day"
-                  }
-                ]
-              }
-            ]
+            backdrop: "assets/greek-drama/scylla-deck.webp",
+            art: "assets/greek-drama/scylla-card.webp"
           },
           "greek-athens-harbor": {
             name: "Athens Harbor",
@@ -5402,7 +5380,7 @@
             standoffs: false,
             personalQuests: false,
             seed: "Electra asks for help with the dispute at The Jury Yard of Argos.",
-            text: "I have sat with my brother since he killed our mother, and today Argos votes on both our lives. Our grandfather Tyndareus calls for judgment while I wait at the yard with a written appeal for time to speak.",
+            text: "I have sat with my brother since he killed our mother. Our grandfather Tyndareus calls for judgment, and I am here with a written appeal for time to speak before Argos votes.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -7843,12 +7821,13 @@
             name: "Acharnae Orders in the Quay Ledger",
             holder: "greek-piraeus",
             art: "assets/greek-drama/burial-account.webp",
-            seed: "Thaleia\u2019s entry names the agreement or the household that backed her order.",
+            seed: "Thaleia\u2019s ledger names who backs an order and what she sets out for it.",
             lifecycle: "fixed",
             author: "greek-quay-host",
             records: [
               "greek-acharnae-accept-public-order",
-              "greek-acharnae-accept-private-order"
+              "greek-acharnae-accept-private-order",
+              "greek-acharnae-quay-travel-credit"
             ],
             requires: [
               {
@@ -7888,6 +7867,25 @@
             recordText: {
               "greek-areopagus-hear-cilissa": "Cilissa says Clytemnestra sent her for Aegisthus and the women at the palace door urged her to tell him to come alone."
             }
+          },
+          "greek-areopagus-witness-water": {
+            name: "Witnesses\u2019 Water",
+            holder: "greek-areopagus",
+            home: "greek-areopagus",
+            art: "assets/greek-drama/water-jar.png",
+            seed: "The Furies\u2019 leader keeps this jar filled at the court bench for people waiting to speak.",
+            tags: [
+              "drink",
+              "staple"
+            ],
+            startsUsed: true,
+            absentReturn: true,
+            requires: [
+              {
+                kind: "receipt",
+                choiceId: "greek-areopagus-open-witness-bench"
+              }
+            ]
           },
           "greek-story-aristophanes-knights-private-supper-tally": {
             name: "Private Supper Tally",
@@ -8726,11 +8724,13 @@
             author: "greek-story-aeschylus-eumenides-first",
             records: [
               "greek-areopagus-file-atreid-evidence",
-              "greek-areopagus-admit-atreid-witnesses"
+              "greek-areopagus-admit-atreid-witnesses",
+              "greek-areopagus-open-witness-bench"
             ],
             recordText: {
               "greek-areopagus-file-atreid-evidence": "Athena filed the Argive evidence and asked travelers to escort Cilissa from Agamemnon\u2019s tomb to testify in Orestes\u2019s case.",
-              "greek-areopagus-admit-atreid-witnesses": "The Furies\u2019 leader admitted the named household witnesses to the court\u2019s waiting stones and reserved the first bench for them."
+              "greek-areopagus-admit-atreid-witnesses": "The Furies\u2019 leader admitted the named household witnesses to the court\u2019s waiting stones and reserved the first bench for them.",
+              "greek-areopagus-open-witness-bench": "After Cilissa testified about the voices at the palace door, the Furies\u2019 leader opened the witness bench for their own accounts and provided water for those waiting."
             }
           },
           "greek-ajax-appeal-witness-seal": {
@@ -11580,7 +11580,14 @@
                 key: "greek-story-aeschylus-persians-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aeschylus-persians-record",
+              answers: [
+                "greek-story-aeschylus-persians-first-answer",
+                "greek-story-aeschylus-persians-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aeschylus-persians-first-answer",
@@ -11670,7 +11677,14 @@
                 key: "greek-story-aeschylus-seven-thebes-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aeschylus-seven-thebes-record",
+              answers: [
+                "greek-story-aeschylus-seven-thebes-first-answer",
+                "greek-story-aeschylus-seven-thebes-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aeschylus-seven-thebes-first-answer",
@@ -11760,7 +11774,14 @@
                 key: "greek-story-aeschylus-suppliant-women-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aeschylus-suppliant-women-record",
+              answers: [
+                "greek-story-aeschylus-suppliant-women-first-answer",
+                "greek-story-aeschylus-suppliant-women-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aeschylus-suppliant-women-first-answer",
@@ -11850,7 +11871,14 @@
                 key: "greek-story-aeschylus-prometheus-bound-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aeschylus-prometheus-bound-record",
+              answers: [
+                "greek-story-aeschylus-prometheus-bound-first-answer",
+                "greek-story-aeschylus-prometheus-bound-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aeschylus-prometheus-bound-first-answer",
@@ -11920,7 +11948,14 @@
                 key: "greek-story-aeschylus-agamemnon-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aeschylus-agamemnon-record",
+              answers: [
+                "greek-story-aeschylus-agamemnon-first-answer",
+                "greek-story-aeschylus-agamemnon-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aeschylus-agamemnon-first-answer",
@@ -12010,7 +12045,14 @@
                 key: "greek-story-aeschylus-eumenides-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aeschylus-eumenides-record",
+              answers: [
+                "greek-story-aeschylus-eumenides-first-answer",
+                "greek-story-aeschylus-eumenides-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aeschylus-eumenides-first-answer",
@@ -12100,7 +12142,14 @@
                 key: "greek-story-sophocles-women-of-trachis-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-sophocles-women-of-trachis-record",
+              answers: [
+                "greek-story-sophocles-women-of-trachis-first-answer",
+                "greek-story-sophocles-women-of-trachis-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-sophocles-women-of-trachis-first-answer",
@@ -12190,7 +12239,14 @@
                 key: "greek-story-sophocles-oedipus-tyrannus-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-sophocles-oedipus-tyrannus-record",
+              answers: [
+                "greek-story-sophocles-oedipus-tyrannus-first-answer",
+                "greek-story-sophocles-oedipus-tyrannus-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-sophocles-oedipus-tyrannus-first-answer",
@@ -12280,7 +12336,14 @@
                 key: "greek-story-sophocles-philoctetes-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-sophocles-philoctetes-record",
+              answers: [
+                "greek-story-sophocles-philoctetes-first-answer",
+                "greek-story-sophocles-philoctetes-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-sophocles-philoctetes-first-answer",
@@ -12370,7 +12433,14 @@
                 key: "greek-story-euripides-alcestis-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-alcestis-record",
+              answers: [
+                "greek-story-euripides-alcestis-first-answer",
+                "greek-story-euripides-alcestis-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-alcestis-first-answer",
@@ -12460,7 +12530,14 @@
                 key: "greek-story-euripides-medea-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-medea-record",
+              answers: [
+                "greek-story-euripides-medea-first-answer",
+                "greek-story-euripides-medea-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-medea-first-answer",
@@ -12550,7 +12627,14 @@
                 key: "greek-story-euripides-hippolytus-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-hippolytus-record",
+              answers: [
+                "greek-story-euripides-hippolytus-first-answer",
+                "greek-story-euripides-hippolytus-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-hippolytus-first-answer",
@@ -12640,7 +12724,14 @@
                 key: "greek-story-euripides-andromache-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-andromache-record",
+              answers: [
+                "greek-story-euripides-andromache-first-answer",
+                "greek-story-euripides-andromache-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-andromache-first-answer",
@@ -12730,7 +12821,14 @@
                 key: "greek-story-euripides-hecuba-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-hecuba-record",
+              answers: [
+                "greek-story-euripides-hecuba-first-answer",
+                "greek-story-euripides-hecuba-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-hecuba-first-answer",
@@ -12820,7 +12918,14 @@
                 key: "greek-story-euripides-heracles-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-heracles-record",
+              answers: [
+                "greek-story-euripides-heracles-first-answer",
+                "greek-story-euripides-heracles-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-heracles-first-answer",
@@ -12910,7 +13015,14 @@
                 key: "greek-story-euripides-trojan-women-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-trojan-women-record",
+              answers: [
+                "greek-story-euripides-trojan-women-first-answer",
+                "greek-story-euripides-trojan-women-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-trojan-women-first-answer",
@@ -13000,7 +13112,14 @@
                 key: "greek-story-euripides-tauris-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-tauris-record",
+              answers: [
+                "greek-story-euripides-tauris-first-answer",
+                "greek-story-euripides-tauris-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-tauris-first-answer",
@@ -13090,7 +13209,14 @@
                 key: "greek-story-euripides-ion-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-ion-record",
+              answers: [
+                "greek-story-euripides-ion-first-answer",
+                "greek-story-euripides-ion-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-ion-first-answer",
@@ -13180,7 +13306,14 @@
                 key: "greek-story-euripides-phoenician-women-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-phoenician-women-record",
+              answers: [
+                "greek-story-euripides-phoenician-women-first-answer",
+                "greek-story-euripides-phoenician-women-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-phoenician-women-first-answer",
@@ -13270,7 +13403,14 @@
                 key: "greek-story-euripides-orestes-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-orestes-record",
+              answers: [
+                "greek-story-euripides-orestes-first-answer",
+                "greek-story-euripides-orestes-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-orestes-first-answer",
@@ -13360,7 +13500,14 @@
                 key: "greek-story-euripides-bacchae-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-bacchae-record",
+              answers: [
+                "greek-story-euripides-bacchae-first-answer",
+                "greek-story-euripides-bacchae-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-bacchae-first-answer",
@@ -13450,7 +13597,14 @@
                 key: "greek-story-euripides-iphigenia-at-aulis-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-iphigenia-at-aulis-record",
+              answers: [
+                "greek-story-euripides-iphigenia-at-aulis-first-answer",
+                "greek-story-euripides-iphigenia-at-aulis-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-iphigenia-at-aulis-first-answer",
@@ -13540,7 +13694,14 @@
                 key: "greek-story-euripides-rhesus-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-rhesus-record",
+              answers: [
+                "greek-story-euripides-rhesus-first-answer",
+                "greek-story-euripides-rhesus-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-rhesus-first-answer",
@@ -13610,7 +13771,14 @@
                 key: "greek-story-euripides-cyclops-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-euripides-cyclops-record",
+              answers: [
+                "greek-story-euripides-cyclops-first-answer",
+                "greek-story-euripides-cyclops-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-euripides-cyclops-first-answer",
@@ -13700,7 +13868,14 @@
                 key: "greek-story-aristophanes-acharnians-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-acharnians-record",
+              answers: [
+                "greek-story-aristophanes-acharnians-first-answer",
+                "greek-story-aristophanes-acharnians-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-acharnians-first-answer",
@@ -13708,8 +13883,9 @@
             at: "greek-acharnae",
             workId: "aristophanes-acharnians",
             on: "give",
+            label: "Seal the household sale",
             humanOnly: true,
-            text: "Dicaeopolis seals the private sale and buys salt for his table, while the charcoal burners go home with their bread unsalted.",
+            text: "Dicaeopolis seals the private sale and buys salt for his table, while the charcoal burners go home with their bread unsalted. \u201CTalk to me for a household bond,\u201D he adds. \u201CTake it to Thaleia at Piraeus. She trusts my name farther than the Assembly trusts my salt.\u201D",
             requires: [
               {
                 kind: "flag",
@@ -13745,8 +13921,9 @@
             at: "greek-acharnae",
             workId: "aristophanes-acharnians",
             on: "give",
+            label: "Open the Megarian\u2019s stall",
             humanOnly: true,
-            text: "The Megarian lays the seal beside the scales and drops the rope, so the charcoal burners trade their bread for salt in the open market.",
+            text: "The Megarian lays the seal beside the scales and drops the rope, so the charcoal burners trade their bread for salt in the open market. \u201CRead our agreement here before you go,\u201D he says. \u201CTell Thaleia at Piraeus what the market agreed.\u201D",
             requires: [
               {
                 kind: "flag",
@@ -13790,7 +13967,14 @@
                 key: "greek-story-aristophanes-knights-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-knights-record",
+              answers: [
+                "greek-story-aristophanes-knights-first-answer",
+                "greek-story-aristophanes-knights-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-knights-first-answer",
@@ -13880,7 +14064,14 @@
                 key: "greek-story-aristophanes-clouds-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-clouds-record",
+              answers: [
+                "greek-story-aristophanes-clouds-first-answer",
+                "greek-story-aristophanes-clouds-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-clouds-first-answer",
@@ -13970,7 +14161,14 @@
                 key: "greek-story-aristophanes-wasps-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-wasps-record",
+              answers: [
+                "greek-story-aristophanes-wasps-first-answer",
+                "greek-story-aristophanes-wasps-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-wasps-first-answer",
@@ -14060,7 +14258,14 @@
                 key: "greek-story-aristophanes-peace-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-peace-record",
+              answers: [
+                "greek-story-aristophanes-peace-first-answer",
+                "greek-story-aristophanes-peace-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-peace-first-answer",
@@ -14150,7 +14355,14 @@
                 key: "greek-story-aristophanes-birds-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-birds-record",
+              answers: [
+                "greek-story-aristophanes-birds-first-answer",
+                "greek-story-aristophanes-birds-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-birds-first-answer",
@@ -14220,7 +14432,14 @@
                 key: "greek-story-aristophanes-lysistrata-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-lysistrata-record",
+              answers: [
+                "greek-story-aristophanes-lysistrata-first-answer",
+                "greek-story-aristophanes-lysistrata-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-lysistrata-first-answer",
@@ -14310,7 +14529,14 @@
                 key: "greek-story-aristophanes-thesmophoria-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-thesmophoria-record",
+              answers: [
+                "greek-story-aristophanes-thesmophoria-first-answer",
+                "greek-story-aristophanes-thesmophoria-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-thesmophoria-first-answer",
@@ -14400,7 +14626,14 @@
                 key: "greek-story-aristophanes-frogs-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-frogs-record",
+              answers: [
+                "greek-story-aristophanes-frogs-first-answer",
+                "greek-story-aristophanes-frogs-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-frogs-first-answer",
@@ -14490,7 +14723,14 @@
                 key: "greek-story-aristophanes-assemblywomen-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-assemblywomen-record",
+              answers: [
+                "greek-story-aristophanes-assemblywomen-first-answer",
+                "greek-story-aristophanes-assemblywomen-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-assemblywomen-first-answer",
@@ -14560,7 +14800,14 @@
                 key: "greek-story-aristophanes-wealth-heard",
                 value: true
               }
-            ]
+            ],
+            recap: {
+              record: "greek-story-aristophanes-wealth-record",
+              answers: [
+                "greek-story-aristophanes-wealth-first-answer",
+                "greek-story-aristophanes-wealth-second-answer"
+              ]
+            }
           },
           {
             id: "greek-story-aristophanes-wealth-first-answer",
@@ -14837,7 +15084,7 @@
             on: "give",
             humanOnly: true,
             workId: "aristophanes-acharnians",
-            text: "Thaleia files the bond under Dicaeopolis\u2019s name and shares a cup of her own wine with its bearer at the quay.",
+            text: "Thaleia files the bond under Dicaeopolis\u2019s name and shares a cup of her own wine with its bearer at the quay. \u201CRead my entry, then ask me for Travel Provisions. I can put one basket on his account.\u201D",
             requires: [
               {
                 kind: "choice",
@@ -14870,6 +15117,79 @@
                 level: 2
               }
             ]
+          },
+          {
+            id: "greek-acharnae-quay-travel-credit",
+            subject: "greek-quay-host",
+            at: "greek-piraeus",
+            humanOnly: true,
+            workId: "aristophanes-acharnians",
+            label: "Ask for Travel Provisions",
+            text: "Thaleia sends her dockhands to set out one basket of Travel Provisions on Dicaeopolis\u2019s credit. \u201CTell him I put the fish on top.\u201D",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-acharnae-quay-order",
+                value: "private"
+              },
+              {
+                kind: "trusted",
+                actor: "greek-quay-host",
+                min: 2
+              },
+              {
+                kind: "knows",
+                topic: "claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "drop_item",
+                item: "greek-provisions"
+              }
+            ]
+          },
+          {
+            id: "greek-acharnae-quay-travel-credit-waiting",
+            subject: "greek-quay-host",
+            at: "greek-piraeus",
+            on: "talk",
+            humanOnly: true,
+            workId: "aristophanes-acharnians",
+            text: "Thaleia says, \u201CDicaeopolis\u2019s credit is good. I have no Travel Provisions to set out just now.\u201D",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-acharnae-quay-order",
+                value: "private"
+              },
+              {
+                kind: "trusted",
+                actor: "greek-quay-host",
+                min: 2
+              },
+              {
+                kind: "knows",
+                topic: "claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order",
+                role: "actor"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "receipt",
+                  choiceId: "greek-acharnae-quay-travel-credit"
+                }
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "item_used_up",
+                  item: "greek-provisions"
+                }
+              }
+            ],
+            effects: []
           },
           {
             id: "greek-acharnae-quay-needs-proof",
@@ -14966,7 +15286,7 @@
             on: "talk",
             humanOnly: true,
             workId: "aristophanes-acharnians",
-            text: "Thaleia says, \u201CThe Bread has been set out. That order has had its one allotment.\u201D",
+            text: "Thaleia says, \u201CThe Bread has been set out. That order has had its one allotment. When the Bread is gone, bring me Water and I can bake another loaf here.\u201D",
             requires: [
               {
                 kind: "choice",
@@ -14976,6 +15296,50 @@
               {
                 kind: "receipt",
                 choiceId: "greek-acharnae-quay-bread-supply"
+              }
+            ],
+            effects: []
+          },
+          {
+            id: "greek-ismene-point-to-argos-evidence",
+            subject: "greek-ismene",
+            at: "greek-sanctuary",
+            workId: "aeschylus-libation-bearers",
+            on: "talk",
+            humanOnly: true,
+            text: "Ismene says, \u201CMeet Electra at Agamemnon\u2019s tomb in Argos. Her tablet tells who met there. The palace account is a different source. Athena can hear either at the Areopagus beyond the Acropolis.\u201D",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              },
+              {
+                kind: "flag",
+                key: "greek-areopagus-household-evidence-filed",
+                value: false
+              }
+            ],
+            effects: []
+          },
+          {
+            id: "greek-electra-point-to-athenas-court",
+            subject: "greek-electra-aeschylus",
+            at: "greek-argos-tomb",
+            workId: "aeschylus-libation-bearers",
+            on: "talk",
+            humanOnly: true,
+            text: "Electra says, \u201CRead the meeting on my tablet or bring it with you. Take the Theban Gate past Cithaeron and Eleusis, then cross Athens to the Acropolis. Ask for Athena at the Areopagus.\u201D",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-atreid-heard-aeschylus",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-areopagus-household-evidence-filed",
+                value: false
               }
             ],
             effects: []
@@ -15028,6 +15392,115 @@
                 kind: "set_flag",
                 key: "greek-areopagus-cilissa-heard",
                 value: true
+              }
+            ]
+          },
+          {
+            id: "greek-areopagus-open-witness-bench",
+            subject: "greek-story-aeschylus-eumenides-second",
+            at: "greek-areopagus",
+            workId: "aeschylus-eumenides",
+            humanOnly: true,
+            on: "talk",
+            text: "The Furies\u2019 leader reads the line about the women at the door. She opens the witness bench so they can be heard in their own names and sets out Water for anyone who waits with them.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              },
+              {
+                kind: "receipt",
+                choiceId: "greek-areopagus-hear-cilissa"
+              },
+              {
+                kind: "knows",
+                topic: "claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "drop_item",
+                item: "greek-areopagus-witness-water"
+              }
+            ]
+          },
+          {
+            id: "greek-areopagus-ask-for-cilissas-statement",
+            subject: "greek-story-aeschylus-eumenides-second",
+            at: "greek-areopagus",
+            workId: "aeschylus-eumenides",
+            humanOnly: true,
+            on: "talk",
+            text: "The Furies\u2019 leader points to Cilissa\u2019s posted testimony. \u201CRead what the nurse actually heard at the palace door. Then ask me about opening the witness bench.\u201D",
+            requires: [
+              {
+                kind: "receipt",
+                choiceId: "greek-areopagus-hear-cilissa"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "receipt",
+                  choiceId: "greek-areopagus-open-witness-bench"
+                }
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "knows",
+                  topic: "claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa",
+                  role: "actor"
+                }
+              }
+            ],
+            effects: []
+          },
+          {
+            id: "greek-areopagus-show-witness-bench",
+            subject: "greek-story-aeschylus-eumenides-second",
+            at: "greek-areopagus",
+            workId: "aeschylus-eumenides",
+            humanOnly: true,
+            on: "talk",
+            text: "The Furies\u2019 leader shows you the place where the door witnesses can wait. Anyone may use the water kept at the bench. The clerk has added the arrangement to the Witness Order.",
+            requires: [
+              {
+                kind: "receipt",
+                choiceId: "greek-areopagus-open-witness-bench"
+              }
+            ],
+            effects: []
+          },
+          {
+            id: "greek-piraeus-bake-bread",
+            subject: "greek-quay-host",
+            at: "greek-piraeus",
+            on: "give",
+            humanOnly: true,
+            repeats: true,
+            label: "Bring Water for Bread",
+            text: "Thaleia mixes the Water with flour from the quay stores and sets out Bread beside the ledger.",
+            requires: [
+              {
+                kind: "receipt",
+                choiceId: "greek-acharnae-quay-bread-supply"
+              },
+              {
+                kind: "holding",
+                item: "greek-water-jar",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "retire_item",
+                item: "greek-water-jar"
+              },
+              {
+                kind: "drop_item",
+                item: "greek-bread"
               }
             ]
           },
@@ -15312,6 +15785,7 @@
             on: "talk",
             humanOnly: true,
             text: "Iphigenia takes her letter from the altar step and puts it in your hands. Give it to her sister Electra at the Jury Yard of Argos so the household will know Orestes left the altar alive.",
+            fullHandsText: "You can carry three items. Put one down, then speak again.",
             requires: [
               {
                 kind: "choice",
@@ -15472,6 +15946,7 @@
             on: "talk",
             humanOnly: true,
             text: "Jocasta hears the shepherd behind the court doors. She entrusts the summons to you so it stays out of the herald\u2019s hands.",
+            fullHandsText: "You can carry three items. Put one down, then speak again.",
             requires: [
               {
                 kind: "choice",
@@ -15914,6 +16389,147 @@
                 level: 2
               }
             ]
+          },
+          {
+            id: "greek-areopagus-explain-household-proof",
+            subject: "greek-story-aeschylus-eumenides-first",
+            at: "greek-areopagus",
+            workId: "aeschylus-eumenides",
+            humanOnly: true,
+            on: "talk",
+            text: "Athena says, \u201CBring me Electra\u2019s tablet from Agamemnon\u2019s tomb, or tell me what you read there. I can also enter a record from the Argive Palace Threshold. An account of another household will not answer for this one.\u201D",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              },
+              {
+                kind: "flag",
+                key: "greek-story-aeschylus-eumenides-heard",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-areopagus-household-evidence-filed",
+                value: false
+              }
+            ],
+            effects: []
+          },
+          {
+            id: "greek-areopagus-question-from-tomb",
+            subject: "greek-story-aeschylus-eumenides-first",
+            at: "greek-areopagus",
+            workId: "aeschylus-eumenides",
+            humanOnly: true,
+            on: "talk",
+            text: "Athena says, \u201CElectra\u2019s tablet tells who met at the tomb. It leaves the palace summons unanswered. Read my Witness Order, then ask Cilissa who sent her for Aegisthus.\u201D",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-areopagus-household-evidence-filed",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-areopagus-cilissa-heard",
+                value: false
+              },
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "holding",
+                    item: "greek-tomb-testimony",
+                    role: "actor"
+                  },
+                  {
+                    kind: "knows",
+                    topic: "claim:greek-drama:greek-tomb-testimony:meeting",
+                    role: "actor"
+                  },
+                  {
+                    kind: "knows",
+                    topic: "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+                    role: "actor"
+                  },
+                  {
+                    kind: "knows",
+                    topic: "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+                    role: "actor"
+                  }
+                ]
+              }
+            ],
+            effects: []
+          },
+          {
+            id: "greek-areopagus-question-from-palace",
+            subject: "greek-story-aeschylus-eumenides-second",
+            at: "greek-areopagus",
+            workId: "aeschylus-eumenides",
+            humanOnly: true,
+            on: "talk",
+            text: "The Furies\u2019 leader says, \u201CYour palace account concerns Agamemnon\u2019s welcome. Cilissa can tell us what happened later at that same door. Read Athena\u2019s order and ask Cilissa what the women there told her to change.\u201D",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-areopagus-household-evidence-filed",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-areopagus-cilissa-heard",
+                value: false
+              },
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "any",
+                    conditions: [
+                      {
+                        kind: "holding",
+                        item: "greek-aeschylean-welcome-seal",
+                        role: "actor"
+                      },
+                      {
+                        kind: "holding",
+                        item: "greek-aeschylean-cassandra-deposition",
+                        role: "actor"
+                      }
+                    ]
+                  },
+                  {
+                    kind: "any",
+                    conditions: [
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+                        role: "actor"
+                      },
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+                        role: "actor"
+                      },
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+                        role: "actor"
+                      },
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+                        role: "actor"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            effects: []
           },
           {
             id: "greek-delphi-hear-ion",
@@ -16985,7 +17601,8 @@
             title: "Helen",
             era: "homecomings",
             placeIds: [
-              "greek-egypt-tomb"
+              "greek-egypt-tomb",
+              "greek-troy-beach"
             ],
             premise: "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
             status: "branching-episode",
@@ -17052,10 +17669,6 @@
               author: "Euripides",
               work: "Orestes",
               adaptation: "An original playable intervention among the characters at the play\u2019s own location."
-            },
-            branch: {
-              key: "greek-atreid-account",
-              value: "aeschylus"
             }
           },
           {
@@ -17711,6 +18324,7 @@
             "greek-acharnae-household-bond",
             "greek-acharnae-quay-ledger",
             "greek-areopagus-cilissa-testimony",
+            "greek-areopagus-witness-water",
             "greek-story-aristophanes-knights-private-supper-tally",
             "greek-story-aristophanes-clouds-counter-plea",
             "greek-story-aristophanes-wasps-impounded-plate",
@@ -17954,12 +18568,20 @@
             "greek-acharnae-sign-household-bond",
             "greek-acharnae-accept-public-order",
             "greek-acharnae-accept-private-order",
+            "greek-acharnae-quay-travel-credit",
+            "greek-acharnae-quay-travel-credit-waiting",
             "greek-acharnae-quay-needs-proof",
             "greek-acharnae-quay-bread-waiting",
             "greek-acharnae-quay-bread-ready",
             "greek-acharnae-quay-bread-set-out",
+            "greek-ismene-point-to-argos-evidence",
+            "greek-electra-point-to-athenas-court",
             "greek-cilissa-agrees-to-testify",
             "greek-areopagus-hear-cilissa",
+            "greek-areopagus-open-witness-bench",
+            "greek-areopagus-ask-for-cilissas-statement",
+            "greek-areopagus-show-witness-bench",
+            "greek-piraeus-bake-bread",
             "greek-story-aristophanes-wasps-set-bowl-aside",
             "greek-story-aristophanes-birds-mark-council-turn",
             "greek-story-aristophanes-thesmophoria-dispatch-summons",
@@ -17989,6 +18611,9 @@
             "greek-furies-welcome-offering",
             "greek-areopagus-file-atreid-evidence",
             "greek-areopagus-admit-atreid-witnesses",
+            "greek-areopagus-explain-household-proof",
+            "greek-areopagus-question-from-tomb",
+            "greek-areopagus-question-from-palace",
             "greek-delphi-hear-ion",
             "greek-argos-admit-appeal",
             "greek-acharnae-trader-loaf-supply",
@@ -18489,10 +19114,9 @@
             transport: "greek-scylla",
             travelLabel: "Board",
             scenery: {
-              open: "The Scylla waits at the camp landing.",
-              closed: "The Scylla is sailing elsewhere. The camp landing waits for its return.",
+              open: "The path from the landing leads up to the Greek camp.",
               cardName: "The Scylla",
-              cardArt: "assets/greek-drama/ship-card.webp",
+              cardArt: "assets/greek-drama/scylla-card.webp",
               backdrop: "assets/greek-drama/ajax-landing-ship-at-berth.webp",
               focus: {
                 x: 80,
@@ -18510,8 +19134,7 @@
             transport: "greek-ship",
             travelLabel: "Board",
             scenery: {
-              open: "The Charybdis waits at the end of the jetty.",
-              closed: "The Charybdis is sailing elsewhere. The jetty points out over open water.",
+              open: "Mooring posts stand at the end of the jetty.",
               cardName: "The Charybdis",
               cardArt: "assets/greek-drama/ship-card.webp",
               backdrop: "assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
@@ -18547,10 +19170,9 @@
             transport: "greek-scylla",
             travelLabel: "Board",
             scenery: {
-              open: "The Scylla waits where the road from Pherae meets the sea.",
-              closed: "The Scylla is sailing elsewhere. The mooring stones stand empty.",
+              open: "The path from Pherae ends at the mooring stones.",
               cardName: "The Scylla",
-              cardArt: "assets/greek-drama/ship-card.webp"
+              cardArt: "assets/greek-drama/scylla-card.webp"
             }
           },
           {
@@ -18562,10 +19184,9 @@
             requires: [],
             travelLabel: "Board",
             scenery: {
-              open: "The Scylla waits below the cave.",
-              closed: "The Scylla is sailing elsewhere. The shore waits beside open water.",
+              open: "The mooring lies below Philoctetes\u2019s cave.",
               cardName: "The Scylla",
-              cardArt: "assets/greek-drama/ship-card.webp",
+              cardArt: "assets/greek-drama/scylla-card.webp",
               backdrop: "assets/greek-drama/lemnian-cave-day.webp"
             },
             transport: "greek-scylla"
@@ -18579,10 +19200,9 @@
             requires: [],
             travelLabel: "Board",
             scenery: {
-              open: "The Scylla waits off the Thracian shore.",
-              closed: "The Scylla is sailing elsewhere. The shore waits beside open water.",
+              open: "The landing is below the shore where Hecuba keeps watch.",
               cardName: "The Scylla",
-              cardArt: "assets/greek-drama/ship-card.webp",
+              cardArt: "assets/greek-drama/scylla-card.webp",
               backdrop: "assets/greek-drama/thracian-shore-day.webp"
             },
             transport: "greek-scylla"
@@ -18597,10 +19217,9 @@
             transport: "greek-scylla",
             travelLabel: "Board",
             scenery: {
-              open: "The Scylla waits off the shore below Proteus's tomb.",
-              closed: "The Scylla is sailing elsewhere. Water laps against the empty berth.",
+              open: "The path from the landing climbs to Proteus\u2019s tomb.",
               cardName: "The Scylla",
-              cardArt: "assets/greek-drama/ship-card.webp"
+              cardArt: "assets/greek-drama/scylla-card.webp"
             }
           },
           {
@@ -18612,10 +19231,9 @@
             requires: [],
             travelLabel: "Board",
             scenery: {
-              open: "The Scylla waits below the Taurian temple.",
-              closed: "The Scylla is sailing elsewhere. The shore waits beside open water.",
+              open: "The Scythian Coast Road climbs inland from the landing.",
               cardName: "The Scylla",
-              cardArt: "assets/greek-drama/ship-card.webp",
+              cardArt: "assets/greek-drama/scylla-card.webp",
               backdrop: "assets/greek-drama/tauris-shore-scene.webp"
             },
             transport: "greek-scylla"
@@ -18629,10 +19247,9 @@
             requires: [],
             travelLabel: "Board",
             scenery: {
-              open: "The Scylla waits offshore from the Sicilian cave.",
-              closed: "The Scylla is sailing elsewhere. The shore waits beside open water.",
+              open: "The mooring lies below Polyphemus\u2019s cave.",
               cardName: "The Scylla",
-              cardArt: "assets/greek-drama/ship-card.webp",
+              cardArt: "assets/greek-drama/scylla-card.webp",
               backdrop: "assets/greek-drama/book-three-lemnos-day.webp"
             },
             transport: "greek-scylla"
@@ -24795,6 +25412,7 @@
     pending: []
   });
   var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
+  var nativeDisclosure = (entry, viewer) => entry?.kind === "dialogue" && !entry.generated && !!entry.disclosedFactId && (viewer === void 0 || entry.witnesses?.includes(viewer));
   var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
   function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
     const knowledge = world.knowledge;
@@ -25510,6 +26128,20 @@
     const lane = laneBetween(t, dock, to);
     return lane?.opensWith ? emptyRecall && lane.emptyRecall === true || conditionsMet(s, t.packId, lane.opensWith) : knowsLane(s, actor, dock, to);
   });
+  function lanePath(s, id, from, to, actor = null, { emptyRecall = false } = {}) {
+    const t = transports[id];
+    const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
+    for (let i = 0; i < queue.length; i++) {
+      const path = queue[i];
+      if (path.at(-1) === to) return path;
+      for (const next of openLanes(s, t, path.at(-1), actor, emptyRecall)) {
+        if (seen.has(next)) continue;
+        seen.add(next);
+        queue.push([...path, next]);
+      }
+    }
+    return null;
+  }
   function laneReach(s, id, from, actor = null) {
     const t = transports[id];
     const seen = /* @__PURE__ */ new Set([from]), queue = [from];
@@ -25563,6 +26195,17 @@
     if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
     return openLanes(s, t, state.dock, actor);
   }
+  var transportName = (t) => packPlaces[t.place].name;
+  var berthsAt = (s, place) => Object.entries(transports).filter(
+    ([id, t]) => t.docks.includes(place) && transportUnlocked(s, id) && entityActive(s, t.place) && entityActive(s, place)
+  );
+  function callPath(s, id, place, turn) {
+    const state = read(s, id);
+    if (!transportUnlocked(s, id) || state.phase !== "docked" || state.dock === place || state.since === turn && turn > 0 || passengers(s, id).length)
+      return null;
+    return lanePath(s, id, state.dock, place, null, { emptyRecall: true });
+  }
+  var approachText = (name, remaining) => `${name} is ${remaining} sea ${remaining === 1 ? "leg" : "legs"} away.`;
   function transportExits(s, place, previous = null, actor = null) {
     const found2 = shipAt(place);
     if (!found2) return [];
@@ -25583,7 +26226,18 @@
   }
   function transportScenery(s, place, nameOf3) {
     const found2 = shipAt(place);
-    if (!found2) return [];
+    if (!found2) {
+      return berthsAt(s, place).map(([id, t]) => {
+        const state2 = read(s, id), name = transportName(t);
+        if (!atBerth(state2)) return `${name} is underway and cannot answer a call.`;
+        if (state2.dock === place)
+          return state2.phase === "arrived" ? `${name} has arrived at the berth.` : `${name} is at the berth.`;
+        if (passengers(s, id).length)
+          return `${name} has passengers aboard and cannot answer a call.`;
+        const path = callPath(s, id, place, s.turn + 1);
+        return path ? `${approachText(name, path.length - 1)} Wait here to bring it closer.` : `${name} cannot be called from this berth right now.`;
+      });
+    }
     const state = read(s, found2[0]);
     if (state.phase === "sea")
       return [`The ship is at sea, bound for ${nameOf3(state.destination)}.`];
@@ -26829,6 +27483,21 @@
     return problems2;
   }
 
+  // v2/card-game/pack-choice-schema.mjs
+  function choicePresentationProblems(pack, choice, items2, choices, keysOk2, textOk2) {
+    const problems2 = [];
+    const prefix = `${pack.id}: choice ${choice.id}`;
+    if (choice.fullHandsText !== void 0 && !(choice.on === "talk" && choice.humanOnly && Array.isArray(choice.effects) && choice.effects.some((effect) => effect?.kind === "give_item") && textOk2(choice.fullHandsText, 120)))
+      problems2.push(`${prefix} fullHandsText needs a human Talk that hands over an item`);
+    if (choice.recap === void 0) return problems2;
+    const { record: record7, answers } = choice.recap ?? {};
+    const book = Object.hasOwn(items2, record7) ? items2[record7] : null;
+    const outcomes = Array.isArray(answers) && answers.length === 2 ? answers.map((id) => choices.find((answer) => answer?.id === id && answer.at === choice.at)?.effects?.find((effect) => effect?.kind === "choose")) : [];
+    if (!(keysOk2(choice.recap, ["record", "answers"]) && choice.on === "talk" && choice.effects?.length > 0 && !choice.repeats && !choice.archived && !(pack.topics || []).some((topic) => topic.choiceId === choice.id) && book?.lifecycle === "fixed" && book.holder === choice.at && Array.isArray(book.records) && outcomes[0] && outcomes[1] && answers.every((id) => book.records.includes(id)) && outcomes[0].key === outcomes[1].key && outcomes[0].value !== outcomes[1].value))
+      problems2.push(`${prefix} recap needs two local outcomes in a fixed record`);
+    return problems2;
+  }
+
   // v2/card-game/pack-transport-schema.mjs
   var MAX_LANES = 4;
   var LANE_KEYS = [
@@ -27607,7 +28276,7 @@
         cs.forEach((c) => {
           condition(c, what);
           check(
-            !persistent || savedCondition(c, scope) || scope === "traveler" && c?.kind === "trusted",
+            !persistent || savedCondition(c, scope) || (scope === "traveler" || scope === "humanChoice") && c?.kind === "trusted",
             `${what} must use saved state or human presence conditions`
           );
         });
@@ -27757,7 +28426,9 @@
           "for",
           "repeats",
           "archived",
-          "humanOnly"
+          "humanOnly",
+          "recap",
+          "fullHandsText"
         ]) && idOk3(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "talk" && Boolean(avatars[c.subject]) || // A hold choice is for the one traveler its item belongs to.
         c.on === "hold" && Boolean(items2[c.subject]) && c.for !== void 0 && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
@@ -27767,7 +28438,8 @@
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
-      requirements(c.requires, `choice ${c.id} requires`);
+      problems2.push(...choicePresentationProblems(pack, c, items2, choices, keysOk, textOk));
+      requirements(c.requires, `choice ${c.id} requires`, true, c.humanOnly ? "humanChoice" : void 0);
       for (const e of c.effects) {
         let valid = false;
         if (e.kind === "choose") {
@@ -28573,6 +29245,11 @@
   var heldSlots = (requires = []) => requires.map(
     (r) => r.kind === "any" ? r.conditions.filter((c) => c.kind === "holding" && c.role === "actor") : r.kind === "holding" && r.role === "actor" ? [r] : []
   ).filter((slot) => slot.length).map((slot) => slot.map((r) => r.item));
+  var labelledGiftTargets = new Set(
+    packDefinitions.flatMap(
+      (pack) => (pack.choices || []).filter((c) => c.on === "give" && c.label).map((c) => c.subject)
+    )
+  );
   var makerChoice = (subject, item) => packDefinitions.flatMap((pack) => pack.choices || []).find(
     (c) => c.repeats && c.subject === subject && c.effects.some((e) => e.kind === "drop_item" && e.item === item)
   ) ?? null;
@@ -32255,13 +32932,13 @@
     "greek-road-thebes": art("theban-harbor-road-night"),
     "greek-athens-harbor": art("athens-harbor-open-berth-night"),
     "greek-piraeus": art("piraeus-open-berth-night"),
-    "greek-pagasae": art("aulis-anchorage-night"),
+    "greek-pagasae": art("pagasae-anchorage-night"),
     "greek-athens": art("athens-grand-agora-night"),
     "greek-colonus": art("open-door-colonus-night"),
     "greek-eleusis": art("open-door-eleusis-night"),
     "greek-marathon": art("open-door-marathon-night"),
     "greek-ship": art("ship-deck-night"),
-    "greek-scylla": art("ship-deck-night"),
+    "greek-scylla": art("scylla-deck-night"),
     "greek-road-athens-harbor": art("attic-road-night"),
     "greek-road-athens-piraeus": art("attic-road-night"),
     "greek-road-athens-colonus": art("attic-road-night"),
@@ -33280,7 +33957,7 @@
     );
     const told = (id) => disclosures.filter((d) => d.speaker === id).map((d) => d.factId);
     const eventEntries = world.log.filter(
-      (entry) => entry.turn === world.turn && !entry.generated && (!entry.consequence || entry.witnesses?.includes(currentActor(world))) && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
+      (entry) => entry.turn === world.turn && !entry.generated && !nativeDisclosure(entry) && (!entry.consequence || entry.witnesses?.includes(currentActor(world))) && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
     ).slice(-8);
     const deal = listenerDeal(world, currentActor(world));
     const events = eventEntries.map((entry) => entry === deal ? LISTENER_READING : entry.text);

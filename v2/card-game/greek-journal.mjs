@@ -1,4 +1,5 @@
-import { legalActions, nameOf, theName } from "./world.mjs";
+import { legalActions, nameOf } from "./world.mjs";
+import { theName } from "./world/catalog.mjs";
 import {
   conditionsMet,
   entityActive,

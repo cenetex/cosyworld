@@ -1525,21 +1525,47 @@
       return actor && !playerAvatar(s, actor) ? null : openLanes(s, found[1], dock, actor)[0] ?? null;
     return lanePath(s, found[0], dock, target, actor)?.[1] ?? null;
   }
-  function waitForTransport(s, place2, actor) {
-    if (controlledByHuman(s, actor)) callTransport(s, place2);
+  var transportName = (t) => packPlaces[t.place].name;
+  var berthsAt = (s, place2) => Object.entries(transports).filter(
+    ([id, t]) => t.docks.includes(place2) && transportUnlocked(s, id) && entityActive(s, t.place) && entityActive(s, place2)
+  );
+  function callPath(s, id, place2, turn) {
+    const state = read(s, id);
+    if (!transportUnlocked(s, id) || state.phase !== "docked" || state.dock === place2 || state.since === turn && turn > 0 || passengers(s, id).length)
+      return null;
+    return lanePath(s, id, state.dock, place2, null, { emptyRecall: true });
   }
-  function callTransport(s, place2, resident = false) {
+  var approachText = (name, remaining) => `${name} is ${remaining} sea ${remaining === 1 ? "leg" : "legs"} away.`;
+  function transportWait(s, action) {
+    if (!controlledByHuman(s, action.actor)) return action;
+    const place2 = s.actors[action.actor].place;
+    const berth = berthsAt(s, place2).find(
+      ([id]) => callPath(s, id, place2, s.turn + 1)
+    );
+    if (!berth) return action;
+    const name = transportName(berth[1]).replace(/^The /u, "");
+    return { ...action, label: `Wait for ${name}` };
+  }
+  function waitForTransport(s, place2, actor, log = null) {
+    if (!controlledByHuman(s, actor)) return;
+    callTransport(s, place2, false, (t, remaining) => {
+      const name = transportName(t);
+      const text2 = remaining ? approachText(name, remaining) : `${name} has reached the berth.`;
+      log?.(text2, place2);
+    });
+  }
+  function callTransport(s, place2, resident = false, onApproach = null) {
     for (const [id, t] of Object.entries(transports)) {
       if (!t.docks.includes(place2)) continue;
       const state = own(s, id);
       if (resident && Object.entries(s.actors).some(
         ([who, a]) => a.place === state.dock && controlledByHuman(s, who)
-      ) || !transportUnlocked(s, id) || state.phase !== "docked" || state.dock === place2 || state.since === s.turn && s.turn > 0 || passengers(s, id).length)
+      ))
         continue;
-      const path = lanePath(s, id, state.dock, place2, null, {
-        emptyRecall: true
-      });
-      if (path) Object.assign(state, { dock: path[1], since: s.turn });
+      const path = callPath(s, id, place2, s.turn);
+      if (!path) continue;
+      Object.assign(state, { dock: path[1], since: s.turn });
+      onApproach?.(t, path.length - 2);
     }
   }
   function transportArrival(s, actor) {
@@ -3560,6 +3586,21 @@
     return problems2;
   }
 
+  // v2/card-game/pack-choice-schema.mjs
+  function choicePresentationProblems(pack, choice, items2, choices, keysOk2, textOk2) {
+    const problems2 = [];
+    const prefix = `${pack.id}: choice ${choice.id}`;
+    if (choice.fullHandsText !== void 0 && !(choice.on === "talk" && choice.humanOnly && Array.isArray(choice.effects) && choice.effects.some((effect) => effect?.kind === "give_item") && textOk2(choice.fullHandsText, 120)))
+      problems2.push(`${prefix} fullHandsText needs a human Talk that hands over an item`);
+    if (choice.recap === void 0) return problems2;
+    const { record: record7, answers } = choice.recap ?? {};
+    const book = Object.hasOwn(items2, record7) ? items2[record7] : null;
+    const outcomes = Array.isArray(answers) && answers.length === 2 ? answers.map((id) => choices.find((answer) => answer?.id === id && answer.at === choice.at)?.effects?.find((effect) => effect?.kind === "choose")) : [];
+    if (!(keysOk2(choice.recap, ["record", "answers"]) && choice.on === "talk" && choice.effects?.length > 0 && !choice.repeats && !choice.archived && !(pack.topics || []).some((topic) => topic.choiceId === choice.id) && book?.lifecycle === "fixed" && book.holder === choice.at && Array.isArray(book.records) && outcomes[0] && outcomes[1] && answers.every((id) => book.records.includes(id)) && outcomes[0].key === outcomes[1].key && outcomes[0].value !== outcomes[1].value))
+      problems2.push(`${prefix} recap needs two local outcomes in a fixed record`);
+    return problems2;
+  }
+
   // v2/card-game/pack-transport-schema.mjs
   var MAX_LANES = 4;
   var LANE_KEYS = [
@@ -4338,7 +4379,7 @@
         cs.forEach((c) => {
           condition(c, what);
           check(
-            !persistent || savedCondition(c, scope) || scope === "traveler" && c?.kind === "trusted",
+            !persistent || savedCondition(c, scope) || (scope === "traveler" || scope === "humanChoice") && c?.kind === "trusted",
             `${what} must use saved state or human presence conditions`
           );
         });
@@ -4488,7 +4529,9 @@
           "for",
           "repeats",
           "archived",
-          "humanOnly"
+          "humanOnly",
+          "recap",
+          "fullHandsText"
         ]) && idOk3(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "talk" && Boolean(avatars[c.subject]) || // A hold choice is for the one traveler its item belongs to.
         c.on === "hold" && Boolean(items2[c.subject]) && c.for !== void 0 && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
@@ -4498,7 +4541,8 @@
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
-      requirements(c.requires, `choice ${c.id} requires`);
+      problems2.push(...choicePresentationProblems(pack, c, items2, choices, keysOk, textOk));
+      requirements(c.requires, `choice ${c.id} requires`, true, c.humanOnly ? "humanChoice" : void 0);
       for (const e of c.effects) {
         let valid = false;
         if (e.kind === "choose") {
@@ -5299,7 +5343,7 @@
     if (offered && itemTypeMatches(item, offered) && available(offered)) return offered;
     return itemCopies(item).find(available);
   }
-  function choiceFeasible(world, pack, choice, actor, mode = null, turn = world.turn, offered = null) {
+  function choiceFeasible(world, pack, choice, actor, mode = null, turn = world.turn, offered = null, { allowFullHands = false } = {}) {
     const atTurn = turn === world.turn ? world : { ...world, turn };
     const state = packState(world, pack.id);
     if (!state || choice.archived || choice.humanOnly && !controlledByHuman(world, actor) || // A repeating give fires again once its output is used up (rules 95).
@@ -5313,7 +5357,7 @@
       return false;
     if (choice.effects.some(({ kind }) => kind === "give_item")) {
       const presents = choice.effects.filter(({ kind }) => kind === "give_item");
-      if (presents.some(({ item }) => !entityActive(atTurn, item)) || !hasSpaceForItems(world, actor, presents.map(({ item }) => item)))
+      if (presents.some(({ item }) => !entityActive(atTurn, item)) || !allowFullHands && !hasSpaceForItems(world, actor, presents.map(({ item }) => item)))
         return false;
     }
     return choice.effects.every(
@@ -5331,7 +5375,7 @@
     if (!controlledByHuman(world, actor)) return [];
     const here = world.actors[actor]?.place;
     return packDefinitions.flatMap(
-      (pack) => (pack.choices || []).filter((c) => !c.on && c.at === here && choiceFeasible(world, pack, c, actor)).map((c) => ({
+      (pack) => (pack.choices || []).filter((c) => !c.on && c.effects.length && c.at === here && choiceFeasible(world, pack, c, actor)).map((c) => ({
         kind: "choose",
         actor,
         item: null,
@@ -5375,6 +5419,14 @@
   var heldSlots = (requires = []) => requires.map(
     (r) => r.kind === "any" ? r.conditions.filter((c) => c.kind === "holding" && c.role === "actor") : r.kind === "holding" && r.role === "actor" ? [r] : []
   ).filter((slot) => slot.length).map((slot) => slot.map((r) => r.item));
+  var labelledGiftTargets = new Set(
+    packDefinitions.flatMap(
+      (pack) => (pack.choices || []).filter((c) => c.on === "give" && c.label).map((c) => c.subject)
+    )
+  );
+  function packGiveLabel(world, action) {
+    return labelledGiftTargets.has(action.target) ? packGiveChoice(world, action)?.label : void 0;
+  }
   function packGiveChoice(world, action) {
     if (world.items[action.item]?.holder !== action.actor) return null;
     for (const pack of packDefinitions)
@@ -5386,7 +5438,8 @@
             packId: pack.id,
             choiceId: c.id,
             actor: action.actor,
-            item: action.item
+            item: action.item,
+            ...c.label && { label: c.label }
           };
     return null;
   }
@@ -5461,14 +5514,34 @@
     for (const item of Object.values(world.items))
       if (item.holder === actor) item.holder = world.actors[actor].place;
   }
+  function encounterRecap(world, pack, choice, actor) {
+    const { record: record7, answers } = choice.recap;
+    const receipts = packState(world, pack.id).receipts;
+    const answer = answers.find((id) => owns5(receipts, id));
+    if (!answer) return choiceText(choice, actor);
+    if (!entityActive(world, record7)) return null;
+    const line = pack.items[record7].recordText?.[answer] ?? recordedChoiceLine(world, pack, pack.choices.find((c) => c.id === answer));
+    return `${nameOf(choice.subject)} points to ${theName(record7)}. ${line}`;
+  }
   function packTalkChoice(world, action, { turn = world.turn, topicId } = {}) {
     if (!controlledByHuman(world, action.actor)) return null;
     const atTurn = turn === world.turn ? world : { ...world, turn };
-    let response2 = null;
+    let response2 = null, fullHands = null, recap = null;
     for (const pack of packDefinitions)
       for (const c of pack.choices || []) {
-        if (c.on !== "talk" || c.subject !== action.target || !choiceFeasible(atTurn, pack, c, action.actor, "talk"))
+        if (c.on !== "talk" || c.subject !== action.target) continue;
+        if (c.recap && owns5(packState(world, pack.id)?.receipts, c.id)) {
+          if (topicId === void 0 && !recap && choiceFeasible(atTurn, pack, { ...c, repeats: true }, action.actor, "talk"))
+            recap = { pack, choice: c };
           continue;
+        }
+        if (!choiceFeasible(atTurn, pack, c, action.actor, "talk")) {
+          if (topicId === void 0 && !fullHands && c.fullHandsText && choiceFeasible(atTurn, pack, c, action.actor, "talk", turn, null, {
+            allowFullHands: true
+          }))
+            fullHands = { replyText: c.fullHandsText };
+          continue;
+        }
         const choice = { packId: pack.id, choiceId: c.id, actor: action.actor };
         const topics = (pack.topics || []).filter((t) => t.choiceId === c.id);
         if (topics.length || topicId !== void 0) {
@@ -5481,7 +5554,9 @@
         if (c.effects.length) return choice;
         response2 ??= choice;
       }
-    return response2;
+    if (response2 || fullHands || !recap) return response2 ?? fullHands;
+    const text2 = encounterRecap(atTurn, recap.pack, recap.choice, action.actor);
+    return text2 ? { replyText: text2 } : null;
   }
   function applyPackChoice(world, action, { mode = null, placeIds: placeIds2 = [], turn = world.turn } = {}) {
     const pack = packDefinition(action.packId), choice = pack?.choices?.find((c) => c.id === action.choiceId);
@@ -5589,6 +5664,10 @@
       (entry) => entry.kind === "action" && !entry.generated && entry.turn === turn && entry.actorId && [entry.locationId, entry.fromLocationId].includes(choice.at)
     )?.actorId || null;
     return choiceText(choice, actor);
+  }
+  function recordedChoiceLine(world, pack, choice) {
+    const said = committedChoiceText(world, pack, choice);
+    return said.match(/^.*?[.!?]["'’”]?(?=\s|$)/u)?.[0] ?? said;
   }
   var restGated = (requires = [], id) => requires.some(
     (c) => c.kind === "item_at" ? c.item === id : restGated(c.conditions || (c.condition ? [c.condition] : []), id)
@@ -6215,6 +6294,17 @@
   var atPort = (s, actor) => Object.values(transports).some(
     (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
   );
+  var scyllaPilot = (actor) => transports["greek-scylla"]?.shipmaster === actor;
+  function scyllaDirections(world, speaker, listener) {
+    const ship = transports["greek-scylla"];
+    const from = world.actors[speaker]?.place;
+    if (!scyllaPilot(speaker) || !ship.docks.includes(from) || !entityActive(world, from))
+      return null;
+    const to = lanesFrom(ship, from).find(
+      (to2) => entityActive(world, to2) && knowsLane(world, speaker, from, to2) && !knowsLane(world, listener, from, to2) && conditionsMet(world, ship.packId, laneBetween(ship, from, to2).opensWith)
+    );
+    return to ? laneFact(from, to) : null;
+  }
   function laneToTell(s, speaker, listener) {
     const here = s.actors[speaker].place;
     const ship = Object.entries(transports).find(([, t]) => t.place === here);
@@ -6245,12 +6335,31 @@
   var authoredKnowledgeTopics = () => packDefinitions.flatMap(
     (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
   );
-  function talkKnowledge(world, action, event, choice) {
+  var ajaxEvidence = (topic) => topic.packId === "greek-drama" && topic.choiceId?.startsWith("greek-ajax-");
+  function tellAuthored(world, event, marker, addLog2) {
+    if (!marker) return false;
+    const { speaker, listener, locationId } = marker;
+    const witnesses = [speaker, listener];
+    const line = {
+      kind: "dialogue",
+      actorId: speaker,
+      targetId: listener,
+      locationId,
+      cast: witnesses,
+      witnesses,
+      sourceSeq: event.seq
+    };
+    if (!applyTalkDisclosure(world, marker, line)) return false;
+    addLog2(world, people[speaker].name, world.knowledge.facts[marker.factId].text, line);
+    return true;
+  }
+  function talkKnowledge(world, action, event, choice, addLog2) {
     const pairs = [
       [action.actor, action.target],
       [action.target, action.actor]
     ];
-    if (controlledByHuman(world, action.actor)) pairs.reverse();
+    const traveler = controlledByHuman(world, action.actor);
+    if (traveler) pairs.reverse();
     for (const [speaker, listener] of pairs) {
       if (expressionOf(people[speaker]) !== "speech") continue;
       const topics = authoredKnowledgeTopics().flatMap((topic) => {
@@ -6258,7 +6367,15 @@
         if (selected) return [{ ...topic, said: true, commitChoice: true }];
         return conditionsMet(world, topic.packId, topic.requires, listener) ? [topic] : [];
       });
-      const lane = laneToTell(world, speaker, listener);
+      if (traveler && speaker === action.target) {
+        const offered = topics.filter((t) => ajaxEvidence(t) && t.speaker === speaker);
+        const topic = offered.find((t) => t.commitChoice) ?? offered.find(
+          (t) => Object.hasOwn(world.packs[t.packId].receipts, t.choiceId) && !knowsFact(world, listener, t.id)
+        );
+        const marker = topic ? reserveKnowledge(world, speaker, listener, event, [{ ...topic, said: true }]) : scyllaPilot(speaker) ? reserveLaneKnowledge(world, speaker, listener, event, scyllaDirections(world, speaker, listener)) : null;
+        if (tellAuthored(world, event, marker, addLog2)) break;
+      }
+      const lane = scyllaPilot(speaker) ? null : laneToTell(world, speaker, listener);
       const port = lane && atPort(world, speaker) && !topics.some((t) => t.said);
       if (port && reserveLaneKnowledge(world, speaker, listener, event, lane))
         break;
@@ -7441,10 +7558,12 @@
   var recordClaims = (s, packId, book) => {
     const pack = packDefinition(packId);
     if (!pack) return [];
-    return recorded(s, packId, book).map((id) => record6(packId, book, id, () => {
-      const said = committedChoiceText(s, pack, pack.choices.find((c) => c.id === id));
-      return said.match(/^.*?[.!?]["'’”]?(?=\s|$)/u)?.[0] ?? said;
-    })).filter((claim) => validFactText(claim.text));
+    return recorded(s, packId, book).map((id) => record6(
+      packId,
+      book,
+      id,
+      () => recordedChoiceLine(s, pack, pack.choices.find((c) => c.id === id))
+    )).filter((claim) => validFactText(claim.text));
   };
   var authoredClaim = (id) => bookClaims(...id.split(":").slice(1, 3)).find((c) => c.id === id) || null;
   var savedClaim = (s, id, fact) => {
@@ -10769,7 +10888,7 @@
     };
     const out = [
       ...asleep2 ? [sleep] : [],
-      offer("wait", actor, null, null, `${nameOf2(actor)} waits one turn.`, []),
+      transportWait(s, offer("wait", actor, null, null, `${nameOf2(actor)} waits one turn.`, [])),
       ...packChoices(s, actor)
     ];
     const conflict = standoffFor(s, actor);
@@ -10994,7 +11113,8 @@
             `${nameOf2(actor)} ${words} ${theName2(id)} to ${nameOf2(other)}.`,
             [id, other]
           );
-          if (returning) gift.label = "Return Lamp";
+          const label = returning ? "Return Lamp" : packGiveLabel(s, gift);
+          if (label) gift.label = label;
           out.push(gift);
         }
       } else if (actorIds.includes(item.holder) && item.holder !== actor && !keepsElysiumToken(item.holder, id) && hasSpace2(s, actor, id)) {
@@ -11650,8 +11770,6 @@
       case "drop":
         transfer(s, a.item, here, a.text);
         break;
-      // Eaten or drunk, a thing goes home: locked if it is made, else ready
-      // again. A companion shares it only if it agrees (rules 102).
       case "eat":
         if (a.target) {
           requestAccepted = shareDecision(s, a.actor, a.target);
@@ -11704,6 +11822,7 @@
       case "talk": {
         const turn = s.turn - 1, told = packTalkChoice(s, a, { turn });
         if (told?.topicId) topicChoice = told;
+        else if (told?.replyText) text2 = told.replyText;
         else if (told)
           text2 = choiceText(
             applyPackChoice(s, told, { mode: "talk", turn }),
@@ -11796,7 +11915,7 @@
     );
     if (repair) closeRepaired(s, repair);
     settleCompany(s, entityActive);
-    if (a.kind === "talk") talkKnowledge(s, a, event, topicChoice);
+    if (a.kind === "talk") talkKnowledge(s, a, event, topicChoice, addLog);
     const met2 = meetHidden(s, a, controlledByHuman(s, a.actor));
     if (met2)
       addLog(s, "World", `${nameOf2(a.target)} remembers ${who}.`, {
@@ -12348,8 +12467,9 @@
       })
     });
     if (unmetAt(next, next.actors[currentActor(next)]?.place)) meetCast(next);
+    const worldLine = (text2, locationId) => addLog(next, "World", text2, { kind: "narration", locationId });
     if (exact.kind === "wait" && !exact.sleep)
-      waitForTransport(next, next.actors[actor].place, actor);
+      waitForTransport(next, next.actors[actor].place, actor, worldLine);
     const voyages = sailTransports(next);
     for (const voyage of voyages) {
       const ship = transports[voyage.id].place;
@@ -12360,7 +12480,6 @@
         { locationId: ship }
       );
     }
-    const worldLine = (text2, locationId) => addLog(next, "World", text2, { kind: "narration", locationId });
     settleVoyageCargo(next, voyages, nameOf2, worldLine);
     settleHeldItems(next, handSnapshot(s));
     settleLamp(next);

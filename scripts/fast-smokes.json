@@ -238,7 +238,7 @@
       "smokes": ["smoke-card-save-validation"]
     },
     {
-      "paths": "^v2/card-game/shared|^v2/orchestrator-rust/|^v2/core-c/",
+      "paths": "^v2/card-game/shared|^v2/orchestrator-rust/",
       "smokes": [
         "smoke-card-shared-updating",
         "smoke-shared-play-status",
@@ -332,19 +332,14 @@
   ],
   "rust": {
     "about": "The fast check's Rust jobs (scripts/select-rust-tests.mjs). They run only when a change touches Rust, the rules or the shared bundles: paths, which holds the crate and its generated bundles, a rule's paths below, or a file the crate compiles in or loads (include_str!, include_bytes!, card_assets). Then each touched module, rule or input adds the test filter of the modules that own or read it. An input is a file the crate's sources name (include_str!, include_bytes!, a card_assets key, a file or directory a test reads, a module a test imports through Node), and a bundle belongs to the module that loads it. Crate-wide files (main.rs, build.rs, Cargo files, fixtures only main.rs reads) and paths with no rule add default. A parent module's filter covers its children; at most max filters run. ignoreInputs lists named inputs a fast check already covers. smokes start the debug server and run beside the tests; smoke-shared-cards waits until it is brought up to date with the waking question (#3001) and the dialogue advance.",
-    "paths": "^v2/(orchestrator-rust|ai-model-rust|core-c)/|^v2/scripts/check-rust\\.sh$",
+    "paths": "^v2/(orchestrator-rust|ai-model-rust|rules-rust)/|^v2/local/(memory|models)\\.(rs|json)$|^v2/scripts/(check-rust\\.sh|build-rust-rules\\.mjs)$",
     "max": 12,
     "smokes": ["smoke-card-greek-capacity", "smoke-card-narrative-contract"],
     "default": ["card_shared.rs", "card_narrative.rs"],
     "ignoreInputs": [],
     "rules": [
       {
-        "about": "The card C session guard.",
-        "paths": "^v2/core-c/",
-        "modules": ["card_shared.rs"]
-      },
-      {
-        "about": "build.rs embeds the public card files this script lists.",
+        "about": "Public card files are generated from the asset list.",
         "paths": "^v2/scripts/build-card-assets\\.mjs$|^v2/card-game/public-assets\\.mjs$",
         "modules": ["card_game.rs"]
       },

@@ -15,6 +15,7 @@ import { MAX_HELD, heldOf, holdQuest, newWant, slotsUsed } from "../v2/card-game
 import { offerFrom } from "../v2/card-game/offer-chance.mjs";
 import { offerCard, offerWords } from "../v2/card-game/quest-card.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
+import { knowsFact, questFactId } from "../v2/card-game/knowledge.mjs";
 
 const act = (s, pick, actor = "vale") => {
   const action = legalActions(s, actor).find(pick);
@@ -26,7 +27,8 @@ const act = (s, pick, actor = "vale") => {
 const talk = (s, who = "moth") => act(s, (a) => a.kind === "talk" && a.target === who);
 const accept = (s, who = "moth") => act(s, (a) => a.kind === "accept" && a.target === who);
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
-const accepts = (s) => legalActions(s).filter((a) => a.kind === "accept" && !a.box);
+const residentAccepts = (s) => legalActions(s).filter((a) =>
+  a.kind === "accept" && !a.box && !a.place && !a.tarot);
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 
 function station(turn = 0) {
@@ -44,7 +46,7 @@ describe("a resident's offer after Talk", () => {
     for (let turn = 0; turn < 24; turn++) {
       const s = talk(station(turn));
       expect(offerFrom(s, "vale")).toBe("moth");
-      expect(accepts(s)).toMatchObject([{ target: "moth", cards: [] }]);
+      expect(residentAccepts(s)).toMatchObject([{ target: "moth", cards: [] }]);
       expect(sources(s)).toEqual([]);
     }
   });
@@ -60,20 +62,24 @@ describe("a resident's offer after Talk", () => {
 
   it("lies locked among the resident's things until a Talk tells it", () => {
     const s = station();
+    const fact = questFactId("moth", s.actors.moth.want);
     expect(lockedOffer(s, "vale", "moth")).toMatchObject({ source: "moth" });
-    expect(accepts(s)).toEqual([]);
+    expect(offerCard(s, "vale", null, "moth")).toBeNull();
+    expect(knowsFact(s, "vale", fact)).toBe(false);
+    expect(residentAccepts(s)).toEqual([]);
     const told = talk(s);
+    expect(knowsFact(told, "vale", fact)).toBe(true);
     expect(lockedOffer(told, "vale", "moth")).toBeNull();
-    expect(accepts(told)).toMatchObject([{ target: "moth" }]);
+    expect(residentAccepts(told)).toMatchObject([{ target: "moth" }]);
   });
 
   it("stands after the next play once told, while the want is still theirs", () => {
     const s = wait(talk(station()));
     expect(offerFrom(s, "vale")).toBeNull();
-    expect(accepts(s)).toMatchObject([{ target: "moth" }]);
+    expect(residentAccepts(s)).toMatchObject([{ target: "moth" }]);
     expect(offerCard(s, "vale", null, "moth")).toMatchObject({ offer: "moth" });
     s.actors.moth.want = null;
-    expect(accepts(s)).toEqual([]);
+    expect(residentAccepts(s)).toEqual([]);
   });
 
   it("fills a slot on Accept, passing no turn, and saves as it plays", () => {
@@ -83,7 +89,7 @@ describe("a resident's offer after Talk", () => {
     expect(sources(s)).toEqual(["quest:from:moth"]);
     expect(slotsUsed(s.actors.vale)).toBe(1);
     expect(offerFrom(s, "vale")).toBeNull();
-    expect(accepts(s)).toEqual([]);
+    expect(residentAccepts(s)).toEqual([]);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
@@ -94,7 +100,7 @@ describe("a resident's offer after Talk", () => {
     const told = talk(s);
     expect(residentOffer(told, "vale", "moth")).toMatchObject({ source: "moth", full: true });
     expect(offerCard(told, "vale", null, "moth")).toMatchObject({ full: true });
-    expect(accepts(told)).toEqual([]);
+    expect(residentAccepts(told)).toEqual([]);
   });
 
   it("offers nothing when no quest is available", () => {
@@ -103,9 +109,9 @@ describe("a resident's offer after Talk", () => {
     expect(offerFrom(talk(none), "vale")).toBeNull();
     const met = station();
     met.items.lamp.holder = "moth";
-    expect(accepts(talk(met))).toEqual([]);
+    expect(residentAccepts(talk(met))).toEqual([]);
     const held = accept(talk(station()));
-    expect(accepts(talk(held))).toEqual([]);
+    expect(residentAccepts(talk(held))).toEqual([]);
   });
 });
 
@@ -129,7 +135,7 @@ describe("trust still gates a want told only to the trusted", () => {
       s.actors[R].trust.vale = trust;
       return talk(s, R);
     };
-    expect(accepts(at(0))).toEqual([]);
-    expect(accepts(at(1))).toMatchObject([{ target: R }]);
+    expect(residentAccepts(at(0))).toEqual([]);
+    expect(residentAccepts(at(1))).toMatchObject([{ target: R }]);
   });
 });

@@ -202,6 +202,10 @@ fn sentences(text: &str) -> impl Iterator<Item = &str> {
         .filter(|sentence| !words(sentence).is_empty())
 }
 
+pub(super) fn valid_concealed(ids: &[String]) -> bool {
+    ids.len() <= 512 && ids.iter().all(|id| super::profiles().get(id).is_some())
+}
+
 pub(super) fn valid(context: &Context) -> bool {
     context.disclosures.len() <= 1
         && context.disclosures.iter().all(|fact| {

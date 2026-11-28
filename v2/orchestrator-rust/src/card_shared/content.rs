@@ -1,10 +1,8 @@
 //! Pack content revisions for shared rules that take content as input.
 //!
 //! Rules bundles read packs, forest, weather and cast data from
-//! `globalThis.cardContent`. A revision is named by the SHA-256 of its exact
-//! bytes. The server stores every revision a journal names in
-//! `card_full_packs` before that journal row, never changes a row, and
-//! replays only from verified bytes.
+//! `globalThis.cardContent`. Each revision's SHA-256 names its immutable
+//! bytes in `card_full_packs`, saved before any reference and verified on replay.
 use super::store::{sql_error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest, Sha256};
@@ -23,7 +21,6 @@ pub(super) fn current() -> &'static str {
     static HASH: OnceLock<String> = OnceLock::new();
     HASH.get_or_init(|| hash(current_text()))
 }
-/// The current revision's text.
 pub(super) fn current_text() -> &'static str {
     cosyworld_orchestrator::card_assets::text("card_shared/content.json")
 }
@@ -85,6 +82,14 @@ pub(super) fn preload(c: &Connection, pack: &str) -> Result<()> {
             .or_insert_with(|| Arc::from(stored));
     }
     Ok(())
+}
+
+#[cfg(test)]
+pub(super) fn verify_stored(c: &Connection, pack: &str) -> Result<()> {
+    match stored(c, pack)? {
+        Some(text) if hash(&text) == pack => Ok(()),
+        _ => Err(MISSING.into()),
+    }
 }
 
 #[cfg(test)]

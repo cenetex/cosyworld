@@ -152,6 +152,73 @@ mod tests {
         now, store,
     };
     use super::*;
+
+    #[cfg(feature = "rules-wasm")]
+    #[test]
+    fn sqlite_rules_wasm_parity_opening_speech() {
+        use super::super::{content, engine};
+
+        let artifact = std::env::var_os("COSYWORLD_RULES_WASM").expect("build the rules artifact");
+        let guest =
+            cosyworld_orchestrator::rules_wasm::Rules::new(&std::fs::read(artifact).unwrap())
+                .unwrap();
+        let c = store::open(std::path::Path::new(":memory:")).unwrap();
+        full_store::schema(&c).unwrap();
+        let id = "opening-speech";
+        store::create(&c, id, "owner", 0).unwrap();
+        let mut world = World::seeded(None, Some(19)).unwrap();
+        full_store::seed(&c, id, &world, "test-create", 0).unwrap();
+        for (at, op) in [(1, "claim"), (2, "enter")] {
+            full_store::commit(&c, id, &mut world, json!({"op":op,"actor":"vale"}), at).unwrap();
+        }
+        let work = full_store::commit(
+            &c,
+            id,
+            &mut world,
+            json!({"op":"play", "actor":"vale", "action":"wait:vale::"}),
+            3,
+        )
+        .unwrap();
+        let (_, voices) = prepared(0, &work).unwrap();
+        assert_eq!(voices, ["vale"]);
+        let drafted = json!({"entries":[{"id":"vale","text":"I hear the wind."}]});
+        let lines = parse(&drafted.to_string(), &work, &voices).unwrap();
+        assert_eq!(lines.as_array().unwrap().len(), 1);
+        full_store::commit(
+            &c,
+            id,
+            &mut world,
+            json!({
+                "op":"speech", "actor":"vale", "room":"attic", "entries":[], "lines":lines,
+            }),
+            4,
+        )
+        .unwrap();
+
+        let mut checked = 0;
+        let (_, replayed) = full_store::replay(&c, id, 0, None, |_, world, command| {
+            world.apply_with(command, &mut |version, pack, request| {
+                let expected = engine::reduce_journal(version, pack, request.clone())?;
+                if request["op"] == "speech" {
+                    let pack = pack.ok_or("Rules WASM requires pinned pack content.")?;
+                    if guest
+                        .reduce_with_pack(&request, &content::text(pack)?)?
+                        .as_ref()
+                        != Some(&expected)
+                    {
+                        return Err("The opening speech candidate differs from QuickJS.".into());
+                    }
+                    checked += 1;
+                }
+                Ok(expected)
+            })?;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(checked, 1);
+        assert!(replayed.is_some_and(|replayed| replayed == world));
+    }
+
     #[test]
     fn shared_bard_can_comment_on_the_earned_poem() {
         let verse = "I told her I would turn away. Her brother waited by the wall.";

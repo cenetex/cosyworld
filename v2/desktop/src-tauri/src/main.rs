@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[path = "../../../local/memory.rs"]
 mod memory;
+#[path = "../../../local/models.rs"]
 mod models;
 mod services;
 use services::Services;

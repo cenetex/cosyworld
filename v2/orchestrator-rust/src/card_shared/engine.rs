@@ -1,9 +1,8 @@
-//! The shipping card rules run in QuickJS, a C interpreter. Rust supplies JSON
-//! and owns IO; the interpreter has no filesystem, network, clocks or randomness.
+//! Rust passes JSON to QuickJS with no filesystem, network, clock or entropy access.
 use super::{content, store::Result};
 use cosyworld_orchestrator::card_assets;
 use rquickjs::{Context, Function, Runtime};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, VecDeque},
@@ -18,8 +17,7 @@ use std::{
 pub(super) fn current_source() -> &'static str {
     source(version()).expect("the current rules bundle")
 }
-// A world saved by rules newer than this server's: a release swap briefly
-// runs the older build (docs/release.md), so the world waits, unchanged.
+// An older server pauses a newer world during a release swap (docs/release.md).
 pub(super) const UPDATING: &str = "This world is updating. Back in a moment.";
 pub(super) fn newer(version: &str) -> bool {
     let number = |v: &str| v.strip_prefix("full-card-world/")?.parse::<u32>().ok();
@@ -82,10 +80,43 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     reduce_pack(version, Some(content::current()), request)
 }
 pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> Result<Value> {
+    let value = reduce_pack_envelope(version, pack, request)?;
+    if let Some(message) = refusal(&value) {
+        return Err(message.chars().take(240).collect());
+    }
+    Ok(value)
+}
+
+pub(super) fn reduce_journal(
+    version: &str,
+    pack: Option<&str>,
+    mut request: Value,
+) -> Result<Value> {
+    if request["op"] != "join_state" {
+        return reduce_pack(version, pack, request);
+    }
+    request["op"] = json!("join");
+    let mut response = reduce_pack(version, pack, request)?;
+    let world = response
+        .get_mut("world")
+        .filter(|world| world.is_object())
+        .ok_or("The shared-world rules did not return a world.")?;
+    Ok(json!({"ok": true, "world": world.take()}))
+}
+pub(super) fn reduce_pack_envelope(
+    version: &str,
+    pack: Option<&str>,
+    request: Value,
+) -> Result<Value> {
     let source = source(version).ok_or("This world needs a supported rules version.")?;
     let pack = pack.ok_or("This world's pack content needs recovery.")?;
     let content = content::text(pack)?;
     reduce_source(version, source, Some((&*content, pack)), request)
+}
+fn refusal(value: &Value) -> Option<&str> {
+    value["error"]
+        .as_str()
+        .or_else(|| (value["ok"] == false).then_some("Choose from the current cards."))
 }
 struct Pins(Vec<(String, String)>);
 
@@ -155,13 +186,11 @@ fn reduce_source(
     if input.len() > MAX_BYTES {
         return Err("This saved world is too large to share.".into());
     }
-    // Two content revisions under one engine never share a cached view.
     let cache_key = view.then(|| match content {
         Some((_, pack)) => view_cache_key(&format!("{version}+{pack}"), &input),
         None => view_cache_key(version, &input),
     });
-    // A projection is pure for its exact world, actor, claims and presence.
-    // Keep only successful serialized projections. Commands always run in C.
+    // Cache successful projections by their exact serialized inputs.
     if let Some(cache_key) = cache_key.as_deref() {
         let cached = views()
             .lock()
@@ -175,9 +204,7 @@ fn reduce_source(
     let runtime = Runtime::new().map_err(engine_error)?;
     runtime.set_memory_limit(96 * 1024 * 1024);
     runtime.set_max_stack_size(1024 * 1024);
-    // The deadline bounds one request. When it fires, QuickJS throws an
-    // uncatchable interrupt; record it so a slow host is reported as a
-    // timeout rather than as the rules rejecting a stale play.
+    // A deadline interrupt must surface as a timeout so callers can retry.
     let deadline = Instant::now() + Duration::from_secs(2);
     let interrupted = Arc::new(AtomicBool::new(false));
     let flag = interrupted.clone();
@@ -217,15 +244,7 @@ fn reduce_source(
     }
     let value: Value = serde_json::from_str(&output)
         .map_err(|_| "The shared-world rules need attention.".to_string())?;
-    if value["ok"] == false || value["error"].is_string() {
-        return Err(value["error"]
-            .as_str()
-            .unwrap_or("Choose from the current cards.")
-            .chars()
-            .take(240)
-            .collect());
-    }
-    if let Some(cache_key) = cache_key {
+    if let Some(cache_key) = cache_key.filter(|_| refusal(&value).is_none()) {
         if let Ok(mut cache) = views().lock() {
             cache.put(cache_key, output);
         }
@@ -246,6 +265,28 @@ fn engine_error(error: impl std::fmt::Display) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn journal_join_preserves_refusals_and_the_world_from_a_direct_join() -> Result<()> {
+        let world = reduce(json!({"op": "create", "seed": 7}))?["world"].clone();
+        let mut request = json!({
+            "op": "join", "world": world, "actor": "mara", "claimed": [], "present": [],
+            "progress": {"xp": 7, "level": 3},
+        });
+        let direct = reduce(request.clone())?;
+        assert_eq!(direct["actor"], "mara");
+        assert!(direct["actions"].is_array());
+        assert!(direct["profiles"].is_object());
+        request["op"] = json!("join_state");
+        let journal = |request| reduce_journal(version(), Some(content::current()), request);
+        assert_eq!(
+            journal(request.clone())?,
+            json!({"ok": true, "world": direct["world"]})
+        );
+        request["progress"] = json!({"xp": -1});
+        assert_eq!(journal(request).unwrap_err(), "Choose the avatar's level.");
+        Ok(())
+    }
 
     #[test]
     fn every_pinned_version_runs_exactly_its_pinned_bytes() {

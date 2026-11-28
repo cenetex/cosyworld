@@ -13,7 +13,7 @@ use axum::{
     },
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    Json,
+    Extension, Json,
 };
 use cosyworld_orchestrator::card_assets;
 use serde::{Deserialize, Serialize};
@@ -27,9 +27,11 @@ use tokio::sync::OwnedSemaphorePermit;
 mod cast_scope;
 #[path = "channel_ways.rs"]
 mod ways;
-use cast_scope::{guild_talked, joined, knows_listener, room_cast, LISTENER};
+use cast_scope::{
+    cast, chosen_names, guild_talked, joined, knows_listener, room_cast, CORE, LISTENER,
+};
 #[cfg(test)]
-use cast_scope::{recent, TALKED};
+use cast_scope::{face_avatar, recent, resident, TALKED};
 
 const LIMIT: RateLimit = RateLimit {
     max_hits: 30,
@@ -147,42 +149,11 @@ fn packs() -> &'static Value {
     })
 }
 
-fn face_avatar(portrait: &str) -> Option<String> {
-    static FACES: OnceLock<Value> = OnceLock::new();
-    let faces = FACES.get_or_init(|| {
-        serde_json::from_str(card_assets::text("card-game/assets/discord-faces.json"))
-            .expect("embedded discord face boxes")
-    });
-    faces.get(portrait)?;
-    let (dir, file) = portrait.rsplit_once('/')?;
-    let pack_dir = dir.rsplit('/').next()?;
-    let stem = file.rsplit_once('.').map_or(file, |(stem, _)| stem);
-    Some(format!("/card-game/assets/faces/{pack_dir}-{stem}.webp"))
-}
-
 fn pack(pack_id: &str) -> Option<&'static Value> {
     packs()["packs"]
         .as_array()?
         .iter()
         .find(|p| p["id"] == pack_id)
-}
-
-const CORE: [(&str, &str); 3] = [("vale", "Vale"), ("moth", "Pip"), ("keeper", "Keeper")];
-
-fn core() -> Vec<Resident> {
-    let forest = forest_data();
-    CORE.iter()
-        .filter_map(|(id, name)| {
-            let portrait = format!("assets/{id}.png");
-            Some(Resident {
-                id: (*id).to_string(),
-                name: (*name).to_string(),
-                place: forest["people"][*id]["home"].as_str()?.to_string(),
-                avatar: face_avatar(&portrait),
-                portrait: format!("/card-game/{portrait}"),
-            })
-        })
-        .collect()
 }
 
 fn forest_data() -> &'static Value {
@@ -338,63 +309,6 @@ fn world(pack_id: &str, cast: &[Resident]) -> Value {
         .map(|r| (r.name.clone(), json!(world.name(&r.place))))
         .collect();
     json!({"places": places, "homes": homes})
-}
-
-fn member(id: &str, avatar: &Value) -> Option<Resident> {
-    let portrait = avatar["portrait"]
-        .as_str()
-        .or_else(|| avatar["variants"]["awake"]["portrait"].as_str())
-        .map_or_else(|| format!("assets/{id}.png"), str::to_string);
-    Some(Resident {
-        id: id.to_string(),
-        name: avatar["name"].as_str().unwrap_or(id).to_string(),
-        place: avatar["place"].as_str()?.to_string(),
-        avatar: face_avatar(&portrait),
-        portrait: format!("/card-game/{portrait}"),
-    })
-}
-
-fn cast(pack_id: &str) -> Option<Vec<Resident>> {
-    let mut residents: Vec<Resident> = pack(pack_id)?["avatars"]
-        .as_object()?
-        .iter()
-        .filter_map(|(id, avatar)| member(id, avatar))
-        .collect();
-    if pack_id == DEFAULT_PACK {
-        residents.extend(core());
-    }
-    (!residents.is_empty()).then_some(residents)
-}
-
-fn avatar_card(id: &str) -> Option<&'static Value> {
-    let all = packs()["packs"].as_array()?;
-    all.iter().find_map(|p| p["avatars"].get(id))
-}
-
-fn traveler(id: &str) -> Option<&'static Value> {
-    let all = shared_cast()["avatars"].as_array()?;
-    all.iter().find(|human| human["id"] == id)
-}
-
-fn resident(id: &str) -> Option<Resident> {
-    if id == LISTENER {
-        return member(id, &forest_data()["people"][id]);
-    }
-    if let Some(found) = avatar_card(id).and_then(|avatar| member(id, avatar)) {
-        return Some(found);
-    }
-    if let Some(found) = core().into_iter().find(|r| r.id == id) {
-        return Some(found);
-    }
-    let human = traveler(id)?;
-    let portrait = format!("assets/shared/characters/{id}.png");
-    Some(Resident {
-        id: id.to_string(),
-        name: human["name"].as_str()?.to_string(),
-        place: human["home"]["id"].as_str()?.to_string(),
-        avatar: face_avatar(&portrait),
-        portrait: format!("/card-game/{portrait}"),
-    })
 }
 
 fn discord_image(url: &str) -> bool {
@@ -737,10 +651,10 @@ fn spend(limits: &mut RateLimiter, now: Instant) -> bool {
         && limits.allow("discord-day".into(), PER_DAY, now)
 }
 
-fn admitted(state: &TextState, headers: &HeaderMap, kind: &str) -> Result<(), Response> {
+fn admission_error(state: &TextState, headers: &HeaderMap, kind: &str) -> Option<Response> {
     let token = std::env::var("COSYWORLD_BOT_TOKEN").ok();
     if !authorized(headers, token.as_deref()) {
-        return Err(error(StatusCode::UNAUTHORIZED, "unauthorized"));
+        return Some(error(StatusCode::UNAUTHORIZED, "unauthorized"));
     }
     let now = Instant::now();
     let allowed = state.limits.lock().is_ok_and(|mut limits| match kind {
@@ -751,10 +665,7 @@ fn admitted(state: &TextState, headers: &HeaderMap, kind: &str) -> Result<(), Re
         }
         _ => limits.allow("discord-cast".into(), LIMIT, now),
     });
-    if !allowed {
-        return Err(error(StatusCode::TOO_MANY_REQUESTS, "busy"));
-    }
-    Ok(())
+    (!allowed).then(|| error(StatusCode::TOO_MANY_REQUESTS, "busy"))
 }
 
 async fn enter(
@@ -793,10 +704,11 @@ fn silent(reason: &'static str) -> Response {
 
 pub(super) async fn cast_route(
     State(state): State<TextState>,
+    app: Option<Extension<crate::AppState>>,
     headers: HeaderMap,
     query: Result<Query<CastQuery>, QueryRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "cast") {
+    if let Some(refused) = admission_error(&state, &headers, "cast") {
         return refused;
     }
     let Ok(Query(query)) = query else {
@@ -804,21 +716,25 @@ pub(super) async fn cast_route(
     };
     let pack_id = query.pack.unwrap_or_else(|| DEFAULT_PACK.into());
     match room_cast(&pack_id, query.guild).await {
-        Some((residents, _)) => (
-            [("cache-control", "no-store")],
-            Json(json!({"pack": pack_id, "residents": residents})),
-        )
-            .into_response(),
+        Some((mut residents, _)) => {
+            chosen_names(app.as_deref(), &mut residents).await;
+            (
+                [("cache-control", "no-store")],
+                Json(json!({"pack": pack_id, "residents": residents})),
+            )
+                .into_response()
+        }
         None => error(StatusCode::NOT_FOUND, "unknown pack"),
     }
 }
 
 pub(super) async fn lines(
     State(state): State<TextState>,
+    app: Option<Extension<crate::AppState>>,
     headers: HeaderMap,
     request: Result<Json<LinesRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "lines") {
+    if let Some(refused) = admission_error(&state, &headers, "lines") {
         return refused;
     }
     let mut request = match request {
@@ -843,7 +759,8 @@ pub(super) async fn lines(
             .await
             .as_deref()
             .is_some_and(knows_listener);
-    let residents = joined(residents, ids, listener_known);
+    let mut residents = joined(residents, ids, listener_known);
+    chosen_names(app.as_deref(), &mut residents).await;
     if let Err(message) = validate(&request, &residents) {
         return error(StatusCode::BAD_REQUEST, message);
     }
@@ -1038,10 +955,11 @@ fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Option
 
 pub(super) async fn coordinate(
     State(state): State<TextState>,
+    app: Option<Extension<crate::AppState>>,
     headers: HeaderMap,
     request: Result<Json<CoordinateRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "coordinate") {
+    if let Some(refused) = admission_error(&state, &headers, "coordinate") {
         return refused;
     }
     let Ok(Json(mut request)) = request else {
@@ -1062,6 +980,8 @@ pub(super) async fn coordinate(
         request.residents.iter().cloned().chain(spoke),
         listener_known,
     );
+    let mut residents = residents;
+    chosen_names(app.as_deref(), &mut residents).await;
     let ids = residents.iter().map(|r| r.id.clone()).collect();
     request.live = live(request.guild.clone(), ids).await;
     let Some(mut view) = arranged(&request, &residents) else {
@@ -1121,10 +1041,11 @@ fn notes_model() -> String {
 
 pub(super) async fn notes(
     State(state): State<TextState>,
+    app: Option<Extension<crate::AppState>>,
     headers: HeaderMap,
     request: Result<Json<NotesRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "coordinate") {
+    if let Some(refused) = admission_error(&state, &headers, "coordinate") {
         return refused;
     }
     let Ok(Json(request)) = request else {
@@ -1134,8 +1055,9 @@ pub(super) async fn notes(
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
     let spoke = request.messages.iter().filter_map(|m| m.resident.clone());
-    // Notes only summarize existing Discord history, without loading a game world.
-    let residents = joined(residents, spoke, true);
+    let history_only_so_listener_known = true;
+    let mut residents = joined(residents, spoke, history_only_so_listener_known);
+    chosen_names(app.as_deref(), &mut residents).await;
     let fits = (1..=12).contains(&request.messages.len())
         && request.notes.as_ref().is_none_or(sound)
         && pictures(&request.messages) <= IMAGES_PER_REQUEST
@@ -2271,6 +2193,40 @@ mod tests {
         let status = response.status();
         let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
         (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    #[tokio::test]
+    async fn a_void_resident_is_called_by_its_chosen_name() {
+        std::env::set_var("COSYWORLD_BOT_TOKEN", TOKEN);
+        let mut state = crate::test_support::test_app_state(None);
+        let root = std::env::temp_dir().join(format!("discord-names-{}", crate::random_hex(8)));
+        let dir = root.join("elysium-models").join("elysium-claude");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("name.txt"), "Quill Ashby").unwrap();
+        state.generated_asset_dir = Arc::new(root.clone());
+        let app = router_with_models::<()>(
+            Arc::new(None),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings::hosted()),
+        )
+        .layer(Extension(state));
+        let request = Request::get("/discord/cast?pack=elysium")
+            .header("authorization", format!("Bearer {TOKEN}"))
+            .body(Body::empty())
+            .unwrap();
+        let (status, body) = read(app.oneshot(request).await.unwrap()).await;
+        assert_eq!(status, StatusCode::OK);
+        let name = |id: &str| {
+            body["residents"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|r| r["id"] == id)
+                .map(|r| r["name"].clone())
+        };
+        assert_eq!(name("elysium-claude"), Some(json!("Quill Ashby")));
+        assert_eq!(name("elysium-gemini"), Some(json!("Resident of Void 003")));
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[tokio::test]

@@ -438,7 +438,7 @@ describe("ports reachable on foot or by a free leg home", () => {
       PAGASAE,
     ];
     const waypoints = {
-      "greek-eleusis": "The Sacred Way",
+      "greek-eleusis": "Sacred Way",
       "greek-athens": "the Road to Delphi",
       "greek-delphi": "The Oeta Road",
       "greek-oeta": "through Trachis",

@@ -1397,8 +1397,7 @@ fn shared_run_seed_is_the_world_id_hash() {
     assert_eq!(super::full_world::run_seed("abc"), 0xba78_16bf);
 }
 
-// A refused save says where validation failed, so the host log of a 409
-// names the check without the world's contents (2026-11-01).
+// QuickJS includes validation diagnostics without logging the saved world.
 #[test]
 fn a_refused_save_names_where_the_rules_refused_it() {
     let request = json!({

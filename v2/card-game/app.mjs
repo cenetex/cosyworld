@@ -110,6 +110,7 @@ import {
   tapPrompt,
   handFocusId,
   holdDialogueChoice,
+  roomCardOrder,
   THINKING_GRACE_MS,
 } from "./presentation.mjs";
 import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
@@ -1653,8 +1654,6 @@ function keepHeldSelection(before, action = null) {
   // The completed play's beat rests until its reply is tapped away.
   if (restedChoice !== null) restedChoice = choiceKey();
 }
-// The current place and its items sit on the left. The way back sits just
-// before them, and the other ways on stack at the row's right end.
 const placeHere = () => world.actors[currentActor(world)].place;
 const stackedPlace = (id) =>
   Boolean(places[id]) && id !== placeHere() && !isLockedBox(world, id);
@@ -1680,17 +1679,6 @@ function cameFrom() {
 const atHere = (id) =>
   id === placeHere() ||
   tableHolder(world, id) === placeHere();
-function stackPlaces(cards) {
-  const back = cameFrom(),
-    local = cards.filter(atHere);
-  return [
-    ...(back ? [back] : []),
-    ...local.slice(0, 1), ...(featuredRoomItem ? [featuredRoomItem] : []),
-    ...local.slice(1).filter((id) => id !== featuredRoomItem),
-    ...cards.filter((id) => !local.includes(id) && !stackedPlace(id)),
-    ...cards.filter((id) => stackedPlace(id) && id !== back),
-  ];
-}
 function wayStack(id) {
   if (!stackedPlace(id)) return null;
   const back = cameFrom();
@@ -4996,7 +4984,13 @@ function render() {
         handWithQuest(
           pipPrelude()
             ? ["moth"]
-            : stackPlaces(dealt),
+            : roomCardOrder(
+                dealt,
+                cameFrom(),
+                featuredRoomItem,
+                atHere,
+                stackedPlace,
+              ),
           world,
           questEntries().map((entry) => entry.id).filter((id) => !isResidentOffer(id)),
         ),

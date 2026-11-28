@@ -49,7 +49,7 @@ fn command(op: &str, key: &str) -> full::Command {
 const TOLD: &str = "lane:greek-harbor>greek-piraeus";
 
 #[test]
-fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
+fn quest_core_talk_teaches_its_fact_with_verified_speech_and_replays_it() {
     let (path, c, id, _) = fixture(engine::version());
     full::run(&c, &id, "user0", &command("claim", ""), now()).unwrap();
     let before = full_store::world(&c, &id, now()).unwrap();
@@ -69,7 +69,7 @@ fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
     let interrupted = full_store::world(&c, &id, now()).unwrap();
     assert!(interrupted.game["knowledge"]["known"]["vale"]
         .get(TOLD)
-        .is_some());
+        .is_none());
     assert_eq!(
         interrupted.game["packs"]["greek-drama"]["receipts"]["greek-hear-decree"],
         played_turn
@@ -89,7 +89,12 @@ fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
             } else {
                 "The gate stands above the road."
             };
-            json!({"id":id,"text":words})
+            let mut line = json!({"id":id,"text":words});
+            if id == "greek-guard" {
+                line["disclosed"] = json!({"factId":TOLD,"speaker":id,
+                    "listener":"vale","eventSeq":disclosure["eventSeq"]});
+            }
+            line
         })
         .collect();
     let lines = full_speech::parse(

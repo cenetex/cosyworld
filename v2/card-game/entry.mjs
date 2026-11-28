@@ -7,6 +7,7 @@ import { membersLock, request } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
 import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { pipEntry } from "./pip-landing.mjs";
+import { loadClientViewModel } from "./presentation.mjs";
 const page = {
   href: location.href,
   local: !!document.querySelector('meta[name="cosy-local-app"]'),
@@ -65,7 +66,10 @@ try {
     // Keep a navigation's arrival fade for the document that opens the table.
     arrivePage();
     if (authoring) await import("./authoring-entry.mjs");
-    else await import("./app.mjs");
+    else {
+      void loadClientViewModel();
+      await import("./app.mjs");
+    }
     const toolbar = document.querySelector(".top-actions");
     if (toolbar) toolbar.hidden = false;
   }

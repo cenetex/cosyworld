@@ -16,8 +16,6 @@ fn reflect_count(c: &rusqlite::Connection, id: &str) -> i64 {
     .unwrap()
 }
 
-// A resting play is published with no reflection; its reflection lands later,
-// after another play, and is dated to the speech.
 #[test]
 fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     let (path, mut c, id) = fixture();
@@ -103,6 +101,61 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     assert!(reflected.project(0).unwrap()["world"]["memories"]["vale"]["innerLife"].is_object());
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), reflected);
+}
+
+#[cfg(feature = "rules-wasm")]
+#[test]
+fn sqlite_rules_wasm_parity_opening_reflection() {
+    let artifact = std::env::var_os("COSYWORLD_RULES_WASM").expect("build the rules artifact");
+    let guest =
+        cosyworld_orchestrator::rules_wasm::Rules::new(&std::fs::read(artifact).unwrap()).unwrap();
+    let (_path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let mut world = full_store::world(&c, &id, now()).unwrap();
+    let mut rested = None;
+    for _ in 0..2 {
+        let action = home_action(&world, 0, "wait");
+        let play = json!({"op":"play", "actor":"vale", "action":action});
+        full_store::commit(&c, &id, &mut world, play, now()).unwrap();
+        rested.get_or_insert_with(|| world.game["turn"].as_u64().unwrap());
+    }
+    let turn = rested.unwrap();
+    let evidence: Vec<_> = world.game["memories"]["vale"]["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|event| {
+            event["kind"] == "event" && event["turn"].as_u64().is_some_and(|at| at <= turn)
+        })
+        .map(|event| &event["seq"])
+        .collect();
+    let command = json!({"op":"reflect", "actor":"vale", "turn":turn, "resting":"vale", "entries":[{
+        "id":"vale", "reflection":{"thought":"The attic is quiet.", "persona":"A patient keeper.", "evidence":evidence}
+    }]});
+    full_store::commit(&c, &id, &mut world, command, now()).unwrap();
+
+    let mut checked = 0;
+    let (_, replayed) = full_store::replay(&c, &id, 0, None, |_, world, command| {
+        world.apply_with(command, &mut |version, pack, request| {
+            let expected = engine::reduce_journal(version, pack, request.clone())?;
+            if request["op"] == "reflect" {
+                let pack = pack.ok_or("Rules WASM requires pinned pack content.")?;
+                if guest
+                    .reduce_with_pack(&request, &super::content::text(pack)?)?
+                    .as_ref()
+                    != Some(&expected)
+                {
+                    return Err("The opening reflection candidate differs from QuickJS.".into());
+                }
+                checked += 1;
+            }
+            Ok(expected)
+        })?;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(checked, 1);
+    assert_eq!(replayed, Some(world));
 }
 
 // A reflection that fails, or has no speech before it, leaves the journal and

@@ -31,7 +31,7 @@ const sorted = (v) =>
             .map((k) => [k, sorted(v[k])]),
         )
       : v;
-// Mirror host session operations; native tests exercise the actual C guard.
+// Mirror host session operations; native tests exercise the shared seat guard.
 function session(reduce) {
   let present = [];
   return (world, command) => {

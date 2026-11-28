@@ -12,29 +12,31 @@ How the system is put together is in [ARCHITECTURE.md](ARCHITECTURE.md). Five en
 
 The live site is the game. A local server is that same program.
 
-You need Node.js 24 or newer, a Rust toolchain, npm, and `screen` (the dev script starts the server in a detached session).
+You need Node.js 24 or newer, npm, and a Rust toolchain. The development server runs under a Rust supervisor on Linux and macOS.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-`npm run dev` builds the server and serves http://127.0.0.1:3102/. On a Mac it also tries to open that URL. Hosted dialogue reads `OPENROUTER_API_KEY` (see the environment notes in `v2/mvp.sh`). With no key, the story service stays off: the play is still saved, and each voice that was due shows "…".
+`npm run dev` builds the server and serves http://127.0.0.1:3102/. On a Mac it also tries to open that URL. Use `npm run v2:status` and `npm run v2:stop` to inspect or stop the supervisor. Hosted dialogue reads `OPENROUTER_API_KEY`. With no key, the play is still saved and each voice that was due shows "…".
 
-Dialogue from a model on your own machine:
+Prepare and run dialogue from a model on your own machine.
 
 ```sh
-python3 v2/local/prepare.py
-npm run play:cards:local
+cargo run --locked --release --manifest-path v2/orchestrator-rust/Cargo.toml \
+  --features local-tooling -- local prepare --model gemma3:4b
+cargo run --locked --release --manifest-path v2/orchestrator-rust/Cargo.toml \
+  --features local-tooling,embedded-llama -- local
 ```
 
-`prepare.py` fetches a pinned local dialogue model (`gemma3:4b` or `gemma3:1b`). The play script then prints `http://127.0.0.1:3110/` and starts the game plus a local voice process. Model names and the loopback checks live in `v2/local/run.py`.
+Preparation verifies the pinned `gemma3:4b` or `gemma3:1b` download. Set `COSYWORLD_LOCAL_MODEL=gemma3:1b` to launch with the smaller model. The game runs at `http://127.0.0.1:3110/`. For optional Chatterbox speech, `npm run play:cards:local` starts the voice service alongside the game. That service still uses Python by default.
 
 ## For portfolio reviewers / engineers
 
 CosyWorld is a solo and shared card world with a hard boundary between a deterministic rules core and a language model.
 
-- One rules program serves the browser and the shared server. The server runs it in QuickJS, a C interpreter with no filesystem, network, clock, or randomness, inside a Rust process that owns IO. A small C guard checks shared seats and room capacity. The layout is in [ARCHITECTURE.md](ARCHITECTURE.md).
+- One rules program serves the browser and the shared server. The server runs it in QuickJS, a C interpreter with no filesystem, network, clock, or randomness, inside a Rust process that owns IO and checks shared seats and room capacity. The layout is in [ARCHITECTURE.md](ARCHITECTURE.md).
 - A card is journaled and reduced before anyone speaks. Generated speech is stored as speech. It is not the state the next card is dealt from. A line can contradict the table. Card text, the accepted action, and world messages are the account a replay agrees on.
 - Shared worlds are a SQLite journal. Released rules bundles from `full-card-world/133` onward stay in the server so an old journal still reduces on the rules that wrote it. The app and rules versions are tracked independently. [App manifest](package.json) · [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
 - A branch is held to 400 handwritten lines (`scripts/change-budget.json`). A change to the shared rules engine is a separate warning unless the pull request carries the `engine` label. Tests cover the rules, the journal, and the speech path.
@@ -60,7 +62,6 @@ A short recording of one play, from card to world message to reply, is enough.
 | --------------------------- | ------------------------------------------------- |
 | `v2/card-game/`             | Browser client and the authored rules             |
 | `v2/orchestrator-rust/`     | Shared worlds, the journal, and the model gateway |
-| `v2/core-c/`                | C guard for shared seats and room capacity        |
 | `v2/content/`, `v2/worlds/` | Sources for the mounted world packs               |
 | `v2/local/`                 | Offline server and local dialogue                 |
 

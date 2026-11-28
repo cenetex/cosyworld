@@ -16,8 +16,8 @@
 !v2/ai-model-rust/Cargo.lock
 !v2/ai-model-rust/src/
 !v2/ai-model-rust/src/**
-!v2/core-c/
-!v2/core-c/**
+!v2/rules-rust/
+!v2/rules-rust/**
 !v2/content/
 !v2/content/**
 !v2/media/
@@ -25,10 +25,10 @@
 !v2/orchestrator-rust/
 !v2/orchestrator-rust/Cargo.toml
 !v2/orchestrator-rust/Cargo.lock
-!v2/orchestrator-rust/build.rs
 !v2/orchestrator-rust/src/
 !v2/orchestrator-rust/src/**
 
 v2/orchestrator-rust/target/
 v2/orchestrator-rust/.runtime/
 v2/ai-model-rust/target/
+v2/rules-rust/target/
