@@ -19,7 +19,7 @@ function tracePrimary(source) {
   );
 }
 
-test("Vale's first Behind the Station move preserves the exact primary frame", async () => {
+test("Vale's first Behind the Station move matches both pinned replies", async () => {
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(tracePrimary);
   const run = (request) => {
@@ -100,7 +100,14 @@ test("Vale's first Behind the Station move preserves the exact primary frame", a
         behind,
       ]);
       assert.equal(actual.world.items.lamp.fuel, world.items.lamp.fuel);
-      assert.equal(wasm(request), null);
+      const completed = wasm(request);
+      const completedField = Object.keys(reply).find(
+        (field) => !isDeepStrictEqual(completed?.[field], reply[field]),
+      );
+      assert.ok(
+        isDeepStrictEqual(completed, reply),
+        `${label} complete ${completed ? completedField : "unsupported"}`,
+      );
       sample = request;
     }
   }

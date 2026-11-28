@@ -54,6 +54,7 @@ mod opening_second_round;
 mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
+mod opening_station_departure;
 mod opening_station_departure_residents;
 mod opening_station_keeper_gift;
 mod opening_station_move;

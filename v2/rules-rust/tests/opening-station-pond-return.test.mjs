@@ -106,7 +106,14 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
         accepted.actors.vale.visited,
       );
       assert.equal(actual.world.items.lamp.fuel, accepted.items.lamp.fuel);
-      assert.equal(wasm(request), null);
+      const completed = wasm(request);
+      const completedField = Object.keys(reply).find(
+        (field) => !isDeepStrictEqual(completed?.[field], reply[field]),
+      );
+      assert.ok(
+        isDeepStrictEqual(completed, reply),
+        `${label} complete ${completed ? completedField : "unsupported"}`,
+      );
       complete = {
         ...seats,
         op: "opening_pond_return_view",
