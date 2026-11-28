@@ -3,6 +3,8 @@ use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod direct;
+
 #[derive(Debug, Default, PartialEq)]
 struct Report {
     worlds: usize,
@@ -264,7 +266,7 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
         .ok_or("Set COSYWORLD_RULES_WASM to the compiled rules artifact.")?;
     let bytes = std::fs::read(artifact).map_err(|_| "Could not read the rules artifact.")?;
     let guest = cosyworld_orchestrator::rules_wasm::Rules::new(&bytes)?;
-    let candidate = |_: &str, _: Option<&str>, request: &Value| guest.reduce(request);
+    let mut candidate = |_: &str, _: Option<&str>, request: &Value| guest.reduce(request);
     let world = std::env::var("COSYWORLD_REPLAY_WORLD").ok();
     let all = std::env::var("COSYWORLD_REPLAY_ALL").as_deref() == Ok("1");
     let (mut c, world) = match (std::env::var_os("COSYWORLD_REPLAY_DB"), world, all) {
@@ -284,7 +286,8 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
         Some(world) => vec![world],
         None => active_worlds(&snapshot)?,
     };
-    let report = verify_worlds(&snapshot, &worlds, candidate)?;
+    let report = verify_worlds(&snapshot, &worlds, &mut candidate)?;
+    let direct = direct::verify(&mut candidate)?;
     println!(
         "WASM replay totals: worlds={} matched={} unsupported={} historical={} noncurrent_heads={}",
         report.worlds,
@@ -296,5 +299,15 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     for (op, count) in &report.unsupported {
         println!("Unsupported {op}: {count}");
     }
-    report.require_coverage(std::env::var("COSYWORLD_REQUIRE_FULL_REPLAY").as_deref() == Ok("1"))
+    println!(
+        "WASM direct fixture totals: matched={} unsupported={}",
+        direct.matched,
+        direct.unsupported.len()
+    );
+    for name in &direct.unsupported {
+        println!("Unsupported direct fixture: {name}");
+    }
+    let full = std::env::var("COSYWORLD_REQUIRE_FULL_REPLAY").as_deref() == Ok("1");
+    report.require_coverage(full)?;
+    direct.require_coverage(full)
 }

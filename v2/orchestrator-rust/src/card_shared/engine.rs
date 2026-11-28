@@ -81,10 +81,26 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     reduce_pack(version, Some(content::current()), request)
 }
 pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> Result<Value> {
+    let value = reduce_pack_envelope(version, pack, request)?;
+    if let Some(message) = refusal(&value) {
+        return Err(message.chars().take(240).collect());
+    }
+    Ok(value)
+}
+pub(super) fn reduce_pack_envelope(
+    version: &str,
+    pack: Option<&str>,
+    request: Value,
+) -> Result<Value> {
     let source = source(version).ok_or("This world needs a supported rules version.")?;
     let pack = pack.ok_or("This world's pack content needs recovery.")?;
     let content = content::text(pack)?;
     reduce_source(version, source, Some((&*content, pack)), request)
+}
+fn refusal(value: &Value) -> Option<&str> {
+    value["error"]
+        .as_str()
+        .or_else(|| (value["ok"] == false).then_some("Choose from the current cards."))
 }
 struct Pins(Vec<(String, String)>);
 
@@ -173,9 +189,7 @@ fn reduce_source(
     let runtime = Runtime::new().map_err(engine_error)?;
     runtime.set_memory_limit(96 * 1024 * 1024);
     runtime.set_max_stack_size(1024 * 1024);
-    // The deadline bounds one request. When it fires, QuickJS throws an
-    // uncatchable interrupt; record it so a slow host is reported as a
-    // timeout rather than as the rules rejecting a stale play.
+    // A deadline interrupt must surface as a timeout so callers can retry.
     let deadline = Instant::now() + Duration::from_secs(2);
     let interrupted = Arc::new(AtomicBool::new(false));
     let flag = interrupted.clone();
@@ -215,15 +229,7 @@ fn reduce_source(
     }
     let value: Value = serde_json::from_str(&output)
         .map_err(|_| "The shared-world rules need attention.".to_string())?;
-    if value["ok"] == false || value["error"].is_string() {
-        return Err(value["error"]
-            .as_str()
-            .unwrap_or("Choose from the current cards.")
-            .chars()
-            .take(240)
-            .collect());
-    }
-    if let Some(cache_key) = cache_key {
+    if let Some(cache_key) = cache_key.filter(|_| refusal(&value).is_none()) {
         if let Ok(mut cache) = views().lock() {
             cache.put(cache_key, output);
         }

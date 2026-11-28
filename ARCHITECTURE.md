@@ -49,6 +49,8 @@ COSYWORLD_RULES_WASM="$artifact" cargo test --locked \
 
 Set `COSYWORLD_REPLAY_DB` to a consistent, anonymized SQLite copy. Select a world with `COSYWORLD_REPLAY_WORLD`, or use `COSYWORLD_REPLAY_ALL=1` to check every active world in one read-only transaction. The verifier replays from each seed with pinned rules and content, checks its stored checkpoint against the rebuilt head, and reports unsupported calls by operation. `COSYWORLD_REQUIRE_FULL_REPLAY=1` requires all selected heads to use current rules and content, every current rules call to match, and at least one observed comparison across the selected worlds. Reverify the journal heads when writing a future epoch checkpoint.
 
+The same test exercises fresh and imported creation, a claimed seat's view, valid and malformed saves, and plays refused for absence, a stale revision, or an unavailable card. It compares the complete reply to the pinned QuickJS bundle. Ordinary runs report unsupported direct fixtures. Strict mode requires a match on each one.
+
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.
 
 ## Opening history
