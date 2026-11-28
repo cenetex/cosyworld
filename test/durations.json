@@ -77,7 +77,6 @@
     "test/card-willows.test.mjs": 5,
     "test/card-world-life-agreement.test.mjs": 7,
     "test/card-world-life.test.mjs": 43,
-    "test/equivalence.test.mjs": 27,
     "test/infrastructure/deploy-runner-priority.test.mjs": 3,
     "test/infrastructure/deploy-workflow.test.mjs": 5,
     "test/infrastructure/dev-deploy.test.mjs": 5,
