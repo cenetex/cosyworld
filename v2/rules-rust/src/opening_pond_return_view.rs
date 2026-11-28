@@ -110,6 +110,15 @@ fn event(world: &Value, seq: u64, allow_speech: bool) -> Option<&Value> {
     Some(primary)
 }
 
+pub(super) fn verify_arrival(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let (seq, read) = arrival(world)?;
+    if world["speechVoices"][VALE] != json!([VALE]) {
+        return None;
+    }
+    event(world, seq, true)?;
+    quiet_return(world, geo, read)
+}
+
 fn quiet_return(world: &Value, geo: &Geography<'_>, read_seq: u64) -> Option<()> {
     let vale = &world["actors"][VALE];
     let lamp = &world["items"]["lamp"];
@@ -213,15 +222,10 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
 
 pub(super) fn private_view(request: &Value) -> Option<Value> {
     let world = request.get("world")?;
-    let (seq, read) = arrival(world)?;
-    if world["speechVoices"][VALE] != json!([VALE]) {
-        return None;
-    }
-    event(world, seq, true)?;
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    quiet_return(world, &geo, read)?;
+    verify_arrival(world, &geo)?;
     reply(
         json!({"ok":true,"world":opening_view::private_world(world, request)?}),
         world,

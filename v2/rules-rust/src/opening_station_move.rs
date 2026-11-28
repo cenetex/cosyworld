@@ -6,8 +6,8 @@ use super::{
     opening_full_wait::visible_items,
     opening_held_items,
     opening_pickups::item_as_named,
-    opening_pond_view, opening_roster, opening_second_attic_tail, opening_station_view,
-    opening_visitor_routes,
+    opening_pond_return_view, opening_pond_view, opening_roster, opening_second_attic_tail,
+    opening_station_view, opening_visitor_routes,
     opening_wait_response::{ordinary_attic_wait, vale_action},
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -19,11 +19,17 @@ const VALE: &str = "vale";
 const POND: &str = "pond";
 const STATION: &str = "station";
 const BEHIND: &str = "behind-station";
+const PIP: &str = "moth";
 const KEEPER: &str = "keeper";
 const LAMP: &str = "lamp";
 
 pub(super) fn move_world(request: &Value) -> Option<(&Value, bool)> {
     move_world_to(request, STATION)
+}
+
+pub(super) fn quest_return_world(request: &Value) -> Option<(&Value, bool)> {
+    let (world, carry) = move_world(request)?;
+    (world["turn"] == 4 && world["actors"][VALE]["place"] == POND).then_some((world, carry))
 }
 
 pub(super) fn return_world(request: &Value) -> Option<(&Value, bool)> {
@@ -96,6 +102,23 @@ pub(super) fn departure_turn(world: &Value) -> Option<u64> {
         && vale_action(event)
         && move_event(event, turn, STATION, to))
     .then_some(turn)
+}
+
+pub(super) fn quest_return_arrival(world: &Value) -> Option<u64> {
+    let seq = world["arrival"]["seq"].as_u64()?;
+    let event = world["log"].as_array()?.last()?;
+    (world["turn"] == 5
+        && world.get("began").is_none()
+        && world["eventSeq"] == seq
+        && world["arrival"] == json!({"seq":seq,"fromLocationId":POND,"locationId":STATION})
+        && event["seq"] == seq
+        && vale_action(event)
+        && move_event(event, 5, POND, STATION)
+        && world["actors"][VALE]["place"] == STATION
+        && world["actors"][VALE]["want"]["from"] == "quest:from:keeper"
+        && world["actors"][PIP]["place"] == STATION
+        && world["items"]["cloth"]["holder"] == PIP)
+        .then_some(seq)
 }
 
 pub(super) fn arrival(world: &Value) -> Option<u64> {
@@ -250,16 +273,38 @@ fn quiet_departure(world: &Value) -> Option<()> {
 
 fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
     quiet_departure(world)?;
+    if world.get("began").is_some_and(|began| began != 480) {
+        return None;
+    }
+    opening_pond_view::quiet_pond(world, geo)?;
+    opening_pond_view::pond_paths(world, geo)?;
+    quiet_station_destination(world, geo, &[KEEPER])
+}
+
+fn quiet_quest_station_return(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    quiet_departure(world)?;
+    opening_pond_return_view::verify_arrival(world, geo)?;
+    if !world["conversations"].as_array()?.is_empty()
+        || [PIP, KEEPER]
+            .iter()
+            .any(|id| !world["actors"][*id]["sleeping"].is_null())
+        || !geo.entity_active(world, PIP)?
+        || world["actors"][PIP]["heldItem"] != "cloth"
+        || geo.files()["v2/card-game/forest.json"]["places"][STATION]["sanctuary"] == true
+    {
+        return None;
+    }
+    quiet_station_destination(world, geo, &[KEEPER, PIP])
+}
+
+fn quiet_station_destination(world: &Value, geo: &Geography<'_>, residents: &[&str]) -> Option<()> {
     let forest = &geo.files()["v2/card-game/forest.json"];
-    if world.get("began").is_some_and(|began| began != 480)
-        || forest["homeGates"][POND]["opening"] == true
+    if forest["homeGates"][POND]["opening"] == true
         || world["actors"][KEEPER]["place"] != STATION
         || !geo.entity_active(world, KEEPER)?
     {
         return None;
     }
-    opening_pond_view::quiet_pond(world, geo)?;
-    opening_pond_view::pond_paths(world, geo)?;
     opening_second_attic_tail::verify_station_order(world, geo)?;
     if geo.packs().any(|pack| {
         pack["avatars"].get(KEEPER).is_some()
@@ -284,7 +329,10 @@ fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
         return None;
     }
     for (id, actor) in world["actors"].as_object()? {
-        if id != KEEPER && actor["place"] == STATION && geo.entity_active(world, id)? {
+        if !residents.contains(&id.as_str())
+            && actor["place"] == STATION
+            && geo.entity_active(world, id)?
+        {
             return None;
         }
     }
@@ -389,6 +437,7 @@ fn departure_witnesses<'a>(
 
 enum Passage {
     Station(bool),
+    QuestStation(bool),
     Pond(bool),
     Behind(bool),
 }
@@ -433,6 +482,28 @@ pub(super) fn begin_return_with<T>(
     )
 }
 
+pub(super) fn begin_quest_return_with<T>(
+    before: &Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+    carry: bool,
+    prepare: impl FnOnce(&Value) -> Option<T>,
+) -> Option<(Value, T)> {
+    let (world, prepared) = begin_passage(
+        before,
+        geo,
+        authored,
+        order,
+        evidence,
+        Passage::QuestStation(carry),
+        prepare,
+    )?;
+    quest_return_arrival(&world)?;
+    Some((world, prepared))
+}
+
 pub(super) fn begin_behind_with<T>(
     before: &Value,
     geo: &Geography<'_>,
@@ -465,6 +536,10 @@ fn begin_passage<T>(
     let (from, to, carry) = match passage {
         Passage::Station(carry) => {
             quiet_source(before, geo)?;
+            (POND, STATION, carry)
+        }
+        Passage::QuestStation(carry) => {
+            quiet_quest_station_return(before, geo)?;
             (POND, STATION, carry)
         }
         Passage::Pond(carry) => {
@@ -541,8 +616,9 @@ fn begin_passage<T>(
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
-    let (before, passage) = move_world(request)
-        .map(|(world, carry)| (world, Passage::Station(carry)))
+    let (before, passage) = quest_return_world(request)
+        .map(|(world, carry)| (world, Passage::QuestStation(carry)))
+        .or_else(|| move_world(request).map(|(world, carry)| (world, Passage::Station(carry))))
         .or_else(|| return_world(request).map(|(world, carry)| (world, Passage::Pond(carry))))
         .or_else(|| behind_world(request).map(|(world, carry)| (world, Passage::Behind(carry))))?;
     let order = opening_roster::actor_order(request, before)?;
@@ -554,6 +630,9 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let (world, ()) = match passage {
         Passage::Station(carry) => {
             begin_with(before, &geo, &authored, &order, &evidence, carry, prepare)
+        }
+        Passage::QuestStation(carry) => {
+            begin_quest_return_with(before, &geo, &authored, &order, &evidence, carry, prepare)
         }
         Passage::Pond(carry) => {
             begin_return_with(before, &geo, &authored, &order, &evidence, carry, prepare)
