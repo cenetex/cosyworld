@@ -103,9 +103,11 @@ fn quiet_departure_wait(
     let resident = world["actors"].get(actor)?;
     let here = resident["place"].as_str()?;
     let want = &resident["want"];
-    let abandoned = opening_station_move::abandoned_train_arrival(world).is_some();
+    let read = opening_station_read::after_first_log(world);
+    let same_room =
+        opening_station_move::abandoned_train_arrival(world).is_some() || read.is_some();
     let round = world["turn"].as_u64()?;
-    if (!abandoned && round != 3)
+    if (!same_room && round != 3)
         || world["actors"]["vale"]["place"] != "station"
         || here == "station"
         || resident["crossed"] != 1
@@ -147,21 +149,23 @@ fn quiet_departure_wait(
     let take = plays.next()?;
     let depart = plays.next()?;
     let departed = depart["turn"].as_u64()?;
-    let pond = entries(&world["log"]).find(|event| vale_action(event) && event["turn"] == 2)?;
-    let seq = pond["seq"].as_u64()?;
+    let turn_two = entries(&world["log"]).find(|event| vale_action(event) && event["turn"] == 2)?;
+    let seq = turn_two["seq"].as_u64()?;
+    let departure_seq = depart["seq"].as_u64()?;
     if take["turn"] != 1
         || take["verb"] != "take"
         || take["itemId"] != item
         || take["locationId"] != home
         || resident["dwellUntil"] != dwell_until(actor, departed)
-        || (abandoned
+        || (same_room
             && (!(2..round).contains(&departed)
-                || take["seq"].as_u64()? >= depart["seq"].as_u64()?))
-        || (!abandoned
+                || take["seq"].as_u64()? >= departure_seq
+                || read.is_some_and(|read_seq| departure_seq >= read_seq)))
+        || (!same_room
             && (departed != 2
                 || take["seq"].as_u64()? >= seq
-                || depart["seq"].as_u64()? <= seq
-                || depart["seq"].as_u64()? >= world["arrival"]["seq"].as_u64()?))
+                || departure_seq <= seq
+                || departure_seq >= world["arrival"]["seq"].as_u64()?))
         || depart["verb"] != "move"
         || depart["fromLocationId"] != home
         || depart["locationId"] != here

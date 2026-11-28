@@ -5,7 +5,7 @@ import { reducers } from "./parity.mjs";
 
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 
-test("the seated view after reading the Keeper’s Log matches the pinned quest offer", async () => {
+test("reading the Keeper’s Log and reloading Station match the pinned replies", async () => {
   const { pinned, wasm } = await reducers();
   const run = (request) => {
     const reply = pinned(request);
@@ -48,7 +48,30 @@ test("the seated view after reading the Keeper’s Log matches the pinned quest 
       world.actors = Object.fromEntries(
         Object.entries(world.actors).toSorted(),
       );
-    world = play(world, "read:vale:keeper-log:");
+    const key = "read:vale:keeper-log:";
+    const read = {
+      ...seats,
+      op: "play",
+      world,
+      action: sorted ? { key } : key,
+    };
+    const expectedRead = run(read);
+    const actualRead = wasm(read);
+    const differing = Object.keys(expectedRead.world).find(
+      (field) =>
+        !isDeepStrictEqual(actualRead?.world[field], expectedRead.world[field]),
+    );
+    assert.ok(
+      isDeepStrictEqual(actualRead, expectedRead),
+      `read ${seed} ${differing}`,
+    );
+    assert.deepEqual(
+      actualRead.events.map(({ verb }) => verb),
+      ["read", "wait"],
+    );
+    assert.equal(wasm({ ...read, revision: world.revision - 1 }), null);
+    world = actualRead.world;
+    assert.equal(wasm({ ...read, world }), null);
     for (const present of [["vale"], []]) {
       const request = { ...seats, op: "view", world, present };
       const expected = run(request);

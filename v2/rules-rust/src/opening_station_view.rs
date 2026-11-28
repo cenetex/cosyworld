@@ -85,7 +85,7 @@ fn response_chronology(world: &Value) -> Option<u64> {
     }
 }
 
-fn settled_first_read(world: &Value) -> Option<()> {
+fn settled_first_read(world: &Value) -> Option<[&Value; 2]> {
     let seq = after_first_log(world)?;
     let [.., read, wait] = world["log"].as_array()?.as_slice() else {
         return None;
@@ -107,7 +107,7 @@ fn settled_first_read(world: &Value) -> Option<()> {
             == json!({
                 "kind":"read","teller":null,"eventSeq":seq,"learnedTurn":3,"book":"keeper-log"
             }))
-    .then_some(())
+    .then_some([read, wait])
 }
 
 fn historic_sleepers(world: &Value, geo: &Geography<'_>) -> Option<()> {
@@ -662,6 +662,27 @@ pub(super) fn completed_station_response_with_profiles(
         .or_insert_with(|| json!({}))
         .as_object_mut()?
         .insert(VALE.into(), voices);
+    let mut response = station_response(opening::stored_response(world)?, plans, profiles);
+    response["events"] = Value::Array(events);
+    Some(response)
+}
+
+pub(super) fn completed_read_response(
+    mut world: Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    before_seq: u64,
+    actor_order: &[&str],
+    profile_source: impl FnOnce() -> Option<Value>,
+) -> Option<Value> {
+    let [read, wait] = settled_first_read(&world)?;
+    if read["seq"] != before_seq.checked_add(1)? {
+        return None;
+    }
+    let events = vec![read.clone(), wait.clone()];
+    let (plans, profiles) =
+        station_projection(&world, geo, authored, actor_order, false, profile_source)?;
+    world["speechVoices"][VALE] = json!([]);
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = Value::Array(events);
     Some(response)

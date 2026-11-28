@@ -16,10 +16,10 @@ const KEEPER: &str = "keeper";
 const STATION: &str = "station";
 const BOOK: &str = "keeper-log";
 const QUEST: &str = "quest:keeper:pond";
-const KEY: &str = "read:vale:keeper-log:";
+pub(super) const KEY: &str = "read:vale:keeper-log:";
 pub(super) const PROTECTED_FACT_LIMIT: usize = 128;
 
-fn read_world(request: &Value) -> Option<&Value> {
+pub(super) fn read_world(request: &Value) -> Option<&Value> {
     let world = request.get("world")?;
     let action = &request["action"];
     (request["op"] == "play"
