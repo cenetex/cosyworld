@@ -21,7 +21,6 @@ export function compactTrust(actors) {
         delete actor.trust[other];
 }
 
-// Trust at which a resident accepts an invitation without a goal of its own.
 export const ACCOMPANY_TRUST = 2;
 export function validTrust(actors, id, trust, actorCount) {
   if (!trust || typeof trust !== "object" || Array.isArray(trust)) return false;
