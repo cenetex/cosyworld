@@ -98,13 +98,14 @@ pub(super) fn wait_world(request: &Value) -> Option<&Value> {
 pub(super) fn begin(request: &Value) -> Option<(Value, Value, Value)> {
     let world = wait_world(request)?;
     let files = opening_play::attic_files(world, request)?;
-    begin_with_files(world, files)
+    let (next, event) = begin_with_files(world, &files)?;
+    Some((next, event, files))
 }
 
-pub(super) fn begin_with_files(world: &Value, files: Value) -> Option<(Value, Value, Value)> {
+pub(super) fn begin_with_files(world: &Value, files: &Value) -> Option<(Value, Value)> {
     let mut next = world.clone();
-    let event = begin_wait(&mut next, &files)?;
-    Some((next, event, files))
+    let event = begin_wait(&mut next, files)?;
+    Some((next, event))
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {

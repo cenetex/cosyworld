@@ -30,12 +30,7 @@ pub fn completed_wait_response(
     {
         return None;
     }
-    world
-        .as_object_mut()?
-        .entry("speechVoices")
-        .or_insert_with(|| json!({}))
-        .as_object_mut()?
-        .insert(ACTOR.into(), json!([ACTOR]));
+    apply_vale_voice(&mut world)?;
 
     let mut response =
         opening_play::after_wait_response(opening::stored_response(world)?, files, mirror)?;
@@ -85,6 +80,16 @@ fn ordinary_attic_wait(entry: &Value) -> bool {
         && entry["verb"] == "wait"
         && entry["sleep"] != true
         && entry["guards"].is_null()
+}
+
+pub(super) fn apply_vale_voice(world: &mut Value) -> Option<()> {
+    world
+        .as_object_mut()?
+        .entry("speechVoices")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()?
+        .insert(ACTOR.into(), json!([ACTOR]));
+    Some(())
 }
 
 fn released_events(world: &Value, before_seq: u64) -> Option<Vec<Value>> {

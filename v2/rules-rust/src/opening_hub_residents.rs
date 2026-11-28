@@ -121,7 +121,10 @@ fn idle_plans(world: &Value, geo: &Geography) -> Option<[Option<&'static str>; 2
             .iter()
             .all(|field| solo(&world[*field]))
         || world["actors"]["vale"]["place"] != ATTIC
-        || world["items"]["lamp"]["holder"] != "vale"
+        || !matches!(
+            world["items"]["lamp"]["holder"].as_str(),
+            Some("vale" | "attic")
+        )
         || world["items"]["bell"]["holder"] != "station"
         || world["items"]["bell"]["ringing"] != 0
         || world["actors"][MOTH]["place"] != "pond"

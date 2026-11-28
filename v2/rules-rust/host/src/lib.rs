@@ -119,9 +119,12 @@ fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, S
     let op = request.get("op").and_then(Value::as_str);
     let ordered = op == Some("opening_wait_roster")
         || (op == Some("play")
-            && request
-                .get("action")
-                .is_some_and(|action| action == "wait:vale::" || action["key"] == "wait:vale::"));
+            && request.get("action").is_some_and(|action| {
+                matches!(
+                    action.as_str().or_else(|| action["key"].as_str()),
+                    Some("wait:vale::" | "drop:vale:lamp:attic")
+                )
+            }));
     let ordered_cards = op == Some("opening_place_return");
     if ordered {
         if let Some(actors) = request

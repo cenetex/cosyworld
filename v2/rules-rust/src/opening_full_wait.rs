@@ -1,8 +1,9 @@
 use super::{
     authored_order::Order, initial_wants, opening, opening_attic_rest, opening_crossings,
-    opening_hub_residents, opening_pickups, opening_place_cards, opening_quiet_life,
-    opening_roaming, opening_roster, opening_settlement, opening_wait, opening_wait_response,
-    opening_wants, pack_state::Catalog, resident_evidence::ResidentEvidence, Geography,
+    opening_drop, opening_grounded_lamp, opening_hub_residents, opening_pickups,
+    opening_place_cards, opening_quiet_life, opening_roaming, opening_roster, opening_settlement,
+    opening_wait, opening_wait_response, opening_wants, pack_state::Catalog,
+    resident_evidence::ResidentEvidence, Geography,
 };
 use serde_json::{json, Value};
 
@@ -79,8 +80,31 @@ fn roam(
     deck.settle(world, geo, None)
 }
 
+#[derive(PartialEq, Eq)]
+enum RoundPlay {
+    Wait,
+    DropLamp,
+}
+
 pub(super) fn reduce(request: &Value) -> Option<Value> {
-    let before = opening_wait::wait_world(request)?;
+    round(request, RoundPlay::Wait)
+}
+
+pub(super) fn reduce_drop(request: &Value) -> Option<Value> {
+    round(request, RoundPlay::DropLamp)
+}
+
+fn round(request: &Value, play: RoundPlay) -> Option<Value> {
+    let before = match play {
+        RoundPlay::Wait => opening_wait::wait_world(request)?,
+        RoundPlay::DropLamp => {
+            let world = opening_drop::drop_world(request)?;
+            if world["turn"] != 0 {
+                return None;
+            }
+            world
+        }
+    };
     quiet_opening(before)?;
     let claimed = opening::seats(&request["claimed"])?;
     let present = opening::seats(&request["present"])?;
@@ -92,10 +116,13 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     super::opening_play::attic_state(before)?;
     let files = super::opening_content::wait_files(request)?;
     super::opening_play::attic_content(&files)?;
-    let (mut world, _, files) = opening_wait::begin_with_files(before, files)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let evidence = ResidentEvidence::new(&files)?;
+    let (mut world, _) = match play {
+        RoundPlay::Wait => opening_wait::begin_with_files(before, &files)?,
+        RoundPlay::DropLamp => opening_drop::begin(before, &geo, &evidence)?,
+    };
     let deck = opening_place_cards::Deck::new(&world, &geo)?;
     world["playerActorId"] = json!(VALE);
     for field in ["presentActors", "controlledActors", "heldActors"] {
@@ -103,7 +130,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     }
     let known = opening_roster::known_actors(&world, &geo, &order, None)?;
     let residents = opening_roster::residents(&world, &geo, &known, VALE)?;
-    opening_attic_rest::rest_vale(&mut world, &files)?;
+    if play == RoundPlay::Wait {
+        opening_attic_rest::rest_vale(&mut world, &files)?;
+    }
     opening_crossings::no_crossing_unlocks(&world, &geo)?;
     deck.settle(&mut world, &geo, Some("attic"))?;
     opening_attic_rest::settle_vale_wants(&mut world, &files)?;
@@ -135,10 +164,21 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     }
     opening_crossings::no_crossing_unlocks(&world, &geo)?;
     opening_settlement::reset_away_signals(&mut world, &catalog)?;
-    opening_crossings::no_attic_crossing_narration(before, &world, &geo)?;
+    let grounded_mirror = if play == RoundPlay::DropLamp {
+        Some(opening_grounded_lamp::settle(
+            before, &mut world, &geo, &evidence,
+        )?)
+    } else {
+        opening_crossings::no_attic_crossing_narration(before, &world, &geo)?;
+        None
+    };
     opening_settlement::no_item_cycle(&world)?;
     opening_wants::settle_first_wait(&mut world, &geo)?;
-    opening_attic_rest::settle_visit_speech(before, &mut world)?;
+    opening_attic_rest::settle_visit_speech(before, &mut world, play == RoundPlay::Wait)?;
     let before_seq = before["eventSeq"].as_u64()?;
-    opening_wait_response::completed_wait_response(world, &files, before_seq, &present)
+    if let Some(mirror) = grounded_mirror {
+        opening_drop::completed_response(world, &files, before_seq, mirror)
+    } else {
+        opening_wait_response::completed_wait_response(world, &files, before_seq, &present)
+    }
 }
