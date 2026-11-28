@@ -8,7 +8,7 @@ use std::{
 };
 
 const MAX_FILE: u64 = 16 * 1024 * 1024;
-const OWNER_BYTES: u64 = 256 * 1024 * 1024;
+const OWNER_BYTES: u64 = 384 * 1024 * 1024;
 const OWNER_FILES: u64 = 1024;
 
 #[derive(Debug, PartialEq, Eq)]

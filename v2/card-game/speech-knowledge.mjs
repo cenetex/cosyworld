@@ -116,7 +116,10 @@ export function unfoundBlur(world, id, scene = [], isCovered = () => false) {
 // An item's last word ("the River Map" is a map), for every item a table
 // may hold. A thought that names an item kind the speaker has never been
 // near invents it ("my compass is ready").
-const GENERIC = new Set(["account", "card", "list", "record", "plea", "seed", "water", "milk", "honey"]);
+const GENERIC = new Set([
+  "account", "card", "list", "record", "plea", "seed",
+  "bread", "wine", "water", "milk", "honey", "watch",
+]);
 const itemNouns = new Map();
 for (const [id, p] of Object.entries({ ...baseProfiles, ...packThings }))
   if (p.kind === "item" || packThings[id]) {

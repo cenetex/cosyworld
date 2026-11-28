@@ -45,6 +45,11 @@ pub(super) fn first_person(text: &str) -> bool {
 
 /// Whether a text names an item kind, by its name's last word ("the River
 /// Map" is a map), that no item the scene knows shares (#1850).
+pub(super) const GENERIC_NOUNS: [&str; 12] = [
+    "account", "card", "list", "record", "plea", "seed", "bread", "wine", "water", "milk", "honey",
+    "watch",
+];
+
 pub(super) fn invents_item(text: &str, known: &BTreeSet<String>) -> bool {
     let lower = text.to_lowercase();
     let mut nouns: BTreeMap<String, bool> = BTreeMap::new();
@@ -56,9 +61,7 @@ pub(super) fn invents_item(text: &str, known: &BTreeSet<String>) -> bool {
             Some(noun) if profile["kind"] == "item" => noun.to_lowercase(),
             _ => continue,
         };
-        if noun.len() > 2
-            && !["account", "card", "list", "record", "plea", "seed"].contains(&noun.as_str())
-        {
+        if noun.len() > 2 && !GENERIC_NOUNS.contains(&noun.as_str()) {
             *nouns.entry(noun).or_default() |= known.contains(id);
         }
     }
