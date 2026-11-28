@@ -193,7 +193,6 @@ export function residentOffer(s, actor, them) {
   if (!stands(s, actor, "resident", them, want)) return null;
   return { id, kind: "resident", source: them, want, full: slotsUsed(a) >= MAX_HELD };
 }
-// A resident's quest lies locked until a Talk tells it, then stands (below).
 export function lockedOffer(s, actor, them) {
   const a = s.actors[actor],
     want = s.actors[them]?.want;

@@ -138,6 +138,10 @@ fn encode_request(
         && request
             .get("world")
             .is_some_and(|world| world["actors"]["vale"]["place"] == "pond");
+    let station_view = op == Some("view")
+        && request
+            .get("world")
+            .is_some_and(|world| world["actors"]["vale"]["place"] == "station");
     let ordered = matches!(
         op,
         Some(
@@ -154,7 +158,8 @@ fn encode_request(
         )
     ) || attic_play
         || pond_play
-        || pond_speech;
+        || pond_speech
+        || station_view;
     let ordered_cards = matches!(
         op,
         Some(
