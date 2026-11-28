@@ -122,6 +122,28 @@ pub(super) fn events<'a>(world: &'a Value, geo: &Geography<'_>) -> Option<&'a [V
     log.get(log.len().checked_sub(2)?..)
 }
 
+pub(crate) fn hold_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    events(world, geo)?;
+    let read = read_seq(world)?;
+    let want = crate::opening_station_read::keeper_want_from_read(world, geo, read)?;
+    if world["actors"][VALE]["want"] != want
+        || world["actors"][PIP]["place"] != STATION
+        || world["actors"][KEEPER]["place"] != STATION
+        || world["items"]["oil"]["holder"] != KEEPER
+    {
+        return None;
+    }
+    for (id, actor) in world["actors"].as_object()? {
+        if actor["place"] == STATION
+            && ![VALE, PIP, KEEPER].contains(&id.as_str())
+            && geo.entity_active(world, id)?
+        {
+            return None;
+        }
+    }
+    Some(())
+}
+
 fn custody(world: &Value, departure: &Value, back: &Value, gift: &Value, head: u64) -> Option<()> {
     let origin = std::iter::once(Some(VALE))
         .chain(entries(&departure["items"]).map(|item| item["id"].as_str()))

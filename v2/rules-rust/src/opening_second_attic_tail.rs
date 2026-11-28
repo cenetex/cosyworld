@@ -312,6 +312,16 @@ pub(super) fn verify_quiet_facts(before: &Value, world: &Value, geo: &Geography)
     no_new_rumours(before, world)
 }
 
+pub(super) fn verify_station_hold(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    no_sleepers(world)?;
+    no_arcana(world, geo)?;
+    no_box_release(world)?;
+    sealed_at_rest(world, geo)?;
+    guards_stable(world, geo)?;
+    verify_wayfinder_placement(world, geo)?;
+    verify_station_order(world, geo)
+}
+
 pub(super) fn settle_historic_station(
     before: &Value,
     world: &mut Value,
