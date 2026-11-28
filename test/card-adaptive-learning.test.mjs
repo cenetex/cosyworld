@@ -30,7 +30,6 @@ function setup() {
   w.items.lamp.holder = "vale";
   w.items.bell.holder = "vale";
   w.items.cloth.holder = "keeper";
-  // Vale's own want stays open through each measured exchange.
   w.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
   // Pip wants nothing for now, so it does not contest Vale's lamp.
   w.actors.moth.want = null;
@@ -64,7 +63,6 @@ function act(w, kind, item, target) {
 }
 const history = (w) => w.memories.vale.learning || [];
 function choice(w, item = "oil", kind = "ask") {
-  // The planner only weighs offers it expects the other side to accept.
   const offers = legalActions(w).filter((a) => expects(w, a));
   const action = offers.find(
     (a) => a.kind === kind && (kind === "trade" ? a.receive : a.item) === item,
