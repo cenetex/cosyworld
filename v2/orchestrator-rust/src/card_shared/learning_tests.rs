@@ -231,7 +231,6 @@ fn shared_interpreter_lets_an_away_players_avatar_witness_as_a_resident() {
         w.apply(&json!({"op":"claim","actor":actor})).unwrap();
     }
     w.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
-    // Vale's first Wait is due a thought, so the play voices her.
     let action = home_action(&w, 0, "wait");
     w.apply(&json!({"op":"play","actor":"vale","action":action}))
         .unwrap();
