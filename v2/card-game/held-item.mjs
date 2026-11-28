@@ -1,7 +1,6 @@
 import { entityEnabled } from "./pack-registry.mjs";
 
-// One visible hand choice sits beside custody. A covering remains on its
-// item; only directly carried, available things can be chosen in hand.
+// The hand offers directly carried, available items.
 export function handSnapshot(world) {
   return Object.fromEntries(
     Object.entries(world.items)

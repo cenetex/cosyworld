@@ -196,8 +196,7 @@ export function dispatchShared(request) {
       claimed: ["vale"],
       present: ["vale"],
     });
-    // A fresh world's resident avatars take a want at once; an imported or
-    // upgraded one gives them wants at its next play.
+    // Imported or upgraded resident avatars take wants at their next play.
     if (request.save == null) fillSeatWants(world);
     if (request.save == null && request.homecoming != null)
       world.actors[request.homecoming].want = null;
