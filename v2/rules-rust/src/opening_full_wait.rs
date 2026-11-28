@@ -45,11 +45,20 @@ pub(super) fn visible_items<'a>(
     authored: &'a Order,
     room: &str,
 ) -> Option<Vec<&'a str>> {
+    let saved_items = world["items"].as_object()?;
+    let actors = world["actors"].as_object();
+    let mut holders = Vec::new();
+    if actors.is_none_or(|actors| !actors.contains_key(room)) {
+        holders.push(room);
+    }
+    holders.extend(actors.into_iter().flatten().filter_map(|(id, actor)| {
+        let place = actor["place"].as_str().unwrap_or(id);
+        (place == room).then_some(id.as_str())
+    }));
     let mut items = Vec::new();
     for id in &authored.items {
-        let holder = initial_wants::root(world, id)?;
-        let place = world["actors"][holder]["place"].as_str().unwrap_or(holder);
-        if place == room && geo.entity_active(world, id)? {
+        let holder = initial_wants::root_in(saved_items, id)?;
+        if holders.contains(&holder) && geo.entity_active(world, id)? {
             items.push(id.as_str());
         }
     }

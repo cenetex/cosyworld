@@ -1,9 +1,9 @@
 use super::{
     authored_order::Order,
-    initial_wants, lamp_state,
+    lamp_state,
     opening::{self, MAX_REVISION},
-    opening_content, opening_crossings, opening_play, opening_roster, opening_second_attic_tail,
-    opening_second_round, opening_wait,
+    opening_content, opening_crossings, opening_full_wait, opening_play, opening_roster,
+    opening_second_attic_tail, opening_second_round, opening_wait,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     Geography, LampPosition,
@@ -128,15 +128,7 @@ pub(super) fn pond_items<'a>(
     geo: &Geography<'_>,
     authored: &'a Order,
 ) -> Option<Vec<&'a str>> {
-    let mut items = Vec::new();
-    for id in &authored.items {
-        let owner = initial_wants::root(world, id)?;
-        let place = world["actors"][owner]["place"].as_str().unwrap_or(owner);
-        if place == POND && geo.entity_active(world, id)? {
-            items.push(id.as_str());
-        }
-    }
-    Some(items)
+    opening_full_wait::visible_items(world, geo, authored, POND)
 }
 
 pub(super) fn begin(
