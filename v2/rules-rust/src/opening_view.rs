@@ -1,4 +1,4 @@
-use super::{opening, opening_play, opening_play::Mirror};
+use super::{opening, opening_play, opening_play::Mirror, opening_wait_response};
 use serde_json::{json, Value};
 
 pub fn create_response(world: Value, files: &Value, actor: &str) -> Option<Value> {
@@ -30,23 +30,66 @@ pub fn create_response(world: Value, files: &Value, actor: &str) -> Option<Value
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
-    let world = opening::supported_world(request)?;
+    let claimed = opening::seats(&request["claimed"])?;
+    let present = opening::seats(&request["present"])?;
     if request["actor"] != "vale"
-        || !request["claimed"].as_array()?.iter().any(|id| id == "vale")
-        || world["absent"]
-            .as_array()
-            .is_some_and(|ids| ids.iter().any(|id| id == "vale"))
+        || !claimed.contains(&"vale")
+        || !present.iter().all(|id| claimed.contains(id))
+    {
+        return None;
+    }
+    let (world, can_sleep) = match opening::supported_world(request) {
+        Some(world) => (world, false),
+        None => (after_wait_world(request, &claimed)?, true),
+    };
+    if world["absent"]
+        .as_array()
+        .is_some_and(|ids| ids.iter().any(|id| id == "vale"))
         || !world["placeCard"]["attic"].is_null()
     {
         return None;
     }
-    let mirror = attic_mirror(world, &opening::seats(&request["present"])?)?;
-    let files = opening_play::attic_files(world, request)?;
+    let mirror = attic_mirror(world, &present)?;
+    let files = if can_sleep {
+        opening_play::attic_content_files(request)?
+    } else {
+        opening_play::attic_files(world, request)?
+    };
     if other_attic_content(&files)? {
         return None;
     }
     let projected = private_world(world, request)?;
-    opening_play::attic_response(json!({"ok":true,"world":projected}), &files, mirror)
+    let response = json!({"ok":true,"world":projected});
+    if can_sleep {
+        opening_play::after_wait_response(response, &files, mirror)
+    } else {
+        opening_play::attic_response(response, &files, mirror)
+    }
+}
+
+fn after_wait_world<'a>(request: &'a Value, claimed: &[&str]) -> Option<&'a Value> {
+    let world = request.get("world")?;
+    let turn = opening_wait_response::settled_first_wait(world)?;
+    let revision = world["revision"].as_u64()?;
+    let lamp = &world["items"]["lamp"];
+    let fuel = super::lamp_state(lamp).ok()?;
+    let held = world["actors"]["vale"].get("heldItem")?;
+    let lit = held == "lamp" && fuel.fuel_rooms > 0;
+    if !(turn..=opening::MAX_REVISION).contains(&revision)
+        || world["opening"]["crossed"] != false
+        || world["speechVoices"]["vale"] != json!(["vale"])
+        || !claimed
+            .iter()
+            .all(|id| world["actors"][*id]["place"].is_string())
+        || (held != "lamp" && !held.is_null())
+        || fuel.fuel_place != "attic"
+        || !fuel.fuel_visit
+        || lamp["lit"] != lit
+        || lamp["fuel"] != fuel.fuel_rooms * 4
+    {
+        return None;
+    }
+    Some(world)
 }
 
 pub(super) fn attic_mirror(world: &Value, present: &[&str]) -> Option<Mirror> {
