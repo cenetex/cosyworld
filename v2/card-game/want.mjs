@@ -201,7 +201,6 @@ export function dropQuest(s, actor, index = 0) {
   closeQuest(a, want, s.turn);
   releaseQuest(a, want);
 }
-// Find an active resting place when the original pack is off.
 export const restStep = (s, actor, api) => ({
   ...newWant(
     "place",

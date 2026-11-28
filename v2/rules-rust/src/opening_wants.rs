@@ -408,7 +408,7 @@ pub(super) fn station_departure_turn(
             opening_station_move::arrival(before)?;
             (3, Value::Null)
         }
-        (3, "pond") => (4, opening_station_view::keeper_want(before, geo)?),
+        (3, "pond") => (4, opening_station_read::keeper_want(before, geo)?),
         _ => return None,
     };
     station_wants_state(world, "station", &want)?;
