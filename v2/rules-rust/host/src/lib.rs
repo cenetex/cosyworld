@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use cosyworld_rules::MAX_JSON_BYTES;
+use cosyworld_rules::{MAX_JSON_BYTES, MAX_WIRE_BYTES};
 use serde_json::Value;
 use wasmi::{Config, Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuilder};
 
@@ -29,10 +29,18 @@ impl Rules {
     }
 
     pub fn reduce(&self, request: &Value) -> Result<Option<Value>, String> {
-        let input = serde_json::to_vec(request).map_err(wasm_error)?;
-        if input.len() > MAX_JSON_BYTES {
-            return Err("Rules Wasm request is too large.".into());
-        }
+        self.reduce_input(&encode_request(request, None)?)
+    }
+
+    pub fn reduce_with_pack(
+        &self,
+        request: &Value,
+        pack_json: &str,
+    ) -> Result<Option<Value>, String> {
+        self.reduce_input(&encode_request(request, Some(pack_json))?)
+    }
+
+    fn reduce_input(&self, input: &[u8]) -> Result<Option<Value>, String> {
         let limits = StoreLimitsBuilder::new()
             .memory_size(MEMORY_BYTES)
             .table_elements(4096)
@@ -67,7 +75,7 @@ impl Rules {
         if ptr == 0 {
             return Err("Rules Wasm refused the request buffer.".into());
         }
-        memory.write(&mut store, ptr, &input).map_err(wasm_error)?;
+        memory.write(&mut store, ptr, input).map_err(wasm_error)?;
         let len = reduce.call(&mut store, ()).map_err(wasm_error)? as usize;
         if !(1..=MAX_JSON_BYTES).contains(&len) {
             return Err("Invalid Rules Wasm response size.".into());
@@ -84,6 +92,29 @@ impl Rules {
         }
         Ok(Some(result))
     }
+}
+
+fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, String> {
+    let input = serde_json::to_vec(request).map_err(wasm_error)?;
+    if input.len() > MAX_JSON_BYTES {
+        return Err("Rules Wasm request is too large.".into());
+    }
+    let Some(pack_json) = pack_json else {
+        return Ok(input);
+    };
+    if pack_json.len() > MAX_JSON_BYTES {
+        return Err("Rules Wasm pack content is too large.".into());
+    }
+    let mut request = request
+        .as_object()
+        .ok_or("Rules Wasm needs a request object with pack content.")?
+        .clone();
+    request.insert("packContentJson".into(), Value::String(pack_json.into()));
+    let input = serde_json::to_vec(&request).map_err(wasm_error)?;
+    if input.len() > MAX_WIRE_BYTES {
+        return Err("Rules Wasm input is too large.".into());
+    }
+    Ok(input)
 }
 
 fn wasm_error(error: impl std::fmt::Display) -> String {
@@ -121,6 +152,19 @@ mod tests {
         assert!(guest(1537, "i32.const 4").reduce(&json!({})).is_err());
         assert!(guest(1, "i32.const -1").reduce(&json!({})).is_err());
         assert_eq!(guest(1, "i32.const 4").reduce(&json!({})).unwrap(), None);
+    }
+
+    #[test]
+    fn preserves_raw_pack_content_and_checks_request_and_pack_sizes() {
+        let pack = "{\n  \"z\": \"étang\", \"a\": 1\n}\n";
+        let input = encode_request(&json!({"op":"view"}), Some(pack)).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<Value>(&input).unwrap(),
+            json!({"op":"view", "packContentJson":pack})
+        );
+        let long = "x".repeat(MAX_JSON_BYTES + 1);
+        assert!(encode_request(&json!({"op":"view"}), Some(&long)).is_err());
+        assert!(encode_request(&json!({"op":"view", "world":long}), Some(pack)).is_err());
     }
 
     #[test]

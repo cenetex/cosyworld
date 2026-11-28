@@ -266,7 +266,10 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
         .ok_or("Set COSYWORLD_RULES_WASM to the compiled rules artifact.")?;
     let bytes = std::fs::read(artifact).map_err(|_| "Could not read the rules artifact.")?;
     let guest = cosyworld_orchestrator::rules_wasm::Rules::new(&bytes)?;
-    let mut candidate = |_: &str, _: Option<&str>, request: &Value| guest.reduce(request);
+    let mut candidate = |_: &str, pack: Option<&str>, request: &Value| {
+        let pack = pack.ok_or("Rules WASM requires pinned pack content.")?;
+        guest.reduce_with_pack(request, &content::text(pack)?)
+    };
     let world = std::env::var("COSYWORLD_REPLAY_WORLD").ok();
     let all = std::env::var("COSYWORLD_REPLAY_ALL").as_deref() == Ok("1");
     let (mut c, world) = match (std::env::var_os("COSYWORLD_REPLAY_DB"), world, all) {

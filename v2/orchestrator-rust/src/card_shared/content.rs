@@ -22,7 +22,6 @@ pub(super) fn current() -> &'static str {
     static HASH: OnceLock<String> = OnceLock::new();
     HASH.get_or_init(|| hash(current_text()))
 }
-/// The current revision's text.
 pub(super) fn current_text() -> &'static str {
     cosyworld_orchestrator::card_assets::text("card_shared/content.json")
 }
