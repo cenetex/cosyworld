@@ -279,3 +279,60 @@ test("the first historic Wait view keeps Sleep before and after published speech
     }
   }
 });
+
+test("the private view after the first attic Drop projects the grounded lamp", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [undefined, 17, 4_294_967_295]) {
+    for (const lamp of ["held", "stowed", "dry"]) {
+      let { world } = success(pinned, { op: "create", seed });
+      if (lamp === "stowed") world = stowLamp(pinned, world);
+      if (lamp === "dry")
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      const dropped = success(pinned, {
+        ...solo,
+        op: "play",
+        world,
+        action: "drop:vale:lamp:attic",
+      });
+      assert.equal(dropped.world.turn, 1);
+      assert.equal(dropped.world.items.lamp.holder, "attic");
+      assert.ok(Object.hasOwn(dropped.world.memories.mara, "subjects"));
+      const spoken = success(pinned, {
+        ...solo,
+        op: "speech",
+        world: dropped.world,
+        room: "attic",
+        lines: [
+          { actorId: "vale", text: "I set the lamp down." },
+          { entityId: "attic", text: "The old boards creak." },
+        ],
+      });
+      for (const state of [dropped.world, spoken.world]) {
+        for (const present of [solo.present, []]) {
+          const title = `seed ${seed}, lamp ${lamp}, present ${present}, seq ${state.eventSeq}`;
+          const actual = view(
+            pinned,
+            wasm,
+            { ...solo, present, op: "view", world: state },
+            title,
+          );
+          assert.deepEqual(actual.world.presentActors, present);
+          assert.deepEqual(actual.world.memories.vale, state.memories.vale);
+          assert.equal(actual.world.memories.mara.subjects, undefined);
+          assert.ok(!Object.hasOwn(actual, "events"));
+          const keys = ["wait:vale::", "take:vale:lamp:"];
+          if (lamp === "dry") keys.splice(1, 0, "move:vale::pond");
+          else keys.push(key);
+          assert.deepEqual(
+            actual.actions.map((action) => action.key),
+            keys,
+          );
+          assert.deepEqual(actual.exits, lamp === "dry" ? ["pond"] : []);
+        }
+      }
+      const unsupported = structuredClone(dropped.world);
+      unsupported.log.find((entry) => entry.verb === "drop").itemId = "cloth";
+      assert.equal(wasm({ ...solo, op: "view", world: unsupported }), null);
+    }
+  }
+});

@@ -39,8 +39,7 @@ pub(super) fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>
         ids,
     ))
 }
-/// Each requested voice with one clear line is published. A missing or
-/// bad line leaves only that voice silent.
+/// Each requested voice publishes one clear line or stays silent.
 pub(super) fn parse(text: &str, work: &Value, ids: &[String]) -> Result<Value> {
     let error = "The play is saved. Its words need another moment.";
     let parsed: Value = serde_json::from_str(text).map_err(|_| error.to_string())?;
