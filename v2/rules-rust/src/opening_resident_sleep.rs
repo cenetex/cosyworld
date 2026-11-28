@@ -97,7 +97,7 @@ fn seeks_home_when_tired(
     human: bool,
 ) -> Option<bool> {
     if human {
-        return Some(true);
+        return Some(world["hidden"]["actor"] != id);
     }
     if person.pack == "hub" {
         return Some(id != "vale" && person.data["stops"].is_null());
@@ -236,11 +236,10 @@ pub(super) fn settle(
     residents: &Residents<'_>,
 ) -> Option<()> {
     let turn = historic_attic(world)?;
+    super::opening_roster::validate_arrivals(world)?;
     if world["sharedVersion"] != 1
         || !vale_only(&world["heldActors"])
-        || !["hidden", "absent", "homecoming"]
-            .iter()
-            .all(|field| world[*field].is_null())
+        || !world["homecoming"].is_null()
     {
         return None;
     }

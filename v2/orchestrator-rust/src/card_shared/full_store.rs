@@ -224,9 +224,7 @@ pub(super) fn commit_with_reveal(
     }
     Ok(result)
 }
-// A Talk that met the hidden avatar unlocks it for the talker's passkey and
-// opens that avatar's own world, which hides the next (#1936). With all
-// eight world slots used, the unlock stays and the world waits.
+// Meeting unlocks the avatar for the talker's passkey. Its world hides the next when space opens (#1936).
 fn unlock(c: &Connection, id: &str, result: &Value, seq: i64, now: i64) {
     let found = super::unlocks::record(c, id, result, seq).unwrap_or_else(|error| {
         tracing::error!(%error, "could not record an unlock");

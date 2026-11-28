@@ -18,8 +18,6 @@ fn quiet_opening(world: &Value) -> Option<()> {
         || world["actors"][VALE].get("want") != Some(&Value::Null)
         || !world["stationExitOrder"].as_array()?.is_empty()
         || [
-            "hidden",
-            "absent",
             "homecoming",
             "gone",
             "disabledPacks",
@@ -100,9 +98,16 @@ pub(super) fn reduce_drop(request: &Value) -> Option<Value> {
 fn round(request: &Value, play: RoundPlay) -> Option<Value> {
     let before = match play {
         RoundPlay::Wait => opening_wait::wait_world(request)?,
-        RoundPlay::DropLamp => opening_drop::drop_world(request)?,
+        RoundPlay::DropLamp => {
+            let world = opening_drop::drop_world(request)?;
+            if world.get("hidden").is_some() || world.get("absent").is_some() {
+                return None;
+            }
+            world
+        }
     };
     quiet_opening(before)?;
+    opening_roster::validate_arrivals(before)?;
     let historic = before["began"] == 480;
     let claimed = opening::seats(&request["claimed"])?;
     let present = opening::seats(&request["present"])?;
@@ -138,6 +143,7 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
         deck.settle(&mut world, &geo, Some("attic"))?;
     }
     opening_attic_rest::settle_vale_wants(&mut world, &files)?;
+    opening_roster::visit_hidden(&mut world, &geo)?;
     opening_hub_residents::confirm_idle(&world, &geo)?;
     let mut custody = opening_pickups::Custody::new(&world)?;
     for &id in &residents {
