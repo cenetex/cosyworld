@@ -6,7 +6,11 @@ test("resets Vale's opening seat, custody, and progress like the pinned rules", 
   const { pinned, wasm } = await reducers();
   const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
   for (const seed of [0, 7, 4242]) {
-    for (const setup of [{}, { hidden: "nell", absent: ["mara", "ash"] }]) {
+    for (const setup of [
+      {},
+      { hidden: "nell", absent: ["mara", "ash"] },
+      { history: true },
+    ]) {
       const fresh = pinned({ op: "create", seed, ...setup }).world;
       const joined = pinned({
         ...seats,
@@ -17,7 +21,7 @@ test("resets Vale's opening seat, custody, and progress like the pinned rules", 
       assert.equal(joined.ok, true, joined.error);
       joined.world.actors.mara.trust.vale = 2;
       joined.world.memories.vale.text = "An earlier memory.";
-      joined.world.memories.vale.turn = 0;
+      joined.world.memories.vale.turn = joined.world.turn;
       const stowed = pinned({
         ...seats,
         op: "hold",
@@ -34,6 +38,8 @@ test("resets Vale's opening seat, custody, and progress like the pinned rules", 
         assert.equal(ref.world.actors.vale.upgrades, undefined);
         assert.equal(ref.world.actors.mara.trust.vale, 0);
         assert.equal(ref.world.memories.vale.text, null);
+        assert.equal(ref.world.memories.vale.events[0].turn, 0);
+        assert.equal(ref.world.turn, world.turn);
         assert.equal(ref.world.items.lamp.holder, "attic");
         assert.equal(ref.world.items.lamp.lit, true);
 

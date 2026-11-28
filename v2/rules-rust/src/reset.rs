@@ -1,6 +1,6 @@
 use super::{
     lamp_state,
-    opening::{seats, stored_response},
+    opening::{seats, stored_response, unplayed_turn, MAX_REVISION},
     LampPosition,
 };
 use serde_json::{json, Map, Value};
@@ -22,10 +22,10 @@ pub(super) fn reset(request: &Value) -> Option<Value> {
     let world = &request["world"];
     let actor = &world["actors"][ACTOR];
     let lamp = &world["items"]["lamp"];
+    let turn = unplayed_turn(world)?;
     if request["actor"] != ACTOR
         || world["schema"] != 8
         || world["sharedVersion"] != 1
-        || world["turn"] != 0
         || world["opening"]["crossed"] != false
         || !world["stationExitOrder"]
             .as_array()
@@ -56,7 +56,7 @@ pub(super) fn reset(request: &Value) -> Option<Value> {
         return None;
     }
     let revision = world["revision"].as_u64()?;
-    if revision >= (1 << 53) - 1 {
+    if revision < turn || revision >= MAX_REVISION {
         return None;
     }
 

@@ -1,7 +1,7 @@
 use super::{lamp_state, Lamp, LampPosition};
 use serde_json::{json, Value};
 
-const MAX_REVISION: u64 = 9_007_199_254_740_991;
+pub(super) const MAX_REVISION: u64 = 9_007_199_254_740_991;
 const SEATS: [&str; 8] = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 
 pub(super) fn seats(value: &Value) -> Option<Vec<&str>> {
@@ -15,6 +15,12 @@ pub(super) fn seats(value: &Value) -> Option<Vec<&str>> {
         valid.push(id);
     }
     Some(valid)
+}
+
+pub(super) fn unplayed_turn(world: &Value) -> Option<u64> {
+    let turn = world["turn"].as_u64()?;
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    (turn == began).then_some(turn)
 }
 
 struct Opening<'a> {
@@ -39,11 +45,7 @@ impl<'a> Opening<'a> {
         let lamp = lamp_state(saved_lamp).ok()?;
         let grounded = saved_lamp["holder"] == "attic";
         let revision = world["revision"].as_u64().filter(|n| *n <= MAX_REVISION)?;
-        let turn = world["turn"].as_u64()?;
-        let began = match world.get("began") {
-            Some(value) => value.as_u64()?,
-            None => 0,
-        };
+        let turn = unplayed_turn(world)?;
         let held = holds_lamp(vale.get("heldItem")?)?;
         let away_from_station = |id: &str| {
             actors
@@ -53,9 +55,8 @@ impl<'a> Opening<'a> {
         };
         if world["schema"] != 8
             || world["sharedVersion"] != 1
-            || turn != began
             || revision < turn
-            || (began == 0 && world["eventSeq"] != 2)
+            || (turn == 0 && world["eventSeq"] != 2)
             || world["opening"]["crossed"] != false
             || !matches!(
                 items.get("elysium-wayfinder")?["holder"].as_str(),
