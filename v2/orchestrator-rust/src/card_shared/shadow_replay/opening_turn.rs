@@ -168,6 +168,72 @@ fn sqlite_rules_wasm_parity_replays_the_first_keeper_log_read() -> Result<()> {
 }
 
 #[test]
+fn sqlite_rules_wasm_parity_replays_the_keeper_quest_pond_return() -> Result<()> {
+    let id = "keeper-quest-pond-return";
+    let (mut c, mut state, mut calls) = commit_opening_turns(
+        id,
+        unseeded_opening()?,
+        true,
+        &[BARE_POND_MOVE, BARE_STATION_MOVE, KEEPER_LOG_READ],
+    )?;
+    let mut expected = state.game.clone();
+    let revision = expected["revision"].as_u64().ok_or("Missing revision.")?;
+    let known = expected["knowledge"]["known"]["vale"]["quest:keeper:pond"].clone();
+    let want = json!({
+        "kind":"place", "target":"pond", "since":3, "refusals":0,
+        "step":{"verb":"call","crossing":"pond-greek-harbor"}, "from":"quest:from:keeper",
+    });
+    expected["revision"] = json!(revision + 1);
+    expected["actors"]["vale"]["want"] = want.clone();
+    let accepted = full_store::commit(
+        &c,
+        id,
+        &mut state,
+        json!({"op":"play","actor":"vale","action":"accept:vale::keeper"}),
+        8,
+    )?;
+    assert_eq!(accepted["ok"], true);
+    assert_eq!(accepted["events"], json!([]));
+    assert_eq!(accepted["world"], expected);
+    assert_eq!(state.game, expected);
+
+    let lamp = state.game["items"]["lamp"].clone();
+    let returned = full_store::commit(
+        &c,
+        id,
+        &mut state,
+        json!({"op":"play","actor":"vale","action":BARE_POND_MOVE.0}),
+        9,
+    )?;
+    assert_eq!(returned["ok"], true);
+    assert_eq!(returned["world"], state.game);
+    assert_eq!(state.game["turn"], 4);
+    assert_eq!(state.game["revision"], revision + 2);
+    check_quiet_station_departure(&lamp, &returned, "pond");
+    assert_eq!(state.game["actors"]["vale"]["want"], want);
+    assert_eq!(
+        state.game["knowledge"]["known"]["vale"]["quest:keeper:pond"],
+        known
+    );
+    assert_eq!(
+        state.game["actors"]["vale"]["visited"],
+        json!(["attic", "pond", "station"])
+    );
+    assert_eq!(
+        state.game["crossings"]["pond-greek-harbor"]["discovered"],
+        false
+    );
+    let actions = returned["actions"].as_array().ok_or("Missing actions.")?;
+    assert_eq!(actions.last().unwrap()["key"], "drop:vale:::0");
+    assert!(actions
+        .iter()
+        .any(|action| action["key"] == "accept:vale::box:greek-ship"));
+    calls.extend(["play", "play"]);
+    verify_opening_journal(&mut c, id, &calls)?;
+    verify_station_departure_reload(&c, id, &state, "pond", 10)
+}
+
+#[test]
 fn sqlite_rules_wasm_parity_replays_station_after_history() -> Result<()> {
     let state = historic_opening(None)?;
     assert_eq!(state.game["began"], 480);
