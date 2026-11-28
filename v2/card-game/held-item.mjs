@@ -1,6 +1,5 @@
 import { entityEnabled } from "./pack-registry.mjs";
 
-// The hand offers directly carried, available items.
 export function handSnapshot(world) {
   return Object.fromEntries(
     Object.entries(world.items)

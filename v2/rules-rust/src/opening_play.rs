@@ -38,6 +38,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
             "That play has changed. Check the cards and choose again.",
         ),
         Some(ACCEPT_POND) if actor == "vale" => accept_pond(world, request),
+        Some("wait:vale::") if actor == "vale" => super::opening_full_wait::reduce(request),
         Some(_) => None,
     }
 }
