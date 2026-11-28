@@ -1,0 +1,135 @@
+use super::{
+    authored_order::Order, initial_wants, opening, opening_attic_rest, opening_crossings,
+    opening_hub_residents, opening_pickups, opening_place_cards, opening_quiet_life,
+    opening_roaming, opening_roster, opening_settlement, opening_wait, opening_wait_response,
+    opening_wants, pack_state::Catalog, resident_evidence::ResidentEvidence, Geography,
+};
+use serde_json::{json, Value};
+
+const VALE: &str = "vale";
+
+fn quiet_opening(world: &Value) -> Option<()> {
+    if world["turn"] != 0
+        || world["revision"].as_u64()? > 2
+        || world["log"].as_array()?.len() != 2
+        || world["actors"][VALE].get("want") != Some(&Value::Null)
+        || !world["stationExitOrder"].as_array()?.is_empty()
+        || [
+            "hidden",
+            "absent",
+            "homecoming",
+            "gone",
+            "disabledPacks",
+            "sharedMigration",
+            "invitedPlaces",
+            "pondLampLoan",
+        ]
+        .iter()
+        .any(|key| !world[*key].is_null())
+        || world["actors"].as_object()?.values().any(|actor| {
+            ["arcana", "sleeping", "homeward", "contact"]
+                .iter()
+                .any(|key| !actor[*key].is_null())
+        })
+    {
+        return None;
+    }
+    Some(())
+}
+
+fn visible_items<'a>(
+    world: &Value,
+    geo: &Geography,
+    authored: &'a Order,
+    room: &str,
+) -> Option<Vec<&'a str>> {
+    let mut items = Vec::new();
+    for id in &authored.items {
+        let holder = initial_wants::root(world, id)?;
+        let place = world["actors"][holder]["place"].as_str().unwrap_or(holder);
+        if place == room && geo.entity_active(world, id)? {
+            items.push(id.as_str());
+        }
+    }
+    Some(items)
+}
+
+fn roam(
+    world: &mut Value,
+    geo: &Geography,
+    authored: &Order,
+    saved_order: &[&str],
+    evidence: &ResidentEvidence,
+    deck: &opening_place_cards::Deck,
+) -> Option<()> {
+    let from = world["actors"]["greek-rhapsode"]["place"].as_str()?;
+    let mut witnesses = Vec::new();
+    for id in &authored.actors {
+        if world["actors"][id]["place"] == from && geo.entity_active(world, id)? {
+            witnesses.push(id.as_str());
+        }
+    }
+    witnesses.extend(visible_items(world, geo, authored, from)?);
+    let mut detail = opening_roaming::bard_move(world, geo)?;
+    let room = detail["locationId"].as_str()?;
+    let cast = opening_roster::known_actors(world, geo, saved_order, Some(room))?;
+    let items = visible_items(world, geo, authored, room)?;
+    detail["witnesses"] = json!(witnesses);
+    evidence.record(world, &cast, &items, detail, true)?;
+    deck.settle(world, geo, None)
+}
+
+pub(super) fn reduce(request: &Value) -> Option<Value> {
+    let before = opening_wait::wait_world(request)?;
+    quiet_opening(before)?;
+    let claimed = opening::seats(&request["claimed"])?;
+    let present = opening::seats(&request["present"])?;
+    if claimed != [VALE] || present != [VALE] {
+        return None;
+    }
+    let order = opening_roster::actor_order(request, before)?;
+    let authored = Order::from_pack(request["packContentJson"].as_str()?)?;
+    super::opening_play::attic_state(before)?;
+    let files = super::opening_content::files(request)?;
+    super::opening_play::attic_content(&files)?;
+    let (mut world, _, files) = opening_wait::begin_with_files(before, files)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let evidence = ResidentEvidence::new(&files)?;
+    let deck = opening_place_cards::Deck::new(&world, &geo)?;
+    world["playerActorId"] = json!(VALE);
+    for field in ["presentActors", "controlledActors", "heldActors"] {
+        world[field] = json!([VALE]);
+    }
+    let known = opening_roster::known_actors(&world, &geo, &order, None)?;
+    let residents = opening_roster::residents(&world, &geo, &known, VALE)?;
+    opening_attic_rest::rest_vale(&mut world, &files)?;
+    opening_crossings::no_crossing_unlocks(&world, &geo)?;
+    deck.settle(&mut world, &geo, Some("attic"))?;
+    opening_attic_rest::settle_vale_wants(&mut world, &files)?;
+    opening_hub_residents::confirm_idle(&world, &geo)?;
+    for id in residents {
+        if !known.contains(&id) || ["moth", "keeper"].contains(&id) {
+            continue;
+        }
+        if !opening::is_seat(id) {
+            return None;
+        }
+        opening_pickups::take(&mut world, &geo, &evidence, &claimed, &present, id)??;
+        deck.settle(&mut world, &geo, None)?;
+    }
+    opening_settlement::decay_bell(&mut world)?;
+    roam(&mut world, &geo, &authored, &order, &evidence, &deck)?;
+    opening_quiet_life::verify(&mut world, &geo)?;
+    if !opening_settlement::sail_attic_transports(&mut world, &catalog)?.is_empty() {
+        return None;
+    }
+    opening_crossings::no_crossing_unlocks(&world, &geo)?;
+    opening_settlement::reset_away_signals(&mut world, &catalog)?;
+    opening_crossings::no_attic_crossing_narration(before, &world, &geo)?;
+    opening_settlement::no_item_cycle(&world)?;
+    opening_wants::settle_first_wait(&mut world, &geo)?;
+    opening_attic_rest::settle_visit_speech(before, &mut world)?;
+    let before_seq = before["eventSeq"].as_u64()?;
+    opening_wait_response::completed_wait_response(world, &files, before_seq, &present)
+}

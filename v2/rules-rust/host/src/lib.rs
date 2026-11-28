@@ -115,7 +115,13 @@ fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, S
         .ok_or("Rules Wasm needs a request object with pack content.")?
         .clone();
     request.remove("actorOrder");
-    if request.get("op").and_then(Value::as_str) == Some("opening_wait_roster") {
+    let op = request.get("op").and_then(Value::as_str);
+    let ordered = op == Some("opening_wait_roster")
+        || (op == Some("play")
+            && request
+                .get("action")
+                .is_some_and(|action| action == "wait:vale::" || action["key"] == "wait:vale::"));
+    if ordered {
         if let Some(actors) = request
             .get("world")
             .and_then(|world| world["actors"].as_object())

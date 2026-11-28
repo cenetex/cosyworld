@@ -43,7 +43,7 @@ test("the first player wait records the pinned attic event and its witness memor
         log: result.world.log.filter((entry) => entry.seq <= event.seq),
         memories,
       }, JSON.stringify({ options, stowed }));
-      assert.equal(wasm({ ...play, op: "play" }), null);
+      if (options.history) assert.equal(wasm({ ...play, op: "play" }), null);
     }
   }
 });

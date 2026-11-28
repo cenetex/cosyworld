@@ -34,8 +34,12 @@ export function browserRules(bytes) {
         Array.isArray(request)
       )
         throw new Error("Invalid rules WASM pack content or request");
-      const actors =
-        request.op === "opening_wait_roster" ? request.world?.actors : null;
+      const ordered =
+        request.op === "opening_wait_roster" ||
+        (request.op === "play" &&
+          (request.action === "wait:vale::" ||
+            request.action?.key === "wait:vale::"));
+      const actors = ordered ? request.world?.actors : null;
       const actorOrder =
         actors && typeof actors === "object" && !Array.isArray(actors)
           ? Object.keys(actors)
