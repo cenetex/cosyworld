@@ -11,12 +11,12 @@ const read = (path) =>
     "utf8",
   );
 
-export function currentSharedEngine() {
+export function currentSharedEngine(transform = (source) => source) {
   const version = newest(read("rules.json"));
   const runtime = vm.createContext({
     structuredClone,
     cardContent: JSON.parse(read("content.json")),
   });
-  vm.runInContext(read(`engine-v${version}.js`), runtime);
+  vm.runInContext(transform(read(`engine-v${version}.js`)), runtime);
   return runtime;
 }
