@@ -257,10 +257,11 @@ describe("selection", () => {
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
   it("leaves a resident with one want exactly as before", () => {
+    const fresh = world();
     for (const pack of packDefinitions) {
       for (const [id, person] of Object.entries(pack.avatars)) {
         if (person.wants) expect(person.want, id).toBeUndefined();
-        expect(stagedWants(world(), id).length, id).toBe(
+        expect(stagedWants(fresh, id).length, id).toBe(
           person.wants?.length ?? (person.want ? 1 : 0),
         );
       }
