@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 enum AtticView {
     Ordinary,
     AfterWait,
+    AfterSecondWait,
     AfterTake,
 }
 
@@ -66,6 +67,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     }
     let mirror = match view {
         AtticView::AfterTake => super::opening_take_response::mirror_after_take(world, &present)?,
+        AtticView::AfterSecondWait => opening_wait_response::second_wait_mirror(world, &present)?,
         _ => attic_mirror(world, &present)?,
     };
     let files = opening_play::attic_content_files(request)?;
@@ -74,7 +76,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     }
     let projected = private_world(world, request)?;
     let response = json!({"ok":true,"world":projected});
-    if matches!(view, AtticView::AfterWait) {
+    if matches!(view, AtticView::AfterWait | AtticView::AfterSecondWait) {
         opening_play::after_wait_response(response, &files, mirror)
     } else {
         opening_play::attic_response(response, &files, mirror)
@@ -85,7 +87,15 @@ fn after_play(world: &Value, claimed: &[&str]) -> Option<AtticView> {
     let turn = world["turn"].as_u64()?;
     let waited = opening_wait_response::settled_first_wait(world) == Some(turn);
     if !waited && first_lamp_drop(world).is_none() {
-        if claimed != ["vale"] || world["speechVoices"]["vale"] != json!(["vale"]) {
+        if claimed != ["vale"] {
+            return None;
+        }
+        if world["speechVoices"]["vale"] == json!([])
+            && opening_wait_response::settled_second_wait(world).is_some()
+        {
+            return Some(AtticView::AfterSecondWait);
+        }
+        if world["speechVoices"]["vale"] != json!(["vale"]) {
             return None;
         }
         super::opening_take_response::settled_take(world)?;
