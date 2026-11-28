@@ -2,7 +2,7 @@ use super::{
     authored_order::Order,
     opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
-    opening_roster, opening_station_move, opening_visitor_routes,
+    opening_roster, opening_station_move, opening_station_read, opening_visitor_routes,
     opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -46,6 +46,7 @@ fn quiet_turn(world: &Value) -> Option<u64> {
         (2, "pond") => opening_mirror_move::second_arrival(world),
         (_, "station") => opening_station_move::arrival(world)
             .or_else(|| opening_station_move::abandoned_train_arrival(world))
+            .or_else(|| opening_station_read::after_first_log(world))
             .map(|_| ()),
         _ => None,
     }?;

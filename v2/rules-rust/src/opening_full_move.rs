@@ -83,11 +83,18 @@ pub(super) fn quiet_ways(
         }
     }
     let forest = &geo.files()["v2/card-game/forest.json"];
-    let mirror = forest["reflectionRoutes"]
+    let source = before["actors"]["vale"]["place"].as_str()?;
+    let mut mirrors = forest["reflectionRoutes"]
         .as_array()?
         .iter()
-        .find(|route| route["from"] == before["actors"]["vale"]["place"])?;
-    if geo.reflection_open(before, mirror)? != geo.reflection_open(world, mirror)? {
+        .filter(|route| route["from"] == source);
+    if let Some(mirror) = mirrors.next() {
+        if geo.reflection_open(before, mirror)? != geo.reflection_open(world, mirror)?
+            || mirrors.next().is_some()
+        {
+            return None;
+        }
+    } else if source != "station" {
         return None;
     }
     opening_crossings::no_crossing_unlocks(world, geo)

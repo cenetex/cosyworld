@@ -1,6 +1,6 @@
 use super::{
     initial_wants, lamp_state, opening_content, opening_crossings, opening_mirror_move,
-    opening_station_move, pack_state::Catalog,
+    opening_station_move, opening_station_read, pack_state::Catalog,
 };
 use crate::{Geography, LampPosition};
 use serde_json::{json, Value};
@@ -69,7 +69,8 @@ pub(super) fn settle_pond(world: &mut Value, geo: &Geography<'_>) -> Option<()> 
 pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     opening_station_move::arrival(world)
         .or_else(|| opening_station_move::historic_arrival(world))
-        .or_else(|| opening_station_move::abandoned_train_arrival(world))?;
+        .or_else(|| opening_station_move::abandoned_train_arrival(world))
+        .or_else(|| opening_station_read::after_first_log(world))?;
     settle_carried_lamp(world, "station")?;
     no_refuel(world, geo)?;
     opening_crossings::no_crossing_unlocks(world, geo)
