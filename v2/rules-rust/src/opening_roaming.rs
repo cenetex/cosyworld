@@ -1,8 +1,8 @@
 use super::{
     create, create_geography::Geography, opening, opening_content, opening_play,
-    opening_pond_call_view, opening_resident_sleep, opening_station_move, opening_station_read,
-    opening_station_view, opening_visitor_routes, opening_wait_response::vale_action,
-    pack_state::Catalog, seed,
+    opening_pond_call_view, opening_pond_ship_board, opening_resident_sleep, opening_station_move,
+    opening_station_read, opening_station_view, opening_visitor_routes,
+    opening_wait_response::vale_action, pack_state::Catalog, seed,
 };
 use serde_json::{json, Value};
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
@@ -338,10 +338,12 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
     let historic = world.get("began").is_some_and(|began| began != 0);
     let place = world["actors"]["vale"]["place"].as_str()?;
     let departure = matches!((turn, place), (3, "behind-station") | (4, "pond"));
-    let return_to_station = (turn, place) == (5, "station");
-    let cloth_return = (turn, place) == (6, "pond");
-    let pond_drop = (turn, place) == (7, "pond");
-    let witnessed = historic || departure || return_to_station || cloth_return || pond_drop;
+    let witnessed = historic
+        || departure
+        || matches!(
+            (turn, place),
+            (5, "station") | (6 | 7, "pond") | (8, "greek-ship")
+        );
     let prior = match (historic, turn, place) {
         (true, 482, "station") => {
             if let Some(head) = opening_station_move::historic_resident_moves(world) {
@@ -389,6 +391,11 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
         }
         (false, 7, "pond") => {
             opening_pond_call_view::cloth_arrival(world, true)?;
+            only_bard_roams(world, geo)?;
+            1
+        }
+        (false, 8, "greek-ship") => {
+            opening_pond_ship_board::arrival(world)?;
             only_bard_roams(world, geo)?;
             1
         }

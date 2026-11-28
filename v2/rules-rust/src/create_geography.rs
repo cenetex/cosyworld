@@ -542,7 +542,7 @@ impl<'a> Geography<'a> {
         Some(false)
     }
 
-    fn arcana_called(&self, world: &Value) -> Option<bool> {
+    pub(super) fn arcana_called(&self, world: &Value) -> Option<bool> {
         let arcana = &self.files["v2/card-game/arcana.json"];
         let calls = arcana["calls"].as_u64()?;
         let starter = arcana["starterId"].as_str()?;

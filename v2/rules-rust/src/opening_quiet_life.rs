@@ -1,8 +1,8 @@
 use super::{
     create_geography::Geography,
     initial_wants::{People, Person},
-    opening_content, opening_mirror_move, opening_play, opening_second_attic_tail,
-    opening_station_move, opening_visitor_routes, opening_wants,
+    opening_content, opening_mirror_move, opening_play, opening_pond_ship_board,
+    opening_second_attic_tail, opening_station_move, opening_visitor_routes, opening_wants,
     pack_state::Catalog,
 };
 use serde_json::{json, Value};
@@ -144,7 +144,53 @@ pub(super) fn verify_station_departure(
     verify_quiet_day(world, geo, &room, &[])
 }
 
+pub(super) fn verify_first_board(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    opening_pond_ship_board::arrival(world)?;
+    opening_second_attic_tail::no_sleepers(world)?;
+    if geo.arcana_called(world)? || world["items"]["lamp"]["holder"] != "pond" {
+        return None;
+    }
+    let event = world["log"].as_array()?.last()?;
+    let cast = event["cast"].as_array()?;
+    let ada = &world["actors"]["ada"];
+    let cast: &[&str] = if ada["place"] == "greek-ship" {
+        if cast.len() != 2
+            || !cast.iter().any(|id| id == "ada")
+            || !cast.iter().any(|id| id == "vale")
+            || world["opening"]["met"]["ada"] != 8
+            || !geo.entity_active(world, "ada")?
+        {
+            return None;
+        }
+        &["ada"]
+    } else {
+        if !matches!(cast.as_slice(), [id] if id == "vale") {
+            return None;
+        }
+        &[]
+    };
+    verify_quiet_life(world, geo, "greek-ship", cast)
+}
+
 fn verify_quiet_day(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    room: &str,
+    cast: &[&str],
+) -> Option<()> {
+    if (room != "attic" && world["items"]["lamp"]["holder"] != "vale")
+        || !matches!(
+            world["items"]["lamp"]["holder"].as_str(),
+            Some("vale" | "attic")
+        )
+        || !world["actors"]["vale"]["arcana"].is_null()
+    {
+        return None;
+    }
+    verify_quiet_life(world, geo, room, cast)
+}
+
+fn verify_quiet_life(
     world: &mut Value,
     geo: &Geography<'_>,
     room: &str,
@@ -152,12 +198,6 @@ fn verify_quiet_day(
 ) -> Option<()> {
     if world.get("began").is_some_and(|t| t != 0)
         || world["sharedVersion"] != 1
-        || (room != "attic" && world["items"]["lamp"]["holder"] != "vale")
-        || !matches!(
-            world["items"]["lamp"]["holder"].as_str(),
-            Some("vale" | "attic")
-        )
-        || !world["actors"]["vale"]["arcana"].is_null()
         || !world["standoffs"].as_array()?.is_empty()
         || ["heldActors", "controlledActors", "presentActors"]
             .iter()
