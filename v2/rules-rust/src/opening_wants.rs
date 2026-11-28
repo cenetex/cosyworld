@@ -1,7 +1,8 @@
 use super::{
     create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
     opening_company, opening_content, opening_mirror_move, opening_play, opening_resident_sleep,
-    opening_stale_wants, opening_station_move, opening_station_read, pack_state::Catalog,
+    opening_stale_wants, opening_station_move, opening_station_read, opening_station_view,
+    opening_wait_response::vale_action, pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -295,8 +296,8 @@ pub(super) fn verify_awake_station(world: &Value, geo: &Geography<'_>) -> Option
     }
 }
 
-fn station_wants_state(world: &Value, pip_place: &str) -> Option<()> {
-    if world["actors"]["vale"].get("want") != Some(&Value::Null)
+fn station_wants_state(world: &Value, pip_place: &str, vale_want: &Value) -> Option<()> {
+    if world["actors"]["vale"].get("want") != Some(vale_want)
         || world["actors"]["moth"]["place"] != pip_place
         || world["actors"]["keeper"]["place"] != "station"
         || world["items"]["lamp"]["holder"] != "vale"
@@ -333,7 +334,7 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
             .or_else(|| opening_station_move::abandoned_train_arrival(world))?;
         "station"
     };
-    station_wants_state(world, pip_place)?;
+    station_wants_state(world, pip_place, &Value::Null)?;
     settle_wants(
         world,
         geo,
@@ -391,8 +392,59 @@ pub(super) fn settle_station_read(world: &mut Value, geo: &Geography<'_>) -> Opt
     {
         return None;
     }
-    station_wants_state(world, "station")?;
+    station_wants_state(world, "station", &Value::Null)?;
     settle_wants(world, geo, 3, true, false, opening_company::fade_trust)
+}
+
+pub(super) fn station_departure_turn(
+    before: &Value,
+    world: &Value,
+    geo: &Geography<'_>,
+) -> Option<u64> {
+    let to = world["arrival"]["locationId"].as_str()?;
+    let (turn, want) = match (before["turn"].as_u64()?, to) {
+        (2, "behind-station") => {
+            opening_station_move::arrival(before)?;
+            (3, Value::Null)
+        }
+        (3, "pond") => (4, opening_station_view::keeper_want(before, geo)?),
+        _ => return None,
+    };
+    station_wants_state(world, "station", &want)?;
+    let seq = before["eventSeq"].as_u64()?.checked_add(1)?;
+    let (event, earlier) = world["log"].as_array()?.split_last()?;
+    if world["turn"] != turn
+        || world["revision"] != before["revision"].as_u64()?.checked_add(1)?
+        || world["eventSeq"] != seq
+        || world["arrival"] != json!({"seq":seq,"fromLocationId":"station","locationId":to})
+        || earlier != before["log"].as_array()?.as_slice()
+        || event["seq"] != seq
+        || event["turn"] != turn
+        || !vale_action(event)
+        || event["verb"] != "move"
+        || event["fromLocationId"] != "station"
+        || event["targetId"] != to
+        || event["locationId"] != to
+        || !(event["itemId"].is_null() || event["itemId"] == "lamp")
+        || before["actors"]["vale"].get("want") != Some(&want)
+        || before["items"]["lamp"]["holder"] != "vale"
+        || world["actors"]["vale"]["place"] != to
+        || !world["actors"]["moth"]["sleeping"].is_null()
+        || !pip_wants_lamp(world)
+        || !geo.base_exits("station")?.iter().any(|exit| exit == to)
+    {
+        return None;
+    }
+    Some(turn)
+}
+
+pub(super) fn settle_station_departure(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
+    let turn = station_departure_turn(before, world, geo)?;
+    settle_wants(world, geo, turn, true, false, opening_company::fade_trust)
 }
 
 pub(super) fn round_projection(request: &Value) -> Option<Value> {
@@ -405,6 +457,9 @@ pub(super) fn round_projection(request: &Value) -> Option<Value> {
         "opening_second_pond_wants" => settle_second_pond(&mut world, &geo)?,
         "opening_station_wants" => settle_station(&mut world, &geo)?,
         "opening_station_read_wants" => settle_station_read(&mut world, &geo)?,
+        "opening_station_departure_wants" => {
+            settle_station_departure(request.get("before")?, &mut world, &geo)?
+        }
         _ => return None,
     }
     Some(json!({"ok":true, "world":world}))
