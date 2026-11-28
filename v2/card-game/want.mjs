@@ -112,8 +112,7 @@ export const startXp = (id) =>
   rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
-// A want keeps its authored target for quest identity. Only fulfillment can
-// use another instance, and a want for a particular light stays exact.
+// Quest identity keeps the authored target. Fulfillment can use equivalent items outside light-specific wants.
 export const wantedItems = (want) =>
   want?.kind !== "item"
     ? []
