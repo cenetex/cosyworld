@@ -350,3 +350,26 @@ async fn shutdown() -> io::Result<()> {
     #[cfg(not(unix))]
     tokio::signal::ctrl_c().await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn child_services_do_not_inherit_hosted_settings_or_proxies() {
+        let source = [
+            ("PATH", "/bin"),
+            ("OPENROUTER_API_KEY", "private"),
+            ("COSYWORLD_AI_REGISTRY_JSON", "hosted"),
+            ("COSYWORLD_CARD_CHARACTER_MODELS_JSON", "hosted"),
+            ("https_proxy", "hosted"),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.into(), value.into()))
+        .collect();
+        assert_eq!(
+            cleaned(&source),
+            Environment::from([("PATH".into(), "/bin".into())])
+        );
+    }
+}
