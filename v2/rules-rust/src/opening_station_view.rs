@@ -343,25 +343,58 @@ fn station_projection(
     ))
 }
 
-fn arrival_events(world: &Value, before_seq: u64) -> Option<Vec<&Value>> {
+fn generated_station_line(event: &Value) -> bool {
+    let voice = &event["actorId"];
+    event["locationId"] == STATION
+        && event.get("elysiumName").is_none()
+        && match event["kind"].as_str() {
+            Some("dialogue") => (voice == VALE || voice == KEEPER) && event["entityId"] == *voice,
+            Some("narration") => voice.is_null() && event["entityId"] == STATION,
+            _ => false,
+        }
+}
+
+fn arrival_events(world: &Value, before_seq: u64, allow_speech: bool) -> Option<Vec<&Value>> {
     let events: Vec<_> = entries(&world["log"])
         .filter(|entry| entry["seq"].as_u64().is_some_and(|seq| seq > before_seq))
         .collect();
     let follows = events.get(1)?;
+    let mut speech_started = false;
     if !is_move(follows, PIP, POND, STATION)
         || !follows["itemId"].is_null()
         || events.last()?["seq"] != world["eventSeq"]
         || events.iter().enumerate().any(|(index, event)| {
-            event["seq"].as_u64() != before_seq.checked_add(index as u64 + 1)
+            if event["seq"].as_u64() != before_seq.checked_add(index as u64 + 1)
                 || event["turn"] != world["turn"]
-                || event["generated"] == true
-                || (index > 1
-                    && (event["locationId"] == STATION || event["fromLocationId"] == STATION))
+            {
+                return true;
+            }
+            if event["generated"] == true {
+                speech_started = true;
+                !allow_speech || !generated_station_line(event)
+            } else {
+                speech_started
+                    || (index > 1
+                        && (event["locationId"] == STATION || event["fromLocationId"] == STATION))
+            }
         })
     {
         return None;
     }
     Some(events)
+}
+
+pub(super) fn settled_first_arrival(
+    world: &Value,
+    geo: &Geography<'_>,
+    order: &[&str],
+) -> Option<()> {
+    if world["turn"] != 2 {
+        return None;
+    }
+    arrival_events(world, chronology(world)?.checked_sub(1)?, true)?;
+    station_scene(world, geo, order)?;
+    station_paths(world, geo)
 }
 
 pub fn completed_station_response(
@@ -376,7 +409,7 @@ pub fn completed_station_response(
         return None;
     }
     let (plans, profiles) = station_projection(&world, geo, authored, actor_order)?;
-    let events = arrival_events(&world, before_seq)?
+    let events = arrival_events(&world, before_seq, false)?
         .into_iter()
         .cloned()
         .collect::<Vec<_>>();
@@ -399,7 +432,11 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     {
         return None;
     }
-    arrival_events(world, chronology(world)?.checked_sub(1)?)?;
+    arrival_events(
+        world,
+        chronology(world)?.checked_sub(1)?,
+        world["turn"] == 2,
+    )?;
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;

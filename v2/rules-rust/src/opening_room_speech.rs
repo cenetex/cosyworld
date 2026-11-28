@@ -1,8 +1,10 @@
 use super::{
     opening::{self, MAX_REVISION},
-    opening_content, opening_mirror_move, opening_pond_view,
+    opening_content,
+    opening_full_wait::visible_items,
+    opening_pond_view,
     opening_reflection::{trim_text, valid_text},
-    opening_roster,
+    opening_roster, opening_station_view,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     Geography,
@@ -12,19 +14,26 @@ use std::collections::BTreeSet;
 
 const VALE: &str = "vale";
 const PIP: &str = "moth";
+const KEEPER: &str = "keeper";
 const POND: &str = "pond";
+const STATION: &str = "station";
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     let saved = request.get("world")?;
     let present = opening::seats(&request["present"])?;
+    let (room, respondent) = match saved["actors"][VALE]["place"].as_str()? {
+        POND => (POND, PIP),
+        STATION => (STATION, KEEPER),
+        _ => return None,
+    };
     if saved["turn"] != 2
         || request["actor"] != VALE
         || request["claimed"] != json!([VALE])
         || (!present.is_empty() && present != [VALE])
-        || (!request["room"].is_null() && request["room"] != POND)
+        || (!request["room"].is_null() && request["room"] != room)
         || !(request["entries"].is_null()
             || request["entries"].as_array().is_some_and(Vec::is_empty))
-        || saved["speechVoices"][VALE] != json!([VALE, PIP])
+        || saved["speechVoices"][VALE] != json!([VALE, respondent])
     {
         return None;
     }
@@ -46,12 +55,18 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     world["heldActors"] = json!([VALE]);
     world["controlledActors"] = json!(present);
     world["presentActors"] = json!(present);
-    opening_pond_view::settled_second_move(&world, &geo)?;
-    let cast = opening_roster::known_actors(&world, &geo, &order, Some(POND))?;
-    if !cast.contains(&VALE) || !cast.contains(&PIP) || cast.len() != 2 {
+    let party: &[&str] = if room == POND {
+        opening_pond_view::settled_second_move(&world, &geo)?;
+        &[VALE, PIP]
+    } else {
+        opening_station_view::settled_first_arrival(&world, &geo, &order)?;
+        &[VALE, PIP, KEEPER]
+    };
+    let cast = opening_roster::known_actors(&world, &geo, &order, Some(room))?;
+    if cast.len() != party.len() || party.iter().any(|id| !cast.contains(id)) {
         return None;
     }
-    let items = opening_mirror_move::pond_items(&world, &geo, &authored)?;
+    let items = visible_items(&world, &geo, &authored, room)?;
     let forest = &files["v2/card-game/forest.json"];
     let profiles = &files["v2/card-game/entity-profiles.json"];
     let mut spoken = BTreeSet::new();
@@ -67,22 +82,20 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         if !spoken.insert(voice) {
             return None;
         }
-        let (name, kind, actor) = match voice {
-            POND if line["actorId"].is_null() => {
-                (forest["places"][POND]["name"].as_str()?, "narration", None)
-            }
-            VALE | PIP
-                if profiles[voice]["kind"] == "avatar"
-                    && (profiles[voice]["expression"].is_null()
-                        || profiles[voice]["expression"] == "speech") =>
-            {
-                (
-                    forest["people"][voice]["name"].as_str()?,
-                    "dialogue",
-                    Some(voice),
-                )
-            }
-            _ => return None,
+        let (name, kind, actor) = if voice == room && line["actorId"].is_null() {
+            (forest["places"][room]["name"].as_str()?, "narration", None)
+        } else if [VALE, respondent].contains(&voice)
+            && profiles[voice]["kind"] == "avatar"
+            && (profiles[voice]["expression"].is_null()
+                || profiles[voice]["expression"] == "speech")
+        {
+            (
+                forest["people"][voice]["name"].as_str()?,
+                "dialogue",
+                Some(voice),
+            )
+        } else {
+            return None;
         };
         let line = line["text"].as_str()?;
         if !valid_text(line, 600) || !valid_text(name, 48) {
@@ -90,7 +103,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         }
         let detail = json!({
             "speaker":name, "text":trim_text(line), "kind":kind, "actorId":actor,
-            "entityId":voice, "locationId":POND,
+            "entityId":voice, "locationId":room,
         });
         published.push(evidence.publish(&mut world, &cast, &items, detail)?);
     }
