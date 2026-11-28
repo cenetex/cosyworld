@@ -144,7 +144,8 @@ fn project_choices(choices: Vec<Choice>) -> Value {
 }
 
 fn project_choice(choice: Choice) -> Option<Value> {
-    let wait_sign = choice.at.as_deref() == Some("attic") && choice.on.as_deref() == Some("wait");
+    let attic_choice = choice.at.as_deref() == Some("attic")
+        && matches!(choice.on.as_deref(), Some("wait" | "meet"));
     let effects: Vec<_> = choice
         .effects
         .into_iter()
@@ -159,16 +160,16 @@ fn project_choice(choice: Choice) -> Option<Value> {
             _ => None,
         })
         .collect();
-    if !wait_sign && effects.is_empty() {
+    if !attic_choice && effects.is_empty() {
         return None;
     }
     let mut projected = Map::new();
     if let Some(id) = choice.id {
         projected.insert("id".into(), Value::String(id));
     }
-    if wait_sign {
+    if attic_choice {
         projected.insert("at".into(), json!("attic"));
-        projected.insert("on".into(), json!("wait"));
+        projected.insert("on".into(), json!(choice.on));
     }
     if !effects.is_empty() {
         projected.insert("effects".into(), Value::Array(effects));
