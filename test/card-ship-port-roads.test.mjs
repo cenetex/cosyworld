@@ -150,10 +150,8 @@ function callable(world, dock) {
     );
 }
 
-// Where a traveler can get to. On foot, and by every free sea lane if `free`.
-// With `ship`, also any sea lane whose conditions some carried thing aboard
-// could meet joins its docks. A lane counts only from a dock the traveler can
-// call the empty ship to, wherever it lies.
+// Find foot routes and free sea lanes with `free`. With `ship`, count lanes
+// whose cargo conditions can be met and whose dock can call the empty ship.
 // Every key not `pinned` that lies in a place already reached can be carried
 // to any reached place, set down there, laid on deck, or handed to a
 // resident there; each hand-over opens a gate only while it holds, as play does.

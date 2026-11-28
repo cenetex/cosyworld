@@ -1,7 +1,8 @@
 use super::{
     authored_order::Order, opening_content, opening_crossings, opening_hub_residents,
     opening_pickups, opening_place_cards::Deck, opening_pond_call_view::cloth_arrival,
-    opening_pond_ship_board, opening_roster, opening_second_round, opening_station_move,
+    opening_pond_ship_board, opening_pond_ship_settlement::course_before_sailing, opening_roster,
+    opening_second_round, opening_station_move,
     opening_station_quest_drop_learning::confirm_pond_ask_trial,
     opening_station_read::keeper_want_from_read, pack_state::Catalog,
     resident_evidence::ResidentEvidence, seed, Geography,
@@ -13,16 +14,24 @@ const PIP: &str = "moth";
 const KEEPER: &str = "keeper";
 const STATION: &str = "station";
 const POND: &str = "pond";
+const SHIP: &str = "greek-ship";
 
 fn cloth_wait_receipt(world: &Value, geo: &Geography<'_>, trials: &[Value]) -> Option<()> {
     let vale = &world["actors"][VALE];
-    let arrival = if world["turn"] == 8 {
-        vale["want"].is_null().then_some(())?;
-        opening_pond_ship_board::arrival(world)?
-    } else {
-        let (arrival, read) = cloth_arrival(world, false)?;
-        (vale["want"] == keeper_want_from_read(world, geo, read)?).then_some(())?;
-        arrival
+    let arrival = match world["turn"].as_u64()? {
+        8 | 9 => {
+            vale["want"].is_null().then_some(())?;
+            if world["turn"] == 8 {
+                opening_pond_ship_board::arrival(world)?
+            } else {
+                course_before_sailing(world)?
+            }
+        }
+        _ => {
+            let (arrival, read) = cloth_arrival(world, false)?;
+            (vale["want"] == keeper_want_from_read(world, geo, read)?).then_some(())?;
+            arrival
+        }
     };
     let [ask, wait, gift] = trials else {
         return None;
@@ -70,8 +79,8 @@ pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Optio
     let pip = &world["actors"][PIP];
     let forest = &geo.files()["v2/card-game/forest.json"];
     let lamp = &world["items"]["lamp"];
-    let boarded = turn == 8;
-    let cloth_given = matches!(turn, 6 | 8);
+    let boarded = matches!(turn, 8 | 9);
+    let cloth_given = turn == 6 || boarded;
     let hand = if cloth_given {
         Value::Null
     } else {
@@ -145,14 +154,14 @@ pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Optio
         {
             confirm_pond_ask_trial(world, ask, 1)
         }
-        (6 | 8, trials) => cloth_wait_receipt(world, geo, trials),
+        (6 | 8 | 9, trials) => cloth_wait_receipt(world, geo, trials),
         _ => None,
     }
 }
 
 fn keeper_wait(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
     let keeper = &world["actors"][KEEPER];
-    if turn == 8 {
+    if matches!(turn, 8 | 9) {
         let completed = &keeper["completedQuest"];
         if keeper["place"] != STATION
             || !keeper["want"].is_null()
@@ -181,21 +190,27 @@ pub(super) fn settle(
     deck: &Deck<'_>,
     residents: &[&str],
 ) -> Option<()> {
-    let turn = if world["turn"] == 8 {
-        opening_pond_ship_board::arrival(world)?;
-        let ship = &world["transports"]["greek-ship"];
+    let turn = world["turn"].as_u64()?;
+    if matches!(turn, 8 | 9) {
+        let (phase, destination) = if turn == 8 {
+            opening_pond_ship_board::arrival(world)?;
+            ("docked", None)
+        } else {
+            course_before_sailing(world)?;
+            ("course", Some("greek-harbor"))
+        };
+        let ship = &world["transports"][SHIP];
         if world["actors"][VALE]["heldItem"] != "cloth"
             || world["crossings"]["pond-greek-harbor"]
                 != json!({"discovered":true,"method":"pond-lamp"})
             || *ship
-                != json!({"version":3,"phase":"docked","dock":POND,"destination":null,"riders":[],"since":8,"recall":null})
+                != json!({"version":3,"phase":phase,"dock":POND,"destination":destination,"riders":[],"since":turn,"recall":null})
         {
             return None;
         }
-        8
     } else {
-        opening_station_move::departure_turn(world)?
-    };
+        opening_station_move::departure_turn(world)?;
+    }
     if (!world["began"].is_null() && world["began"] != 0)
         || world["playerActorId"] != VALE
         || ["heldActors", "controlledActors", "presentActors"]
@@ -227,10 +242,11 @@ pub(super) fn settle(
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let working = request.get("world")?;
-    let from = if request["op"] == "opening_ship_board_residents" {
-        (working["turn"] == 8).then_some(POND)?
-    } else {
-        (working["turn"] != 8).then_some(STATION)?
+    let from = match (request["op"].as_str()?, working["turn"].as_u64()?) {
+        ("opening_ship_board_residents", 8) => POND,
+        ("opening_ship_course_residents", 9) => SHIP,
+        ("opening_station_departure_residents", 3 | 4 | 6) => STATION,
+        _ => return None,
     };
     let order = opening_roster::actor_order(request, working)?;
     let (files, authored) = opening_content::wait_files(request)?;
