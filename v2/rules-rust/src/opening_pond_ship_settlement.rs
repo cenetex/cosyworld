@@ -1,7 +1,8 @@
 use super::{
     opening_attic_rest, opening_content, opening_pond_ship_board, opening_pond_ship_course,
-    opening_pond_ship_wait, opening_quiet_life, opening_roaming, opening_wants,
-    pack_state::Catalog, resident_evidence::ResidentEvidence, Geography,
+    opening_pond_ship_wait, opening_quiet_life, opening_roaming,
+    opening_station_departure_residents, opening_wants, pack_state::Catalog,
+    resident_evidence::ResidentEvidence, Geography,
 };
 use serde_json::{json, Value};
 
@@ -155,6 +156,46 @@ pub(super) fn settle_wait_after_docking(
     opening_attic_rest::settle_visit_speech(before, world, true)
 }
 
+pub(super) fn settle_harbor_after_residents(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    if world["turn"] != 11 {
+        return None;
+    }
+    opening_roaming::settle_dwell(world, geo)?;
+    opening_quiet_life::verify_harbor_life(world, geo)
+}
+
+pub(super) fn settle_harbor_tail(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
+    let head = opening_station_departure_residents::ship_disembark_head(world)?;
+    let docking = opening_pond_ship_wait::docking_event(before)?;
+    let seq = docking["seq"].as_u64()?;
+    let suffix = match head.checked_sub(seq)? {
+        1 => 1,
+        2 => 2,
+        _ => return None,
+    };
+    let log = world["log"].as_array()?;
+    let speech = json!({"place":"greek-ship","turn":10});
+    if before["eventSeq"] != seq
+        || before["log"].as_array()?.last()? != docking
+        || world["arrival"]["seq"] != seq.checked_add(1)?
+        || world["revision"] != before["revision"].as_u64()?.checked_add(1)?
+        || world["items"]["lamp"] != before["items"]["lamp"]
+        || before["crossings"]["greek-harbor-pond"]["discovered"] != false
+        || world["crossings"]["greek-harbor-pond"]["discovered"] != true
+        || world["actors"]["vale"]["waitSpeech"] != speech
+        || before["actors"]["vale"]["waitSpeech"] != speech
+        || log.iter().rev().nth(suffix)? != docking
+    {
+        return None;
+    }
+    opening_wants::settle_ship_wants(world, geo, 11)?;
+    opening_attic_rest::settle_visit_speech(before, world, false)
+}
+
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let mut world = request.get("world")?.clone();
     let (files, _) = opening_content::wait_files(request)?;
@@ -176,6 +217,8 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
             &geo,
             &ResidentEvidence::new(&files)?,
         )?,
+        "opening_ship_harbor_life" => settle_harbor_after_residents(&mut world, &geo)?,
+        "opening_ship_harbor_tail" => settle_harbor_tail(request.get("before")?, &mut world, &geo)?,
         _ => return None,
     }
     let mut response = json!({"ok":true});

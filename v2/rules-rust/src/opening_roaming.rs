@@ -1,9 +1,9 @@
 use super::{
     create, create_geography::Geography, opening, opening_content, opening_play,
     opening_pond_call_view, opening_pond_ship_board, opening_pond_ship_settlement,
-    opening_pond_ship_wait, opening_resident_sleep, opening_station_move, opening_station_read,
-    opening_station_view, opening_visitor_routes, opening_wait_response::vale_action,
-    pack_state::Catalog, seed,
+    opening_pond_ship_wait, opening_resident_sleep, opening_station_departure_residents,
+    opening_station_move, opening_station_read, opening_station_view, opening_visitor_routes,
+    opening_wait_response::vale_action, pack_state::Catalog, seed,
 };
 use serde_json::{json, Value};
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
@@ -343,7 +343,7 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
         || departure
         || matches!(
             (turn, place),
-            (5, "station") | (6 | 7, "pond") | (8..=10, "greek-ship")
+            (5, "station") | (6 | 7, "pond") | (8..=10, "greek-ship") | (11, "greek-harbor")
         );
     let prior = match (historic, turn, place) {
         (true, 482, "station") => {
@@ -407,6 +407,11 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
         }
         (false, 10, "greek-ship") => {
             opening_pond_ship_wait::before_docking(world)?;
+            only_bard_roams(world, geo)?;
+            1
+        }
+        (false, 11, "greek-harbor") => {
+            opening_station_departure_residents::ship_disembark_head(world)?;
             only_bard_roams(world, geo)?;
             1
         }
