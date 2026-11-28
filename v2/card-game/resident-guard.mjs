@@ -102,8 +102,7 @@ export function guardOf(s, from, to, traveller = null) {
   }
   return null;
 }
-// The ways shut by a guard from where a traveller stands, for the locked
-// box: both directions of each guardable way at that place.
+// Locked cards show both directions of every guardable way at the traveller's place.
 export const guardedFrom = (place) => guardedExits(null, place);
 const inStandoff = (s, id) =>
   (s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, id));

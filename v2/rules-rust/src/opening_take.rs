@@ -10,7 +10,7 @@ const ATTIC: &str = "attic";
 const LAMP: &str = "lamp";
 const TAKE: &str = "take:vale:lamp:";
 
-fn take_world(request: &Value) -> Option<&Value> {
+pub(super) fn take_world(request: &Value) -> Option<&Value> {
     let world = opening::supported_after_first_turn(request)?;
     let action = &request["action"];
     if request["actor"] != VALE

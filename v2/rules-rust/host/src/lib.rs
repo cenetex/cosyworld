@@ -140,6 +140,7 @@ fn encode_request(
                 | "opening_pond_place_returns"
                 | "opening_pond_resident_sleep"
                 | "opening_visitor_play"
+                | "opening_second_resident_round"
                 | "opening_full_move"
         )
     ) || attic_play
