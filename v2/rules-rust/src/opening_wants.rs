@@ -1,6 +1,6 @@
 use super::{
     create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
-    opening_content, opening_play, opening_stale_wants, pack_state::Catalog,
+    opening_company, opening_content, opening_play, opening_stale_wants, pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -130,6 +130,17 @@ pub(super) fn settle_with(
     {
         return None;
     }
+    settle_wants(world, geo, turn, first_pond_move, began != 0, fade_trust)
+}
+
+fn settle_wants(
+    world: &mut Value,
+    geo: &Geography,
+    turn: u64,
+    first_pond_move: bool,
+    historic: bool,
+    fade_trust: impl FnOnce(&mut Value) -> Option<()>,
+) -> Option<()> {
     let loss = Loss::new(world, geo)?;
     let actors = world["actors"].as_object()?;
     let mut retime = Vec::new();
@@ -176,12 +187,12 @@ pub(super) fn settle_with(
     }
     // Both draws use the same custody and geography across actor updates.
     let mut draws = RoundDraws::default();
-    let people = if began == 0 {
-        None
-    } else {
+    let people = if historic {
         let people = People::new(geo.files(), geo.packs())?;
         opening_stale_wants::revise(world, geo, &people, turn, &mut draws)?;
         Some(people)
+    } else {
+        None
     };
     fade_trust(world)?;
     for id in expired {
@@ -206,6 +217,52 @@ pub(super) fn settle_with(
         }
     }
     Some(())
+}
+
+pub(super) fn settle_second_attic(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    if world["turn"] != 2
+        || world.get("began").is_some_and(|began| began != 0)
+        || world["sharedVersion"] != 1
+        || world["actors"]["vale"]["place"] != "attic"
+        || world["actors"]["vale"].get("want") != Some(&Value::Null)
+        || world["heldActors"] != json!(["vale"])
+        || world["controlledActors"] != json!(["vale"])
+        || world["presentActors"] != json!(["vale"])
+        || world["playerActorId"] != "vale"
+        || !world["elysiumEncounters"].is_null()
+        || !world["hidden"].is_null()
+        || !world["absent"].is_null()
+        || !world["gone"].is_null()
+    {
+        return None;
+    }
+    let mut plays = world["log"].as_array()?.iter().filter(|event| {
+        event["actorId"] == "vale" && event["kind"] == "action" && event["generated"] != true
+    });
+    let first = plays.next()?;
+    let second = plays.next()?;
+    if first["turn"] != 1
+        || second["turn"] != 2
+        || first["locationId"] != "attic"
+        || second["locationId"] != "attic"
+        || !matches!(
+            (first["verb"].as_str(), second["verb"].as_str()),
+            (Some("wait"), Some("wait")) | (Some("drop"), Some("take"))
+        )
+        || plays.next().is_some()
+    {
+        return None;
+    }
+    settle_wants(world, geo, 2, false, false, opening_company::fade_trust)
+}
+
+pub(super) fn second_attic_projection(request: &Value) -> Option<Value> {
+    let (files, _) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let mut world = request.get("world")?.clone();
+    settle_second_attic(&mut world, &geo)?;
+    Some(json!({"ok":true, "world":world}))
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
