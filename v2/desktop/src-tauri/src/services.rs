@@ -306,7 +306,7 @@ pub async fn status(
         }
         settings.voice = "nano".into();
         let voices_ready = voice_ready(&data, &settings.voice);
-        let dialogue_ready = models::ready(&data, &settings.model);
+        let dialogue_ready = models::ready(&data.join("models"), &settings.model);
         Ok(Status {
             settings,
             voices_ready,
@@ -333,9 +333,11 @@ pub async fn prepare_dialogue(
     if !valid_model(&model) {
         return Err("Choose Standard or Light for dialogue.".into());
     }
-    tauri::async_runtime::spawn_blocking(move || models::prepare(&data_dir(&app)?, &model))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        models::prepare(&data_dir(&app)?.join("models"), &model)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -460,7 +462,7 @@ fn start_services(
     voice: &str,
 ) -> Result<(), String> {
     let data = data_dir(app)?;
-    if !models::ready(&data, model) {
+    if !models::ready(&data.join("models"), model) {
         return Err("Prepare the dialogue model first.".into());
     }
     if !voice_ready(&data, voice) {
@@ -530,7 +532,10 @@ fn start_services(
             .env("COSYWORLD_PRIMARY_GAME", "cards")
             .env("COSYWORLD_V2_ADDR", "127.0.0.1:3110")
             .env("COSYWORLD_AI_BASE_URL", "embedded://llama")
-            .env("COSYWORLD_LLAMA_MODEL", models::path(&data, model)?)
+            .env(
+                "COSYWORLD_LLAMA_MODEL",
+                models::path(&data.join("models"), model)?,
+            )
             .env("COSYWORLD_LLAMA_CONTEXT", "2048")
             .env("COSYWORLD_AI_MODEL", model)
             .env("COSYWORLD_CARD_TEXT_PROFILE", "local")
