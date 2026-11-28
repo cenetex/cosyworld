@@ -507,7 +507,6 @@ pub(super) fn enqueue(
 mod tests {
     use super::*;
     const T: i64 = 1_000_000;
-    // A world whose saved rules read `version`, opened by this server.
     fn opened(version: &str, then: Option<Value>) -> Result<World> {
         let path =
             std::env::temp_dir().join(format!("card-newer-{}.sqlite", crate::random_hex(12)));
