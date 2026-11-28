@@ -41,7 +41,6 @@ export function hideAvatar(world, { hidden, absent } = {}) {
   return world;
 }
 
-// An absent avatar arrives when someone claims it.
 export function arrive(world, actor) {
   if (!world.absent?.includes(actor)) return;
   world.absent = world.absent.filter((id) => id !== actor);
