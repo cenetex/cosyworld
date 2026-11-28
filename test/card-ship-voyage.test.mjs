@@ -335,7 +335,6 @@ describe("calling the empty ship", () => {
   it("a resident waiting to board calls it one lane, but never away from a human at its dock", () => {
     const s = setup("pond");
     callTransport(s, "greek-harbor", true);
-    // Vale, Mara and Ash stand at the pond beside the ship.
     expect(state(s).dock).toBe("pond");
     for (const id of players) s.actors[id].place = "station";
     s.turn = 1;
