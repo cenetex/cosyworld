@@ -177,7 +177,6 @@ export const walksHome = (s, id) =>
   s.actors[id].place !== homeOf(id, s) &&
   (Boolean(s.actors[id].homeward) || displaced(s, id));
 
-// A resident marked walking home holds `homeward: true`.
 export const validHome = (s) =>
   Object.values(s.actors).every(
     (a) => a.homeward === undefined || a.homeward === true,

@@ -17,7 +17,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 
 fn quiet_turn(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
-    if !matches!(turn, 2..=4)
+    if !matches!(turn, 2..=4 | 6)
         || world.get("began").is_some_and(|began| began != 0)
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
@@ -45,7 +45,7 @@ fn quiet_turn(world: &Value) -> Option<u64> {
             })
             .then_some(()),
         (2, "pond") => opening_mirror_move::second_arrival(world),
-        (3, "behind-station") | (4, "pond") => {
+        (3, "behind-station") | (4 | 6, "pond") => {
             opening_station_move::departure_turn(world).map(|_| ())
         }
         (_, "station") => opening_station_move::arrival(world)

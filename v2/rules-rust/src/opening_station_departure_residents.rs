@@ -1,8 +1,10 @@
 use super::{
     authored_order::Order, opening_content, opening_crossings, opening_hub_residents,
-    opening_pickups, opening_place_cards::Deck, opening_roster, opening_second_round,
-    opening_station_move, opening_station_quest_drop_learning::confirm_pond_ask_trial,
-    pack_state::Catalog, resident_evidence::ResidentEvidence, seed, Geography,
+    opening_pickups, opening_place_cards::Deck, opening_pond_call_view::cloth_arrival,
+    opening_roster, opening_second_round, opening_station_move,
+    opening_station_quest_drop_learning::confirm_pond_ask_trial,
+    opening_station_read::keeper_want_from_read, pack_state::Catalog,
+    resident_evidence::ResidentEvidence, seed, Geography,
 };
 use serde_json::{json, Value};
 
@@ -11,13 +13,66 @@ const PIP: &str = "moth";
 const KEEPER: &str = "keeper";
 const STATION: &str = "station";
 
+fn cloth_wait_receipt(world: &Value, geo: &Geography<'_>, trials: &[Value]) -> Option<()> {
+    let (arrival, read) = cloth_arrival(world, false)?;
+    let [ask, wait, gift] = trials else {
+        return None;
+    };
+    let goal = json!({"kind":"ask","target":VALE,"item":"lamp","destination":null});
+    let gift_seq = gift["seq"].as_u64()?;
+    if world["eventSeq"] != arrival
+        || world["actors"][VALE]["want"] != keeper_want_from_read(world, geo, read)?
+        || world["life"]["actors"][VALE]["attachments"] != json!({"cloth":{"from":PIP,"turn":5}})
+        || !geo.entity_active(world, "cloth")?
+        || [ask, wait, gift].iter().any(|trial| {
+            trial["version"] != 2
+                || trial["goal"] != goal
+                || trial["intent"] != r#"["item","lamp"]"#
+        })
+        || ask["turn"] != 1
+        || ask["action"]["kind"] != "ask"
+        || wait["turn"] != 3
+        || wait["action"]["kind"] != "wait"
+        || gift["turn"] != 5
+        || gift["action"]["kind"] != "give"
+        || gift["action"]["item"] != "cloth"
+        || gift["action"]["target"] != VALE
+        || gift_seq >= arrival
+    {
+        return None;
+    }
+    world["log"]
+        .as_array()?
+        .iter()
+        .any(|entry| {
+            entry["seq"] == gift_seq
+                && entry["turn"] == 5
+                && entry["actorId"] == PIP
+                && entry["kind"] == "action"
+                && entry["generated"] != true
+                && entry["locationId"] == STATION
+                && entry["verb"] == "give"
+                && entry["itemId"] == "cloth"
+                && entry["targetId"] == VALE
+                && entry["accepted"] == true
+        })
+        .then_some(())
+}
+
 fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
     let pip = &world["actors"][PIP];
     let forest = &geo.files()["v2/card-game/forest.json"];
     let lamp = &world["items"]["lamp"];
+    let cloth_given = turn == 6;
+    let hand = if cloth_given {
+        Value::Null
+    } else {
+        json!("cloth")
+    };
+    let cloth_holder = if cloth_given { VALE } else { PIP };
     let dwell = 2 + 24 + u64::from(seed::hash("moth@2") % 6);
     if pip["place"] != STATION
-        || pip["heldItem"] != "cloth"
+        || pip["heldItem"] != hand
         || pip["want"] != json!({"kind":"item","target":"lamp","since":0,"refusals":1,"lit":true})
         || pip["visited"] != json!(["pond", STATION])
         || pip["dwellUntil"] != dwell
@@ -33,7 +88,7 @@ fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
         || opening_pickups::resting(pip, turn)
         || !geo.entity_active(world, PIP)?
         || !geo.entity_active(world, "lamp")?
-        || world["items"]["cloth"]["holder"] != PIP
+        || world["items"]["cloth"]["holder"] != cloth_holder
         || lamp["holder"] != VALE
         || lamp["fuelPlace"] != world["actors"][VALE]["place"]
         || lamp["lit"] != false
@@ -47,10 +102,9 @@ fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
                 || pack["items"].get("cloth").is_some()
                 || pack["items"].get("lamp").is_some()
         })
-        || world["items"]
-            .as_object()?
-            .iter()
-            .any(|(id, item)| (item["holder"] == PIP && id != "cloth") || item["holder"] == "lamp")
+        || world["items"].as_object()?.iter().any(|(id, item)| {
+            (item["holder"] == PIP && (cloth_given || id != "cloth")) || item["holder"] == "lamp"
+        })
         || !world["log"].as_array()?.iter().any(|event| {
             event["actorId"] == PIP
                 && event["kind"] == "action"
@@ -71,6 +125,7 @@ fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
         {
             confirm_pond_ask_trial(world, ask, 1)
         }
+        (6, trials) => cloth_wait_receipt(world, geo, trials),
         _ => None,
     }
 }

@@ -6,17 +6,33 @@ import { reducers } from "./parity.mjs";
 
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const op = "opening_station_move";
+const residentsOp = "opening_station_departure_residents";
 
 function tracePrimary(source) {
   const marker =
     "    const respondent = perform(next, exact, round2, residents2);";
-  assert.equal(source.split(marker).length, 2);
-  return source.replace(
-    marker,
-    `${marker}
+  const after = "    const rings2 = next.log.filter(";
+  const plan =
+    "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
+  for (const cut of [marker, after, plan])
+    assert.equal(source.split(cut).length, 2);
+  return source
+    .replace(
+      marker,
+      `${marker}
     if (actor === "vale" && exact.kind === "move" && exact.target === "pond" && next.turn === 6)
       globalThis.clothReturn = structuredClone(next);`,
-  );
+    )
+    .replace(
+      after,
+      `    if (next.turn === 6) globalThis.afterResidents = structuredClone(next);\n${after}`,
+    )
+    .replace(
+      plan,
+      `      const chosen = read2 ?? plan(next, id).action;
+      if (next.turn === 6) globalThis.residentPlans.push([id, chosen.key]);
+      perform(next, chosen, round2, residents2);`,
+    );
 }
 
 test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async () => {
@@ -29,6 +45,7 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
   };
   const play = (world, action) => run({ ...seats, op: "play", world, action });
   let sample;
+  let dwelling;
   for (const [seed, dry, spoken, sorted] of [
     [undefined, false, false, false],
     [0, true, false, true],
@@ -80,6 +97,7 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
         revision: world.revision,
       };
       reference.clothReturn = undefined;
+      reference.residentPlans = [];
       const completed = JSON.parse(
         reference.cardShared(JSON.stringify(request)),
       );
@@ -116,6 +134,23 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
         );
       }
       assert.deepEqual(completed.events, [event]);
+      const settled = JSON.parse(JSON.stringify(reference.afterResidents));
+      assert.deepEqual(settled, expected);
+      assert.deepEqual(
+        reference.residentPlans.map(([actor]) => actor).toSorted(),
+        ["ada", "ash", "keeper", "mara", "moth", "nell", "orin", "rue", "tavi"],
+      );
+      assert.ok(
+        reference.residentPlans.every(
+          ([actor, key]) => key === `wait:${actor}::`,
+        ),
+      );
+      const residents = wasm({ op: residentsOp, world: expected });
+      assert.ok(
+        isDeepStrictEqual(residents, { ok: true, world: settled }),
+        `${label} residents`,
+      );
+      if (seed === 42) dwelling = expected;
       sample = { ...request, op };
     }
   }
@@ -142,4 +177,19 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
     assert.equal(wasm({ ...sample, world }), null);
   }
   assert.equal(wasm({ ...sample, revision: sample.revision - 1 }), null);
+  for (const mutate of [
+    (world) => {
+      world.actors.moth.dwellUntil = world.turn;
+    },
+    (world) => {
+      world.actors.tavi.dwellUntil = world.turn;
+    },
+    (world) => {
+      world.memories.moth.learning.at(-1).goal.target = "keeper";
+    },
+  ]) {
+    const world = structuredClone(dwelling);
+    mutate(world);
+    assert.equal(wasm({ op: residentsOp, world }), null);
+  }
 });
