@@ -287,8 +287,7 @@ describe("a real voyage", () => {
     expect(transportExits(s, "greek-ship", null, "vale")).toEqual([
       "greek-harbor",
     ]);
-    // Vale knows the Black Pond lane. Piraeus waits for the Travel
-    // Provisions aboard.
+    // Vale knows the Black Pond lane. Piraeus requires provisions aboard.
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
     ]);

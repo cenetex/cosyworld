@@ -34,6 +34,61 @@ fn home<'a>(world: &Value, geo: &Geography, id: &str, person: &Person<'a>) -> Op
         .or_else(|| person.data["place"].as_str())
 }
 
+fn sealed_land_home(world: &Value, geo: &Geography, id: &str, home: &str) -> Option<bool> {
+    let files = geo.files();
+    let forest = &files["v2/card-game/forest.json"];
+    let guardable = files["v2/card-game/world-life.json"]["guardable"].as_array()?;
+    if guardable
+        .iter()
+        .any(|edge| edge["from"] == home || edge["to"] == home)
+    {
+        return Some(false);
+    }
+    for region in std::iter::once(forest).chain(geo.packs()) {
+        let ungated = region["places"].as_object()?.values().any(|place| {
+            place["exits"]
+                .as_array()
+                .is_some_and(|exits| exits.iter().any(|to| to == home))
+        });
+        let alternate = ["reflectionRoutes", "crossings"].iter().any(|key| {
+            region[*key]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|edge| edge["to"] == home)
+        });
+        let landing = region["transports"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .any(|(_, ship)| {
+                ship["place"] == home
+                    || ship["docks"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .any(|dock| dock == home)
+            });
+        if ungated || alternate || landing {
+            return Some(false);
+        }
+        for route in region["routes"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|route| route["to"] == home)
+        {
+            let pack = region["id"].as_str()?;
+            if geo.route_open(world, pack, route)?
+                && geo.conditions_met(world, pack, &route["travelerRequires"], Some(id))?
+            {
+                return Some(false);
+            }
+        }
+    }
+    Some(true)
+}
+
 fn can_walk_home<'a>(
     world: &mut Value,
     geo: &Geography<'a>,
@@ -47,6 +102,12 @@ fn can_walk_home<'a>(
         || world["routeKnowledge"].get(id).is_some()
     {
         return None;
+    }
+    if world["turn"] == 11
+        && world["actors"]["vale"]["place"] == "greek-harbor"
+        && sealed_land_home(world, geo, id, home)?
+    {
+        return Some(false);
     }
     let mut found = BTreeSet::from([from]);
     let mut queue = VecDeque::from([from]);
@@ -174,6 +235,27 @@ pub(super) fn verify_ship_life(world: &mut Value, geo: &Geography<'_>) -> Option
         &[]
     };
     verify_quiet_life(world, geo, "greek-ship", cast)
+}
+
+pub(super) fn verify_harbor_life(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    const HARBOR: &str = "greek-harbor";
+    const MYRTO: &str = "greek-shipmaster";
+    opening_second_attic_tail::no_sleepers(world)?;
+    if geo.arcana_called(world)?
+        || world["items"]["lamp"]["holder"] != "pond"
+        || world["opening"]["met"][MYRTO] != 11
+        || world["packs"]["greek-drama"]["met"][MYRTO] != 11
+        || world["actors"][MYRTO]["place"] != HARBOR
+        || !geo.entity_active(world, MYRTO)?
+    {
+        return None;
+    }
+    let cast: &[&str] = if world["actors"]["ada"]["place"] == HARBOR {
+        &[MYRTO, "ada"]
+    } else {
+        &[MYRTO]
+    };
+    verify_quiet_life(world, geo, HARBOR, cast)
 }
 
 fn verify_quiet_day(
