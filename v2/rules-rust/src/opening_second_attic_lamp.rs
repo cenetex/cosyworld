@@ -69,7 +69,8 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
         .or_else(|| opening_station_move::historic_arrival(world))
         .or_else(|| opening_station_move::abandoned_train_arrival(world))
         .or_else(|| opening_station_read::after_first_log(world))
-        .or_else(|| opening_station_view::keeper_abandon_head(world))?;
+        .or_else(|| opening_station_view::keeper_abandon_head(world))
+        .or_else(|| opening_station_view::keeper_return::gift_head(world))?;
     settle_carried_at(world, geo, "station")
 }
 
@@ -89,7 +90,9 @@ fn settle_carried_lamp(world: &mut Value, place: &str) -> Option<()> {
         item if place == "station"
             && item == "cloth"
             && world["items"]["cloth"]["holder"] == VALE
-            && opening_station_view::keeper_abandon_head(world).is_some() =>
+            && opening_station_view::keeper_abandon_head(world)
+                .or_else(|| opening_station_view::keeper_return::gift_head(world))
+                .is_some() =>
         {
             false
         }

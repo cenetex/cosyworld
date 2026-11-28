@@ -93,7 +93,8 @@ fn arrived_scene(world: &Value) -> Option<&'static str> {
         opening_station_move::arrival(world)
             .or_else(|| opening_station_move::abandoned_train_arrival(world))
             .or_else(|| opening_station_read::after_first_log(world))
-            .or_else(|| opening_station_view::keeper_abandon_head(world))?;
+            .or_else(|| opening_station_view::keeper_abandon_head(world))
+            .or_else(|| opening_station_view::keeper_return::gift_head(world))?;
         (solo(world) && world["playerActorId"] == "vale").then_some(STATION)
     } else {
         opening_mirror_move::second_arrival(world)?;

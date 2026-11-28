@@ -337,6 +337,8 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
     let historic = world.get("began").is_some_and(|began| began != 0);
     let place = world["actors"]["vale"]["place"].as_str()?;
     let departure = matches!((turn, place), (3, "behind-station") | (4, "pond"));
+    let return_to_station = (turn, place) == (5, "station");
+    let witnessed = historic || departure || return_to_station;
     let prior = match (historic, turn, place) {
         (true, 482, "station") => {
             if let Some(head) = opening_station_move::historic_resident_moves(world) {
@@ -369,6 +371,11 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
             super::opening_mirror_move::second_arrival(world)?;
             1
         }
+        (false, 5, "station") => {
+            opening_station_view::keeper_return::gift_head(world)?;
+            only_bard_roams(world, geo)?;
+            1
+        }
         (false, _, _) if departure => {
             station_departure(world, turn, place)?;
             only_bard_roams(world, geo)?;
@@ -390,7 +397,7 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
             && entry["verb"] == "move"
             && entry["locationId"] == here
             && entry["generated"] != true
-            && (!(historic || departure)
+            && (!witnessed
                 || (entry["kind"] == "action"
                     && entry["targetId"] == here
                     && entry["seq"].as_u64().is_some_and(|seq| seq < arrival)))
@@ -398,7 +405,7 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
     if world["sharedVersion"] != 1
         || world["controlledActors"] != json!(["vale"])
         || actor["dwellUntil"].as_u64()? <= turn
-        || ((historic || departure) && actor["dwellUntil"] != dwell_after(prior)?)
+        || (witnessed && actor["dwellUntil"] != dwell_after(prior)?)
         || want["kind"] != "person"
         || !want["step"].is_null()
         || target["place"].as_str()? == here

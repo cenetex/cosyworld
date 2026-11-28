@@ -70,8 +70,7 @@ function choice(w, item = "oil", kind = "ask") {
   expect(action).toBeDefined();
   return reconsiderPlan(w, "vale", { action, reason: "Seek the item." }, offers);
 }
-// A controlled evaluation holds the present state and legal choices fixed.
-// Only the retained records from real completed plays change between probes.
+// Each probe keeps the state and legal choices fixed and varies the retained play records.
 function probe(records, start = setup) {
   const w = start();
   w.log = [];

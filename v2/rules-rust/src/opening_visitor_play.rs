@@ -17,7 +17,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 
 fn quiet_turn(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
-    if !matches!(turn, 2..=4 | 6)
+    if !matches!(turn, 2..=6)
         || world.get("began").is_some_and(|began| began != 0)
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
@@ -48,6 +48,7 @@ fn quiet_turn(world: &Value) -> Option<u64> {
         (3, "behind-station") | (4 | 6, "pond") => {
             opening_station_move::departure_turn(world).map(|_| ())
         }
+        (5, "station") => opening_station_view::keeper_return::gift_head(world).map(|_| ()),
         (_, "station") => opening_station_move::arrival(world)
             .or_else(|| opening_station_move::abandoned_train_arrival(world))
             .or_else(|| opening_station_read::after_first_log(world))
@@ -181,7 +182,8 @@ fn quiet_departure_wait(
     let here = resident["place"].as_str()?;
     let want = &resident["want"];
     let read = opening_station_read::after_first_log(world)
-        .or_else(|| opening_station_view::keeper_abandon_head(world)?.checked_sub(3));
+        .or_else(|| opening_station_view::keeper_abandon_head(world)?.checked_sub(3))
+        .or_else(|| opening_station_view::keeper_return::gift_head(world)?.checked_sub(4));
     let same_room =
         opening_station_move::abandoned_train_arrival(world).is_some() || read.is_some();
     let station_departure = opening_station_move::departure_turn(world).is_some();

@@ -67,7 +67,17 @@ test("Pip’s Cloth gift, Station reply, and reload preserve the active Keeper q
       world = play(play(world, "move:vale::pond"), move("station"));
       const read = play(world, "read:vale:keeper-log:");
       if (seed === undefined && !dry) {
-        [unaccepted] = observe(play(read, move("pond")), move("station"));
+        const withoutQuest = play(read, move("pond"));
+        [unaccepted] = observe(withoutQuest, move("station"));
+        assert.equal(
+          wasm({
+            ...seats,
+            op: "play",
+            world: withoutQuest,
+            action: move("station"),
+          }),
+          null,
+        );
       }
       world = play(play(read, "accept:vale::keeper"), move("pond"));
       if (seed === undefined && !dry) {
@@ -78,6 +88,15 @@ test("Pip’s Cloth gift, Station reply, and reload preserve the active Keeper q
         assert.equal(after.log.at(-1).cast.length, 4);
         assert.ok(after.log.at(-1).witnesses.includes("rue"));
         withRue = before;
+        assert.equal(
+          wasm({
+            ...seats,
+            op: "play",
+            world: visitor,
+            action: move("station"),
+          }),
+          null,
+        );
       }
       if (dry)
         world.actors = Object.fromEntries(
@@ -94,6 +113,22 @@ test("Pip’s Cloth gift, Station reply, and reload preserve the active Keeper q
       if (after.log.at(-1).cast.length !== 3) {
         assert.equal(actual, null, label);
       } else {
+        const request = {
+          ...seats,
+          op: "play",
+          world,
+          action: dry ? { key: move("station") } : move("station"),
+          revision: world.revision,
+        };
+        const played = wasm(request);
+        const differing = Object.keys(full.world).find(
+          (key) => !isDeepStrictEqual(played?.world[key], full.world[key]),
+        );
+        assert.ok(
+          isDeepStrictEqual(played, full),
+          `play ${label} ${differing}`,
+        );
+        assert.equal(wasm({ ...request, revision: world.revision - 1 }), null);
         const field = Object.keys(after).find(
           (key) => !isDeepStrictEqual(actual?.world[key], after[key]),
         );
