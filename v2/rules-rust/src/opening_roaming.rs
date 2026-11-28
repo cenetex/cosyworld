@@ -1,7 +1,7 @@
 use super::{
     create, create_geography::Geography, opening, opening_content, opening_play,
     opening_resident_sleep, opening_station_move, opening_station_read, opening_visitor_routes,
-    pack_state::Catalog, seed,
+    opening_wait_response::vale_action, pack_state::Catalog, seed,
 };
 use serde_json::{json, Value};
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
@@ -225,10 +225,119 @@ fn only_bard_roams(world: &Value, geo: &Geography<'_>) -> Option<()> {
     Some(())
 }
 
+fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool {
+    event["turn"] == turn
+        && event["verb"] == "move"
+        && event["fromLocationId"] == from
+        && event["locationId"] == to
+        && event["targetId"] == to
+        && (event["itemId"].is_null() || event["itemId"] == "lamp")
+}
+
+fn keeper_return(
+    world: &Value,
+    log: &[Value],
+    read: &Value,
+    station: u64,
+    departure: u64,
+) -> Option<()> {
+    let seq = read["seq"].as_u64()?;
+    let wait = seq.checked_add(1)?;
+    let knowledge = &world["knowledge"]["known"]["vale"]["quest:keeper:pond"];
+    (station < seq
+        && wait.checked_add(1)? == departure
+        && read["turn"] == 3
+        && read["verb"] == "read"
+        && read["itemId"] == "keeper-log"
+        && read["locationId"] == "station"
+        && world["items"]["keeper-log"]["holder"] == "station"
+        && knowledge["kind"] == "read"
+        && knowledge["eventSeq"] == seq
+        && world["actors"]["vale"]["want"]
+            == json!({
+                "from":"quest:from:keeper", "kind":"place", "target":"pond", "since":3,
+                "refusals":0, "step":{"verb":"call","crossing":"pond-greek-harbor"}
+            })
+        && log.iter().any(|event| {
+            event["seq"] == wait
+                && event["turn"] == 3
+                && event["kind"] == "action"
+                && event["generated"] != true
+                && event["actorId"] == "moth"
+                && event["verb"] == "wait"
+                && event["locationId"] == "station"
+                && event["sleep"].is_null()
+                && event["guards"].is_null()
+        }))
+    .then_some(())
+}
+
+fn station_departure(world: &Value, turn: u64, destination: &str) -> Option<()> {
+    let log = world["log"].as_array()?;
+    let seq = world["arrival"]["seq"].as_u64()?;
+    let vale = &world["actors"]["vale"];
+    let mut visits = vec!["attic", "pond", "station"];
+    if destination == "behind-station" {
+        visits.push(destination);
+    }
+    if world.get("began").is_some()
+        || world["schema"] != 8
+        || world["playerActorId"] != "vale"
+        || world["heldActors"] != json!(["vale"])
+        || world["presentActors"] != json!(["vale"])
+        || world["opening"]["crossed"] != true
+        || world["opening"]["met"]["moth"] != 1
+        || world["opening"]["met"]["keeper"] != 2
+        || vale["crossed"] != 1
+        || vale["visited"] != json!(visits)
+        || world["items"]["lamp"]["holder"] != "vale"
+        || world["actors"]["moth"]["place"] != "station"
+        || world["actors"]["keeper"]["place"] != "station"
+        || world["arrival"]
+            != json!({"seq":seq,"fromLocationId":"station","locationId":destination})
+        || world["eventSeq"] != seq
+        || log.last()?["seq"] != seq
+    {
+        return None;
+    }
+    let mut actions = log.iter().filter(|event| vale_action(event));
+    let pond = actions.next()?;
+    let station = actions.next()?;
+    let entered = station["seq"].as_u64()?;
+    let follow = entered.checked_add(1)?;
+    if !move_event(pond, 1, "attic", "pond")
+        || pond["seq"].as_u64()? >= entered
+        || !move_event(station, 2, "pond", "station")
+        || follow >= seq
+        || !log.iter().any(|event| {
+            event["seq"] == follow
+                && event["kind"] == "action"
+                && event["generated"] != true
+                && event["actorId"] == "moth"
+                && event["itemId"].is_null()
+                && move_event(event, 2, "pond", "station")
+        })
+    {
+        return None;
+    }
+    if destination == "pond" {
+        keeper_return(world, log, actions.next()?, entered, seq)?;
+    } else if !vale["want"].is_null() {
+        return None;
+    }
+    let move_out = actions.next()?;
+    (move_out["seq"] == seq
+        && move_event(move_out, turn, "station", destination)
+        && actions.next().is_none())
+    .then_some(())
+}
+
 pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let historic = world.get("began").is_some_and(|began| began != 0);
-    let prior = match (historic, turn, world["actors"]["vale"]["place"].as_str()?) {
+    let place = world["actors"]["vale"]["place"].as_str()?;
+    let departure = matches!((turn, place), (3, "behind-station") | (4, "pond"));
+    let prior = match (historic, turn, place) {
         (true, 482, "station") => {
             if let Some(head) = opening_station_move::historic_resident_moves(world) {
                 if world["eventSeq"] != head
@@ -259,6 +368,11 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
             super::opening_mirror_move::second_arrival(world)?;
             1
         }
+        (false, _, _) if departure => {
+            station_departure(world, turn, place)?;
+            only_bard_roams(world, geo)?;
+            1
+        }
         (false, 2, _) => 1,
         _ => return None,
     };
@@ -275,7 +389,7 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
             && entry["verb"] == "move"
             && entry["locationId"] == here
             && entry["generated"] != true
-            && (!historic
+            && (!(historic || departure)
                 || (entry["kind"] == "action"
                     && entry["targetId"] == here
                     && entry["seq"].as_u64().is_some_and(|seq| seq < arrival)))
@@ -283,7 +397,7 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
     if world["sharedVersion"] != 1
         || world["controlledActors"] != json!(["vale"])
         || actor["dwellUntil"].as_u64()? <= turn
-        || (historic && actor["dwellUntil"] != dwell_after(prior)?)
+        || ((historic || departure) && actor["dwellUntil"] != dwell_after(prior)?)
         || want["kind"] != "person"
         || !want["step"].is_null()
         || target["place"].as_str()? == here

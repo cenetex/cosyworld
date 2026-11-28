@@ -59,7 +59,6 @@ export const witnessedRouteEdges = (world, actor) =>
     )
     .map((e) => [e.fromLocationId, e.locationId]);
 
-// Travellers learn routes at home, through travel and observation. Live exits govern access.
 const edgeKey = ([from, to]) => `${from}>${to}`;
 export function rememberRoutes(world, actor, edges) {
   const knowledge = (world.routeKnowledge ??= {});
