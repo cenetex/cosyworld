@@ -336,7 +336,7 @@ fn project_choices(choices: Vec<Choice>) -> Value {
 fn project_choice(choice: Choice) -> Option<Value> {
     let opening_choice = matches!(
         (choice.at.as_deref(), choice.on.as_deref()),
-        (Some("attic"), Some("wait" | "meet")) | (Some("pond"), Some("meet"))
+        (Some("attic"), Some("wait" | "meet")) | (Some("pond"), None | Some("meet"))
     );
     let effects: Vec<_> = choice
         .effects
