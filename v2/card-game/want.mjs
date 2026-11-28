@@ -628,8 +628,7 @@ export const meetsItemWant = (s, actor, item, action = null) => {
     matchesWantedItem(w, item) && questMet(s, actor, w, null, action),
   );
 };
-// An item want may name the item's light: then it is met only in the
-// actor's own hands, lit (or dark) and uncovered, as a moth wants a flame.
+// A light-sensitive want needs the uncovered item in the actor's own hands at the specified light.
 export function holdsAsWanted(s, actor, want) {
   if (want.lit === undefined)
     return anyWantedItem(s, want, (item) => rootOf(s, item) === actor);

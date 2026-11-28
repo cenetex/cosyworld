@@ -241,6 +241,60 @@ fn pip_wants_lamp(world: &Value) -> bool {
         == json!({"kind":"item", "target":"lamp", "since":0, "refusals":1, "lit":true})
 }
 
+pub(super) fn verify_awake_station(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let follow_seq = opening_station_move::historic_follow(world)?;
+    let log = world["log"].as_array()?;
+    let follow_index = log.iter().position(|event| event["seq"] == follow_seq)?;
+    let follow = &log[follow_index];
+    let [remote @ .., wake] = log.get(follow_index + 1..)? else {
+        return None;
+    };
+    let turn = world["turn"].as_u64()?;
+    let pip = &world["actors"]["moth"];
+    let keeper = &world["actors"]["keeper"];
+    let name = geo.files()["v2/card-game/forest.json"]["people"]["keeper"]["name"].as_str()?;
+    if !pip["sleeping"].is_null()
+        || pip["visited"] != json!(["pond", "station"])
+        || pip["heldItem"] != "cloth"
+        || world["items"]["cloth"]["holder"] != "moth"
+        || !keeper["sleeping"].is_null()
+        || keeper["place"] != "station"
+        || wake["seq"] != world["eventSeq"]
+        || wake["seq"] != follow_seq.checked_add(remote.len() as u64 + 1)?
+        || wake["turn"] != turn
+        || wake["kind"] != "narration"
+        || wake["generated"] == true
+        || wake["actorId"] != "keeper"
+        || wake["locationId"] != "station"
+        || wake["text"] != format!("{name} wakes.")
+        || wake["cast"] != follow["cast"]
+        || wake["light"] != false
+        || !wake["witnesses"].is_null()
+    {
+        return None;
+    }
+    match remote {
+        [] => Some(()),
+        [cass]
+            if cass["seq"] == follow_seq.checked_add(1)?
+                && cass["turn"] == turn
+                && cass["kind"] == "action"
+                && cass["generated"] != true
+                && cass["actorId"] == "orin"
+                && cass["verb"] == "move"
+                && cass["fromLocationId"] == "pavilion"
+                && cass["locationId"] == "willows-bank"
+                && cass["targetId"] == "willows-bank"
+                && cass["witnesses"] == json!(["orin", "board"])
+                && cass["itemId"].is_null()
+                && world["actors"]["orin"]["place"] == "willows-bank" =>
+        {
+            Some(())
+        }
+        _ => None,
+    }
+}
+
 fn station_wants_state(world: &Value, pip_place: &str) -> Option<()> {
     if world["actors"]["vale"].get("want") != Some(&Value::Null)
         || world["actors"]["moth"]["place"] != pip_place
@@ -262,13 +316,18 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
     let historic = world.get("began").is_some();
     let pip_place = if historic {
         let seq = opening_station_move::historic_arrival(world)?;
-        opening_resident_sleep::sleeping_pip_at_pond(world, geo, seq)?;
         if geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
             || !pip_wants_lamp(world)
         {
             return None;
         }
-        "pond"
+        if world["actors"]["moth"]["place"] == "station" {
+            verify_awake_station(world, geo)?;
+            "station"
+        } else {
+            opening_resident_sleep::sleeping_pip_at_pond(world, geo, seq)?;
+            "pond"
+        }
     } else {
         opening_station_move::arrival(world)
             .or_else(|| opening_station_move::abandoned_train_arrival(world))?;
