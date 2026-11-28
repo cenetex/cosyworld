@@ -14,19 +14,21 @@ const vitestConfig = readFileSync(
   "utf8",
 );
 
-describe("deployment-only contracts run in main's checks", () => {
-  it("the unit shards run the full vitest suite, which includes every infrastructure contract", () => {
-    expect(checksWorkflow).toContain("npx vitest run --shard=${{ matrix.shard }}/3");
+describe("deployment checks", () => {
+  it("runs every infrastructure test in the full unit shards for both release paths", () => {
+    for (const source of [checksWorkflow, deployWorkflow]) {
+      expect(source).toContain("npx vitest run --shard=${{ matrix.shard }}/3");
+    }
     expect(vitestConfig).toMatch(/include:\s*\[\s*'test\/\*\*\/\*\.test\.\{js,mjs\}'/);
   });
 
-  it("the production deployment gate keeps running the same deployment-only contracts", () => {
-    const gate = deployWorkflow.match(
-      /Run Node and deployment contract checks\n\s*run: \|\n([\s\S]*?)\n\n {2}\w/,
-    )?.[1];
-    expect(gate).toBeTruthy();
+  it("does not rerun unit tests in the production content gate", () => {
+    const gate = deployWorkflow.slice(
+      deployWorkflow.indexOf("\n  production-node-gate:"),
+      deployWorkflow.indexOf("\n  production-unit:"),
+    );
     expect(gate).toContain("npm run v2:syntax");
-    expect(gate).toMatch(/vitest run test\/infrastructure\/deploy-workflow\.test\.mjs/);
+    expect(gate).not.toMatch(/\bvitest\b/);
   });
 });
 
