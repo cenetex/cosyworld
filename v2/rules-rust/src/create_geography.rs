@@ -84,8 +84,25 @@ impl<'a> Geography<'a> {
 
     fn active(&self, world: &Value, id: &str, depth: u8) -> Option<bool> {
         let items = &world["items"];
-        if let Some(item) = items.get(id) {
-            let holder = root_of(items, id, item)?;
+        let root = match items.get(id) {
+            Some(item) => Some(root_of(items, id, item)?),
+            None => None,
+        };
+        self.active_with_root(world, id, root, depth)
+    }
+
+    pub(super) fn item_active_at_root(&self, world: &Value, id: &str, root: &str) -> Option<bool> {
+        self.active_with_root(world, id, Some(root), MAX_DEPTH)
+    }
+
+    fn active_with_root(
+        &self,
+        world: &Value,
+        id: &str,
+        root: Option<&str>,
+        depth: u8,
+    ) -> Option<bool> {
+        if let Some(holder) = root {
             if !coordinate_active(world, holder)
                 || !self.human_available(world, holder)
                 || (holder == "boardyai" && self.humans_present(world) < 2)
@@ -358,6 +375,20 @@ impl<'a> Geography<'a> {
                 }
             }
             "choice" => state["choices"].get(key()?) == condition.get("value"),
+            "receipt" => {
+                let Some(received) = state["receipts"].get(condition["choiceId"].as_str()?) else {
+                    return Some(false);
+                };
+                if let Some(window) = condition.get("within") {
+                    let window = window.as_u64()?;
+                    world["turn"]
+                        .as_u64()?
+                        .checked_sub(received.as_u64()?)
+                        .is_some_and(|elapsed| elapsed < window)
+                } else {
+                    true
+                }
+            }
             "flag" => flag(state, key()?) == condition["value"].as_bool()?,
             "drawn" => contains(&state["specials"], condition["id"].as_str()?),
             "met" => state["met"].get(condition["actor"].as_str()?).is_some(),
@@ -737,5 +768,37 @@ mod tests {
         world["actors"]["vale"]["arcana"] = json!({"calls": arcana["calls"]});
         world["presentActors"] = json!([]);
         assert_eq!(geo.entity_active(&world, "listener"), Some(false));
+    }
+
+    #[test]
+    fn a_choice_receipt_has_an_exclusive_age_limit() {
+        let content: Value = serde_json::from_str(include_str!(
+            "../../orchestrator-rust/src/card_shared/content.json"
+        ))
+        .unwrap();
+        let geo = Geography::new(&content["files"], std::iter::empty()).unwrap();
+        let choice = "greek-acropolis-lampito-shares-bread";
+        let within = json!([{"kind":"receipt", "choiceId":choice, "within":8}]);
+        let past = json!([{"kind":"receipt", "choiceId":choice}]);
+        let mut world = json!({"turn":481, "packs":{"greek-drama":{}}});
+        assert_eq!(
+            geo.conditions_met(&world, "greek-drama", &past, None),
+            Some(false)
+        );
+        assert_eq!(
+            geo.conditions_met(&world, "greek-drama", &within, None),
+            Some(false)
+        );
+        for (recorded, expected) in [(482, false), (481, true), (474, true), (473, false)] {
+            world["packs"]["greek-drama"]["receipts"][choice] = json!(recorded);
+            assert_eq!(
+                geo.conditions_met(&world, "greek-drama", &within, None),
+                Some(expected)
+            );
+            assert_eq!(
+                geo.conditions_met(&world, "greek-drama", &past, None),
+                Some(true)
+            );
+        }
     }
 }

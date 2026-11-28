@@ -22,7 +22,7 @@ test("the quiet historic pond Move matches the complete pinned round", async () 
   let asleep = 0;
   let awake = 0;
   let returns = 0;
-  for (const seed of [undefined, 0, 17, 4242, 4294967295]) {
+  for (const seed of [undefined, 0, 17, 99, 4242, 4294967295]) {
     const fresh = pinned({ op: "create", history: true, seed });
     assert.equal(fresh.ok, true, fresh.error);
     for (const mode of ["stowed", "held dry"]) {
