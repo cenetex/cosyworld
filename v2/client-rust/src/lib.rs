@@ -58,9 +58,31 @@ pub fn hold_dialogue_choice(
     queued || (live && (!complete || speaking || next))
 }
 
+#[derive(Debug, Default)]
+pub struct PendingSpeech {
+    pub shared: bool,
+    pub generating: bool,
+    pub has_line: bool,
+    pub preparing: bool,
+    pub line_first: bool,
+    pub own_play: bool,
+    pub committed: bool,
+}
+
+impl PendingSpeech {
+    pub fn visible(&self) -> bool {
+        let waiting = (self.generating && !self.has_line) || (!self.shared && self.preparing);
+        waiting || (self.own_play && !self.line_first && (self.shared || !self.committed))
+    }
+}
+
+pub fn pending_effect(beats: &[i32]) -> Option<usize> {
+    beats.iter().position(|&beat| beat == 0b111)
+}
+
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use super::{DialoguePresentation, LockedStack, hold_dialogue_choice};
+    use super::{DialoguePresentation, LockedStack, PendingSpeech, hold_dialogue_choice};
     use std::cell::RefCell;
 
     thread_local! {
@@ -139,6 +161,35 @@ mod wasm {
         HAND.with_borrow(|offers| {
             super::matching_pair_action(offers).map_or(-1, |index| index as i32)
         })
+    }
+
+    #[expect(unsafe_code, reason = "Browser ABI export name is unique")]
+    #[unsafe(no_mangle)]
+    extern "C" fn pending_speech(
+        shared: bool,
+        generating: bool,
+        has_line: bool,
+        preparing: bool,
+        line_first: bool,
+        own_play: bool,
+        committed: bool,
+    ) -> bool {
+        PendingSpeech {
+            shared,
+            generating,
+            has_line,
+            preparing,
+            line_first,
+            own_play,
+            committed,
+        }
+        .visible()
+    }
+
+    #[expect(unsafe_code, reason = "Browser ABI export name is unique")]
+    #[unsafe(no_mangle)]
+    extern "C" fn pending_effect() -> i32 {
+        HAND.with_borrow(|beats| super::pending_effect(beats).map_or(-1, |index| index as i32))
     }
 
     #[expect(

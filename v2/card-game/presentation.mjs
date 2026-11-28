@@ -244,6 +244,53 @@ export function holdDialogueChoice({ queued, live, complete, speaking, next }) {
   return Boolean(queued || (live && (!complete || speaking || next)));
 }
 
+export function showPendingSpeech({
+  shared,
+  generating,
+  hasLine,
+  preparing,
+  lineFirst,
+  ownPlay,
+  committed,
+}) {
+  if (viewModel?.pending_speech)
+    return Boolean(
+      viewModel.pending_speech(
+        Boolean(shared),
+        Boolean(generating),
+        Boolean(hasLine),
+        Boolean(preparing),
+        Boolean(lineFirst),
+        Boolean(ownPlay),
+        Boolean(committed),
+      ),
+    );
+  const waiting = shared
+    ? generating && !hasLine
+    : preparing || (generating && !hasLine);
+  return Boolean(waiting || (ownPlay && !lineFirst && (shared || !committed)));
+}
+
+export function pendingEffect(beats, speakerId, turn) {
+  const input = viewModel?.pending_effect && handInput(beats.length);
+  if (input) {
+    beats.forEach((beat, index) => {
+      input[index] =
+        Number(!beat.committed && !beat.line) |
+        (Number(beat.turn === turn) << 1) |
+        (Number(beat.speakerId === speakerId) << 2);
+    });
+    return beats[viewModel.pending_effect()];
+  }
+  return beats.find(
+    (beat) =>
+      !beat.committed &&
+      !beat.line &&
+      beat.turn === turn &&
+      beat.speakerId === speakerId,
+  );
+}
+
 export function phase({
   reviewing = false,
   revealing = false,

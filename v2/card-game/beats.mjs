@@ -11,6 +11,7 @@ import { isSceneText, isSignalEcho } from "./scene.mjs";
 import { consumable, transports } from "./pack-registry.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 import { refusalWhy } from "./want-talk.mjs";
+import { pendingEffect } from "./presentation.mjs";
 
 // Taking a quest from a card (verb "quest") is silent too: no turn, no beat.
 const QUIET_VERBS = new Set(["talk", "quest"]);
@@ -493,13 +494,7 @@ export function sceneBeats(world, options = {}) {
 // on their own cards while the reply is being written.
 export function withPending(beats, { speakerId, turn }) {
   if (!speakerId) return { beats, pending: null };
-  const folded = beats.find(
-    (beat) =>
-      !beat.committed &&
-      !beat.line &&
-      beat.turn === turn &&
-      beat.speakerId === speakerId,
-  );
+  const folded = pendingEffect(beats, speakerId, turn);
   return {
     beats: folded ? beats.filter((beat) => beat !== folded) : beats,
     pending: {
