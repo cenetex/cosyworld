@@ -35,8 +35,14 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if content["schema"] != 1 {
         return None;
     }
-    let mut world = request.get("world")?.clone();
-    mount(&mut world, &content["files"])?;
+    let files = content.get("files")?;
+    let world = if let Some(world) = request.get("world") {
+        let mut world = world.clone();
+        mount(&mut world, files)?;
+        world
+    } else {
+        super::create::mount(files)?
+    };
     Some(json!({"ok": true, "world": world}))
 }
 
