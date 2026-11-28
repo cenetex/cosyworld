@@ -1,8 +1,8 @@
 use super::{
     authored_order::Order, opening, opening_content, opening_full_wait::visible_items,
     opening_pickups::item_as_named, opening_pond_ship_disembark::arrival_event,
-    opening_pond_view::offer, opening_station_move::quiet_opening, opening_view,
-    opening_visitor_routes, pack_state::Catalog, profiles, Geography,
+    opening_pond_view::offer, opening_roster::actor_order, opening_station_move::quiet_opening,
+    opening_view, opening_visitor_routes, pack_state::Catalog, profiles, Geography,
 };
 use serde_json::{json, Value};
 
@@ -38,6 +38,7 @@ fn scene(world: &Value, geo: &Geography<'_>, authored: &Order) -> Option<(bool, 
         || vale["waitSpeech"] != json!({"place":HARBOR,"turn":null})
         || vale["heldItem"] != CLOTH
         || world["items"][CLOTH]["holder"] != VALE
+        || world["items"][ACCOUNTS]["holder"] != HARBOR
         || world["items"]["lamp"]["holder"] != "pond"
         || ["want", "under", "sleeping", "guarding", "offered"]
             .iter()
@@ -105,7 +106,7 @@ fn scene(world: &Value, geo: &Geography<'_>, authored: &Order) -> Option<(bool, 
     let stock = visible_items(world, geo, authored, HARBOR)?;
     match stock.as_slice() {
         [ACCOUNTS, CLOTH] => Some((ada, false)),
-        [ACCOUNTS, RAVEN, CLOTH] => Some((ada, true)),
+        [ACCOUNTS, RAVEN, CLOTH] if world["items"][RAVEN]["holder"] == HARBOR => Some((ada, true)),
         _ => None,
     }
 }
@@ -206,11 +207,21 @@ fn events<'a>(
     Some(travel)
 }
 
-fn reply(mut response: Value, profiles: Value, ada: bool, raven: bool) -> Option<Value> {
+fn reply(
+    mut response: Value,
+    profiles: Value,
+    order: &[&str],
+    ada: bool,
+    raven: bool,
+) -> Option<Value> {
     let name = |id: &str| profiles[id]["name"].as_str();
     let vale = name(VALE)?;
     let cloth = item_as_named(name(CLOTH)?);
-    let company = if ada { &[ADA, MYRTO][..] } else { &[MYRTO][..] };
+    let company: Vec<_> = order
+        .iter()
+        .copied()
+        .filter(|&id| id == MYRTO || (ada && id == ADA))
+        .collect();
     let mut plans = vec![offer(
         "wait",
         None,
@@ -220,7 +231,7 @@ fn reply(mut response: Value, profiles: Value, ada: bool, raven: bool) -> Option
     )];
     for to in EXITS {
         let place = name(to)?;
-        for &actor in company {
+        for &actor in &company {
             let mut accompany = offer(
                 "accompany",
                 None,
@@ -251,7 +262,7 @@ fn reply(mut response: Value, profiles: Value, ada: bool, raven: bool) -> Option
         }
         plans.extend([bare, carried]);
     }
-    for &actor in company {
+    for &actor in &company {
         let person = name(actor)?;
         plans.push(offer(
             "threaten",
@@ -289,7 +300,7 @@ fn reply(mut response: Value, profiles: Value, ada: bool, raven: bool) -> Option
         format!("{vale} puts {cloth} in {}.", name(HARBOR)?),
         &[CLOTH],
     ));
-    for &actor in company {
+    for &actor in &company {
         plans.push(offer(
             "give",
             Some(CLOTH),
@@ -320,6 +331,7 @@ pub(super) fn completed_response(
     mut world: Value,
     geo: &Geography<'_>,
     authored: &Order,
+    order: &[&str],
     before_seq: u64,
     profiles: Value,
 ) -> Option<Value> {
@@ -338,7 +350,7 @@ pub(super) fn completed_response(
         .insert(VALE.into(), json!(VOICES));
     let mut response = opening::stored_response(world)?;
     response["events"] = Value::Array(travel);
-    reply(response, profiles, ada, raven)
+    reply(response, profiles, order, ada, raven)
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
@@ -351,10 +363,12 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
+    let world = request.get("world")?;
     completed_response(
-        request.get("world")?.clone(),
+        world.clone(),
         &geo,
         &authored,
+        &actor_order(request, world)?,
         request["beforeSeq"].as_u64()?,
         profiles::project(&files)?,
     )
@@ -376,5 +390,11 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     events(world, &profiles, ada, raven, true)?;
     let mut response = json!({"ok":true});
     response["world"] = opening_view::private_world(world, request)?;
-    reply(response, profiles, ada, raven)
+    reply(
+        response,
+        profiles,
+        &actor_order(request, world)?,
+        ada,
+        raven,
+    )
 }

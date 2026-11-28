@@ -73,7 +73,8 @@ export function browserRules(bytes) {
           (place === "pond" ||
             place === "station" ||
             place === "greek-ship")) ||
-        (request.op === "view" && place === "station");
+        (request.op === "view" &&
+          (place === "station" || place === "greek-harbor"));
       const ordered =
         [
           "opening_wait_roster",
@@ -92,6 +93,7 @@ export function browserRules(bytes) {
           "opening_pond_ship_course_depart",
           "opening_pond_ship_disembark",
           "opening_ship_disembark_residents",
+          "opening_greek_harbor_view",
           "opening_pond_ship_wait",
           "opening_pond_ship_dock",
           "opening_station_residents",

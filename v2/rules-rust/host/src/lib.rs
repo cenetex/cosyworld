@@ -164,7 +164,8 @@ fn encode_request(
         .and_then(|world| world["actors"]["vale"]["place"].as_str());
     let ordered_room = matches!(
         (op, room),
-        (Some("speech"), Some("pond" | "station" | "greek-ship")) | (Some("view"), Some("station"))
+        (Some("speech"), Some("pond" | "station" | "greek-ship"))
+            | (Some("view"), Some("station" | "greek-harbor"))
     );
     let ordered = matches!(
         op,
@@ -185,6 +186,7 @@ fn encode_request(
                 | "opening_pond_ship_course_depart"
                 | "opening_pond_ship_disembark"
                 | "opening_ship_disembark_residents"
+                | "opening_greek_harbor_view"
                 | "opening_pond_ship_wait"
                 | "opening_pond_ship_dock"
                 | "opening_station_residents"

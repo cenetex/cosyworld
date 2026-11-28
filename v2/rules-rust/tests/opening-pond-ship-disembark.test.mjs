@@ -15,10 +15,11 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
   const reference = currentSharedEngine((source) => {
     const primary =
       "    const respondent = perform(next, exact, round2, residents2);";
-    const settled = "    const rings2 = next.log.filter(";
+    const residents = "    const rings2 = next.log.filter(";
     const planned =
       "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
-    for (const marker of [primary, settled, planned])
+    const settled = "    noteRumours(s, next, wantAPI(next), wantAPI(s));";
+    for (const marker of [primary, settled, planned, residents])
       assert.equal(source.split(marker).length, 2);
     return source
       .replace(
@@ -28,7 +29,7 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
       globalThis.primary = structuredClone(next);`,
       )
       .replace(
-        settled,
+        residents,
         "    if (next.turn === 11) globalThis.afterResidents = structuredClone(next);\n$&",
       )
       .replace(
@@ -36,6 +37,10 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
         `      const action = read2 ?? plan(next, id).action;
       if (next.turn === 11) globalThis.residentPlans.push([id, action.key]);
       perform(next, action, round2, residents2);`,
+      )
+      .replace(
+        settled,
+        "$&\n    if (next.turn === 11) globalThis.settled = structuredClone(next);",
       );
   });
   const run = (request) => {
@@ -45,7 +50,7 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
   };
   const play = (world, action) =>
     run({ ...seats, op: "play", world, action }).world;
-  let sample, adaLanding;
+  let sample, adaLanding, settled;
   for (const seed of [undefined, 2, 17, 4242]) {
     for (const ordered of [false, true]) {
       let world = run({ op: "create", seed }).world;
@@ -124,9 +129,9 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
           JSON.stringify(reference.afterResidents),
         );
         const residentRequest = { op: residentsOp, world: primary };
-        const settled = wasm(residentRequest);
+        const residentReply = wasm(residentRequest);
         assert.ok(
-          isDeepStrictEqual(settled, { ok: true, world: afterResidents }),
+          isDeepStrictEqual(residentReply, { ok: true, world: afterResidents }),
           `residents ${seed} ${ordered} ${key}`,
         );
         const hasAda = seed === undefined;
@@ -164,12 +169,61 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
           assert.ok(isDeepStrictEqual(primary, afterResidents));
           assert.deepEqual(reply.events, [event]);
         }
+        const label = `${seed} ${ordered} ${key}`;
+        settled = {
+          ...seats,
+          op: "opening_greek_harbor_view",
+          world: JSON.parse(JSON.stringify(reference.settled)),
+          beforeSeq: world.eventSeq,
+        };
+        assert.ok(
+          isDeepStrictEqual(wasm(settled), reply),
+          `Harbor reply ${label}`,
+        );
+        if (cloth) {
+          const spoken = run({
+            ...seats,
+            op: "speech",
+            world: reply.world,
+            room: harbor,
+            lines: [
+              { actorId: "vale", text: "Good to see the shore." },
+              {
+                actorId: "greek-shipmaster",
+                text: "The tides brought you here.",
+              },
+              { entityId: harbor, text: "Surf washes around the quay." },
+            ],
+          }).world;
+          assert.equal(spoken.eventSeq, reply.world.eventSeq + 3);
+          for (const present of [seats.present, []]) {
+            const reload = { ...seats, op: "view", world: spoken, present };
+            assert.ok(
+              isDeepStrictEqual(wasm(reload), run(reload)),
+              `Harbor reload ${label} ${present.length}`,
+            );
+          }
+          assert.equal(
+            wasm({
+              ...seats,
+              op: "view",
+              world: spoken,
+              claimed: [],
+              present: [],
+            }),
+            null,
+          );
+        }
       }
     }
   }
   assert.equal(wasm({ ...sample, present: [] }), null);
   assert.equal(wasm({ ...sample, revision: sample.revision - 1 }), null);
   assert.equal(wasm({ ...sample, action: `move:vale:lamp:${harbor}` }), null);
+  assert.equal(wasm({ ...settled, beforeSeq: settled.beforeSeq - 1 }), null);
+  const wrongTablet = structuredClone(settled.world);
+  wrongTablet.items["greek-helen-accounts"].holder = "greek-shipmaster";
+  assert.equal(wasm({ ...settled, world: wrongTablet }), null);
   for (const mutate of [
     (world) => {
       world.transports[ship].riders = [];
