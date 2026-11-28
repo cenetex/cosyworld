@@ -20,6 +20,6 @@ export async function reducers(artifact = process.env.COSYWORLD_RULES_WASM) {
   return {
     pinned: (request) =>
       JSON.parse(reference.cardShared(JSON.stringify(request))),
-    wasm: (request) => guest(request, pack),
+    wasm: (request, packContentJson = pack) => guest(request, packContentJson),
   };
 }

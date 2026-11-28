@@ -17,8 +17,7 @@ use std::{
 pub(super) fn current_source() -> &'static str {
     source(version()).expect("the current rules bundle")
 }
-// A world saved by rules newer than this server's: a release swap briefly
-// runs the older build (docs/release.md), so the world waits, unchanged.
+// An older server pauses a newer world during a release swap (docs/release.md).
 pub(super) const UPDATING: &str = "This world is updating. Back in a moment.";
 pub(super) fn newer(version: &str) -> bool {
     let number = |v: &str| v.strip_prefix("full-card-world/")?.parse::<u32>().ok();

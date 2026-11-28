@@ -173,6 +173,10 @@ pub(super) fn join_state(request: &Value) -> Option<Value> {
     opening.respond(world, held)
 }
 
+pub(super) fn supported_world(request: &Value) -> Option<&Value> {
+    Some(Opening::supported(request)?.world)
+}
+
 pub(super) fn hold(request: &Value) -> Option<Value> {
     let present = request["present"].as_array()?;
     if request["actor"] != "vale" || !present.iter().any(|id| id == "vale") {
