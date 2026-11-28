@@ -205,7 +205,7 @@ pub(super) fn settled_first_wait(world: &Value) -> Option<u64> {
     (ordinary_attic_wait(wait) && wait["turn"] == turn && actions.next().is_none()).then_some(turn)
 }
 
-fn vale_action(entry: &Value) -> bool {
+pub(super) fn vale_action(entry: &Value) -> bool {
     entry["kind"] == "action" && entry["actorId"] == ACTOR && entry["generated"] != true
 }
 

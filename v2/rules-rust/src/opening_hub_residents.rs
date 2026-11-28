@@ -1,5 +1,6 @@
 use super::{
-    create_geography::Geography, opening, opening_content, opening_play, pack_state::Catalog,
+    create_geography::Geography, opening, opening_content, opening_mirror_move, opening_play,
+    pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 
@@ -136,8 +137,30 @@ pub(super) fn confirm_second_idle(world: &Value, geo: &Geography) -> Option<()> 
 
 pub(super) fn keeper_idle_after_move(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    let turn = world["turn"].as_u64()?;
+    if turn == 2 && began == 0 {
+        opening_mirror_move::second_arrival(world)?;
+        let event = world["log"].as_array()?.last()?;
+        if event["seq"] != world["eventSeq"]
+            || event["turn"] != turn
+            || event["actorId"] != MOTH
+            || event["verb"] != "ask"
+            || event["itemId"] != "lamp"
+            || event["targetId"] != "vale"
+            || event["accepted"] != false
+            || !world["standoffs"].as_array()?.is_empty()
+        {
+            return None;
+        }
+        for (id, actor) in world["actors"].as_object()? {
+            if id != KEEPER && actor["place"] == "station" && geo.entity_active(world, id)? {
+                return None;
+            }
+        }
+    } else if turn != began.checked_add(1)? {
+        return None;
+    }
     if world["actors"]["vale"]["place"] != "pond"
-        || world["turn"].as_u64()? != began.checked_add(1)?
         || world["items"]["lamp"]["holder"] != "vale"
         || world["items"]["bell"]["holder"] != "station"
         || world["items"]["bell"]["ringing"] != 0

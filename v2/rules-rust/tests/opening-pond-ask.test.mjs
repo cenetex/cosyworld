@@ -13,8 +13,13 @@ function capturePip(source) {
   assert.equal(source.split(boundary).length, 2);
   return source.replace(
     boundary,
-    `${boundary}
-      if (id === "moth") globalThis.pipAsk = structuredClone(next);`,
+    `      const chosen = read2 ?? plan(next, id).action;
+      perform(next, chosen, round2, residents2);
+      if (id === "moth") globalThis.pipAsk = structuredClone(next);
+      if (id === "keeper") {
+        globalThis.keeperWait = structuredClone(next);
+        globalThis.keeperPlan = chosen.key;
+      }`,
   );
 }
 
@@ -75,6 +80,59 @@ test("Pip's first request records the pinned refusal and learning trial", async 
         }
       }
     }
+  }
+});
+
+test("Pip asks after the second-turn mirror crossing and the Keeper waits silently", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(capturePip);
+  let request;
+  for (const seed of [undefined, 0, 17, 4242, 4_294_967_295]) {
+    for (const mode of ["stowed", "dry"]) {
+      let { world } = pinned({ op: "create", seed });
+      if (mode === "stowed") {
+        ({ world } = pinned({
+          ...seats, op: "hold", world,
+          choice: { item: null, revision: world.revision },
+        }));
+      } else {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      }
+      const waited = pinned({ ...seats, op: "play", world, action: "wait:vale::" });
+      assert.equal(waited.ok, true, waited.error);
+      const sorted = Object.fromEntries(Object.entries(waited.world.actors).toSorted());
+      for (const actors of [waited.world.actors, sorted]) {
+        for (const key of routes) {
+          request = {
+            ...seats, world: { ...waited.world, actors },
+            action: actors === sorted ? { key } : key, revision: waited.world.revision,
+          };
+          reference.pipAsk = reference.keeperWait = undefined;
+          const played = JSON.parse(reference.cardShared(JSON.stringify({ ...request, op: "play" })));
+          assert.equal(played.ok, true, played.error);
+          const label = JSON.stringify({ seed, mode, key, sorted: actors === sorted });
+          assert.equal(reference.keeperPlan, "wait:keeper::", label);
+          const expected = JSON.parse(JSON.stringify(reference.pipAsk));
+          assert.deepEqual(JSON.parse(JSON.stringify(reference.keeperWait)), expected, label);
+          const actual = wasm({ ...request, op: "opening_pond_ask" });
+          assert.ok(actual, `unsupported ${label}`);
+          assert.ok(isDeepStrictEqual(actual, { ok: true, world: expected }), label);
+          const event = actual.world.log.at(-1);
+          assert.equal(event.seq, actual.world.arrival.seq + 1);
+          assert.equal(actual.world.actors.moth.lastTalk, 2);
+          assert.equal(actual.world.memories.moth.learning[0].turn, 2);
+        }
+      }
+    }
+  }
+  for (const change of [
+    (world) => { world.actors.moth.want.refusals = 1; },
+    (world) => { world.items["keeper-log"].holder = "keeper"; },
+    (world) => { world.actors.mara.place = "station"; },
+  ]) {
+    const world = structuredClone(request.world);
+    change(world);
+    assert.equal(wasm({ ...request, op: "opening_pond_ask", world }), null);
   }
 });
 

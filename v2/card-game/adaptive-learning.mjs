@@ -1,5 +1,4 @@
-// Online action values come from completed plays. The game supplies legal
-// actions and goals; experience supplies each avatar's estimates and choices.
+// Completed plays teach each avatar to value legal actions against its goals.
 import { grievanceActive } from "./knowledge.mjs";
 import { quietWant } from "./want.mjs";
 export const TRIAL_LIMIT = 32;
