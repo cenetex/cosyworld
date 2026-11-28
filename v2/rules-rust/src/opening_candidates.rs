@@ -102,7 +102,7 @@ pub(super) fn fill(
             || !context.active.contains(id)
             || !world["actors"][id]["want"].is_null()
             || world["actors"][id]["completedQuest"].is_object()
-            || model_waiting(world, id)
+            || super::elysium::model_waiting(world, id)
         {
             continue;
         }
@@ -157,18 +157,6 @@ pub(super) fn fill(
         }
     }
     Some(())
-}
-
-fn model_waiting(world: &Value, id: &str) -> bool {
-    matches!(
-        id,
-        "elysium-claude"
-            | "elysium-gemini"
-            | "elysium-chatgpt"
-            | "elysium-grok"
-            | "elysium-deepseek"
-            | "elysium-qwen"
-    ) && world["elysiumEncounters"][id]["portraitReady"] != true
 }
 
 fn resident_range(

@@ -32,7 +32,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     opening::stored_response(verified_opening(world, files()?)?)
 }
 
-pub(super) fn import_refusal(request: &Value) -> Option<Value> {
+pub(super) fn import(request: &Value) -> Option<Value> {
     let save = request.get("save").filter(|save| !save.is_null())?;
     let mut world = match save {
         Value::String(text) => serde_json::from_str(text).ok()?,
@@ -53,13 +53,30 @@ pub(super) fn import_refusal(request: &Value) -> Option<Value> {
         fields.remove(field);
     }
     let files = OnceCell::new();
-    load_header(&world, || {
+    let files = || {
         files
             .get_or_init(|| opening_content::files(request))
             .as_ref()
-    })?
-    .err()
-    .and_then(refused)
+    };
+    if let Err(error) = load_header(&world, files)? {
+        return refused(error);
+    }
+    let actor = &request["actor"];
+    if (truthy(actor) && actor != "vale")
+        || (world.get("run").is_none() && !request["seed"].is_null())
+        || world["revision"].as_u64() != Some(opening::unplayed_turn(&world)?)
+    {
+        return None;
+    }
+    for actor in world["actors"].as_object_mut()?.values_mut() {
+        actor.as_object_mut()?.remove("upgrades");
+    }
+    let files = files()?;
+    let world = verified_opening(&world, files)?;
+    if !super::elysium::import_preserves_state(&world)? {
+        return None;
+    }
+    super::opening_view::create_response(world, files, "vale")
 }
 
 fn load_header<'a>(

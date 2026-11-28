@@ -1,5 +1,4 @@
-//! Each `globalThis.cardContent` revision is stored by SHA-256 in
-//! `card_full_packs` before any reference and verified on replay.
+//! Save `globalThis.cardContent` revisions in `card_full_packs` before use and verify SHA-256 on replay.
 use super::store::{sql_error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest, Sha256};
