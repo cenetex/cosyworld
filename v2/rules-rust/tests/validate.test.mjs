@@ -220,9 +220,54 @@ test("import preflight refuses definite shape and save header failures", async (
     );
   }
 
-  const { world } = pinned({ op: "create", seed: 4242, history: true });
-  const request = { op: "create", save: JSON.stringify(world), seed: 4321 };
-  assert.equal(pinned(request).ok, true);
-  assert.equal(wasm(request), null);
-  assert.equal(wasm({ ...request, save: "not-json" }), null);
+  assert.equal(wasm({ op: "create", save: "not-json" }), null);
+});
+
+test("pristine opening imports retain the complete pinned response and saved seed", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [undefined, 0, 4242, 0xffffffff]) {
+    for (const history of [false, true]) {
+      const fresh = pinned({ op: "create", seed, history });
+      const save = structuredClone(fresh.world);
+      save.sharedMigration = { recovery: "untrusted" };
+      save.controlledActors = ["mara"];
+      save.playerActorId = "mara";
+      save.present = ["mara"];
+      save.actors.vale.upgrades = ["ember-script"];
+      for (const input of [save, JSON.stringify(save)]) {
+        const request = {
+          op: "create",
+          save: input,
+          history: !history,
+          seed: seed === undefined ? undefined : 4321,
+        };
+        const expected = pinned(request);
+        assert.deepEqual(
+          expected,
+          fresh,
+          `pinned seed ${seed} history ${history}`,
+        );
+        assert.deepEqual(
+          wasm(request),
+          expected,
+          `seed ${seed} history ${history}`,
+        );
+      }
+    }
+  }
+});
+
+test("opening import defers modified worlds and newly assigned seeds", async () => {
+  const { pinned, wasm } = await reducers();
+  const { world } = pinned({ op: "create", history: true });
+  const seeded = { op: "create", save: world, seed: 4242 };
+  assert.equal(pinned(seeded).world.run.seed, 4242);
+  assert.equal(wasm(seeded), null);
+  const modified = hold(pinned, world, "lamp");
+  const imported = { op: "create", save: modified };
+  assert.equal(pinned(imported).ok, true);
+  assert.equal(wasm(imported), null);
+  const invalid = structuredClone(world);
+  invalid.actors.vale.visited.push("attic");
+  assert.equal(wasm({ op: "create", save: invalid }), null);
 });

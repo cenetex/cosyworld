@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 
 mod create;
 mod create_geography;
+mod elysium;
 mod initial_wants;
 mod join;
 mod opening;

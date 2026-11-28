@@ -42,6 +42,8 @@ The candidate reproduces save validation refusals for unsupported schemas, incom
 
 The Rust validator rebuilds a Vale opening save from the authored pack data, using the saved seed and opening history when present. It can also reconstruct the first two quiet lamp holds. Every saved field must match the rebuilt state.
 
+Import can reopen a pristine shared Vale opening from an object or JSON string. It discards account context and upgrades, checks the complete saved state, and keeps the save's original seed.
+
 Replay passes the original, hash-verified pack JSON to the candidate as `packContentJson`. The guest receives these exact bytes in a JSON string, preserving author order for reducers that need it.
 
 With the Rust `wasm32-unknown-unknown` target installed, build and replay a candidate from the repository root.

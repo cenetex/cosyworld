@@ -227,7 +227,7 @@ fn begin_shared(world: &mut Value, files: &Value) -> Option<()> {
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     if !request["save"].is_null() {
-        return validate::import_refusal(request);
+        return validate::import(request);
     }
     if !matches!(request["actor"].as_str(), None | Some("vale" | "")) {
         return None;
