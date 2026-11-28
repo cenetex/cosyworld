@@ -461,7 +461,9 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         "station_departure_after_wants" => {
             let mut next = world.clone();
             settle_station_departure_after_wants(request.get("before")?, &mut next, &geo)?;
-            return Some(json!({"ok":true,"world":next}));
+            let mut response = json!({"ok":true});
+            response["world"] = next;
+            return Some(response);
         }
         "historic_station" => {
             let mut world = world.clone();

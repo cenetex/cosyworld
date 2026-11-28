@@ -155,7 +155,6 @@ describe("rest and sanctuary", () => {
     s.actors.vale.place = "station";
     s.actors.keeper.place = "attic";
     s.actors.moth.place = "pond";
-    // Neither resident is after anything, so each waits where it is.
     s.actors.keeper.want = s.actors.moth.want = null;
     s.actors.keeper.metTurn = s.actors.moth.metTurn = 0;
     s.defeats = { keeper: 2, moth: 2 };

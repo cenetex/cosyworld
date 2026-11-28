@@ -1,8 +1,8 @@
 use super::{
     create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
-    opening_company, opening_content, opening_mirror_move, opening_play, opening_resident_sleep,
-    opening_stale_wants, opening_station_move, opening_station_read, opening_station_view,
-    opening_wait_response::vale_action, pack_state::Catalog,
+    opening_company, opening_content, opening_mirror_move, opening_play, opening_pond_call_view,
+    opening_resident_sleep, opening_stale_wants, opening_station_move, opening_station_read,
+    opening_station_view, opening_wait_response::vale_action, pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -390,6 +390,40 @@ pub(super) fn settle_keeper_return(world: &mut Value, geo: &Geography<'_>) -> Op
     settle_wants(world, geo, 5, true, false, opening_company::fade_trust)
 }
 
+fn keeper_cloth_route(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<Value> {
+    let read = opening_pond_call_view::station_cloth_gift(before)?;
+    let (_, arrival_read) = opening_pond_call_view::cloth_arrival(world, false)?;
+    let lamp = &world["items"]["lamp"];
+    let old_lamp = &before["items"]["lamp"];
+    if read != arrival_read
+        || before["actors"]["vale"]["place"] != "station"
+        || lamp["fuelPlace"] != "pond"
+        || old_lamp["fuelPlace"] != "station"
+        || ["fuel", "fuelRooms", "fuelVisit"]
+            .iter()
+            .any(|field| lamp[*field] != old_lamp[*field])
+    {
+        return None;
+    }
+    for frame in [before, world] {
+        if frame["actors"]["vale"]["heldItem"] != "cloth"
+            || frame["life"]["actors"]["vale"]["attachments"]
+                != json!({"cloth":{"from":"moth","turn":5}})
+            || frame["items"]["cloth"]["holder"] != "vale"
+            || frame["items"]["lamp"]["holder"] != "vale"
+            || frame["items"]["lamp"]["lit"] != false
+            || frame["items"].as_object()?.iter().any(|(id, item)| {
+                (item["holder"] == "vale" && !matches!(id.as_str(), "lamp" | "cloth"))
+                    || item["holder"] == "lamp"
+                    || item["holder"] == "cloth"
+            })
+        {
+            return None;
+        }
+    }
+    opening_station_read::keeper_want_from_read(before, geo, read)
+}
+
 pub(super) fn station_departure_turn(
     before: &Value,
     world: &Value,
@@ -402,6 +436,7 @@ pub(super) fn station_departure_turn(
             (3, Value::Null)
         }
         (3, "pond") => (4, opening_station_read::keeper_want(before, geo)?),
+        (5, "pond") => (6, keeper_cloth_route(before, world, geo)?),
         _ => return None,
     };
     station_wants_state(world, "station", &want)?;
@@ -419,7 +454,9 @@ pub(super) fn station_departure_turn(
         || event["fromLocationId"] != "station"
         || event["targetId"] != to
         || event["locationId"] != to
-        || !(event["itemId"].is_null() || event["itemId"] == "lamp")
+        || !(event["itemId"].is_null()
+            || event["itemId"] == "lamp"
+            || (turn == 6 && event["itemId"] == "cloth"))
         || before["actors"]["vale"].get("want") != Some(&want)
         || before["items"]["lamp"]["holder"] != "vale"
         || world["actors"]["vale"]["place"] != to
@@ -456,7 +493,9 @@ pub(super) fn round_projection(request: &Value) -> Option<Value> {
         }
         _ => return None,
     }
-    Some(json!({"ok":true, "world":world}))
+    let mut response = json!({"ok":true});
+    response["world"] = world;
+    Some(response)
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
