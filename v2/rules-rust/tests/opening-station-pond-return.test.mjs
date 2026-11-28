@@ -32,6 +32,15 @@ function tracePrimary(source) {
       `    if (${drop}) globalThis.${frame} = structuredClone(s);\n${target}`,
     );
   }
+  const narration = "    narrateCall();";
+  assert.equal(source.split(narration).length, 2);
+  source = source.replace(
+    narration,
+    `
+    if (${drop}) globalThis.beforeCallNarration = structuredClone(s);
+${narration}
+    if (${drop}) globalThis.afterCallNarration = structuredClone(s);`,
+  );
   const pending = "    const narrate = () => {";
   assert.equal(source.split(pending).length, 2);
   return source.replace(
@@ -219,6 +228,32 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
           `signal ${label}`,
         );
         assert.equal(crossing.pending.length, dry ? 0 : sorted ? 1 : 2);
+        assert.ok(
+          isDeepStrictEqual(recorded.world, cut("beforeCallNarration")),
+          `before narration ${label}`,
+        );
+        const narration = {
+          op: "opening_pond_call",
+          phase: "narrate",
+          world: recorded.world,
+          pending: crossing.pending,
+        };
+        const narrated = wasm(narration);
+        assert.ok(
+          isDeepStrictEqual(narrated, {
+            ok: true,
+            world: cut("afterCallNarration"),
+          }),
+          `narration ${label}`,
+        );
+        if (crossing.pending.length === 2) {
+          assert.equal(
+            wasm({ ...narration, pending: [...crossing.pending].reverse() }),
+            null,
+          );
+        }
+        if (!dry)
+          assert.equal(wasm({ ...narration, world: narrated.world }), null);
         assert.equal(
           wasm({ ...drop, op, phase: "ground", revision: ready.revision - 1 }),
           null,

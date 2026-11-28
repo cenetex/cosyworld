@@ -244,7 +244,6 @@ try {
     await ready();
     await assertShut("attic");
     const departed = away;
-    // A save arriving from another tab also rebuilds availability and selection.
     departed.items.lamp.holder = "vale";
     departed.actors.moth.heldItem = null;
     holdChoice(departed, "vale", { item: "lamp", revision: departed.revision });

@@ -1,7 +1,14 @@
 use super::{
-    opening_content, opening_crossings::no_crossing_unlocks_except,
-    opening_pond_call_view::cloth_arrival, opening_pond_lamp_drop::quiet_cloth,
-    opening_roster::actor_order, opening_station_read::keeper_want_from_read, pack_state::Catalog,
+    authored_order::Order,
+    opening::MAX_REVISION,
+    opening_content,
+    opening_crossings::no_crossing_unlocks_except,
+    opening_pond_call_view::{cloth_arrival, completion_owners},
+    opening_pond_lamp_drop::{quiet_cloth, quiet_items},
+    opening_roster::actor_order,
+    opening_station_read::keeper_want_from_read,
+    pack_state::Catalog,
+    resident_evidence::ResidentEvidence,
     Geography,
 };
 use serde_json::{json, Value};
@@ -161,13 +168,121 @@ pub(super) fn settle(world: &mut Value, geo: &Geography<'_>, order: &[&str]) -> 
     Some(pending)
 }
 
+fn completion_line(
+    world: &Value,
+    evidence: &ResidentEvidence,
+    queued: &Value,
+    owner: &str,
+) -> Option<Value> {
+    let receipt = &world["actors"][owner]["completedQuest"];
+    let want = receipt.get("want")?;
+    let since = if owner == VALE { 3 } else { 0 };
+    let source = if owner == VALE {
+        Some("quest:from:keeper")
+    } else {
+        None
+    };
+    if receipt["by"] != VALE
+        || receipt["turn"] != 7
+        || want["kind"] != "place"
+        || want["target"] != POND
+        || want["since"] != since
+        || want["from"].as_str() != source
+        || want["refusals"] != 0
+        || want["step"] != json!({"verb":"call","crossing":SIGNAL})
+        || *queued != json!([VALE, want, owner])
+    {
+        return None;
+    }
+    let caller = evidence.profile(VALE)?["name"].as_str()?;
+    let recipient = evidence.profile(owner)?["name"].as_str()?;
+    Some(json!({
+        "speaker":"World", "text":format!("{caller} calls the ship for {recipient}."),
+        "kind":"narration", "actorId":VALE, "verb":"want_met", "locationId":POND,
+        "ownerId":owner, "wantMet":{"kind":"place","target":POND},
+        "wantKey":format!("{VALE}:place:{POND}:{since}::{TERMS}"),
+    }))
+}
+
+pub(super) fn narrate(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    evidence: &ResidentEvidence,
+    pending: &[Value],
+) -> Option<()> {
+    let (arrival, read) = cloth_arrival(world, true)?;
+    let drop_seq = arrival.checked_add(1)?;
+    let drop = world["log"].as_array()?.last()?;
+    let lamp = &world["items"]["lamp"];
+    let lit = lamp["lit"].as_bool()?;
+    let gate = if lit {
+        json!({"discovered":true,"method":"pond-lamp"})
+    } else {
+        json!({"discovered":false})
+    };
+    let items = quiet_items(world, geo, authored)?;
+    let witnesses: Vec<_> = std::iter::once(VALE).chain(items.iter().copied()).collect();
+    if drop["seq"] != drop_seq
+        || world["eventSeq"] != drop_seq
+        || drop["fromLocationId"] != POND
+        || drop["cast"] != json!([VALE])
+        || drop["light"] != lit
+        || drop["witnesses"] != json!(witnesses)
+        || world["actors"][VALE]["place"] != POND
+        || world["actors"][VALE]["heldItem"] != "cloth"
+        || world["items"]["cloth"]["holder"] != VALE
+        || lamp["holder"] != POND
+        || world["playerActorId"] != VALE
+        || ["heldActors", "controlledActors", "presentActors"]
+            .iter()
+            .any(|key| world[*key] != json!([VALE]))
+        || world["crossings"][SIGNAL] != gate
+    {
+        return None;
+    }
+    for (id, actor) in world["actors"].as_object()? {
+        if id != VALE && actor["place"] == POND && geo.entity_active(world, id)? {
+            return None;
+        }
+    }
+    if !lit {
+        return (pending.is_empty()
+            && world["actors"][VALE]["want"] == keeper_want_from_read(world, geo, read)?)
+        .then_some(());
+    }
+    let owners = completion_owners(world);
+    if owners.len() != pending.len()
+        || drop_seq.checked_add(pending.len() as u64)? > MAX_REVISION
+        || world["transports"][SHIP]["dock"] != POND
+        || world["actors"][VALE]["closed"]["quest:from:keeper"] != json!([7, TERMS])
+    {
+        return None;
+    }
+    let lines = pending
+        .iter()
+        .zip(owners)
+        .map(|(record, owner)| completion_line(world, evidence, record, owner))
+        .collect::<Option<Vec<_>>>()?;
+    for line in lines {
+        evidence.record(world, &[VALE], &items, line, true)?;
+    }
+    Some(())
+}
+
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let saved = request.get("world")?;
-    let order = actor_order(request, saved)?;
-    let (files, _) = opening_content::wait_files(request)?;
+    let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = saved.clone();
+    if request["phase"] == "narrate" {
+        let pending = request["pending"].as_array()?;
+        let evidence = ResidentEvidence::new(&files)?;
+        narrate(&mut world, &geo, &authored, &evidence, pending)?;
+        return Some(json!({"ok":true,"world":world}));
+    }
+    let order = actor_order(request, saved)?;
     let pending = settle(&mut world, &geo, &order)?;
     Some(json!({"ok":true,"world":world,"pending":pending}))
 }

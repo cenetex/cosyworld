@@ -139,6 +139,14 @@ fn drop_receipt(world: &Value) -> Option<u64> {
     cloth_arrival(world, true)?.0.checked_add(1)
 }
 
+pub(super) fn completion_owners(world: &Value) -> &'static [&'static str] {
+    if world["actors"][VALE]["completedQuest"].is_null() {
+        &["keeper"]
+    } else {
+        &[VALE, "keeper"]
+    }
+}
+
 fn signal_events(world: &Value, seq: u64, allow_speech: bool) -> Option<&[Value]> {
     let log = world["log"].as_array()?;
     let start = log.iter().position(|entry| entry["seq"] == seq)?;
@@ -151,11 +159,7 @@ fn signal_events(world: &Value, seq: u64, allow_speech: bool) -> Option<&[Value]
     let [drop, middle @ .., reflection] = committed else {
         return None;
     };
-    let owners: &[&str] = if world["actors"][VALE]["completedQuest"].is_null() {
-        &["keeper"]
-    } else {
-        &[VALE, "keeper"]
-    };
+    let owners = completion_owners(world);
     let (calls, offstage) = middle.split_at_checked(owners.len())?;
     if (!allow_speech && !speech.is_empty())
         || drop["light"] != true
