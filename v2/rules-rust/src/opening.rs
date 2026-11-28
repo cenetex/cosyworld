@@ -45,6 +45,24 @@ impl Opening {
     }
 
     fn with_seats(world: &Value, actor: &str, claimed: &[&str], present: &[&str]) -> Option<Self> {
+        Self::at_turn(
+            world,
+            actor,
+            claimed,
+            present,
+            unplayed_turn(world)?,
+            station_order(world)?,
+        )
+    }
+
+    fn at_turn(
+        world: &Value,
+        actor: &str,
+        claimed: &[&str],
+        present: &[&str],
+        turn: u64,
+        station: Vec<&'static str>,
+    ) -> Option<Self> {
         let actors = world["actors"].as_object()?;
         let items = world["items"].as_object()?;
         let vale = actors.get("vale")?;
@@ -52,7 +70,6 @@ impl Opening {
         let lamp = lamp_state(saved_lamp).ok()?;
         let grounded = saved_lamp["holder"] == "attic";
         let revision = world["revision"].as_u64().filter(|n| *n <= MAX_REVISION)?;
-        let turn = unplayed_turn(world)?;
         let held = holds_lamp(vale.get("heldItem")?)?;
         let away_from_station = |id: &str| {
             actors
@@ -88,7 +105,7 @@ impl Opening {
             held,
             grounded,
             revision,
-            station: station_order(world)?,
+            station,
         })
     }
 
@@ -191,6 +208,22 @@ pub(super) fn join_state(request: &Value) -> Option<Value> {
 
 pub(super) fn supported_world(request: &Value) -> Option<&Value> {
     Some(Opening::supported(request)?.0)
+}
+
+pub(super) fn supported_after_first_turn(request: &Value) -> Option<&Value> {
+    let world = request.get("world")?;
+    if world["turn"] != 1 || world.get("began").is_some_and(|began| began != 0) {
+        return None;
+    }
+    Opening::at_turn(
+        world,
+        request["actor"].as_str()?,
+        &seats(&request["claimed"])?,
+        &seats(&request["present"])?,
+        1,
+        Vec::new(),
+    )?;
+    Some(world)
 }
 
 pub(super) fn hold(request: &Value) -> Option<Value> {

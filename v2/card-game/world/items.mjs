@@ -1,4 +1,3 @@
-// Item lookups: who holds what and whether it is carried or lit.
 import { entityActive } from "../pack-registry.mjs";
 
 // Holder chains are a few links deep, so the walk tracks visits only when a

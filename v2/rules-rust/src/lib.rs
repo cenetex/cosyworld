@@ -40,6 +40,7 @@ pub mod opening_rumours;
 mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
+mod opening_take;
 mod opening_view;
 mod opening_visitor_routes;
 mod opening_wait;
@@ -145,6 +146,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
         Some("opening_drop_step") => opening_drop::projection(request).unwrap_or(Value::Null),
+        Some("opening_take_step") => opening_take::projection(request).unwrap_or(Value::Null),
         Some("opening_drop_reflection") => {
             opening_grounded_lamp::projection(request).unwrap_or(Value::Null)
         }
