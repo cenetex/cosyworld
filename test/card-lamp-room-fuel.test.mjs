@@ -69,7 +69,6 @@ describe("inactive three-room lamp fuel", () => {
   });
   it("has the same movement rule for an NPC, player, or transport carrier", () => {
     const route = ["pond", "greek-ship", "greek-harbor"];
-    // The adapter supplies actual lamp places, never the viewer's camera.
     const moved = route.reduce(
       (state, place) => hold(state, place),
       filledLampRoomFuel("station"),
