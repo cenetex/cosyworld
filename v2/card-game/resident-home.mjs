@@ -4,8 +4,7 @@
 //
 // `world-life.json` has global and per-pack defaults, resident `range` (hops),
 // `sails`, `sleep` (clock turns or null), `guards` and guardable ways. The
-// file sits beside the packs so released rules v93–v99 can still read it.
-// See docs/design/rules-100-world-life.md.
+// file sits beside packs for v93–v99. See docs/design/rules-100-world-life.md.
 import forest from "./forest.json" with { type: "json" };
 import life from "./world-life.json" with { type: "json" };
 import {
