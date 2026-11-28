@@ -98,9 +98,15 @@ pub(super) fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool
 
 pub(super) fn departure_turn(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
-    let to = world["actors"][VALE]["place"].as_str()?;
+    let vale = &world["actors"][VALE];
+    let to = vale["place"].as_str()?;
     let event = world["log"].as_array()?.last()?;
-    (matches!((turn, to), (3, BEHIND) | (4, POND))
+    let allowed = match (turn, to) {
+        (3, BEHIND) | (4, POND) => true,
+        (6, POND) => vale["heldItem"] == CLOTH && vale["want"]["from"] == "quest:from:keeper",
+        _ => false,
+    };
+    (allowed
         && world["arrival"]["fromLocationId"] == STATION
         && world["arrival"]["locationId"] == to
         && world["arrival"]["seq"] == world["eventSeq"]
