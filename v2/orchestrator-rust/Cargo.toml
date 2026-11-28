@@ -6,6 +6,7 @@ publish = false
 
 [features]
 embedded-llama = ["dep:llama-cpp-2"]
+local-tooling = ["reqwest/blocking", "tokio/process"]
 rules-wasm = ["dep:cosyworld-rules-host"]
 
 [dependencies]

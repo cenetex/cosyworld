@@ -146,6 +146,7 @@ jobs:
           sparse-checkout: |
             v2/orchestrator-rust
             v2/ai-model-rust
+            v2/local
             v2/rules-rust
       - uses: dtolnay/rust-toolchain@stable
         with:

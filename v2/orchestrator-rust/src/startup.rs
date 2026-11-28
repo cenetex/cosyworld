@@ -2,9 +2,17 @@ use super::*;
 
 use axum::Router;
 
+#[cfg(feature = "local-tooling")]
+#[path = "local_tooling.rs"]
+mod local_tooling;
+
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:3102";
 
 pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(feature = "local-tooling")]
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("local")) {
+        return Ok(local_tooling::run(std::env::args_os().skip(2)).await?);
+    }
     let boot_started = Instant::now();
     if std::env::args().nth(1).as_deref() == Some("--check-assets") {
         check_assets()?;
