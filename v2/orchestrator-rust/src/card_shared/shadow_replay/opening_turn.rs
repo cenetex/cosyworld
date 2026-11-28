@@ -131,6 +131,33 @@ fn sqlite_rules_wasm_parity_replays_station_after_the_first_pond_move() -> Resul
 }
 
 #[test]
+fn sqlite_rules_wasm_parity_replays_the_first_move_behind_station() -> Result<()> {
+    let id = "first-move-behind-station";
+    let (mut c, state, calls) = commit_opening_turns(
+        id,
+        unseeded_opening()?,
+        true,
+        &[
+            BARE_POND_MOVE,
+            BARE_STATION_MOVE,
+            ("move:vale::behind-station", |lamp, reply| {
+                check_quiet_station_departure(lamp, reply, "behind-station");
+                let world = &reply["world"];
+                assert_eq!(world["turn"], 3);
+                assert_eq!(world["actors"]["vale"]["want"], Value::Null);
+                assert_eq!(
+                    world["actors"]["vale"]["visited"],
+                    json!(["attic", "pond", "station", "behind-station"])
+                );
+                assert_eq!(world["items"]["ratiradio-station-key"]["holder"], "pond");
+            }),
+        ],
+    )?;
+    verify_opening_journal(&mut c, id, &calls)?;
+    verify_station_departure_reload(&c, id, &state, "behind-station", 8)
+}
+
+#[test]
 fn sqlite_rules_wasm_parity_replays_the_first_keeper_log_read() -> Result<()> {
     replay_opening_turns(
         "first-keeper-log-read",
@@ -337,6 +364,28 @@ fn check_bare_station_move(lamp: &Value, reply: &Value) {
     assert_eq!(world["actors"]["moth"]["place"], "station");
     assert_eq!(world["opening"]["met"]["keeper"], world["turn"]);
     assert_eq!(world["speechVoices"]["vale"], json!(["vale", "keeper"]));
+}
+
+fn check_quiet_station_departure(lamp: &Value, reply: &Value, destination: &str) {
+    check_bare_move(lamp, reply, "station", destination);
+    let [departure] = reply["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected Vale's single Station departure");
+    };
+    let world = &reply["world"];
+    assert_eq!(departure["kind"], "action");
+    assert_eq!(departure["cast"], json!(["vale"]));
+    let witnesses = departure["witnesses"].as_array().unwrap();
+    assert_eq!(
+        witnesses[..3],
+        [json!("vale"), json!("moth"), json!("keeper")]
+    );
+    for resident in ["moth", "keeper"] {
+        assert_eq!(world["actors"][resident]["place"], "station");
+    }
+    assert_eq!(world["eventSeq"], departure["seq"]);
+    assert_eq!(world["speechVoices"]["vale"], json!(["vale"]));
+    assert_eq!(reply["room"], destination);
+    assert_eq!(reply["exits"], json!(["station"]));
 }
 
 fn check_awake_historic_station_move(lamp: &Value, reply: &Value, cass_moves: bool) {
@@ -569,5 +618,33 @@ fn verify_opening_journal(c: &mut Connection, id: &str, calls: &[&str]) -> Resul
         "WASM {id} replay matched {} current journal calls",
         report.checked
     );
+    Ok(())
+}
+
+fn verify_station_departure_reload(
+    c: &Connection,
+    id: &str,
+    state: &World,
+    room: &str,
+    now: i64,
+) -> Result<()> {
+    let reloaded = full_store::world(c, id, now)?;
+    assert_eq!(&reloaded, state);
+    let request = reloaded.request("view", actor_index("vale")?);
+    assert_eq!(request["present"], json!(["vale"]));
+    let pack = reloaded.pack.as_deref();
+    let reference = engine::reduce_journal(&reloaded.version, pack, request.clone())?;
+    assert_eq!(reference["room"], room);
+    assert_eq!(reference["exits"], json!(["station"]));
+    assert!(reference.get("events").is_none());
+    assert_eq!(
+        reference["world"]["memories"]["vale"],
+        state.game["memories"]["vale"]
+    );
+    assert!(reference["world"]["memories"]["moth"]
+        .get("subjects")
+        .is_none());
+    let guest = Rules::new(&read_candidate()?)?;
+    assert_eq!(reduce_candidate(&guest, pack, &request)?, Some(reference));
     Ok(())
 }
