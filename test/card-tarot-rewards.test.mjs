@@ -8,18 +8,14 @@ import {
 import { boxDefs } from "../v2/card-game/world/boxes.mjs";
 import { giveUpForGood } from "../v2/card-game/world/for-good.mjs";
 import {
-  createWorld, decodeSave, encodeSave, holdChoice, legalActions, places, play, validateWorld,
+  createWorld, encodeSave, holdChoice, legalActions, places, play, validateWorld,
 } from "../v2/card-game/world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const FOOL = "arcanum-0", MAGICIAN = "arcanum-1", PRIESTESS = "arcanum-2";
-const reload = (s) => decodeSave(encodeSave(s));
 const quiet = (s) => holdChoice(s, "vale", { item: null, revision: s.revision });
 const reward = (s) => legalActions(s, "vale").find((a) => a.label === "Collect");
-const claim = (s) => {
-  const result = play(s, reward(s), s.revision, "vale");
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
+const claim = (s) => act(s, (a) => a.label === "Collect");
 const initial = () => {
   const s = createPipWorld(5);
   s.actors.vale.arcana = {
@@ -28,12 +24,7 @@ const initial = () => {
   };
   return s;
 };
-const turnFool = (s) => {
-  const action = legalActions(s, "vale").find((a) => a.label === "Turn over");
-  const result = play(s, action, s.revision, "vale");
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
+const turnFool = (s) => act(s, (a) => a.label === "Turn over");
 const finishFool = (s) => {
   for (const item of Object.values(s.items))
     if (item.holder === "vale") item.holder = "pond";

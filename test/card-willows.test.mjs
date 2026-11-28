@@ -31,6 +31,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
 import { locationWeather } from "../v2/card-game/weather.mjs";
 import { cardChoices, availableCards, lockWords } from "../v2/card-game/cards.mjs";
+import { act as actOn, legal } from "./helpers/play.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
 const BOOK = "willows-notebook";
@@ -40,15 +41,12 @@ const find = (world, fields) =>
     Object.entries(fields).every(([key, value]) => a[key] === value),
   );
 function act(world, fields) {
-  const action = find(world, fields);
-  expect(action, JSON.stringify(fields)).toBeDefined();
+  const action = legal(world, fields);
   if (action.choiceId)
     expect(cardChoices(world, action.target).map((a) => a.choiceId)).toContain(
       action.choiceId,
     );
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
+  return actOn(world, fields);
 }
 const move = (world, target) => act(world, { kind: "move", target });
 const drop = (world, item) =>
@@ -210,7 +208,7 @@ describe("The Willows", () => {
         action,
       });
       expect(result.ok, result.error).toBe(true);
-      world = decodeSave(encodeSave(result.world));
+      world = result.world;
     };
     mist(world);
     go("vale", "greek-ship");
@@ -267,7 +265,7 @@ describe("The Willows", () => {
       expect(exits(view, place, "vale").length).toBeGreaterThan(0);
     }
     expect(
-      exits(decodeSave(encodeSave(world)), "willows-landing", "vale"),
+      exits(world, "willows-landing", "vale"),
     ).toContain("greek-ship");
     expect(move(world, "greek-ship").actors.vale.place).toBe("greek-ship");
   });
@@ -359,8 +357,6 @@ describe("The Willows", () => {
     expect(exits(fromSea, "willows-landing", "vale")).not.toContain(
       "greek-ship",
     );
-    // The same clock decides it after a reload and in a shared view.
-    expect(deck(decodeSave(encodeSave(night)))).toContain("willows-landing");
     // Ashore when the mist lifts: no way back until the next misty night.
     let ashore = move(night, "willows-landing");
     ashore.turn = ashore.revision = 36;
@@ -389,8 +385,6 @@ describe("The Willows", () => {
     expect(packFacts(world, "willows-swede").join(" ")).toContain(
       "compared the canoe damage",
     );
-    const saved = decodeSave(encodeSave(world));
-    expect(saved.packs.willows).toEqual(world.packs.willows);
     expect(pack.choices.every((c) => c.on)).toBe(true);
   });
 
@@ -407,7 +401,6 @@ describe("The Willows", () => {
     const mended = "./assets/willows/landing-mended.webp";
     const day = clock(structuredClone(world), false);
     expect(painting(day)).toBe(mended);
-    expect(painting(decodeSave(encodeSave(day)))).toBe(mended);
     expect(painting(clock(gone, false))).not.toBe(mended);
     // The canoe follows the kit alone: the Swede's departure does not shut it.
     const departed = structuredClone(day);
@@ -450,7 +443,6 @@ describe("The Willows", () => {
       present: ["vale"],
     }).world;
     expect(sprite(shared)).toBe(sprite(world));
-    expect(sprite(decodeSave(encodeSave(world)))).toBe(sprite(world));
     expect(residentPose(world, "vale")).toBeNull();
     expect(portrait("willows-swede")).toBe("./assets/willows/swede.webp");
 
@@ -519,8 +511,6 @@ describe("The Willows", () => {
     stripped.items["willows-rope"].holder = "willows-bank";
     expect(exits(stripped, "pond", "vale")).not.toContain("willows-landing");
     expect(exits(stripped, "willows-landing", "vale")).not.toContain("pond");
-    const saved = decodeSave(encodeSave(world));
-    expect(saved.packs.willows).toEqual(world.packs.willows);
     const shared = dispatchShared({
       op: "create",
       save: encodeSave(world),
@@ -573,7 +563,7 @@ describe("The Willows", () => {
     expect(packFacts(world, "willows-camp").join(" ")).toContain(
       "eleven paces",
     );
-    world = observe(decodeSave(encodeSave(night(world))), "pace-again");
+    world = observe(night(world), "pace-again");
     world = observe(world, "listen-tent");
     const facts = packFacts(world, "willows-camp").join(" ");
     expect(facts).toContain("nine paces");

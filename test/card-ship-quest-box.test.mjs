@@ -4,11 +4,8 @@ import {
   boxOffer,
   boxesAt,
   createWorld,
-  decodeSave,
-  encodeSave,
   exits,
   holdChoice,
-  legalActions,
   play,
 } from "../v2/card-game/world.mjs";
 import { availableCards, lockWords } from "../v2/card-game/cards.mjs";
@@ -19,24 +16,15 @@ import {
   packGroup,
   transports,
 } from "../v2/card-game/pack-registry.mjs";
+import { act } from "./helpers/play.mjs";
 
 const call = crossings.find((c) => c.unlockWhen),
   SHIP = transports[call.transport].place,
   FROM = `quest:box:${SHIP}`,
   all = () => true;
-const act = (s, kind, fields = {}) => {
-  const action = legalActions(s).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, JSON.stringify({ kind, ...fields })).toBeTruthy();
-  const done = play(s, action, s.revision);
-  expect(done.ok, done.error).toBe(true);
-  return decodeSave(encodeSave(done.state));
-};
 const hold = (s, item) => {
   holdChoice(s, "vale", { item, revision: s.revision });
-  return decodeSave(encodeSave(s));
+  return s;
 };
 function atDock({ lamp = "vale", cloth = "vale" } = {}) {
   const s = createWorld();
@@ -46,7 +34,7 @@ function atDock({ lamp = "vale", cloth = "vale" } = {}) {
   s.actors.keeper.place = "attic";
   s.items.lamp.holder = lamp;
   s.items.cloth.holder = cloth;
-  return decodeSave(encodeSave(s));
+  return s;
 }
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 
@@ -98,14 +86,14 @@ it("offers its quest by Accept, and doing what it says calls the ship", () => {
   expect(questCaption(offerCard(s, "vale", SHIP))).toBe(
     "Lay the lit Lamp in Black pond",
   );
-  s = act(s, "accept", { box: SHIP });
+  s = act(s, { kind: "accept", box: SHIP });
   expect(sources(s)).toEqual([FROM]);
   expect(boxOffer(s, SHIP)).toBeNull();
-  s = act(s, "drop", { item: "lamp" });
+  s = act(s, { kind: "drop", item: "lamp" });
   expect(sources(s)).toEqual([]);
   expect(s.crossings[call.id].discovered).toBe(false);
   expect(questCaption(offerCard(s, "vale", SHIP))).toBe("Hold Black cloth");
-  s = act(s, "accept", { box: SHIP });
+  s = act(s, { kind: "accept", box: SHIP });
   s = hold(s, "cloth");
   expect(s.crossings[call.id].discovered).toBe(true);
   expect(s.transports[call.transport].dock).toBe(call.from);
@@ -117,10 +105,10 @@ it("offers its quest by Accept, and doing what it says calls the ship", () => {
 
 it("credits the box when the quest was never taken, and once only", () => {
   let s = hold(atDock(), "cloth");
-  s = act(s, "drop", { item: "lamp" });
+  s = act(s, { kind: "drop", item: "lamp" });
   expect(s.opened[SHIP]).toEqual(["vale"]);
   expect(boxOffer(s, SHIP)).toBeNull();
-  s = act(s, "take", { item: "lamp" });
+  s = act(s, { kind: "take", item: "lamp" });
   expect(s.crossings[call.id].discovered).toBe(true);
   expect(lockWords(s, SHIP, all)).toBeNull();
 });

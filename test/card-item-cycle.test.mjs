@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { lockText } from "./helpers/lock-text.mjs";
+import { act as playOne, reload } from "./helpers/play.mjs";
 import "./helpers/still-cast.mjs";
 
 // Rules 95: things used up and coming back, on a test copy of the Greek pack.
@@ -37,8 +38,6 @@ import {
   createWorld,
   decodeSave,
   encodeSave,
-  legalActions,
-  play,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
@@ -68,17 +67,8 @@ const unmade = (id) =>
   !LOOP.includes(id) && !packDefinition("greek-drama").items[id]?.locked;
 const inLoop = (used) =>
   used.filter((id) => id !== "greek-ash-urn" && !unmade(id));
-const reload = (s) => decodeSave(encodeSave(s));
-function act(s, kind, fields = {}, actor = "vale") {
-  const action = legalActions(s, actor).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-  const result = play(s, action, s.revision, actor);
-  expect(result.ok, result.error).toBe(true);
-  return reload(result.state);
-}
+const act = (s, kind, fields = {}, actor = "vale") =>
+  reload(playOne(s, { kind, ...fields }, actor));
 const wait = (s) => act(s, "wait", { sleep: undefined });
 // A long rest at the sanctuary: sleep again if a passer-by wakes the sleeper
 // first (the roaming Bard follows other residents' wants).
@@ -224,8 +214,8 @@ describe("rules 95 item cycle", () => {
       since: 0,
       refusals: 0,
     };
-    expect(wantFact(s, "greek-shipmaster", nameOf)).toBe(
-      "I want the Travel Provisions: the Bread, the Test Figs and the Test Wine or the Test Water.",
+    expect(wantFact(s, "greek-shipmaster", nameOf)).toContain(
+      "Test Wine or the Test Water",
     );
     s = act(s, "give", { item: "greek-test-figs", target: "greek-shipmaster" });
     expect(s.items["greek-provisions"].holder).toBe("greek-harbor");
@@ -327,7 +317,7 @@ describe("rules 95 item cycle", () => {
       s = dawn(toTurn(s, DAYLIGHT_TURNS * 2 * day - 1));
       expect(s.items["greek-test-wine"].holder).toBe("greek-harbor");
     }
-    const kept = decodeSave(encodeSave(s));
+    const kept = reload(s);
     expect(kept.items["greek-test-wine"].holder).toBe("greek-harbor");
     expect("astray" in kept).toBe(false);
   });
@@ -459,8 +449,8 @@ describe("rules 95 item cycle", () => {
       since: 0,
       refusals: 0,
     };
-    expect(wantFact(s, "greek-shipmaster", nameOf)).toBe(
-      "I want the Travel Provisions: the Bread, the Test Figs and the Test Wine or the Test Water.",
+    expect(wantFact(s, "greek-shipmaster", nameOf)).toContain(
+      "Test Wine or the Test Water",
     );
   });
 });

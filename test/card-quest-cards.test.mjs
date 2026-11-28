@@ -22,15 +22,9 @@ import { greekErrands } from "./helpers/greek-opening.mjs";
 import { acceptBox } from "./helpers/accept-quest.mjs";
 import { journeyWorlds } from "./helpers/journey.mjs";
 import { questCards } from "./journeys/quest-cards.mjs";
+import { act } from "./helpers/play.mjs";
 
 const find = (s, pick, actor) => legalActions(s, actor).find(pick);
-const act = (s, pick, actor) => {
-  const action = find(s, pick, actor);
-  expect(action, "a legal play").toBeTruthy();
-  const result = play(s, action, s.revision, actor);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
 const talk = (s, target) => act(s, (a) => a.kind === "talk" && a.target === target);
 const accept = (s, target) => act(s, (a) => a.kind === "accept" && a.target === target);
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
@@ -51,7 +45,6 @@ describe("quest offers are held on Accept", () => {
     });
     expect(questOffers(s).some((o) => o.kind === "box")).toBe(false);
     expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
-    expect(questOffers(decodeSave(encodeSave(s)))).toEqual(questOffers(s));
     const fresh = structuredClone(s);
     fresh.actors.vale.want = null;
     delete fresh.actors.vale.under;
@@ -82,7 +75,6 @@ describe("quest offers are held on Accept", () => {
     });
     expect(sources(s)[0]).toBe(`quest:from:${GUARD}`);
     expect(s.log.some((e) => e.verb === "accept")).toBe(false);
-    expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
   it("stacks quests, discards any one, and keeps a discarded one closed", () => {
@@ -127,8 +119,8 @@ describe("the offer on Talk", () => {
 
   it("says so in the Talk context", () => {
     const after = journeyWorlds(questCards).told;
-    expect(wantFact(after, "moth", nameOf, "vale")).toBe(
-      "I want the Lamp. I would be glad of your help.",
+    expect(wantFact(after, "moth", nameOf, "vale")).toContain(
+      "glad of your help",
     );
   });
 

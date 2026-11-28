@@ -9,6 +9,7 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
+import { seeded } from "./helpers/play.mjs";
 import { transports } from "../v2/card-game/pack-registry.mjs";
 
 const ships = Object.values(transports).map((ship) => ship.place);
@@ -58,16 +59,15 @@ describe("the table stays alive", () => {
   });
 
   it("keeps whole worlds moving with offers the other side would refuse", async () => {
-    let s = createWorld(),
-      x = 7;
+    let s = createWorld();
+    const rng = seeded(7);
     let met = 0;
     for (let i = 0; i < 200; i++) {
       if (i % 100 === 0) await yieldToRunner();
-      x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
       const acts = legalActions(s).filter(
         (a) => !expects(s, a) || a.kind !== "wait",
       );
-      s = play(s, acts[x % acts.length]).state;
+      s = play(s, acts[rng(acts.length)]).state;
       met += s.log.filter(
         (e) => e.verb === "want_met" && e.turn === s.turn,
       ).length;

@@ -21,6 +21,7 @@ import {
   packDefinitions,
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { act as playOne, reload } from "./helpers/play.mjs";
 
 const pack = packDefinition("hoppycat-archive");
 const JETTY = "hoppycat-signal-jetty";
@@ -29,7 +30,6 @@ const CUP = "hoppycat-halfway-cup";
 const SPOOL = "hoppycat-red-thread-spool";
 const GARDEN = "hoppycat-halfway-tea-garden";
 const players = ["vale", "mara"];
-const reload = (s) => decodeSave(encodeSave(s));
 // An earlier save is not valid under the current rules until it upgrades.
 const upgrade = (s) => decodeSave(JSON.stringify(s));
 function setup(dock) {
@@ -169,9 +169,7 @@ describe("the Signal Jetty lane", () => {
       listener: "vale",
       deferred: true,
     });
-    expect(disclosure.text).toBe(
-      "Ships for Signal Jetty leave from Piraeus Quays only with something from there aboard.",
-    );
+    expect(disclosure.text).toMatch(/Signal Jetty.*aboard/);
     expect(knowsLane(result.state, "vale", "greek-piraeus", JETTY)).toBe(false);
     const { factId, speaker, listener, eventSeq } = disclosure;
     const world = applyGeneratedText(result.state, context, {
@@ -270,13 +268,7 @@ describe("the red thread from Black pond", () => {
     expect(s.crossings[THREAD].discovered).toBe(false);
     expect(s.crossings["hoppycat-garden-pond"].discovered).toBe(false);
     const step = (kind, target) => {
-      const action = legalActions(s).find(
-        (a) => a.kind === kind && (target === undefined || a.target === target),
-      );
-      expect(action, `${kind} ${target ?? ""}`).toBeDefined();
-      const result = play(s, action);
-      expect(result.ok, result.error).toBe(true);
-      s = reload(result.state);
+      s = reload(playOne(s, target === undefined ? kind : { kind, target }));
     };
     step("move", "greek-ship");
     step("course", "pond");

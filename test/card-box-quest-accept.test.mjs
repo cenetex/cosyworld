@@ -14,12 +14,10 @@ vi.mock("../v2/card-game/packs.json", async (original) => {
 import {
   boxOffer,
   createWorld,
-  decodeSave,
-  encodeSave,
   legalActions,
-  play,
   residentOffer,
 } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 import { MAX_HELD, heldOf, holdQuest, newWant } from "../v2/card-game/want.mjs";
 import { offerCard } from "../v2/card-game/quest-card.mjs";
 import { lockedQuest } from "../v2/card-game/locked-box.mjs";
@@ -27,22 +25,13 @@ import { lockedQuest } from "../v2/card-game/locked-box.mjs";
 const BOX = "sample-garden",
   KEEPER = "sample-keeper",
   FROM = `quest:box:${BOX}`;
-const act = (s, kind, fields = {}) => {
-  const action = legalActions(s).find(
-    (a) => a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, JSON.stringify({ kind, ...fields })).toBeTruthy();
-  const done = play(s, action, s.revision);
-  expect(done.ok, done.error).toBe(true);
-  return decodeSave(encodeSave(done.state));
-};
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const arrive = () => {
   let s = createWorld();
   s.actors.vale.place = "pond";
-  s = act(s, "move", { target: "sample-shore" });
-  s = act(s, "take", { item: "sample-bell" });
-  return act(s, "move", { target: "sample-station" });
+  s = act(s, { kind: "move", target: "sample-shore" });
+  s = act(s, { kind: "take", item: "sample-bell" });
+  return act(s, { kind: "move", target: "sample-station" });
 };
 
 it("holds nothing on arriving where a shut box lies", () => {
@@ -56,25 +45,25 @@ it("holds nothing on arriving where a shut box lies", () => {
 it("holds a box's quest on Accept, in no time, and drops it when the box opens", () => {
   const s = arrive();
   expect(offerCard(s, "vale", BOX)).toMatchObject({ offer: BOX, box: true, full: false });
-  const held = act(s, "accept", { box: BOX });
+  const held = act(s, { kind: "accept", box: BOX });
   expect(held.turn).toBe(s.turn);
   expect(sources(held)).toEqual([FROM]);
   expect(boxOffer(held, BOX)).toBeNull();
   expect(legalActions(held).some((a) => a.kind === "accept")).toBe(false);
-  const open = act(held, "give", { item: "sample-bell", target: KEEPER });
+  const open = act(held, { kind: "give", item: "sample-bell", target: KEEPER });
   expect(sources(open)).toEqual([]);
   expect(open.opened[BOX]).toEqual(["vale"]);
 });
 
 it("credits opening a box whose quest was never taken", () => {
-  const open = act(arrive(), "give", { item: "sample-bell", target: KEEPER });
+  const open = act(arrive(), { kind: "give", item: "sample-bell", target: KEEPER });
   expect(open.opened[BOX]).toEqual(["vale"]);
 });
 
 it("leaves the slots free for a resident's offer after Talk", () => {
-  const told = act(arrive(), "talk", { target: KEEPER });
+  const told = act(arrive(), { kind: "talk", target: KEEPER });
   expect(residentOffer(told, "vale", KEEPER)).toMatchObject({ source: KEEPER, full: false });
-  expect(sources(act(told, "accept", { target: KEEPER }))).toEqual([`quest:from:${KEEPER}`]);
+  expect(sources(act(told, { kind: "accept", target: KEEPER }))).toEqual([`quest:from:${KEEPER}`]);
 });
 
 it("offers no Accept for a box when the slots are full, and keeps an old held one", () => {

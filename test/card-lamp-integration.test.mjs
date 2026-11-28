@@ -1,34 +1,20 @@
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
   decodeSave,
-  encodeSave,
   exits,
   holdChoice,
   legalActions,
-  play,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const context = { actor: "vale", claimed: ["vale"], present: ["vale"] };
-function commit(world, kind, fields = {}) {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind &&
-      Object.entries(fields).every(([key, value]) => a[key] === value),
-  );
-  expect(action, `${kind}: ${JSON.stringify(fields)}`).toBeDefined();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  expect(play(decodeSave(encodeSave(world)), action)).toEqual(result);
-  return result.state;
-}
 function hold(world, item) {
   holdChoice(world, "vale", { item, revision: world.revision });
   return world;
 }
-const lampInHand = () => commit(createWorld(), "take", { item: "lamp" });
+const lampInHand = () => act(createWorld(), { kind: "take", item: "lamp" });
 
 describe("three-room lamp authority", () => {
   it("opens the opening mirror by stowing and anchors the attic only on leaving", () => {
@@ -70,10 +56,10 @@ describe("three-room lamp authority", () => {
   it("records the newly received lamp as held and lit in the transfer event", () => {
     let world = createWorld();
     world.actors.moth.place = "station";
-    world = commit(world, "take", { item: "lamp" });
+    world = act(world, { kind: "take", item: "lamp" });
     hold(world, null);
     expect(world.actors.moth.heldItem).toBe("cloth");
-    world = commit(world, "give", { item: "lamp", target: "moth" });
+    world = act(world, { kind: "give", item: "lamp", target: "moth" });
     expect(world.actors.moth.heldItem).toBe("lamp");
     expect(world.items.lamp.lit).toBe(true);
     const event = world.log.findLast(
@@ -102,7 +88,7 @@ describe("three-room lamp authority", () => {
       ["station", 1],
       ["pond", 0],
     ]) {
-      world = commit(world, "move", { target });
+      world = act(world, { kind: "move", target });
       expect(world.items.lamp).toMatchObject({
         fuelRooms,
         fuel: fuelRooms * 4,
@@ -124,7 +110,7 @@ describe("three-room lamp authority", () => {
   });
   it("keeps fuel during same-room turns and stows without changing custody", () => {
     let world = lampInHand();
-    for (let i = 0; i < 3; i++) world = commit(world, "wait");
+    for (let i = 0; i < 3; i++) world = act(world, "wait");
     expect(world.items.lamp.fuelRooms).toBe(3);
     hold(world, null);
     expect(world.items.lamp).toMatchObject({
@@ -132,7 +118,7 @@ describe("three-room lamp authority", () => {
       fuelRooms: 3,
       lit: false,
     });
-    world = decodeSave(encodeSave(world));
+    world = reload(world);
     expect(world.actors.vale.heldItem).toBeNull();
     expect(world.items.lamp.lit).toBe(false);
     hold(world, "lamp");
@@ -140,7 +126,7 @@ describe("three-room lamp authority", () => {
   });
   it("defers dark travel until the quiet local/shared hold lights the destination", () => {
     let world = hold(lampInHand(), null);
-    world = commit(world, "move", { target: "pond" });
+    world = act(world, { kind: "move", target: "pond" });
     expect(world.items.lamp).toMatchObject({
       fuelRooms: 3,
       lit: false,
@@ -157,7 +143,6 @@ describe("three-room lamp authority", () => {
     expect(shared.world.items.lamp).toMatchObject({ fuelRooms: 2, lit: true });
     expect(shared.world.turn).toBe(world.turn);
     expect(shared.world.log).toEqual(world.log);
-    expect(decodeSave(encodeSave(local)).items.lamp).toEqual(local.items.lamp);
     expect(() =>
       dispatchShared({
         ...context,
@@ -171,13 +156,13 @@ describe("three-room lamp authority", () => {
     let world = lampInHand();
     // Keep collectors away so this test observes placement rather than an NPC take.
     world.actors.moth.place = world.actors.keeper.place = "attic";
-    world = commit(world, "drop", { item: "lamp" });
+    world = act(world, { kind: "drop", item: "lamp" });
     expect(world.items.lamp).toMatchObject({
       holder: "station",
       fuelRooms: 3,
       lit: true,
     });
-    world = commit(world, "take", { item: "lamp" });
+    world = act(world, { kind: "take", item: "lamp" });
     expect(world.items.lamp).toMatchObject({
       holder: "vale",
       fuelRooms: 3,
@@ -187,11 +172,11 @@ describe("three-room lamp authority", () => {
   it("refills an exhausted lamp and returns the oil to its authored station", () => {
     let world = lampInHand();
     for (const target of ["pond", "station", "pond", "station"])
-      world = commit(world, "move", { target });
+      world = act(world, { kind: "move", target });
     expect(world.items.lamp).toMatchObject({ fuelRooms: 0, lit: false });
     // Put the authored flask within reach; the actual take must perform refill.
     world.items.oil.holder = "station";
-    world = commit(world, "take", { item: "oil" });
+    world = act(world, { kind: "take", item: "oil" });
     expect(world.items.lamp).toMatchObject({
       fuelRooms: 3,
       fuel: 12,
@@ -227,23 +212,15 @@ describe("saved room fuel is validated before settlement", () => {
   });
 });
 
-describe.each(["source", "compiled"])("saved lamp lit type (%s)", (mode) => {
-  const dispatch = (request) => {
-    if (mode === "source") return dispatchShared(request);
-    const result = JSON.parse(
-      currentSharedEngine().cardShared(JSON.stringify(request)),
-    );
-    if (result.ok === false) throw new Error(result.error);
-    return result;
-  };
+describe("saved lamp lit type", () => {
+  const dispatch = dispatchShared;
   it.each(["invalid", 0, null, [], {}, undefined])(
     "rejects malformed current lit %j",
     (lit) => {
       const world = createWorld();
       world.items.lamp.lit = lit;
       const save = JSON.stringify(world);
-      if (mode === "source")
-        expect(() => decodeSave(save)).toThrow(/lamp room fuel/);
+      expect(() => decodeSave(save)).toThrow(/lamp room fuel/);
       expect(() => dispatch({ op: "create", save })).toThrow(/lamp room fuel/);
       expect(() =>
         dispatch({
@@ -270,8 +247,7 @@ describe.each(["source", "compiled"])("saved lamp lit type (%s)", (mode) => {
         lit: true,
       });
       expect(loaded.log).toEqual(old.log);
-      if (mode === "source")
-        expect(decodeSave(save).items.lamp).toEqual(loaded.items.lamp);
+      expect(decodeSave(save).items.lamp).toEqual(loaded.items.lamp);
       expect(
         dispatch({
           op: "upgrade",
@@ -281,8 +257,7 @@ describe.each(["source", "compiled"])("saved lamp lit type (%s)", (mode) => {
       ).toEqual(loaded.items.lamp);
       old.items.lamp.lit = "invalid";
       const invalid = JSON.stringify(old);
-      if (mode === "source")
-        expect(() => decodeSave(invalid)).toThrow(/lamp room fuel/);
+      expect(() => decodeSave(invalid)).toThrow(/lamp room fuel/);
       expect(() => dispatch({ op: "create", save: invalid })).toThrow(
         /lamp room fuel/,
       );

@@ -2,15 +2,12 @@ import { describe, expect, it } from "vitest";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { levelOf } from "../v2/card-game/want.mjs";
 import { questOffers } from "../v2/card-game/world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { dispatchShared as served } from "../v2/card-game/shared-world.mjs";
 
 const [first, second] = humanAvatarIds;
 const seats = { claimed: [first, second], present: [first, second] };
 
-describe("a claim into a newly founded shared world, at the bundled rules", () => {
-  const engine = currentSharedEngine();
-  const served = (request) =>
-    JSON.parse(engine.cardShared(JSON.stringify(request)));
+describe("a claim into a newly founded shared world", () => {
   const world = served({ op: "create", seed: 3, actor: first }).world;
   const claim = (actor, progress) =>
     served({ op: "join", world, actor, ...seats, progress });

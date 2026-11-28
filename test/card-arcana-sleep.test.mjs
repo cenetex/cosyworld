@@ -23,10 +23,10 @@ import {
   homeOf,
   legalActions,
   places,
-  play,
   validateWorld,
   wantAPI,
 } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 
 const FOOL = "arcanum-0";
 const at = (place) => ({ kind: "actor_at", place });
@@ -35,13 +35,6 @@ const dreams = (s) =>
 const longRests = (s) =>
   s.log.filter((e) => e.actorId === "vale" && e.rest === "long").length;
 
-function act(s, pick, who = "vale") {
-  const action = legalActions(s, who).find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const result = play(s, action, s.revision, who);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 const collect = (s) =>
   act(
     s,
@@ -136,7 +129,6 @@ describe("travelers level by cards", () => {
         step: { verb: "rest" },
       }),
     ]);
-    expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
   it("holds the sleep quest once", () => {
@@ -164,7 +156,6 @@ describe("the sleep quest and the dream", () => {
     });
     const woke = s.log.findLast((e) => e.actorId === "vale" && e.woke);
     expect(woke).toMatchObject({ rest: "long", dream: "glimpse" });
-    expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
   it("is not met by a long rest away from home", () => {

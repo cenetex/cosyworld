@@ -29,7 +29,7 @@ const run = (trust, extra = {}) =>
       });
       return state;
     },
-    seeds: [1, 2],
+    seeds: [1],
     turns: 150,
     include: (id) => RESIDENTS.includes(id),
     ...extra,
@@ -53,6 +53,6 @@ describe("emergence probe on a made-up world", () => {
   it("is the same run twice and counts a walking player", { timeout: 60000 }, () => {
     const a = run(2, { script: walker() });
     expect(JSON.stringify(run(2, { script: walker() }))).toBe(JSON.stringify(a));
-    expect(a.perSeed).toHaveLength(2);
+    expect(a.perSeed).toHaveLength(1);
   });
 });

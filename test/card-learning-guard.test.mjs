@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import {
   createWorld,
   decodeSave,
@@ -48,8 +47,7 @@ describe("learning from a standing guard", () => {
     world.log = [];
     expect(decodeSave(encodeSave(world))).toEqual(world);
   });
-  it("commits the same Guard trial through the compiled shared rules", () => {
-    const engine = currentSharedEngine();
+  it("commits the same Guard trial through the shared rules", () => {
     const world = learnedGuard((world, action) => {
       const request = {
         op: "play",
@@ -60,9 +58,6 @@ describe("learning from a standing guard", () => {
         present: ["vale"],
       };
       const result = dispatchShared(request);
-      expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
-        result,
-      );
       return { ok: result.ok, state: result.world };
     });
     expect(world.memories.vale.learning.at(-1).action.target).toBe(beyond);

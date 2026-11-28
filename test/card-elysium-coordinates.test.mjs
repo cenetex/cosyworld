@@ -1,16 +1,10 @@
 import { expect, it } from "vitest";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import models from "../v2/card-game/elysium-coordinate-models.json" with { type: "json" };
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import {
-  createWorld,
-  decodeSave,
-  encodeSave,
-  legalActions,
-  play,
-} from "../v2/card-game/world.mjs";
+import { createWorld, encodeSave, legalActions } from "../v2/card-game/world.mjs";
+import { act as playAct, reload } from "./helpers/play.mjs";
 import {
   coordinateNarrative,
   OBSERVATORY,
@@ -27,7 +21,6 @@ const outer = "elysium-ring-outer";
 const middle = "elysium-ring-middle";
 const inner = "elysium-ring-inner";
 
-const reload = (world) => decodeSave(encodeSave(world));
 const actionFor = (actions, kind, id) => {
   const action = actions.find(
     (choice) =>
@@ -36,11 +29,8 @@ const actionFor = (actions, kind, id) => {
   expect(action, `${kind} ${id}`).toBeDefined();
   return action;
 };
-function act(world, kind, id) {
-  const result = play(world, actionFor(legalActions(world), kind, id));
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
+const act = (world, kind, id) =>
+  playAct(world, (choice) => choice.kind === kind && (choice.target === id || choice.item === id));
 const move = (world, ...places) =>
   places.reduce((next, place) => act(next, "move", place), world);
 const take = (world, item) => act(world, "take", item);
@@ -237,22 +227,8 @@ it("opens a seeded coordinate for both shared travelers after a committed stone 
     seed: 99,
   }).world;
   initial.actors.mara.place = OBSERVATORY;
-  const engine = currentSharedEngine();
-  const request = (world, actor, op = "view", extra = {}) => {
-    const input = {
-      world,
-      actor,
-      op,
-      claimed: seats,
-      present: seats,
-      ...extra,
-    };
-    const result = dispatchShared(input);
-    expect(JSON.parse(engine.cardShared(JSON.stringify(input)))).toEqual(
-      result,
-    );
-    return result;
-  };
+  const request = (world, actor, op = "view", extra = {}) =>
+    dispatchShared({ world, actor, op, claimed: seats, present: seats, ...extra });
   expect(initial.run.seed).toBe(ready.run.seed);
   expect(coordinateMoves(request(initial, "mara").actions)).toEqual([]);
   const action = actionFor(request(initial, "vale").actions, "drop", inner);

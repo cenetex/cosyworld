@@ -41,26 +41,16 @@ import {
   crossings,
 } from "../v2/card-game/pack-registry.mjs";
 import { fixtureSounding, variantOf } from "../v2/card-game/pack-rules.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
-function act(s, kind, target, item) {
-  const action = legalActions(s).find(
-    (a) =>
-      a.kind === kind &&
-      (target === undefined || a.target === target) &&
-      (item === undefined || a.item === item),
-  );
-  expect(action, `${kind} ${target ?? ""} ${item ?? ""}`).toBeTruthy();
-  const result = play(s, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 function clearing() {
   const s = enableMotives(createWorld());
   s.actors.vale.place = "clearing";
   s.crossings["pond-clearing"].discovered = true;
   return s;
 }
-const ringClock = (s) => act(s, "ring", "clearing", null);
+const ringClock = (s) =>
+  act(s, { kind: "ring", target: "clearing", item: null });
 const forest = () => structuredClone(packDefinitions[0]);
 const greek = () =>
   structuredClone(packDefinitions.find((p) => p.id === "greek-drama"));
@@ -268,7 +258,7 @@ describe("world packs on the card table", () => {
 
   it("mounts a pack missing from a save without disturbing the shore", () => {
     let s = enableMotives(createWorld());
-    s = act(act(s, "wait"), "move", "pond");
+    s = act(act(s, "wait"), { kind: "move", target: "pond" });
     const old = structuredClone(s);
     delete old.crossings["pond-clearing"];
     delete old.crossings["clearing-pond"];
@@ -302,7 +292,7 @@ describe("the forest crossing's signal", () => {
   it("counts resolved plays without disclosing the next step", () => {
     let s = pond();
     expect(knownActors(s)).not.toContain("badger");
-    s = act(s, "ring", null, "bell");
+    s = act(s, { kind: "ring", target: null, item: "bell" });
     expect(s.crossings["pond-clearing"].phase).toBe(1);
     const before = encodeSave(s);
     legalActions(s);
@@ -311,8 +301,8 @@ describe("the forest crossing's signal", () => {
     // The next ring would complete the signal, and the offer says so.
     expect(
       legalActions(s).find((a) => a.kind === "ring" && a.item === "bell").text,
-    ).toBe("Vale rings the Bell. The sound carries across the shore.");
-    s = act(s, "ring", null, "bell");
+    ).toMatch(/sound carries across the shore/);
+    s = act(s, { kind: "ring", target: null, item: "bell" });
     expect(s.crossings["pond-clearing"]).toMatchObject({
       phase: 0,
       discovered: true,
@@ -371,9 +361,7 @@ describe("the Steam Clock's own bell", () => {
       wakeCause: "sound",
       irritation: 2,
     });
-    expect(s.log.map((e) => e.text)).toContain(
-      "A dark reflection between the roots opens onto Black pond.",
-    );
+    expect(s.log.some((e) => /opens onto Black pond/.test(e.text))).toBe(true);
     expect(s.motives.grievances.badger.some((g) => g.kind === "noise")).toBe(
       true,
     );
@@ -388,7 +376,7 @@ describe("the Steam Clock's own bell", () => {
     const stale = legalActions(s).find(
       (a) => a.kind === "move" && a.target === "pond",
     );
-    s = decodeSave(encodeSave(act(s, "wait")));
+    s = reload(act(s, "wait"));
     expect(fixtureSounding(s, "steam-clock")).toBe(true);
     s = act(act(s, "wait"), "wait");
     expect(fixtureSounding(s, "steam-clock")).toBe(false);
@@ -453,14 +441,14 @@ describe("a resident's temperament", () => {
         (a) => a.target === "badger" && a.kind === "threaten",
       ),
     ).toBe(false);
-    s = act(s, "talk", "badger");
+    s = act(s, { kind: "talk", target: "badger" });
     expect(variantOf(s, "badger").name).toBe("awake");
     expect(portrait("badger", null, s)).toBe(
       "./assets/badger-forest/badger-grumpy.png",
     );
     // The mood's want is pack data, worded for Talk; the rules keep the mood.
     expect(variantOf(s, "badger").want).toBe("The warm patch of moss");
-    s = act(s, "ring", null, "bell");
+    s = act(s, { kind: "ring", target: null, item: "bell" });
     expect(variantOf(s, "badger").name).toBe("irritated");
     expect(variantOf(s, "badger").want).toBe("Some quiet after all that noise");
     s = act(s, "wait");

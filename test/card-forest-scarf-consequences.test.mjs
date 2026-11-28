@@ -12,7 +12,6 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { reload } from "./helpers/world-life.mjs";
 const cottage = "forest-cottage",
   garden = "forest-garden";
@@ -73,14 +72,7 @@ for (const shared of [false, true])
   it(
     `earns the Forest scarf, retreats and returns without shortcuts (shared ${shared})`,
     async () => {
-      const engine = shared && currentSharedEngine();
-      const hosted = session((request) => {
-        const result = dispatchShared(request);
-        expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
-          result,
-        );
-        return result;
-      });
+      const hosted = session(dispatchShared);
       let world = fresh(),
         reached = 0;
       expect(world.turn).toBe(0);

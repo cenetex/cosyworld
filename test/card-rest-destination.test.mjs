@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, homeOf, legalActions, play, wantAPI } from "../v2/card-game/world.mjs";
+import { createWorld, decodeSave, homeOf, legalActions, wantAPI } from "../v2/card-game/world.mjs";
 import { humanAvatarIds, seatActors } from "../v2/card-game/human-cast.mjs";
 import { DREAM_FROM, sleepQuest } from "../v2/card-game/want.mjs";
 import { restsAt } from "../v2/card-game/world/home.mjs";
+import { act } from "./helpers/play.mjs";
 
 const fixture = (actor = "rue") => {
   const world = createWorld();
@@ -11,13 +12,6 @@ const fixture = (actor = "rue") => {
   seatActors(world, [actor], [actor]);
   world.actors[actor].metTurn = 0;
   return world;
-};
-const act = (world, choose) => {
-  const action = legalActions(world).find(choose);
-  expect(action).toBeTruthy();
-  const result = play(world, action, world.revision);
-  expect(result.ok).toBe(true);
-  return result.state;
 };
 
 describe("rest quest destinations", () => {
@@ -37,9 +31,9 @@ describe("rest quest destinations", () => {
     world.items.lamp.lit = false;
     world.actors.moth.place = "station";
     const before = world.actors.rue.xp;
-    world = act(world, (a) => a.kind === "wait" && !a.sleep);
+    world = act(world, (a) => a.kind === "wait" && !a.sleep, "rue");
     for (let i = 0; i < 70 && world.actors.rue.want; i++)
-      world = act(world, (a) => a.sleep);
+      world = act(world, (a) => a.sleep, "rue");
     expect(world.actors.rue.want).toBeNull();
     expect(world.actors.rue.xp).toBe(before);
     expect(world.actors.rue.questRewards).toBeUndefined();

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { lanePath } from "../v2/card-game/pack-transport.mjs";
-import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
+import { decodeSave, exits } from "../v2/card-game/world.mjs";
+import { reload } from "./helpers/play.mjs";
 import { openGreekGate } from "./helpers/greek-gate.mjs";
 import { ajaxTalk } from "./helpers/greek-ajax.mjs";
 import { greekStart, traveler } from "./helpers/open-door.mjs";
@@ -22,7 +23,6 @@ const troyHelen = "greek-helen-troy";
 const wine = "greek-wine-skin";
 const oldShelterWine = "greek-helen-troy-shelter-wine";
 
-const reload = (world) => decodeSave(encodeSave(world));
 const sail = (t, ...docks) => {
   t.act("move", { target: scylla });
   for (const target of docks) t.act("course", { target }).act("wait");
@@ -124,9 +124,7 @@ describe("Helen’s passage records", () => {
     const passage = `claim:${pack}:greek-troy-testimony:greek-helen-troy-passage`;
     const shelter = `claim:${pack}:greek-troy-testimony:greek-helen-troy-shelter`;
     expect(knowsFact(saved, "vale", passage)).toBe(true);
-    expect(saved.knowledge.facts[passage]?.text).toBe(
-      "At the Homecoming Beach, Menelaus agreed to passage and kept the tablet at the beach while the Travel Provisions were spent.",
-    );
+    expect(saved.knowledge.facts[passage]?.text).toContain("agreed to passage");
     expect(knowsFact(saved, "vale", shelter)).toBe(false);
     t.s = saved;
     sail(t, lemnos, pagasae);

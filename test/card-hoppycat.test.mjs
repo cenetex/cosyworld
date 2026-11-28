@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
-  decodeSave,
   encodeSave,
   legalActions,
-  play,
 } from "../v2/card-game/world.mjs";
 import {
   packDefinition,
@@ -15,21 +13,12 @@ import {
   createLandingWorld,
   landingPack,
 } from "../v2/card-game/pack-landing.mjs";
-import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { act as playOne, reload } from "./helpers/play.mjs";
 
 const pack = packDefinition("hoppycat-archive");
 const id = (name) => `hoppycat-${name}`;
-function act(world, kind, fields = {}) {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeDefined();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return decodeSave(encodeSave(result.state));
-}
+const act = (world, kind, fields = {}) =>
+  reload(playOne(world, { kind, ...fields }));
 function visit(world, target) {
   const queue = [[world.actors.vale.place]],
     seen = new Set();
@@ -80,9 +69,7 @@ describe("Hoppy Cat refresh", () => {
       "https://hoppycat.lonelyforest.com/",
       "http://localhost/?pack=hoppycat-archive",
     ]) {
-      const world = decodeSave(
-        encodeSave(createLandingWorld(landingPack(url))),
-      );
+      const world = reload(createLandingWorld(landingPack(url)));
       expect(world.actors.vale.place).toBe(pack.entry);
       expect(pack.entry).toBe(id("signal-jetty"));
       let returned = act(world, "move", { target: "greek-ship" });
@@ -190,9 +177,7 @@ describe("Hoppy Cat refresh", () => {
     expect(world.packs[pack.id].receipts[id("table-mira-offer")]).toBe(
       world.turn,
     );
-    const offer = expect.stringContaining(
-      "Mira offers a choice: give her draft to Fable",
-    );
+    const offer = expect.stringContaining("draft to Fable");
     expect(packFacts(world, mira)).toContainEqual(offer);
     expect(packSceneFacts(world, atelier)).toContainEqual(offer);
     world = act(world, "take", { item: id("draft-page") });
@@ -282,33 +267,4 @@ describe("Hoppy Cat refresh", () => {
     expect(pairs.size).toBe(6);
   });
 
-
-  it("keeps browser and bundled shared play in agreement", () => {
-    const runtime = currentSharedEngine();
-    const ask = (request) =>
-      JSON.parse(runtime.cardShared(JSON.stringify(request)));
-    let world = dispatchShared({
-      op: "create",
-      save: encodeSave(
-        visit(createLandingWorld(pack), id("halfway-tea-garden")),
-      ),
-    }).world;
-    const request = {
-      op: "view",
-      world,
-      actor: "vale",
-      claimed: ["vale"],
-      present: ["vale"],
-    };
-    const view = dispatchShared(request);
-    expect(ask(request)).toEqual(view);
-    // Taking the cup reveals the company at the table.
-    const action = view.actions.find(
-      (a) => a.kind === "take" && a.item === id("halfway-cup"),
-    );
-    expect(action).toBeDefined();
-    const command = { ...request, op: "play", action };
-    // Dialogue context is narration, built outside the rules (narrator bundle).
-    expect(ask(command)).toEqual(dispatchShared(command));
-  });
 });

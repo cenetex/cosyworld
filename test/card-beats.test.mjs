@@ -4,6 +4,7 @@ import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { encodeSave } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 import { questCards } from "../v2/card-game/quest-card.mjs";
 import { questStep } from "../v2/card-game/quest-step.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
@@ -408,18 +409,8 @@ describe("action captions from the rules", () => {
     world.actors.vale.place = "pond";
     summonTransport(world, "greek-ship", "pond");
     world.crossings["pond-greek-harbor"].discovered = true;
-    for (const [kind, target] of [
-      ["move", "greek-ship"],
-      ["course", "greek-harbor"],
-    ]) {
-      const action = legalActions(world).find(
-        (play) => play.kind === kind && play.target === target,
-      );
-      expect(action, kind).toBeTruthy();
-      const result = play(world, action);
-      expect(result.ok, result.error).toBe(true);
-      world = result.state;
-    }
+    world = act(world, { kind: "move", target: "greek-ship" });
+    world = act(world, { kind: "course", target: "greek-harbor" });
     const entry = world.log.find((event) => event.verb === "course");
     expect(entry.fromLocationId).toBe("greek-ship");
     expect(entry.locationId).toBe("greek-ship");
@@ -432,20 +423,11 @@ describe("action captions from the rules", () => {
 });
 
 describe("combat beats from the rules", () => {
-  const act = (s, kind, target) => {
-    const action = legalActions(s).find(
-      (a) => a.kind === kind && (!target || a.target === target),
-    );
-    expect(action, kind).toBeTruthy();
-    const result = play(s, action);
-    expect(result.ok, result.error).toBe(true);
-    return result.state;
-  };
   it("gives each fighter a beat and the loser the defeat", () => {
     let s = enableMotives(atticOpening());
     s = selectLamp(s);
     s.actors.moth.place = "pond";
-    s = act(s, "move", "pond");
+    s = act(s, { kind: "move", target: "pond" });
     s.standoffs = [
       {
         challenger: "moth",

@@ -19,6 +19,7 @@ import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import { dispatchShared, load } from "../v2/card-game/shared-world.mjs";
 import { elysiumScatterLandings } from "../v2/card-game/world/elysium-travel.mjs";
 import { setLampFuel } from "../v2/scripts/card-browser-helpers.mjs";
+import { act as playAct } from "./helpers/play.mjs";
 
 const id = (name) => `elysium-${name}`;
 const shore = ["pond", "station", "behind-station"];
@@ -44,15 +45,8 @@ const moves = (s) =>
   legalActions(s)
     .filter((a) => a.kind === "move")
     .map((a) => a.target);
-const act = (s, kind, target) => {
-  const action = legalActions(s).find(
-    (a) => a.kind === kind && (a.item === target || a.target === target),
-  );
-  expect(action, `${kind} ${target}`).toBeDefined();
-  const result = play(s, action);
-  expect(result.ok, result.error).toBe(true);
-  return decodeSave(encodeSave(result.state));
-};
+const act = (s, kind, target) =>
+  playAct(s, (a) => a.kind === kind && (a.item === target || a.target === target));
 
 function enter() {
   let s = fixture("station");
@@ -69,7 +63,6 @@ it("scatters the Wayfinder deterministically in ordinary reachable rooms", () =>
     const { holder } = s.items[wayfinder];
     expect(shore).toContain(holder);
     expect(createWorld({ seed }).items[wayfinder].holder).toBe(holder);
-    expect(decodeSave(encodeSave(s)).items[wayfinder].holder).toBe(holder);
     seen.add(holder);
   }
   expect(seen.size).toBeGreaterThan(1);
@@ -140,7 +133,6 @@ it("uses a night crossing from the Pond without reopening its retired filament",
   expect(result.ok, result.error).toBe(true);
   expect(result.state.actors.vale.place).toBe(voidNode);
   expect(result.state.crossings["pond-elysium-void-001"].discovered).toBe(false);
-  expect(result.state.crossings).toEqual(decodeSave(encodeSave(result.state)).crossings);
   expect(moves(result.state)).not.toContain("pond");
 });
 

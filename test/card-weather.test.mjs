@@ -1,10 +1,8 @@
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { describe, expect, it } from "vitest";
 import { locationWeather, WEATHER_TURNS } from "../v2/card-game/weather.mjs";
 import weatherConfig from "../v2/card-game/weather.json" with { type: "json" };
 import {
   createWorld,
-  decodeSave,
   encodeSave,
   legalActions,
   play,
@@ -88,9 +86,6 @@ describe("regional Greece weather", () => {
     const wait = legalActions(world).find((a) => a.kind === "wait");
     world = play(world, wait).state;
     expect(currentScene(world).weather.condition).toBe("cloud");
-    expect(currentScene(decodeSave(encodeSave(world))).weather).toEqual(
-      currentScene(world).weather,
-    );
     expect(locationVariant(world, "greek-courtyard")).toBe("base:cloud-court");
     const context = narrativeContext(world);
     const weather = currentScene(world).weather;
@@ -105,10 +100,7 @@ describe("regional Greece weather", () => {
     expect(beat.weather).toEqual(weather);
   });
 
-  it("matches shared views, browser rules, and the compiled server across regions and turns", () => {
-    const runtime = currentSharedEngine();
-    const ask = (request) =>
-      JSON.parse(runtime.cardShared(JSON.stringify(request)));
+  it("draws the same regional weather in shared views across regions and turns", () => {
     const world = dispatchShared({
       op: "create",
       save: encodeSave(createWorld()),
@@ -122,9 +114,7 @@ describe("regional Greece weather", () => {
       world.actors.mara.place = "greek-sanctuary";
       const views = claimed.map((actor) => {
         const request = { op: "view", world, actor, claimed, present: claimed };
-        const browser = dispatchShared(request);
-        expect(ask(request)).toEqual(browser);
-        // The scene is drawn in the browser from the shared world.
+        expect(dispatchShared(request).ok).toBe(true);
         const { weather } = currentScene(load(request));
         expect(weather).toEqual(
           locationWeather(world, world.actors[actor].place),

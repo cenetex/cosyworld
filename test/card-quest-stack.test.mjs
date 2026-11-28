@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import {
-  decodeSave,
-  encodeSave,
   homeOf,
   legalActions,
   LONG_SLEEP_TURNS,
@@ -18,14 +16,8 @@ import {
   sleepQuest,
 } from "../v2/card-game/want.mjs";
 import { questCards } from "../v2/card-game/quest-card.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
-const act = (s, pick) => {
-  const action = legalActions(s).find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const result = play(s, action, s.revision);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
 const tell = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
 const asked = (offer) => offer.kind !== "box";
 const accept = (s) => act(s, (a) => a.kind === "accept" && a.target === "moth");
@@ -34,7 +26,6 @@ const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
 const discard = (s) => act(s, (a) => a.kind === "drop" && !a.item);
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const FROM = "quest:from:moth";
-const reload = (s) => decodeSave(encodeSave(s));
 
 describe("an offer is held only once accepted", () => {
   it("offers Pip's quest as his Talk ends and holds it on Accept", () => {

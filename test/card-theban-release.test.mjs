@@ -5,11 +5,8 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import {
   createWorld,
-  decodeSave,
   encodeSave,
   exits,
-  legalActions,
-  play,
   senses,
 } from "../v2/card-game/world.mjs";
 import {
@@ -34,6 +31,7 @@ import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { worldLife } from "../v2/card-game/resident-home.mjs";
+import { act as actOn, reload } from "./helpers/play.mjs";
 // The errands are played with the cast standing still (still-cast, imported by
 // the journey); this file's walks run with the world alive, so build, then restore.
 const errandsDone = greekErrands().opened;
@@ -101,14 +99,7 @@ const openRoads = pack.release.places.filter(
 const act = (s, kind, fields = {}) => {
   if (kind === "move" && needsVoyage(s, "vale", fields.target))
     return sailTo(s, fields.target);
-  const a = legalActions(s).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(a).toBeTruthy();
-  const r = play(s, a);
-  expect(r.ok, r.error).toBe(true);
-  return r.state;
+  return actOn(s, { kind, ...fields });
 };
 // These walks begin with explicit custody that opens the City Gate.
 const reachable = (world) => {
@@ -182,7 +173,7 @@ describe("the Theban release and its ship", () => {
     summonTransport(s, "greek-ship", "greek-harbor");
     const sailed = [...openingPlaces, ...openRoads].sort();
     expect(reachable(s)).toEqual(sailed);
-    s = decodeSave(encodeSave(s));
+    s = reload(s);
     expect(reachable(s)).toEqual(sailed);
     for (const start of openDoorPlaces) {
       const trip = structuredClone(s);
@@ -222,7 +213,7 @@ describe("the Theban release and its ship", () => {
   it("preserves opening scope through reloads", () => {
     let s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
-    for (let i = 0; i < 3; i++) s = decodeSave(encodeSave(s));
+    for (let i = 0; i < 3; i++) s = reload(s);
     expect(reachable(s)).toEqual(
       [
         ...openingPlaces.filter((id) => id !== "greek-polynices-hollow"),

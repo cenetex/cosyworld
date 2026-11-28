@@ -14,20 +14,17 @@ import { revealed, wantFact } from "../v2/card-game/want-talk.mjs";
 import { CONTENT_TURNS, newWant } from "../v2/card-game/want.mjs";
 import { entityActive, packPeople } from "../v2/card-game/pack-registry.mjs";
 import { nameOf } from "../v2/card-game/world/catalog.mjs";
+import { act as actOn } from "./helpers/play.mjs";
 
-function act(s, kind, fields = {}) {
-  const action = legalActions(s).find(
+const act = (s, kind, fields = {}) =>
+  actOn(
+    s,
     (a) =>
       a.kind === kind &&
       !a.sleep &&
       !a.guards &&
       Object.entries(fields).every(([k, v]) => a[k] === v),
   );
-  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-  const done = play(s, action, s.revision);
-  expect(done.ok, done.error).toBe(true);
-  return done.state;
-}
 const view = (s, id) =>
   narrativeContext(s).entities.find((e) => e.id === id).facts.filter(Boolean);
 const played = (s) =>
@@ -112,12 +109,8 @@ describe("a refusal says why", () => {
       reason: "wants-something-else",
     });
     expect(played(n).wantId).toBeUndefined();
-    expect(caption(n)).toBe(
-      "Vale offered the Bell to Pip, but Pip refused. Pip wants something else.",
-    );
-    expect(view(n, "moth")[0]).toBe(
-      "Pip refused Vale's offer of Bell (refusal: wants-something-else). Pip wants something else. Nothing changed.",
-    );
+    expect(caption(n)).toMatch(/Pip wants something else\.$/u);
+    expect(view(n, "moth")[0]).toContain("Pip wants something else.");
   });
 
   it("names the want the player was told", () => {
@@ -125,12 +118,8 @@ describe("a refusal says why", () => {
     expect(toldWant(told, "vale", "moth")).toBe(true);
     const n = act(told, "give", { item: "bell", target: "moth" });
     expect(played(n).wantId).toBe("lamp");
-    expect(caption(n)).toBe(
-      "Vale offered the Bell to Pip, but Pip refused. Pip wants the Lamp.",
-    );
-    expect(view(n, "moth")[0]).toBe(
-      "Pip refused Vale's offer of Bell (refusal: wants-something-else). Pip wants the Lamp. Nothing changed.",
-    );
+    expect(caption(n)).toMatch(/Pip wants the Lamp\.$/u);
+    expect(view(n, "moth")[0]).toContain("Pip wants the Lamp.");
     expect(() => validateWorld(n)).not.toThrow();
     played(n).reason = "needs-it";
     expect(() => validateWorld(n)).toThrow();

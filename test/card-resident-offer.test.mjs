@@ -4,10 +4,7 @@ import { questing } from "./helpers/first-quest.mjs";
 import { lifeWorld } from "./helpers/world-life.mjs";
 import {
   createWorld,
-  decodeSave,
-  encodeSave,
   legalActions,
-  play,
   lockedOffer,
   residentOffer,
 } from "../v2/card-game/world.mjs";
@@ -16,14 +13,8 @@ import { offerFrom } from "../v2/card-game/offer-chance.mjs";
 import { offerCard, offerWords } from "../v2/card-game/quest-card.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
 import { knowsFact, questFactId } from "../v2/card-game/knowledge.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
-const act = (s, pick, actor = "vale") => {
-  const action = legalActions(s, actor).find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const done = play(s, action, s.revision, actor);
-  expect(done.ok, done.error).toBe(true);
-  return done.state;
-};
 const talk = (s, who = "moth") => act(s, (a) => a.kind === "talk" && a.target === who);
 const accept = (s, who = "moth") => act(s, (a) => a.kind === "accept" && a.target === who);
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
@@ -90,7 +81,7 @@ describe("a resident's offer after Talk", () => {
     expect(slotsUsed(s.actors.vale)).toBe(1);
     expect(offerFrom(s, "vale")).toBeNull();
     expect(residentAccepts(s)).toEqual([]);
-    expect(decodeSave(encodeSave(s))).toEqual(s);
+    expect(reload(s)).toEqual(s);
   });
 
   it("stands with the slots full, but Accept waits for a free slot", () => {

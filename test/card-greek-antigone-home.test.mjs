@@ -1,6 +1,7 @@
 import { MAX_DWELL } from "../v2/card-game/world/dwell.mjs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { worldLife } from "../v2/card-game/resident-home.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
@@ -22,21 +23,10 @@ afterAll(() => {
   worldLife.on = held;
 });
 
-const act = (world, kind, fields = {}) => {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind &&
-      Object.entries(fields).every(([key, value]) => a[key] === value),
-  );
-  if (!action) throw new Error(`Missing ${kind} ${JSON.stringify(fields)}`);
-  const result = play(world, action, world.revision);
-  if (!result.ok) throw new Error(result.error);
-  return result.state;
-};
 const antigone = (world) => world.actors["greek-antigone"];
 const walk = (world, place) =>
   greekTravelTargets(world.actors.vale.place, `greek-${place}`).reduce(
-    (state, target) => act(state, "move", { target }),
+    (state, target) => act(state, { kind: "move", target }),
     world,
   );
 const holdsNone = (world) =>
@@ -71,20 +61,23 @@ describe("Antigone's home is the Hollow", () => {
     world.actors.vale.visited.push("pond", "greek-harbor", "greek-courtyard");
     world.items.lamp.lit = false;
     world = walk(world, "well");
-    world = act(world, "take", { item: "greek-water-jar" });
+    world = act(world, { kind: "take", item: "greek-water-jar" });
     world = walk(world, "courtyard");
-    world = act(world, "give", {
+    world = act(world, {
+      kind: "give",
       item: "greek-water-jar",
       target: "greek-baker",
     });
-    world = act(world, "take", { item: "greek-bread" });
+    world = act(world, { kind: "take", item: "greek-bread" });
     world = walk(world, "gate");
-    world = act(world, "trade", {
+    world = act(world, {
+      kind: "trade",
       item: "greek-bread",
       receive: "greek-decree",
     });
     world = walk(world, "palace");
-    world = act(world, "trade", {
+    world = act(world, {
+      kind: "trade",
       item: "greek-decree",
       receive: "greek-creon-writ",
     });
@@ -92,7 +85,8 @@ describe("Antigone's home is the Hollow", () => {
       world,
       world.actors["greek-guard"].place.replace("greek-", ""),
     );
-    world = act(world, "give", {
+    world = act(world, {
+      kind: "give",
       item: "greek-creon-writ",
       target: "greek-guard",
     });
@@ -113,7 +107,7 @@ describe("Antigone's home is the Hollow", () => {
     )
       world = act(world, "wait");
     expect(antigone(world).place).toBe(GATE);
-    world = act(world, "talk", { target: "greek-polynices-shade" });
+    world = act(world, { kind: "talk", target: "greek-polynices-shade" });
     // Each step is a move of her own, so she dwells at the gate and again on
     // the battlefield (rules 133): wait for her, not for a count of turns.
     const talked = world.turn;

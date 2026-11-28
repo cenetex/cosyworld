@@ -9,6 +9,7 @@ import {
   encodeSave,
   decodeSave,
 } from "../v2/card-game/world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { enableMotives } from "../v2/card-game/motives.mjs";
@@ -44,20 +45,7 @@ function spareWorld() {
 }
 // Ringing leaves a grudge. The keeper refuses the lamp gift and can still trade for the bell.
 function grudgeWorld() {
-  return act(spareWorld(), "ring", "bell");
-}
-function act(w, kind, item, target) {
-  const a = legalActions(w).find(
-    (a) =>
-      a.kind === kind &&
-      (item === undefined || a.item === item) &&
-      (target === undefined || a.target === target),
-  );
-  expect(a, `${kind} ${item || ""} must be a legal play`).toBeDefined();
-  const result = play(w, a);
-  expect(result.ok).toBe(true);
-  expect(decodeSave(encodeSave(result.state))).toEqual(result.state);
-  return result.state;
+  return act(spareWorld(), { kind: "ring", item: "bell" });
 }
 const history = (w) => w.memories.vale.learning || [];
 function choice(w, item = "oil", kind = "ask") {
@@ -82,15 +70,15 @@ function probe(records, start = setup) {
     seq: i + 2,
     turn: i * 5 + 1,
   }));
-  return decodeSave(encodeSave(w));
+  return reload(w);
 }
 function estimate(w, trial) {
   return actionEstimate(w, "vale", trial.goal, trial.conditions, trial.action);
 }
 describe("adaptive action learning", () => {
   it("chooses different actions in the same situation from different measured histories", () => {
-    const asked = act(spareWorld(), "ask", "lamp");
-    const traded = act(spareWorld(), "trade", "bell");
+    const asked = act(spareWorld(), { kind: "ask", item: "lamp" });
+    const traded = act(spareWorld(), { kind: "trade", item: "bell" });
     expect(history(asked)[0].reward).toBe(23);
     expect(history(traded)[0].reward).toBe(19);
     const byRequest = choice(probe(history(asked), spareWorld), "lamp");
@@ -104,8 +92,8 @@ describe("adaptive action learning", () => {
   it.each([false, true])(
     "keeps a ready trade above an old request success after a fresh refusal: %s",
     (withRefusal) => {
-      const success = history(act(spareWorld(), "ask", "lamp"));
-      const refusal = withRefusal ? history(act(grudgeWorld(), "ask", "lamp")) : [];
+      const success = history(act(spareWorld(), { kind: "ask", item: "lamp" }));
+      const refusal = withRefusal ? history(act(grudgeWorld(), { kind: "ask", item: "lamp" })) : [];
       const w = probe([...success, ...refusal], grudgeWorld);
       const before = structuredClone(w);
       const next = choice(w, "lamp", "trade");
@@ -120,11 +108,10 @@ describe("adaptive action learning", () => {
         reward: 19,
         after: { met: true },
       });
-      expect(decodeSave(encodeSave(result.state))).toEqual(result.state);
     },
   );
   it("chooses a higher learned request value over a ready trade in matched conditions", () => {
-    const w = probe(history(act(spareWorld(), "ask", "lamp")), spareWorld);
+    const w = probe(history(act(spareWorld(), { kind: "ask", item: "lamp" })), spareWorld);
     const next = choice(w, "lamp", "trade");
     expect(next.action.kind).toBe("ask");
     expect(next.learning.expected).toEqual({ value: 23, samples: 1, local: 1 });
@@ -134,11 +121,11 @@ describe("adaptive action learning", () => {
     expect(history(result.state).at(-1).reward).toBe(23);
   });
   it("revises a successful approach after recent failures", () => {
-    const success = history(act(spareWorld(), "ask", "lamp"));
+    const success = history(act(spareWorld(), { kind: "ask", item: "lamp" }));
     expect(choice(probe(success, grudgeWorld), "lamp").action.kind).toBe("ask");
     const failures = Array.from(
       { length: 6 },
-      () => history(act(grudgeWorld(), "ask", "lamp")).at(-1),
+      () => history(act(grudgeWorld(), { kind: "ask", item: "lamp" })).at(-1),
     );
     const learned = probe([...success, ...failures], grudgeWorld);
     const next = choice(learned, "lamp");
@@ -149,30 +136,30 @@ describe("adaptive action learning", () => {
     expect(ask.value).toBeLessThan(0);
   });
 it("gives an earlier helpful gift credit when the later request reaches the goal", () => {
-    let w = act(setup(), "ask", "cloth");
-    w = act(w, "give", "bell", "keeper");
+    let w = act(setup(), { kind: "ask", item: "cloth" });
+    w = act(w, { kind: "give", item: "bell", target: "keeper" });
     const gift = history(w).at(-1);
     expect(gift.action.kind).toBe("give");
     expect(gift.reward).toBe(-3);
     expect(estimate(w, gift).value).toBe(-3);
-    w = act(w, "ask", "cloth");
+    w = act(w, { kind: "ask", item: "cloth" });
     expect(w.items.cloth.holder).toBe("vale");
     expect(estimate(w, gift).value).toBe(13.1);
     expect(history(w).at(-1).after.met).toBe(true);
   });
   it("keeps a changed situation outside the earlier action's credit chain", () => {
-    let w = act(setup(), "ask", "cloth");
-    w = act(w, "give", "bell", "keeper");
+    let w = act(setup(), { kind: "ask", item: "cloth" });
+    w = act(w, { kind: "give", item: "bell", target: "keeper" });
     const gift = history(w).at(-1);
-    w = act(w, "drop", "lamp");
-    w = act(w, "ask", "cloth");
+    w = act(w, { kind: "drop", item: "lamp" });
+    w = act(w, { kind: "ask", item: "cloth" });
     expect(history(w).at(-1).after.met).toBe(true);
     expect(estimate(w, gift).value).toBe(-3);
   });
   it("records an idle attempt's actual result and lowers its value as time passes", () => {
     let w = setup();
     w.items.bell.holder = "keeper";
-    w = act(w, "ask", "oil");
+    w = act(w, { kind: "ask", item: "oil" });
     w = act(w, "wait");
     const first = history(w).at(-1);
     expect(first.action.kind).toBe("wait");
@@ -182,17 +169,17 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
     expect(estimate(w, first).value).toBeLessThan(-1);
   });
   it("keeps exploration, values and measured outcomes through a save round trip", () => {
-    let w = act(setup(), "ask", "oil");
-    w = act(w, "talk", undefined, "keeper");
+    let w = act(setup(), { kind: "ask", item: "oil" });
+    w = act(w, { kind: "talk", target: "keeper" });
     const before = structuredClone(w);
     const next = choice(w);
     expect(next.learning.alternatives.length).toBeGreaterThan(1);
     expect(next.action.key).toBeDefined();
-    expect(choice(decodeSave(encodeSave(w)))).toEqual(next);
+    expect(choice(reload(w))).toEqual(next);
     expect(w).toEqual(before);
   });
   it("learns independently for each avatar and target", () => {
-    const traded = act(setup(), "trade", "bell");
+    const traded = act(setup(), { kind: "trade", item: "bell" });
     const w = probe(history(traded));
     expect(choice(w).action.kind).toBe("trade");
     expect(w.memories.keeper.learning || []).toEqual([]);
@@ -215,7 +202,7 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
       turn: w.turn,
     };
     w.actors.moth.metTurn = 10;
-    w = act(w, "ask", "oil");
+    w = act(w, { kind: "ask", item: "oil" });
     for (let i = 0; i < TRIAL_LIMIT + 2; i++) w = act(w, "wait");
     const trials = history(w);
     expect(trials.map(({ turn }) => turn)).toEqual(
@@ -229,7 +216,7 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
     }
   });
   it("checks rewards, observations, action fields and source events in saves", () => {
-    const w = act(setup(), "ask", "oil");
+    const w = act(setup(), { kind: "ask", item: "oil" });
     for (const change of [
       (t) => (t.reward = 19),
       (t) => (t.before.trust = 3),
@@ -246,7 +233,7 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
     }
   });
   it("keeps measured trials private in shared views", () => {
-    const w = act(setup(), "ask", "oil");
+    const w = act(setup(), { kind: "ask", item: "oil" });
     const shared = dispatchShared({ op: "create", save: encodeSave(w) }).world;
     for (const actor of ["vale", "mara"]) {
       const view = dispatchShared({
@@ -260,7 +247,7 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
     }
   });
   it("starts a fresh local estimate after conditions change", () => {
-    const w = act(setup(), "ask", "oil");
+    const w = act(setup(), { kind: "ask", item: "oil" });
     const previous = requestConditions(w, {
       kind: "ask",
       actor: "vale",
@@ -282,7 +269,7 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
     ).not.toBe(previous);
   });
   it("keeps an older open goal out of a new want", () => {
-    const w = act(setup(), "ask", "oil");
+    const w = act(setup(), { kind: "ask", item: "oil" });
     const action = legalActions(w).find(
       (a) => a.kind === "talk" && a.target === "keeper",
     );

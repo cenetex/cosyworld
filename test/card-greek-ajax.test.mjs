@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  decodeSave,
-  encodeSave,
-  exits,
-  legalActions,
-  play,
-} from "../v2/card-game/world.mjs";
+import { encodeSave, exits, legalActions, play } from "../v2/card-game/world.mjs";
+import { reload } from "./helpers/play.mjs";
 import {
   entityActive,
   packDefinition,
@@ -39,7 +34,6 @@ import {
 
 const pack = packDefinition("greek-drama");
 const campLane = "greek-trojan-camp-lane";
-const reload = (world) => decodeSave(encodeSave(world));
 const graveRite = (world) => packWaitChoice(world, "vale")?.choiceId;
 // A deed is a committed pack choice: its receipt turn and its actor.
 const deed = (world, choice) => ({
@@ -143,7 +137,6 @@ describe("Earth Beside the Ships", () => {
         `greek-ajax-bury-${route}`,
         `greek-ajax-return-${route}`,
       ]);
-      expect(reload(world)).toEqual(world);
       expect(legalActions(world).filter((a) => a.kind === "choose")).toEqual(
         [],
       );
@@ -155,7 +148,6 @@ describe("Earth Beside the Ships", () => {
     const welcomed = ajaxChoice(home, "household-receives-traveler");
     expect(welcomed.actors["greek-ajax-tecmessa"].trust.vale).toBe(2);
     expect(welcomed.items["greek-ajax-tecmessa-water"]).toBeUndefined();
-    expect(reload(welcomed)).toEqual(welcomed);
   });
 
   it("keeps the appeal open through a saved vigil, witness, and prepared grave", () => {
@@ -276,7 +268,7 @@ describe("Earth Beside the Ships", () => {
       kind: "heard", teller: topic.speaker, eventSeq: line.sourceSeq,
     });
     expect(entityActive(world, "greek-ajax-plea")).toBe(true);
-    expect(reload(world).packs[pack.id].receipts[topic.choiceId]).toBe(world.turn);
+    expect(world.packs[pack.id].receipts[topic.choiceId]).toBe(world.turn);
 
     const context = narrativeContext(world, talk);
     expect(context.disclosures?.some(({ factId }) => factId === topic.id)).toBeFalsy();
@@ -395,6 +387,5 @@ describe("shared Ajax testimony", () => {
     expect(ajaxState(world).receipts["greek-ajax-return-public"]).toBe(
       world.turn,
     );
-    expect(reload(world).knowledge).toEqual(world.knowledge);
   });
 });

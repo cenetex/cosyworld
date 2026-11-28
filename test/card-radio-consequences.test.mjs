@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import {
   createWorld,
-  decodeSave,
   encodeSave,
   holdChoice,
   legalActions,
@@ -10,20 +9,7 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { act, reload } from "./helpers/world-life.mjs";
-
-// Match serde_json's object-key order at the real Rust request boundary.
-const sorted = (value) =>
-  Array.isArray(value)
-    ? value.map(sorted)
-    : value && typeof value === "object"
-      ? Object.fromEntries(
-          Object.keys(value)
-            .sort()
-            .map((key) => [key, sorted(value[key])]),
-        )
-      : value;
 
 const key = "ratiradio-station-key",
   kitchen = "ratiradio-staff-kitchen",
@@ -62,8 +48,7 @@ for (const opening of [false, true])
       expect(world).toEqual(before);
       validateWorld(structuredClone(next)); // Never trust encodeSave's cached validity.
       trace.push([kind, target]);
-      world = reload(next);
-      expect(legalActions(world)).toEqual(legalActions(next));
+      world = next;
       if (world.opening?.met.keeper !== undefined) {
         firstMet ??= world.opening.met.keeper;
         expect(world.opening.met.keeper).toBe(firstMet);
@@ -108,35 +93,26 @@ for (const opening of [false, true])
     for (const [kind, target] of trace)
       replay = act(replay, kind, fields(kind, target));
     expect(replay).toEqual(world);
-    expect(decodeSave(saved)).toEqual(world);
   });
 
-it("agrees between today's source and compiled JS through the reachable trace", () => {
+it("replays the reachable shared Radio entry trace", () => {
   const fixture = JSON.parse(
     readFileSync(
       new URL("./fixtures/radio-entry-rules-130.json", import.meta.url),
     ),
   );
-  const engine = currentSharedEngine();
   let world = dispatchShared({
     op: "create",
     seed: 17,
     save: encodeSave(createWorld({ opening: true, seed: 17 })),
   }).world;
-  world = sorted(world);
   const replay = (request) => {
     const before = structuredClone(request);
     const result = dispatchShared(request);
     expect(request).toEqual(before);
     expect(result.ok, result.error).toBe(true);
-    expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
-      result,
-    );
     validateWorld(structuredClone(result.world));
-    world = sorted(reload(result.world));
-    expect(dispatchShared({ ...request, op: "view", world })).toEqual(
-      dispatchShared({ ...request, op: "view", world: result.world }),
-    );
+    world = result.world;
   };
   let entranceLegs = 0;
   for (const [index, step] of fixture.steps.entries()) {

@@ -1,31 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
-  decodeSave,
   encodeSave,
-  legalActions,
   play,
 } from "../v2/card-game/world.mjs";
 import { cardActions, playLabel, restPlays } from "../v2/card-game/cards.mjs";
 import { memoryVisits, sceneBeats } from "../v2/card-game/beats.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const ship = "greek-ship";
-const act = (world, kind, target) => {
-  const action = legalActions(world).find(
-    (a) => a.kind === kind && (!target || a.target === target),
-  );
-  expect(action, `${kind} ${target || ""}`).toBeTruthy();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
 function aboard(dock = "greek-harbor") {
   const world = createWorld();
   world.crossings["pond-greek-harbor"].discovered = true;
   world.actors.vale.place = dock;
   summonTransport(world, ship, dock);
-  return act(world, "move", ship);
+  return act(world, { kind: "move", target: ship });
 }
 const chosen = (world, cards) =>
   restPlays(world, cardActions(world, cards).actions, false, cards)[0];
@@ -41,11 +31,10 @@ describe("sailing action history", () => {
     const world = act(aboard(), "wait");
     expect(world.transports[ship].phase).toBe("docked");
     expect(caption(world)).toBe("Vale waited a turn.");
-    expect(caption(decodeSave(encodeSave(world)))).toBe("Vale waited a turn.");
   });
 
   it("gives ship and avatar selections the same saved sailing outcome", () => {
-    const world = act(aboard(), "course", "pond");
+    const world = act(aboard(), { kind: "course", target: "pond" });
     const sail = chosen(world, [ship]),
       wait = chosen(world, ["vale"]);
     expect([playLabel(sail), playLabel(wait)]).toEqual(["Sail", "Wait"]);
@@ -55,7 +44,7 @@ describe("sailing action history", () => {
     expect(encodeSave(sailed)).toBe(encodeSave(waited));
     expect(lastWait(sailed).text).toBe("Vale waits one turn.");
     expect(sailed.transports[ship].phase).toBe("arrived");
-    const restored = decodeSave(encodeSave(sailed));
+    const restored = reload(sailed);
     expect(caption(restored)).toBe("Vale sailed on.");
     expect(
       memoryVisits(restored)
@@ -72,15 +61,15 @@ describe("sailing action history", () => {
   });
 
   it("uses each turn's voyage while later waits remain at the dock", () => {
-    let world = act(aboard(), "course", "pond");
+    let world = act(aboard(), { kind: "course", target: "pond" });
     world = act(world, "wait");
     const sailedSeq = lastWait(world).seq;
     world = act(world, "wait");
     expect(world.transports[ship].phase).toBe("arrived");
     expect(caption(world)).toBe("Vale waited a turn.");
     expect(caption(world, sailedSeq)).toBe("Vale sailed on.");
-    world = act(world, "move", "pond");
-    const remembered = memoryVisits(decodeSave(encodeSave(world))).find(
+    world = act(world, { kind: "move", target: "pond" });
+    const remembered = memoryVisits(world).find(
       (v) => v.placeId === ship,
     );
     expect(

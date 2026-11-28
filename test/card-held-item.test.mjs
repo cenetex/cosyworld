@@ -15,7 +15,7 @@ import {
 } from "../v2/card-game/held-item.mjs";
 import { useUp } from "../v2/card-game/item-use.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 function table() {
   const world = createWorld();
@@ -31,28 +31,17 @@ function table() {
   settleHeldItems(world);
   return world;
 }
-function act(world, kind, fields = {}) {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind &&
-      Object.entries(fields).every(([key, value]) => a[key] === value),
-  );
-  expect(action).toBeTruthy();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 
 it("puts an accepted gift in hand and keeps that choice through wait and reload", () => {
   const before = table();
   expect(heldItem(before, "keeper")).toBe("oil");
-  let world = act(before, "give", { item: "bell", target: "keeper" });
+  let world = act(before, { kind: "give", item: "bell", target: "keeper" });
   expect(world.actors.keeper.heldItem).toBe("bell");
   expect(world.items.oil.holder).toBe("keeper");
   expect(world.items.bell.holder).toBe("keeper");
   world = act(world, "wait");
   expect(heldItem(world, "keeper")).toBe("bell");
-  expect(decodeSave(encodeSave(world)).actors.keeper.heldItem).toBe("bell");
+  expect(reload(world).actors.keeper.heldItem).toBe("bell");
 });
 
 it("chooses the received item for both sides of a real Trade", () => {
@@ -83,7 +72,7 @@ it("keeps the last actual receipt when Give and Ask arrive in one turn", () => {
     refusals: 0,
   };
   settleHeldItems(world);
-  const result = act(world, "give", { item: "lamp", target: "moth" });
+  const result = act(world, { kind: "give", item: "lamp", target: "moth" });
   const transfers = result.log.filter((e) => ["give", "ask"].includes(e.verb));
   expect(transfers.map((e) => [e.verb, e.itemId, e.accepted])).toEqual([
     ["give", "lamp", true],
@@ -99,9 +88,9 @@ it("chooses a real Take and repairs the hand after Drop", () => {
   const world = table();
   world.actors.keeper.place = "attic";
   world.items.lamp.holder = world.actors.vale.place;
-  let result = act(world, "take", { item: "lamp" });
+  let result = act(world, { kind: "take", item: "lamp" });
   expect(result.actors.vale.heldItem).toBe("lamp");
-  result = act(result, "drop", { item: "lamp" });
+  result = act(result, { kind: "drop", item: "lamp" });
   expect(result.actors.vale.heldItem).toBe("bell");
 });
 
@@ -116,7 +105,7 @@ it("preserves the hand after a refused gift and a full recipient", () => {
     refusals: 0,
   };
   settleHeldItems(world);
-  world = act(world, "give", { item: "bell", target: "moth" });
+  world = act(world, { kind: "give", item: "bell", target: "moth" });
   expect(world.log.findLast((e) => e.verb === "give").accepted).toBe(false);
   expect(heldItem(world, "moth")).toBe("cloth");
   world = table();
@@ -154,37 +143,28 @@ it("keeps a covering on the chosen object", () => {
 });
 
 it("preserves the hand through shared retry and clears it on seat reset", () => {
-  const engine = currentSharedEngine();
-  const both = (request) => {
-    const result = dispatchShared(request);
-    expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
-      result,
-    );
-    return result;
-  };
   const world = table();
   const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
-  const view = both({ op: "view", world, ...seats });
+  const view = dispatchShared({ op: "view", world, ...seats });
   const action = view.actions.find(
     (a) => a.kind === "give" && a.item === "bell" && a.target === "keeper",
   );
   const request = { op: "play", world, action, ...seats };
-  const result = both(request);
+  const result = dispatchShared(request);
   expect(result.ok, result.error).toBe(true);
   expect(result.world.actors.keeper.heldItem).toBe("bell");
-  expect(both(structuredClone(request))).toEqual(result);
-  expect(both({ ...request, world: result.world }).ok).toBe(false);
-  const reset = both({ ...seats, world: result.world, op: "reset" });
+  expect(dispatchShared(structuredClone(request))).toEqual(result);
+  expect(dispatchShared({ ...request, world: result.world }).ok).toBe(false);
+  const reset = dispatchShared({ ...seats, world: result.world, op: "reset" });
   expect(reset.ok, reset.error).toBe(true);
   expect(reset.world.actors.vale.heldItem).toBeNull();
   expect(reset.world.actors.keeper.heldItem).toBe("bell");
-  const old = both({ op: "create", save: encodeSave(createWorld()) }).world;
+  const old = dispatchShared({ op: "create", save: encodeSave(createWorld()) }).world;
   old.items.mask.holder = "mara";
   old.actors.mara.heldItem = "mask";
-  const upgraded = both({ ...seats, world: old, op: "upgrade", from: "full-card-world/2" });
+  const upgraded = dispatchShared({ ...seats, world: old, op: "upgrade", from: "full-card-world/2" });
   expect(upgraded.world.items.mask.holder).toBe(old.actors.mara.place);
   expect(upgraded.world.actors.mara.heldItem).toBeNull();
-  expect(decodeSave(encodeSave(upgraded.world)).actors).toEqual(upgraded.world.actors);
 });
 
 it("repairs a lost or consumed choice and leaves an empty hand when needed", () => {

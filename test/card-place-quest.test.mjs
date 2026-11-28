@@ -13,11 +13,8 @@ vi.mock("../v2/card-game/packs.json", async (original) => {
 });
 import {
   createWorld,
-  decodeSave,
-  encodeSave,
   legalActions,
   placeOffer,
-  play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { heldOf, newWant } from "../v2/card-game/want.mjs";
@@ -26,20 +23,13 @@ import { cardLevel } from "../v2/card-game/rarity.mjs";
 import { transports } from "../v2/card-game/pack-registry.mjs";
 import { useUp } from "../v2/card-game/item-use.mjs";
 import { knowsFact, placeFactId, protectedFact } from "../v2/card-game/knowledge.mjs";
+import { act as playOne, reload } from "./helpers/play.mjs";
 
 const STATION = "sample-station",
   SHORE = "sample-shore",
   SCARF = "sample-scarf",
   FROM = `quest:place:${STATION}`;
-const act = (s, kind, fields = {}) => {
-  const action = legalActions(s).find(
-    (a) => a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, JSON.stringify({ kind, ...fields })).toBeTruthy();
-  const done = play(s, action, s.revision);
-  expect(done.ok, done.error).toBe(true);
-  return decodeSave(encodeSave(done.state));
-};
+const act = (s, kind, fields = {}) => reload(playOne(s, { kind, ...fields }));
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const atStation = () => {
   let s = createWorld();

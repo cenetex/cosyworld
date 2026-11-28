@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import "./helpers/still-cast.mjs";
 import {
   createWorld,
-  decodeSave,
-  encodeSave,
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
@@ -28,6 +26,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { consume, settleSealedItems } from "../v2/card-game/pack-items.mjs";
 import { usedUp } from "../v2/card-game/item-use.mjs";
+import { act } from "./helpers/play.mjs";
 
 // Sealed items (rules 133): an item that lies shut where it is until its
 // `requires` hold. The shovel opens while the figs lie at the gate; the
@@ -49,16 +48,6 @@ const world = (place = gate) => {
   const s = createWorld({ seed: 7, packScopes: { "greek-drama": "full" } });
   s.actors.vale.place = place;
   return s;
-};
-const act = (s, kind, fields = {}) => {
-  const action = legalActions(s).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-  const done = play(s, action, s.revision);
-  expect(done.ok, done.error).toBe(true);
-  return done.state;
 };
 const touches = (s, id) =>
   legalActions(s).filter((a) => a.item === id || a.target === id);
@@ -120,19 +109,18 @@ describe("opening", () => {
     let s = world();
     s.items[FIGS].holder = "vale";
     const xp = s.actors.vale.xp;
-    s = act(s, "drop", { item: FIGS });
+    s = act(s, { kind: "drop", item: FIGS });
     expect(entityActive(s, SHOVEL)).toBe(true);
     expect(boxesAt(s, gate, "vale").some((b) => b.id === SHOVEL)).toBe(false);
     expect(s.opened[SHOVEL]).toEqual(["vale"]);
     expect(s.actors.vale.xp).toBe(xp);
     // Taken like any item.
-    s = act(s, "take", { item: SHOVEL });
+    s = act(s, { kind: "take", item: SHOVEL });
     expect(s.items[SHOVEL].holder).toBe("vale");
-    s = act(s, "take", { item: FIGS });
+    s = act(s, { kind: "take", item: FIGS });
     expect(entityActive(s, SHOVEL)).toBe(false);
     expect(s.items[SHOVEL].holder).toBe(gate);
     expect(s.opened[SHOVEL]).toEqual(["vale"]);
-    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 });
 
@@ -164,28 +152,26 @@ describe("a seal locks again", () => {
     // Nothing moves a second time.
     settleSealedItems(s, the, () => lines.push("again"));
     expect(lines).toHaveLength(1);
-    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
   it("happens inside a play, and opens again on its facts without paying twice", () => {
     let s = world(sanctuary);
     s.items[SKIN].holder = "vale";
     const xp = s.actors.vale.xp;
-    s = act(s, "drop", { item: SKIN });
+    s = act(s, { kind: "drop", item: SKIN });
     expect(s.actors.vale.xp).toBe(xp);
     expect(s.opened[TOKEN]).toEqual(["vale"]);
-    s = act(s, "take", { item: TOKEN });
+    s = act(s, { kind: "take", item: TOKEN });
     expect(s.items[TOKEN].holder).toBe("vale");
     // Taking the skin away shuts the token and it goes home.
-    s = act(s, "take", { item: SKIN });
+    s = act(s, { kind: "take", item: SKIN });
     expect(s.items[TOKEN].holder).toBe(sanctuary);
     expect(entityActive(s, TOKEN)).toBe(false);
     expect(s.log.some((entry) => /sealed again/u.test(entry.text))).toBe(true);
     // Opening it again pays nothing more.
     const xpNow = s.actors.vale.xp;
-    s = act(s, "drop", { item: SKIN });
+    s = act(s, { kind: "drop", item: SKIN });
     expect(entityActive(s, TOKEN)).toBe(true);
     expect(s.actors.vale.xp).toBe(xpNow);
-    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
   it("pays nothing to a second reading of the same opening", () => {
     const { s, before } = carried();

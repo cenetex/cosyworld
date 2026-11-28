@@ -32,6 +32,7 @@ import {
 } from "../v2/card-game/cards.mjs";
 import bridge from "../v2/worlds/greek-drama/card-bridge.json" with { type: "json" };
 import { stowProvisions } from "./helpers/provisions.mjs";
+import { reload } from "./helpers/play.mjs";
 
 const players = ["vale", "mara", "ash"];
 const ship = () => transports["greek-ship"];
@@ -60,7 +61,6 @@ const ask = (world, actor, op = "view", extra = {}) =>
     present: players,
     ...extra,
   });
-const reload = (s) => decodeSave(encodeSave(s));
 const upgrade = (s) => decodeSave(JSON.stringify(s));
 function act(world, actor, kind, target) {
   const action = ask(world, actor).actions.find(

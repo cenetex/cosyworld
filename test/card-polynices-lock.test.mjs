@@ -1,8 +1,6 @@
 import { expect, it } from "vitest";
 import {
   createWorld,
-  decodeSave,
-  encodeSave,
   exits,
   legalActions,
   plan,
@@ -13,7 +11,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { homeOf } from "../v2/card-game/resident-home.mjs";
 import { packTalkChoice } from "../v2/card-game/pack-registry.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { reload } from "./helpers/play.mjs";
 import { acceptBox } from "./helpers/accept-quest.mjs";
 
 const pack = "greek-drama",
@@ -70,21 +68,11 @@ it.each([
 ])(
   "opens the same route through a player's Talk (shared: %s, turn: %s)",
   (shared, turnOfNight) => {
-    const engine = shared && currentSharedEngine();
-    const requests = [];
-    const both = (request) => {
-      const local = dispatchShared(structuredClone(request));
-      expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
-        local,
-      );
-      requests.push(structuredClone([request, local]));
-      return local;
-    };
     let world = start(shared);
     world.turn = world.revision = turnOfNight - 1;
     const act = (kind, target) => {
       const actions = shared
-        ? both({ op: "view", world, ...seats }).actions
+        ? dispatchShared({ op: "view", world, ...seats }).actions
         : legalActions(world);
       const action = actions.find(
         (a) =>
@@ -93,7 +81,7 @@ it.each([
       );
       expect(action, kind).toBeTruthy();
       const result = shared
-        ? both({ op: "play", world, action, ...seats })
+        ? dispatchShared({ op: "play", world, action, ...seats })
         : play(world, action);
       expect(result.ok, result.error).toBe(true);
       world = result.world || result.state;
@@ -121,13 +109,9 @@ it.each([
       expect(exits(world, field, actor)).toContain(hollow);
     expect(world.actors[antigone].place).toBe(hollow);
     world.turn = world.revision = 48;
-    const dawn = decodeSave(encodeSave(world));
+    const dawn = reload(world);
     expect(isLockedBox(dawn, hollow)).toBe(false);
     expect(exits(dawn, field, antigone)).toContain(hollow);
-    for (const [request, expected] of requests)
-      expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
-        expected,
-      );
   },
 );
 

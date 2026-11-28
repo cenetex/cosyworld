@@ -13,23 +13,15 @@ import { giveUpForGood } from "../v2/card-game/world/for-good.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
 import {
   createWorld,
-  legalActions,
   places,
-  play,
 } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 
 const only = (id) => {
   deck.cards = data.cards.filter((card) => card.id === id);
   const s = createWorld({ seed: 7 });
   expect(dealSpread(s, "vale")).toBe(true);
   return s;
-};
-const act = (s, test) => {
-  const action = legalActions(s, "vale").find(test);
-  expect(action).toBeDefined();
-  const result = play(s, action, s.revision, "vale");
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
 };
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
 const walk = (to) => (a) => a.kind === "move" && a.target === to && !a.item;

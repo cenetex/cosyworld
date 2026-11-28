@@ -1,35 +1,19 @@
 import { describe, expect, it } from "vitest";
-import {
-  decodeSave,
-  encodeSave,
-  legalActions,
-  play,
-} from "../v2/card-game/world.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 // Thebes on rules 95: the burial rites use the funeral cloth and oil. Under
 // rules 102 nothing regrows at dawn: a used thing goes straight back to its
 // home at Eleusis or Colonus, or, while its home is out of reach, to where
 // it started. The provisions, the bread and the gate are rules 102 now:
 // card-thebes-bread.test.mjs.
-const reload = (s) => decodeSave(encodeSave(s));
-function act(s, kind, fields = {}) {
-  const action = legalActions(s).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-  const result = play(s, action, s.revision);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 const walk = (s, ...ids) =>
   ids.reduce(
     (w, id) =>
       greekTravelTargets(w.actors.vale.place, `greek-${id}`).reduce(
-        (x, target) => act(x, "move", { target }),
+        (x, target) => act(x, { kind: "move", target }),
         w,
       ),
     s,
@@ -41,7 +25,7 @@ function until(s, light) {
     t += DAYLIGHT_TURNS;
   s.turn = t - 1;
   s.revision = Math.max(s.revision, s.turn);
-  return act(reload(s), "wait", { sleep: undefined });
+  return act(reload(s), { kind: "wait", sleep: undefined });
 }
 
 describe("the burial supplies", () => {

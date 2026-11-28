@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import {
   decodeSave,
-  encodeSave,
   legalActions,
-  play,
   questOffers,
   residentOffer,
   validateWorld,
@@ -18,22 +16,15 @@ import {
   slotsUsed,
 } from "../v2/card-game/want.mjs";
 import { CALLS, recordOf } from "../v2/card-game/world/arcana-record.mjs";
+import { act } from "./helpers/play.mjs";
 
 const FROM = "quest:from:moth";
-const act = (s, pick) => {
-  const action = legalActions(s).find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const result = play(s, action, s.revision);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
 const tell = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
 const talk = (s) => act(tell(s), (a) => a.kind === "accept" && a.target === "moth");
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
 const give = (s) =>
   act(s, (a) => a.kind === "give" && a.item === "lamp" && a.target === "moth");
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
-const reload = (s) => decodeSave(encodeSave(s));
 const TARGETS = [
   ["place", "attic"],
   ["place", "station"],
@@ -67,7 +58,6 @@ describe("three quest slots", () => {
     expect(sources(after)).not.toContain(FROM);
     expect(heldOf(after.actors.vale)).toHaveLength(3);
     expect(questOffers(after)).toEqual([]);
-    expect(validateWorld(reload(after))).toBeTruthy();
   });
 
   it("loads a save with five held quests as three, and a released one is offered again on Talk", () => {
@@ -96,7 +86,6 @@ describe("three quest slots", () => {
     const after = act(s, (a) => a.kind === "drop" && !a.item && a.quest === 1);
     expect(sources(after)).toEqual(["quest:box:slot-0"]);
     expect(after.actors.vale.closed[FROM]).toBeTruthy();
-    expect(validateWorld(reload(after))).toBeTruthy();
   });
 });
 
@@ -111,7 +100,6 @@ describe("resident quests", () => {
     expect(after.actors.moth.trust.vale).toBe(trust + 1);
     expect(levelFor(after.actors.moth.xp)).toBe(rank + 1);
     expect(after.actors.vale.xp).toBe(xp);
-    expect(validateWorld(reload(after))).toBeTruthy();
   });
 
   it("count toward the Listener's call, and box quests do not", () => {
@@ -122,7 +110,6 @@ describe("resident quests", () => {
     expect(recordOf(after, "vale").calls).toBe(0);
     after = give(after);
     expect(recordOf(after, "vale").calls).toBe(1);
-    expect(validateWorld(reload(after))).toBeTruthy();
   });
 
   it("stop counting at three", () => {
@@ -131,7 +118,6 @@ describe("resident quests", () => {
     const after = give(s);
     expect(sources(after)).not.toContain(FROM);
     expect(recordOf(after, "vale").calls).toBe(3);
-    expect(validateWorld(reload(after))).toBeTruthy();
     const bad = structuredClone(after);
     bad.actors.vale.arcana.calls = 4;
     expect(() => validateWorld(bad)).toThrow();

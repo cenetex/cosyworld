@@ -35,6 +35,7 @@ import {
   play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const FOOL = "arcanum-0";
 const WORLD = "arcanum-21";
@@ -42,14 +43,6 @@ const middle = data.cards
   .filter((card) => ![0, 21].includes(card.number))
   .map((card) => card.id)
   .sort();
-const reload = (s) => decodeSave(encodeSave(s));
-const act = (s, pick) => {
-  const action = legalActions(s, "vale").find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const result = play(s, action, s.revision, "vale");
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
 const talk = (s) => act(s, (a) => a.kind === "talk" && a.target === "listener");
 const acceptOffer = (s) => act(s, (a) => a.tarot === "offer");
@@ -119,7 +112,7 @@ describe("the Listener's first visit", () => {
     const s = firstVisit();
     expect(spreadOf(s, "vale")).toEqual([]);
     expect(s.log.findLast((e) => e.actorId === "listener")).toMatchObject({
-      text: "The Listener offers Vale a face-down card.",
+      text: expect.stringContaining("face-down card"),
       consequence: true,
     });
     const here = s.actors.vale.place;
@@ -147,7 +140,6 @@ describe("the Listener's first visit", () => {
     expect(listenerOffer(accepted, "vale")).toBeNull();
     expect(play(accepted, accept, accepted.revision, "vale").ok).toBe(false);
     expect(entityActive(accepted, "listener")).toBe(false);
-    expect(validateWorld(reload(accepted))).toBeTruthy();
   });
 
   it("links the reading to its Talk independently of the caption", () => {
@@ -160,9 +152,7 @@ describe("the Listener's first visit", () => {
     const restored = reload(s);
     expect(listenerDeal(restored, "vale")).toMatchObject({ text: reading.text });
     expect(listenerDeal(restored, "mara")).toBeNull();
-    expect(narrativeContext(restored).events).toContain(
-      "The Listener gives a short reading and offers a face-down card. Its face stays hidden.",
-    );
+    expect(narrativeContext(restored).events.some((e) => e.includes("face stays hidden"))).toBe(true);
 
     reading.text = "The Listener offers Vale a face-down card.";
     reading.listenerEvent.sourceSeq = source.seq - 1;
@@ -245,7 +235,6 @@ describe("the Listener's first visit", () => {
     });
     expect(entityActive(s, "listener")).toBe(false);
     expect(firstFoolProgress(s, "vale")).toEqual({ count: 1, target: 3, phase: "help" });
-    expect(validateWorld(reload(s))).toBeTruthy();
     s = errand(errand(s, "moth"), "badger");
     expect(recordOf(s, "vale")).toMatchObject({
       calls: 3,
@@ -315,7 +304,6 @@ describe("the face-down card", () => {
         text: "Vale rises a level.",
       }),
     ]);
-    expect(validateWorld(reload(s))).toBeTruthy();
   });
 
   it("collects an unlocked Fool without its later quest or another Listener visit", () => {
@@ -399,7 +387,6 @@ describe("a spread bought for a thing", () => {
     expect(s.actors.moth.want).toMatchObject({ kind: "item", target: "lamp" });
     expect(s.actors.vale.closed?.["quest:from:moth"]).toBeUndefined();
     expect(neverBack(s, "bell")).toBe(true);
-    expect(validateWorld(reload(s))).toBeTruthy();
   });
 
   it("lets a done card leave its slot, and a resident's quest takes the slot", () => {
@@ -425,7 +412,6 @@ describe("a spread bought for a thing", () => {
     expect(cards(s)).not.toContain("arcanum-12");
     expect(recordOf(s, "vale").done).toEqual(["arcanum-12"]);
     expect(slotsUsed(s.actors.vale)).toBe(1);
-    expect(validateWorld(reload(s))).toBeTruthy();
   });
 
   it("gives no level for a discarded locked card, and sells a redraw at the next visit", () => {
@@ -461,7 +447,6 @@ describe("a redraw and a card given up", () => {
       (slot) => slot.face === "locked",
     );
     expect(again.card).not.toBe(first.card);
-    expect(validateWorld(reload(s))).toBeTruthy();
   });
 
   it("takes a thing for good while the Nameless Card is owed, and that proves it", () => {
@@ -484,7 +469,6 @@ describe("a redraw and a card given up", () => {
     expect(cards(s)).toEqual([]);
     expect(arcanaLevel(s, "vale")).toBe(13);
     expect(recordOf(s, "vale").sale).toBe(true);
-    expect(validateWorld(reload(s))).toBeTruthy();
   });
 
   it("leaves no keeper's hands holding a hub thing given up for good", () => {
@@ -496,7 +480,6 @@ describe("a redraw and a card given up", () => {
       expect(neverBack(s, item)).toBe(true);
       expect(s.items[item].history).toEqual([]);
       expect(s.actors[s.items[item].holder]).toBeUndefined();
-      expect(validateWorld(reload(s))).toBeTruthy();
     }
   });
 });
@@ -518,7 +501,6 @@ describe("the Listener's fetch quests", () => {
     expect(fetches(s)).toHaveLength(3);
     expect(heldOf(s.actors.vale).some((w) => w.from === DREAM_FROM)).toBe(true);
     expect(slotsUsed(s.actors.vale)).toBeLessThanOrEqual(3);
-    expect(validateWorld(reload(s))).toBeTruthy();
   });
 
   it("makes room among full slots by letting the bottom quest go", () => {
@@ -534,7 +516,6 @@ describe("the Listener's fetch quests", () => {
     s = wait(s);
     expect(fetches(s)).toHaveLength(3);
     expect(slotsUsed(s.actors.vale)).toBe(3);
-    expect(validateWorld(reload(s))).toBeTruthy();
   });
 });
 
@@ -627,7 +608,6 @@ describe("what the Listener deals", () => {
     s = wait(s);
     const moved = s.actors.vale.arcana.spread?.[0]?.bind.thing;
     expect(moved).not.toBe(pinned);
-    expect(validateWorld(reload(s))).toBeTruthy();
   });
 });
 

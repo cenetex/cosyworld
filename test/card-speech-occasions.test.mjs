@@ -3,9 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createWorld,
   legalActions,
-  play,
-  encodeSave,
-  decodeSave,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
@@ -18,18 +15,10 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { dialogueCast } from "../v2/card-game/scene-cast.mjs";
 import speech from "../v2/card-game/speech.json" with { type: "json" };
+import { act as actOn, reload } from "./helpers/play.mjs";
 
-const act = (s, kind, target) => {
-  const action = legalActions(s).find(
-    (a) =>
-      a.kind === kind &&
-      !a.sleep &&
-      !a.guards &&
-      (!target || a.target === target),
-  );
-  expect(action, `${kind} ${target || ""}`).toBeTruthy();
-  return play(s, action).state;
-};
+const act = (s, kind, target) =>
+  actOn(s, (a) => a.kind === kind && !a.sleep && !a.guards && (!target || a.target === target));
 const occasions = (s) => speechOccasions(s, dialogueCast(s));
 const meeting = () => {
   const s = createWorld();
@@ -89,12 +78,12 @@ describe("speech occasions", () => {
     let s = act(createWorld({ opening: true }), "wait");
     expect(occasions(s).speakers).toEqual(["vale"]);
     delete s.actors.vale.waitSpeech;
-    s = decodeSave(encodeSave(s));
+    s = reload(s);
     expect(occasions(act(s, "wait")).speakers).toEqual([]);
     s = selectLamp(selectLamp(s), "lamp");
     for (let i = 0; i < 110; i++) s = act(s, "wait");
     s.log = s.log.slice(-10);
-    s = act(decodeSave(encodeSave(s)), "wait");
+    s = act(reload(s), "wait");
     expect(occasions(s).speakers).toEqual([]);
     s = act(createWorld(), "wait");
     s = act(act(s, "move", "pond"), "move", "station");

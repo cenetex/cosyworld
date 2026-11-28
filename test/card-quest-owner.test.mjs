@@ -1,21 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
-  createWorld,
-  decodeSave,
-  encodeSave,
-  legalActions,
-  play,
-} from "../v2/card-game/world.mjs";
+import { createWorld } from "../v2/card-game/world.mjs";
 import { recordOf } from "../v2/card-game/world/arcana-record.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
+import { act as playOne, reload } from "./helpers/play.mjs";
 
-const act = (s, pick) => {
-  const action = legalActions(s, "vale").find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const done = play(s, action, s.revision, "vale");
-  expect(done.ok, done.error).toBe(true);
-  return decodeSave(encodeSave(done.state));
-};
+const act = (s, pick) => reload(playOne(s, pick));
 const talk = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
 const give = (s) =>
   act(s, (a) => a.kind === "give" && a.item === "lamp" && a.target === "moth");

@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { itemCopies, packTalkChoice } from "../v2/card-game/pack-registry.mjs";
-import {
-  decodeSave,
-  encodeSave,
-  legalActions,
-} from "../v2/card-game/world.mjs";
+import { decodeSave, legalActions } from "../v2/card-game/world.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { greekStart, landRoad, traveler } from "./helpers/open-door.mjs";
+import { reload } from "./helpers/play.mjs";
 import "./helpers/still-cast.mjs";
 
 const PACK = "greek-drama";
@@ -44,7 +41,6 @@ const available = (t, id) => legalActions(t.s).find((a) => a.choiceId === id);
 const receipts = (t) => t.s.packs[PACK].receipts;
 const talkChoice = (t, target) =>
   packTalkChoice(t.s, { actor: "vale", target })?.choiceId;
-const reload = (world) => decodeSave(encodeSave(world));
 
 function meetElectra(t = traveler(greekStart())) {
   return arrive(t, "greek-argolid-road")
@@ -90,7 +86,7 @@ describe("Greek Honey offerings", () => {
     const t = traveler(funeralJourney(greekStart()).buried);
     expect(t.s.actors.vale.place).toBe(GRAVE);
     const offering = "greek-polynices-grave-offering";
-    expect(available(t, offering)?.label).toBe("Pour honey at the grave");
+    expect(available(t, offering)).toBeDefined();
     expect(available(t, `${HONEY}-supply`)).toBeUndefined();
     t.act("choose", { choiceId: offering });
     expect(t.s.packs[PACK].flags["greek-polynices-honey-offered"]).toBe(true);

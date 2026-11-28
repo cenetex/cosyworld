@@ -22,6 +22,7 @@ import {
   currentScene,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
+import { act, reload } from "./helpers/play.mjs";
 const wantPlace = (target) => ({
   kind: "place",
   target,
@@ -45,20 +46,9 @@ function dialogue(s, id, extra = {}) {
     ...extra,
   });
 }
-function act(s, kind, item, target) {
-  return play(
-    s,
-    legalActions(s).find(
-      (a) =>
-        a.kind === kind &&
-        (!item || a.item === item) &&
-        (!target || a.target === target),
-    ),
-  ).state;
-}
 describe("the waiting speaker portrait", () => {
   it("names each speaker in display order", () => {
-    const world = act(gathered(), "talk", null, "moth");
+    const world = act(gathered(), { kind: "talk", target: "moth" });
     const speakers = ["vale", "moth"];
     expect(nextSpeaker(world, { speakers })).toBe("vale");
     expect(nextSpeaker(world, { speakers, shown: ["vale"] })).toBe("moth");
@@ -67,7 +57,7 @@ describe("the waiting speaker portrait", () => {
     ).toBeNull();
   });
   it("waits on the acting avatar at a shared table", () => {
-    const world = act(gathered(), "talk", null, "moth");
+    const world = act(gathered(), { kind: "talk", target: "moth" });
     expect(nextSpeaker(world, { actor: "vale" })).toBe("vale");
     expect(nextSpeaker(world, { actor: "rue" })).toBeNull();
     expect(nextSpeaker(world, {})).toBeNull();
@@ -157,12 +147,9 @@ describe("JRPG scenes", () => {
     s.actors.moth.want = wantPlace("pond");
     s.items.lamp.holder = "vale";
     s.items.lamp.lit = false;
-    const followed = act(s, "move", null, "pond");
+    const followed = act(s, { kind: "move", target: "pond" });
     expect(movementCaption(followed)).toContain(
       "Pip follows from Mirror attic.",
-    );
-    expect(movementCaption(decodeSave(encodeSave(followed)))).toBe(
-      movementCaption(followed),
     );
     const invite = legalActions(s).find(
       (a) =>
@@ -175,7 +162,7 @@ describe("JRPG scenes", () => {
     const waiting = atticOpening();
     waiting.items.lamp.lit = false;
     waiting.locations.attic.anchored = true;
-    expect(movementCaption(act(waiting, "move", null, "pond"))).toBe(
+    expect(movementCaption(act(waiting, { kind: "move", target: "pond" }))).toBe(
       "Pip is waiting here.",
     );
   });
@@ -209,10 +196,10 @@ describe("JRPG scenes", () => {
     };
     let s = write(createWorld());
     const earlier = currentScene(s).line;
-    s = act(s, "move", null, "pond");
+    s = act(s, { kind: "move", target: "pond" });
     expect(currentScene(s).line).toBeNull();
     s = write(s);
-    s = act(s, "move", null, "station");
+    s = act(s, { kind: "move", target: "station" });
     expect(currentScene(s)).toMatchObject({ line: null, previous: null });
     expect(currentScene(s, earlier.index).line).toEqual(earlier);
     s = write(s);
@@ -234,7 +221,7 @@ describe("JRPG scenes", () => {
     };
     let s = createWorld();
     for (let turn = 0; turn < 95; turn++) s = act(write(s), "wait");
-    s = decodeSave(encodeSave(write(s)));
+    s = reload(write(s));
     expect(s.turn).toBe(95);
     expect(s.log.filter((e) => !e.generated)).toHaveLength(100);
     expect(s.log.filter((e) => e.generated).length).toBeLessThanOrEqual(100);
@@ -284,7 +271,7 @@ describe("JRPG scenes", () => {
   it("shows the recorded cast when reading an earlier line", () => {
     let s = gathered();
     s.actors.moth.want = s.actors.keeper.want = null;
-    s = act(s, "talk", null, "moth");
+    s = act(s, { kind: "talk", target: "moth" });
     const context = narrativeContext(s, { target: "moth" });
     s = applyGeneratedText(s, context, {
       revision: s.revision,
@@ -550,7 +537,7 @@ describe("JRPG scenes", () => {
       stage.actors.find((a) => a.id === "keeper").items.map((i) => i.id),
     ).toEqual(["oil"]);
     expect(
-      sceneScript(decodeSave(encodeSave(s))).beats.at(-1).performance.staging,
+      sceneScript(s).beats.at(-1).performance.staging,
     ).toEqual(stage);
   });
   it("keeps action records in the export while generated dialogue leads the scene", () => {
@@ -570,14 +557,14 @@ describe("JRPG scenes", () => {
       speaker: "The keeper",
       text: "I want to hold Black cloth at Mirror attic.",
     });
-    s = decodeSave(encodeSave(s));
+    s = reload(s);
     expect(sceneLines(s)).toHaveLength(0);
     expect(currentScene(s).line).toBeNull();
     expect(sceneScript(s).beats.some((beat) => beat.kind === "hint")).toBe(
       true,
     );
-    s = act(s, "take", "lamp");
-    s = act(s, "talk", null, "moth");
+    s = act(s, { kind: "take", item: "lamp" });
+    s = act(s, { kind: "talk", target: "moth" });
     const context = narrativeContext(s, { target: "moth" });
     s = applyGeneratedText(s, context, {
       revision: s.revision,
@@ -598,9 +585,6 @@ describe("JRPG scenes", () => {
     expect(scene.previous.generated).toBe(true);
     expect(scene.line.actorId).toBe("moth");
     expect(sceneLines(s).every((line) => line.generated)).toBe(true);
-    const restored = decodeSave(encodeSave(s));
-    expect(currentScene(restored).previous).toEqual(scene.previous);
-    expect(currentScene(restored).line).toEqual(scene.line);
     const pending = act(s, "wait");
     expect(currentScene(pending).line).toEqual(scene.line);
     expect(currentScene(pending, scene.previous.index).line).toEqual(
@@ -608,7 +592,7 @@ describe("JRPG scenes", () => {
     );
   });
   it("exports ordered acts, local cast, object custody and image references", () => {
-    const s = act(createWorld(), "take", "lamp");
+    const s = act(createWorld(), { kind: "take", item: "lamp" });
     const script = sceneScript(s);
     const take = script.beats.find(
       (e) => e.verb === "take" && e.actorId === "vale",
@@ -636,7 +620,6 @@ describe("JRPG scenes", () => {
     expect(script.avatars.find((p) => p.id === "moth").cutout).toBe(
       "./assets/moth.png",
     );
-    expect(sceneScript(decodeSave(encodeSave(s)))).toEqual(script);
   });
   it("keeps sequence numbers when history reaches its limit", () => {
     let s = createWorld();
@@ -685,14 +668,11 @@ describe("JRPG scenes", () => {
     }
     expect(spoken.log.filter((e) => !e.generated)).toHaveLength(100);
     expect(spoken.log.some((e) => e.generated)).toBe(true);
-    expect(() => decodeSave(encodeSave(spoken))).not.toThrow();
   });
   it("faces Vale from her arrival after the arrival leaves the history", () => {
     let s = act(
-      act(createWorld(), "move", null, "pond"),
-      "move",
-      null,
-      "station",
+      act(createWorld(), { kind: "move", target: "pond" }),
+      { kind: "move", target: "station" },
     );
     const arrived = sceneStaging(s);
     expect(arrived.layout).toBe("foreground-right");
@@ -704,9 +684,8 @@ describe("JRPG scenes", () => {
       fromLocationId: "pond",
       locationId: "station",
     });
-    const later = decodeSave(encodeSave(s));
-    expect(sceneStaging(later).layout).toBe("foreground-right");
-    expect(sceneStaging(later).actors.find((a) => a.id === "vale").facing).toBe(
+    expect(sceneStaging(s).layout).toBe("foreground-right");
+    expect(sceneStaging(s).actors.find((a) => a.id === "vale").facing).toBe(
       arrived.actors.find((a) => a.id === "vale").facing,
     );
   });

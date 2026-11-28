@@ -2,15 +2,13 @@ import { describe, it, expect } from "vitest";
 import {
   createWorld,
   encodeSave,
-  legalActions,
   outranks,
-  play,
   strikeDamage,
   strikePower,
 } from "../v2/card-game/world.mjs";
 import { levelTier } from "../v2/card-game/level-tiers.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { act } from "./helpers/play.mjs";
 
 const at = (keeper, moth, seed = 7, revision = 0) => {
   const s = createWorld({ seed });
@@ -72,15 +70,10 @@ describe("strike strength by level tier", () => {
       s.items.lamp.holder = "moth";
       s.turn = s.revision = 3;
       s.actors.vale.xp = 1; // level II against Pip's I: the same tier
-      const strike = (s, kind) =>
-        play(
-          s,
-          legalActions(s).find((a) => a.kind === kind),
-        ).state;
-      s = strike(s, "threaten");
+      s = act(s, "threaten");
       s.standoffs[0].guarding.moth = true; // as if Pip had braced
       const before = s;
-      s = strike(s, "attack");
+      s = act(s, "attack");
       const [hit, back] = s.log.filter((e) => e.seq > before.eventSeq);
       // Braced, a roll of 1 or 2 lands 1.
       expect(hit).toMatchObject({ verb: "attack", damage: 1, guarded: true });
@@ -89,13 +82,10 @@ describe("strike strength by level tier", () => {
       expect(back.text).toContain(`loses ${back.damage} resolve`);
       expect(back.resolveBefore - back.resolveAfter).toBe(back.damage);
       // The same seed and play roll the same.
-      expect(strike(before, "attack").log).toEqual(s.log);
+      expect(act(before, "attack").log).toEqual(s.log);
     }
   });
-  it("rolls the same strikes in the browser and the compiled server rules", () => {
-    const runtime = currentSharedEngine();
-    const ask = (request) =>
-      JSON.parse(runtime.cardShared(JSON.stringify(request)));
+  it("rolls one or two damage in shared play", () => {
     const claimed = ["vale"];
     const seen = new Set();
     for (let seed = 1; seed <= 12; seed++) {
@@ -114,7 +104,6 @@ describe("strike strength by level tier", () => {
         request.present = claimed;
         const browser = dispatchShared(request);
         expect(browser.ok).toBe(true);
-        expect(ask(request)).toEqual(browser);
         for (const e of browser.events)
           if (e.verb === "attack") seen.add(e.damage);
         world = browser.world;

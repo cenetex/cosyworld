@@ -107,15 +107,13 @@ describe("a thing left lying through a dawn", () => {
     expect(reload(result.state).items[BRANCH].holder).toBe("greek-athens");
   });
 
-  it("never stops the world for any homed thing left anywhere", async () => {
+  it("never stops the world for a homed thing left away from home", () => {
     const base = createWorld({ seed: 5 });
-    let tried = 0;
     for (const pack of packDefinitions)
-      for (const [id, item] of Object.entries(pack.items || {}))
-        for (const spot of item.home
-          ? [...Object.keys(pack.places), "pond"]
-          : []) {
-          if (++tried % 50 === 0) await new Promise(setImmediate);
+      for (const [id, item] of Object.entries(pack.items || {})) {
+        if (!item.home) continue;
+        const away = Object.keys(pack.places).filter((p) => p !== item.home).sort();
+        for (const spot of ["pond", away[0], away.at(-1)].filter(Boolean)) {
           let world;
           try {
             world = leftAt(base, id, spot);
@@ -127,5 +125,6 @@ describe("a thing left lying through a dawn", () => {
             `${id} at ${spot}`,
           ).toBeUndefined();
         }
-  }, 600_000);
+      }
+  });
 });

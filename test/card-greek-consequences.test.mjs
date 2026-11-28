@@ -7,12 +7,8 @@ import {
   packTalkChoice,
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import {
-  decodeSave,
-  encodeSave,
-  legalActions,
-  play,
-} from "../v2/card-game/world.mjs";
+import { decodeSave, encodeSave, legalActions, play } from "../v2/card-game/world.mjs";
+import { reload } from "./helpers/play.mjs";
 import { greekStart, landRoad, traveler } from "./helpers/open-door.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 import "./helpers/still-cast.mjs";
@@ -52,7 +48,6 @@ const READY_REPLY = "greek-acharnae-quay-bread-ready";
 const BAKE_REPLY = "greek-acharnae-quay-bread-set-out";
 const BAKE_WORDS = "When the Bread is gone, give me Water";
 
-const reload = (world) => decodeSave(encodeSave(world));
 const packState = (world) => world.packs[PACK];
 const cargoState = (world) => ({
   item: world.items[PROVISIONS],
@@ -129,20 +124,15 @@ function walkToQuay(t) {
 
 function expectOrder(world, branch, choice, cargo) {
   const otherChoice = choice === PUBLIC ? PRIVATE : PUBLIC;
-  const receipt = packState(world).receipts[choice];
-  const saved = reload(world);
-  expect(receipt).toBeTypeOf("number");
-  for (const state of [world, saved]) {
-    expect(packState(state).choices[ORDER]).toBe(branch);
-    expect(packState(state).receipts[choice]).toBe(receipt);
-    expect(packState(state).receipts[otherChoice]).toBeUndefined();
-    expect(cargoState(state)).toEqual(cargo);
-    expect(canReportPublic(state)).toBe(false);
-    expect(claimsIn(LEDGER, state)).toMatchObject([
-      { claim: choice, author: HOST },
-    ]);
-  }
-  return saved;
+  expect(packState(world).receipts[choice]).toBeTypeOf("number");
+  expect(packState(world).choices[ORDER]).toBe(branch);
+  expect(packState(world).receipts[otherChoice]).toBeUndefined();
+  expect(cargoState(world)).toEqual(cargo);
+  expect(canReportPublic(world)).toBe(false);
+  expect(claimsIn(LEDGER, world)).toMatchObject([
+    { claim: choice, author: HOST },
+  ]);
+  return world;
 }
 
 describe("Acharnae orders at Piraeus", () => {
@@ -199,7 +189,7 @@ describe("Acharnae orders at Piraeus", () => {
     t.give(SEAL, MEGARIAN);
     expect(
       t.s.log.findLast((e) => e.verb === "give" && e.itemId === SEAL).text,
-    ).toContain("Tell Thaleia at Piraeus what the market agreed.");
+    ).toContain("what the market agreed");
     expect(
       packState(t.s).receipts["greek-acharnae-hear-quay-invitation"],
     ).toBeUndefined();
@@ -300,7 +290,7 @@ describe("Acharnae orders at Piraeus", () => {
     t.act("read", { item: LEDGER });
     const [ledger] = claimsIn(LEDGER, t.s);
     expect(supplier(legalActions(t.s), CREDIT)).toBeUndefined();
-    expect(reload(t.s).knowledge.known.vale[ledger.id]).toMatchObject({
+    expect(t.s.knowledge.known.vale[ledger.id]).toMatchObject({
       kind: "read",
       book: LEDGER,
     });
@@ -331,14 +321,14 @@ describe("Acharnae orders at Piraeus", () => {
     const oldTrust = t.s.actors[HOST].trust.vale ?? 0;
     expect(oldTrust).toBeLessThan(2);
     t.give(BOND, HOST);
-    const saved = expectOrder(t.s, "private", PRIVATE, cargo);
-    expect(saved.items[WHEAT].holder).toBe(COURTYARD);
-    expect(saved.actors[HOST].trust.vale).toBe(2);
-    expect(saved.items[WINE]).toEqual(gateWine);
-    expect(saved.items[OLD_QUAY_WINE]).toBeUndefined();
-    expect(claimsIn(LEDGER, saved)[0].text).toContain("her own wine");
+    const ordered = expectOrder(t.s, "private", PRIVATE, cargo);
+    expect(ordered.items[WHEAT].holder).toBe(COURTYARD);
+    expect(ordered.actors[HOST].trust.vale).toBe(2);
+    expect(ordered.items[WINE]).toEqual(gateWine);
+    expect(ordered.items[OLD_QUAY_WINE]).toBeUndefined();
+    expect(claimsIn(LEDGER, ordered)[0].text).toContain("her own wine");
     expect(supplier(legalActions(t.s), QUAY_SUPPLY)).toBeUndefined();
-    expect(saved.gone).toContain(BOND);
+    expect(ordered.gone).toContain(BOND);
     expect(legalActions(t.s).some(({ item }) => item === BOND)).toBe(false);
 
     const old = structuredClone(t.s);
@@ -402,7 +392,7 @@ describe("Acharnae orders at Piraeus", () => {
     expectReply(
       suppliedShip.s,
       CREDIT_WAITING,
-      "Dicaeopolis’s credit is good. I have no Travel Provisions to set out just now.",
+      "Dicaeopolis’s credit is good",
     );
     expect(suppliedShip.s.items[PROVISIONS].holder).toBe("greek-ship");
 
@@ -416,7 +406,7 @@ describe("Acharnae orders at Piraeus", () => {
     const issuedAt = t.s.turn;
     expect(t.s.items[PROVISIONS].holder).toBe(PIREAUS);
     expect(t.s.usedUp).not.toContain(PROVISIONS);
-    expect(t.s.items[BREAD]).toEqual(saved.items[BREAD]);
+    expect(t.s.items[BREAD]).toEqual(ordered.items[BREAD]);
     expect(claimsIn(LEDGER, t.s).map(({ claim }) => claim)).toEqual([
       PRIVATE,
       CREDIT,

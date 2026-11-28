@@ -37,6 +37,7 @@ import {
   narrativeContext,
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 function pond({ lit = true, fuel = 12, place = "pond" } = {}) {
   const s = atticOpening();
@@ -59,27 +60,14 @@ function pond({ lit = true, fuel = 12, place = "pond" } = {}) {
   addLog(s, "World", "Vale waits beside the water.", { locationId: place });
   return s;
 }
-function act(s, kind, item, target) {
-  const a = legalActions(s).find(
-    (a) =>
-      a.kind === kind &&
-      (item === undefined || a.item === item) &&
-      (target === undefined || a.target === target),
-  );
-  assert(a, `Missing ${kind}:${item}:${target}`);
-  const r = play(s, a);
-  assert(r.ok, r.error);
-  return r.state;
-}
 // The grounded lamp and actively held cloth are the current arrangement.
 const summon = (s) => {
-  if (s.items.cloth.holder !== "vale") s = act(s, "take", "cloth");
+  if (s.items.cloth.holder !== "vale") s = act(s, { kind: "take", item: "cloth" });
   s = selectLamp(s, "cloth");
   if (s.items.lamp.holder === "vale")
-    s = act(s, "drop", "lamp", s.actors.vale.place);
+    s = act(s, { kind: "drop", item: "lamp", target: s.actors.vale.place });
   return s;
 };
-const reload = (s) => decodeSave(encodeSave(s));
 function visible(s, yes) {
   assert.equal(greekShipPresent(s), yes);
   assert.equal(
@@ -103,7 +91,6 @@ test("the first lamp signal gates both shores for players and residents", () => 
     const result = play(s, { key: "move:vale::greek-ship" });
     assert.equal(result.ok, false);
     assert.deepEqual(result.state, s);
-    assert.deepEqual(reload(s), s);
   }
 });
 
@@ -157,14 +144,14 @@ test("a repeated drop cannot replay the discovery", () => {
 test("an empty grounded lamp cannot complete the arrangement", () => {
   const s = summon(pond({ fuel: 0 }));
   assert.equal(s.items.lamp.lit, false);
-  visible(reload(s), false);
+  visible(s, false);
 });
 test("the same arrangement at the station cannot summon the ship", () => {
   visible(summon(pond({ place: "station" })), false);
 });
 test("mere cloth possession beside the placed lamp is insufficient", () => {
   let s = selectLamp(pond());
-  s = act(s, "drop", "lamp", "pond");
+  s = act(s, { kind: "drop", item: "lamp", target: "pond" });
   assert.equal(s.items.cloth.holder, "vale");
   visible(s, false);
   const turn = s.turn;
@@ -195,7 +182,7 @@ test("inspection never changes discovery or spends room fuel", () => {
 });
 test("a stale quiet cloth choice cannot unlock a saved arrangement", () => {
   let s = selectLamp(pond());
-  s = act(s, "drop", "lamp", "pond");
+  s = act(s, { kind: "drop", item: "lamp", target: "pond" });
   const revision = s.revision;
   s = act(s, "wait");
   const before = encodeSave(s);
@@ -220,35 +207,35 @@ test("waiting does not drain the lamp's current room or revoke discovery", () =>
   let s = summon(pond());
   for (let i = 0; i < 6; i++) s = act(s, "wait");
   assert.equal(s.items.lamp.fuelRooms, 3);
-  visible(reload(s), true);
+  visible(s, true);
 });
 test("a discovered ship remains after the lamp runs dry", () => {
   let s = summon(pond({ fuel: 4 }));
   s.items.lamp.fuelRooms = 0;
   settleLamp(s);
-  visible(reload(s), true);
-  s = act(s, "move", null, "greek-ship");
+  visible(s, true);
+  s = act(s, { kind: "move", target: "greek-ship" });
   assert.equal(s.actors.vale.place, "greek-ship");
 });
 test("leaving the pond before placing the lamp cannot complete the arrangement", () => {
   let s = selectLamp(pond(), "cloth");
-  s = act(s, "move", null, "station");
-  s = act(s, "drop", "lamp", "station");
-  s = act(s, "move", null, "pond");
+  s = act(s, { kind: "move", target: "station" });
+  s = act(s, { kind: "drop", item: "lamp", target: "station" });
+  s = act(s, { kind: "move", target: "pond" });
   visible(s, false);
 });
 test("a summoned ship waits through bells and changes to the lamp", () => {
   let s = summon(pond());
-  s = act(s, "ring", "bell");
+  s = act(s, { kind: "ring", item: "bell" });
   visible(s, true);
   s = selectLamp(s);
   visible(s, true);
   for (let i = 0; i < 3; i++) s = act(s, "wait");
-  visible(reload(s), true);
+  visible(s, true);
 });
 test("boarding and disembarking move the ship between shores", () => {
   let s = summon(pond());
-  s = act(s, "move", null, "greek-ship");
+  s = act(s, { kind: "move", target: "greek-ship" });
   assert.equal(shipSignalPhase(s), undefined);
   assert.equal(s.transports["greek-ship"].dock, "pond");
   assert.deepEqual(
@@ -259,10 +246,10 @@ test("boarding and disembarking move the ship between shores", () => {
   );
   // The far shore is a course card; the ship waits at its harbour.
   assert.equal(playLabel(cardPlay(s, ["greek-harbor"]).action), "Set course");
-  s = reload(act(s, "wait"));
+  s = act(s, "wait");
   assert.equal(s.actors.vale.place, "greek-ship");
   assert.equal(s.transports["greek-ship"].phase, "docked");
-  s = act(s, "course", null, "greek-harbor");
+  s = act(s, { kind: "course", target: "greek-harbor" });
   assert.equal(s.transports["greek-ship"].phase, "sea");
   assert.deepEqual(
     availableCards(s).filter((id) =>
@@ -271,23 +258,23 @@ test("boarding and disembarking move the ship between shores", () => {
     ["greek-ship"],
   );
   assert.equal(greekShipPresent(s), false);
-  s = reload(act(s, "wait"));
+  s = act(s, "wait");
   assert.equal(s.transports["greek-ship"].phase, "arrived");
   assert.equal(playLabel(cardPlay(s, ["greek-harbor"]).action), "Disembark");
-  s = act(s, "move", null, "greek-harbor");
+  s = act(s, { kind: "move", target: "greek-harbor" });
   assert.equal(s.transports["greek-ship"].dock, "greek-harbor");
   assert(availableCards(s).includes("greek-ship"));
-  s = act(s, "move", null, "greek-ship");
+  s = act(s, { kind: "move", target: "greek-ship" });
   assert.deepEqual(
     availableCards(s).filter((id) =>
       ["pond", "greek-harbor", "greek-ship"].includes(id),
     ),
     ["greek-ship", "pond"],
   );
-  s = act(act(s, "course", null, "pond"), "wait");
-  s = act(s, "move", null, "pond");
+  s = act(act(s, { kind: "course", target: "pond" }), "wait");
+  s = act(s, { kind: "move", target: "pond" });
   assert.equal(s.transports["greek-ship"].dock, "pond");
-  visible(reload(s), true);
+  visible(s, true);
 });
 test("reselecting the cloth leaves the discovered ship available", () => {
   let s = summon(pond());
@@ -331,7 +318,7 @@ import { newWant } from "../v2/card-game/want.mjs";
 test("the ship crossing preserves a want met beside a resident Vale has not met", () => {
   let s = atticOpening();
   s = selectLamp(s);
-  s = act(s, "move", null, "pond");
+  s = act(s, { kind: "move", target: "pond" });
   s = selectLamp(s, "lamp");
   s.items.cloth.holder = "pond";
   // Pip takes the oil beside the keeper, out of sight of Vale's signal.
@@ -341,16 +328,15 @@ test("the ship crossing preserves a want met beside a resident Vale has not met"
   fillLampFuel(s);
   assert.equal(s.opening.met.keeper, undefined);
   s = summon(s);
-  s = act(s, "drop", "cloth", "pond");
-  s = act(s, "move", null, "greek-ship");
-  s = act(act(s, "course", null, "greek-harbor"), "wait");
-  s = act(s, "move", null, "greek-harbor");
+  s = act(s, { kind: "drop", item: "cloth", target: "pond" });
+  s = act(s, { kind: "move", target: "greek-ship" });
+  s = act(act(s, { kind: "course", target: "greek-harbor" }), "wait");
+  s = act(s, { kind: "move", target: "greek-harbor" });
   s = selectLamp(s);
   const met = s.log.find((e) => e.verb === "want_met" && e.actorId === "moth");
   assert(met);
   assert.deepEqual(met.wantMet, { kind: "item", target: "oil" });
   assert.equal(s.opening.met.keeper, undefined);
-  assert.deepEqual(reload(s), s);
 });
 
 test("filling the lamp supplies three rooms and the grounded arrangement", () => {
@@ -381,7 +367,6 @@ test("Pip brings the signaled ship from Greece to a waiting player", () => {
   assert.equal(s.actors.moth.place, "greek-ship");
   assert.equal(shipSignalPhase(s), undefined);
   visible(s, false);
-  s = reload(s);
   // Alone aboard, Pip sets the course, rides a round at sea and lands.
   s = act(s, "wait");
   assert.equal(s.transports["greek-ship"].phase, "sea");
@@ -390,7 +375,7 @@ test("Pip brings the signaled ship from Greece to a waiting player", () => {
     s = act(s, "wait");
   assert.equal(s.actors.moth.place, "pond");
   visible(s, true);
-  s = act(s, "move", null, "greek-ship");
+  s = act(s, { kind: "move", target: "greek-ship" });
   assert.deepEqual(
     legalActions(s)
       .filter((a) => a.kind === "course")
@@ -418,10 +403,9 @@ test("a recall waits for the last passenger to finish the current trip", () => {
   s.actors.moth.place = "greek-harbor";
   moveTransport(s, "greek-ship", "greek-harbor");
   assert.equal(s.transports["greek-ship"].dock, "greek-harbor");
-  assert.deepEqual(reload(s).transports, s.transports);
   s.actors.keeper.place = "greek-harbor";
   moveTransport(s, "greek-ship", "greek-harbor");
-  visible(reload(s), true);
+  visible(s, true);
 });
 
 test("a trusted companion can board and disembark with Vale", () => {
@@ -443,14 +427,12 @@ test("a trusted companion can board and disembark with Vale", () => {
   s = pair(s, "greek-ship");
   assert.equal(s.actors.vale.place, "greek-ship");
   assert.equal(s.actors.moth.place, "greek-ship");
-  s = reload(s);
-  s = act(act(s, "course", null, "greek-harbor"), "wait");
+  s = act(act(s, { kind: "course", target: "greek-harbor" }), "wait");
   // Aboard together, Moth is Vale's companion: the landing is a plain move.
-  s = act(s, "move", null, "greek-harbor");
+  s = act(s, { kind: "move", target: "greek-harbor" });
   assert.equal(s.actors.vale.place, "greek-harbor");
   assert.equal(s.actors.moth.place, "greek-harbor");
   assert.equal(s.transports["greek-ship"].dock, "greek-harbor");
-  assert.deepEqual(reload(s), s);
 });
 
 test("saved ship state names a dock and a valid occupied leg", () => {

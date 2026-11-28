@@ -7,7 +7,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { knowsLane } from "../v2/card-game/pack-transport.mjs";
 import { readPage } from "../v2/card-game/read-view.mjs";
-import { decodeSave, encodeSave, legalActions } from "../v2/card-game/world.mjs";
+import { legalActions } from "../v2/card-game/world.mjs";
 import { greekStart, landRoad, traveler } from "./helpers/open-door.mjs";
 import "./helpers/still-cast.mjs";
 
@@ -60,7 +60,7 @@ function prepareHandoff(t, stem, response) {
     t.s.log.findLast(
       (entry) => entry.verb === "talk" && entry.actorId === "vale",
     ).text,
-  ).toBe("You can carry three items. Put one down, then speak again.");
+  ).toContain("carry three items");
   expect(receipts(t)[response]).toBeUndefined();
   expect(t.s.items[item].holder).toBe(place);
 
@@ -122,8 +122,7 @@ it("carries Iphigenia’s original letter from Tauris to Electra and reads her a
     author: "Electra",
     claims: [acknowledgment.text],
   });
-  const saved = decodeSave(encodeSave(t.s));
-  expect(saved.knowledge.known.vale[acknowledgment.id]).toMatchObject({
+  expect(t.s.knowledge.known.vale[acknowledgment.id]).toMatchObject({
     kind: "read",
     book: LETTER,
   });

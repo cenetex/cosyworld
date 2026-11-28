@@ -3,8 +3,6 @@ import { settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { itemPlace as lampPlace } from "../v2/card-game/world.mjs";
 import { describe, expect, it } from "vitest";
 import {
-  decodeSave,
-  encodeSave,
   exits,
   legalActions,
   places,
@@ -26,21 +24,14 @@ import { pondOpening } from "./fixtures/card-pond-opening.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import { sceneCast } from "../v2/card-game/scene.mjs";
 import { boardyPack } from "../v2/card-game/boardyai.mjs";
+import { act as playOne, reload } from "./helpers/play.mjs";
 const doorway = boardyPack.crossings.find(
   (c) => c.id === "station-boardyai-parlour",
 ).from;
 
 const fresh = () => enableMotives(pondOpening());
-const act = (world, kind, target) => {
-  const action = legalActions(world).find(
-    (a) => a.kind === kind && (!target || a.target === target),
-  );
-  expect(action, `${kind} at ${world.actors.vale.place}`).toBeDefined();
-  const result = play(world, action);
-  expect(result.ok).toBe(true);
-  expect(play(decodeSave(encodeSave(world)), action)).toEqual(result);
-  return result.state;
-};
+const act = (world, kind, target) =>
+  playOne(world, target ? { kind, target } : kind);
 
 describe("the attic opening and saved pond journeys", () => {
   it("starts new local and shared worlds alone in the lamplit attic", () => {
@@ -63,7 +54,6 @@ describe("the attic opening and saved pond journeys", () => {
         cast: ["vale"],
         light: true,
       });
-      expect(decodeSave(encodeSave(world))).toEqual(world);
       for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
         expect(world.actors[avatar.id].place).toBe(avatar.home.id);
     }
@@ -91,7 +81,7 @@ describe("the attic opening and saved pond journeys", () => {
     setFuel(world, 0);
     world.items.lamp.lit = false;
     world.items.cloth.holder = "pond";
-    world = decodeSave(encodeSave(world));
+    world = reload(world);
     expect(exits(world, "attic")).toEqual(["pond"]);
     world = act(world, "move", "pond");
     world = act(world, "move", "station");
@@ -123,7 +113,7 @@ describe("the attic opening and saved pond journeys", () => {
     setFuel(world, 0);
     world.items.lamp.lit = false;
     world.items.oil.holder = "station";
-    world = decodeSave(encodeSave(world));
+    world = reload(world);
     world.actors.vale.want = wantPlace("pond");
     if (places["forest-cottage"]) {
       expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
@@ -213,7 +203,7 @@ describe("the attic opening and saved pond journeys", () => {
     before.actors.vale.place = "station";
     before.locations.attic.anchored = true;
     settleLamp(before);
-    const restored = decodeSave(encodeSave(before));
+    const restored = reload(before);
     expect(restored).toEqual(before);
     expect(restored.actors.vale.want).toBeNull();
     expect(exits(restored, "station")).toEqual(["pond", "behind-station"]);

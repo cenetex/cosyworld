@@ -10,13 +10,13 @@ import {
   createWorld,
   legalActions,
   play,
-  encodeSave,
   decodeSave,
   exits,
 } from "../v2/card-game/world.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
+import { act as playAct, reload } from "./helpers/play.mjs";
 const singer = "greek-rhapsode";
 function untilSinger(s, place, limit = 8) {
   for (let turn = 0; turn < limit && s.actors[singer].place !== place; turn++)
@@ -36,15 +36,7 @@ function act(s, kind = "wait", fields = {}, actor = "vale") {
     needsVoyage(s, actor, fields.target)
   )
     return sailTo(s, fields.target, { actor });
-  const action = legalActions(s, actor).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action).toBeDefined();
-  const result = play(s, action, s.revision, actor);
-  expect(result.ok).toBe(true);
-  expect(decodeSave(encodeSave(result.state))).toEqual(result.state);
-  return result.state;
+  return playAct(s, { kind, ...fields }, actor);
 }
 describe("ordinary bard travel", () => {
   it("starts at the active harbor and preserves an introduced bard's saved place", () => {
@@ -117,7 +109,7 @@ describe("ordinary bard travel", () => {
     });
     s = act(s);
     expect(s.actors[singer].place).toBe("greek-ship");
-    s = decodeSave(encodeSave(s));
+    s = reload(s);
     s = act(s);
     expect(s.transports["greek-ship"]).toMatchObject({
       phase: "sea",
@@ -157,7 +149,7 @@ describe("ordinary bard travel", () => {
     record.actor = "keeper";
     record.visit = s.turn;
     expect(validRecitals(s, pack)).toBe(true);
-    const loaded = decodeSave(encodeSave(s));
+    const loaded = reload(s);
     expect(
       recitalContext(loaded, [pack], singer).stanzas.find(
         (v) => v.id === "greek-return-water-jar",

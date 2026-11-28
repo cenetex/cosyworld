@@ -3,12 +3,12 @@ import {
   addLog,
   createWorld,
   decodeSave,
-  encodeSave,
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
 import { rememberRoutes } from "../v2/card-game/roaming-routes.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const charybdis = "greek-ship";
 const scylla = "greek-scylla";
@@ -53,17 +53,6 @@ function previousSave(
 }
 
 const load = (world) => decodeSave(JSON.stringify(world));
-function act(world, kind, target) {
-  const card = legalActions(world).find(
-    (action) =>
-      action.kind === kind &&
-      (target === undefined || action.target === target),
-  );
-  expect(card, `${kind} ${target ?? ""}`).toBeDefined();
-  const result = play(world, card);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 
 describe("the Scylla takes the Charybdis's far ports", () => {
   it("keeps an arrived passenger, cargo and fellow passengers at the transferred berth", () => {
@@ -99,7 +88,7 @@ describe("the Scylla takes the Charybdis's far ports", () => {
       [`sea:${lemnos}`, `sea:${thrace}`],
     ]);
     expect(world.log).toEqual(previous.log);
-    expect(decodeSave(encodeSave(world))).toEqual(world);
+    expect(reload(world)).toEqual(world);
   });
 
   it.each(["docked", "arrived"])(
@@ -127,7 +116,7 @@ describe("the Scylla takes the Charybdis's far ports", () => {
       expect(world.items.bell.holder).toBe(scylla);
       expect(world.items.cloth.holder).toBe("bell");
 
-      const ashore = act(world, "move", sicily);
+      const ashore = act(world, { kind: "move", target: sicily });
       expect(ashore.actors.vale.place).toBe(sicily);
       expect(ashore.items.oil.holder).toBe("vale");
       expect(ashore.items.bell.holder).toBe(scylla);
@@ -211,7 +200,7 @@ describe("the Scylla takes the Charybdis's far ports", () => {
     fresh.actors.vale.visited.push(harbor);
     fresh.crossings["pond-greek-harbor"].discovered = true;
     fresh.items["greek-helen-accounts"].holder = "vale";
-    const previous = act(fresh, "give", "greek-shipmaster");
+    const previous = act(fresh, { kind: "give", target: "greek-shipmaster" });
     expect(previous.packs["greek-drama"].choices["greek-helen-account"]).toBe(
       "egypt",
     );
@@ -236,11 +225,11 @@ describe("the Scylla takes the Charybdis's far ports", () => {
     expect(world.routeKnowledge.vale).not.toContainEqual([egypt, harbor]);
     expect(world.routeKnowledge.vale).not.toContainEqual([harbor, egypt]);
     world = act(world, "wait");
-    world = act(world, "move", scylla);
-    world = act(world, "course", pagasae);
+    world = act(world, { kind: "move", target: scylla });
+    world = act(world, { kind: "course", target: pagasae });
     world = act(world, "wait");
-    world = act(world, "move", pagasae);
-    expect(decodeSave(encodeSave(world)).actors.vale.place).toBe(pagasae);
+    world = act(world, { kind: "move", target: pagasae });
+    expect(reload(world).actors.vale.place).toBe(pagasae);
   });
 });
 
@@ -288,7 +277,7 @@ describe("Ajax's landing moves off the Northern Road", () => {
     expect(world.routeKnowledge.vale).toEqual([surviving]);
     expect(world.routeKnowledge["greek-rhapsode"].flat()).not.toContain(north);
     expect(world.log).toEqual(previous.log);
-    expect(decodeSave(encodeSave(world))).toEqual(world);
+    expect(reload(world)).toEqual(world);
   });
 
   it("rejects revision 38 route knowledge pointing into the retired road", () => {

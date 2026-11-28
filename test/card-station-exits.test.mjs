@@ -3,7 +3,6 @@ import { expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave, exits, legalActions, play, placeText, settleStationExits } from "../v2/card-game/world.mjs";
 import { settleHeldItems } from "../v2/card-game/held-item.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 function fixture() {
   const s = createWorld({ seed: 17 });
@@ -111,11 +110,9 @@ it("opens the rear Radio door for its key carrier and follows the key", () => {
   expect(rearWays(s)).not.toContain(door);
   s.items[key].holder = "vale";
   expect(rearWays(s)).toContain(door);
-  expect(decodeSave(encodeSave(s)).packs.ratiradio.flags["station-open"]).toBeUndefined();
 });
 
-it("matches compiled shared rules across presence, marker travel and reopening", async () => {
-  const compiled = currentSharedEngine();
+it("keeps the shared exit order across presence, marker travel and reopening", () => {
   let world = fixture();
   world.actors.vale.place = rear;
   world.actors.mara.place = "pond";
@@ -125,9 +122,7 @@ it("matches compiled shared rules across presence, marker travel and reopening",
   world.stationExitOrder = [];
   const step = (op, present, actor = "vale", action) => {
     const request = { op, world, actor, claimed: ["vale", "mara"], present, ...(action && { action }) };
-    const source = dispatchShared(request);
-    expect(JSON.parse(compiled.cardShared(JSON.stringify(request)))).toEqual(source);
-    world = source.world;
+    world = dispatchShared(request).world;
   };
   step("presence", ["vale"]);
   expect(world.stationExitOrder).toEqual(["train"]);

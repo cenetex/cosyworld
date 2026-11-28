@@ -1,11 +1,6 @@
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { describe, it, expect } from "vitest";
-import {
-  decodeSave,
-  encodeSave,
-  legalActions,
-  play,
-} from "../v2/card-game/world.mjs";
+import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
@@ -15,25 +10,19 @@ import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { hub } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { act as playOne, reload } from "./helpers/play.mjs";
 
 const openingPoem = (world) =>
   recitalPoem(world, packDefinition("greek-drama"));
 const stanzas = (world) => openingPoem(world).stanzas;
 const ids = (world) => stanzas(world).map((s) => s.id);
-const reload = (world) => decodeSave(encodeSave(world));
 const act = (world, kind, target) => {
   if (kind === "move") {
     const steps = greekTravelTargets(world.actors.vale.place, target);
     if (steps.length > 1)
       return steps.reduce((w, to) => act(w, "move", to), world);
   }
-  const action = legalActions(world).find(
-    (a) => a.kind === kind && (!target || a.target === target),
-  );
-  expect(action).toBeTruthy();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
+  return playOne(world, target ? { kind, target } : kind);
 };
 const bard = "greek-rhapsode";
 // The Bard follows its own want: give it this place and let it travel there.

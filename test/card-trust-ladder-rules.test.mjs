@@ -1,14 +1,10 @@
 import { afterEach, expect, it } from "vitest";
 import "./helpers/still-cast.mjs";
-import {
-  createWorld,
-  legalActions,
-  plan,
-  play,
-} from "../v2/card-game/world.mjs";
+import { createWorld, plan } from "../v2/card-game/world.mjs";
 import { installWants, stagedNext } from "../v2/card-game/want.mjs";
 import { packDefinitions, packPeople } from "../v2/card-game/pack-registry.mjs";
 import { worldLife } from "../v2/card-game/resident-home.mjs";
+import { act } from "./helpers/play.mjs";
 
 const R = "greek-ismene",
   home = "greek-sanctuary",
@@ -34,24 +30,16 @@ const world = (...wants) => {
   s.packs["greek-drama"].met[other] = 0;
   return s;
 };
-const act = (s, kind, test = () => true) => {
-  const done = play(
-    s,
-    legalActions(s).find((a) => a.kind === kind && test(a)),
-  );
-  expect(done.ok, done.error).toBe(true);
-  return done.state;
-};
 const trust = (s) => s.actors[R].trust.vale;
 
 it("leaves the wanted thing on the ground when a deeper want waits on trust", () => {
   let s = world(item(thing), place(next, 1));
   expect(s.items[thing].holder).toBe(home);
-  s = act(s, "talk", (a) => a.target === R);
+  s = act(s, { kind: "talk", target: R });
   s = act(s, "wait");
   expect(s.items[thing].holder).toBe(home);
-  s = act(s, "take", (a) => a.item === thing);
-  s = act(s, "give", (a) => a.item === thing && a.target === R);
+  s = act(s, { kind: "take", item: thing });
+  s = act(s, { kind: "give", item: thing, target: R });
   expect(s.items[thing].holder).toBe(R);
   expect(trust(s)).toBe(1);
   expect(s.actors[R].want).toMatchObject({ kind: "place", target: next });
@@ -81,7 +69,7 @@ it("takes the deeper want on the play that earns the trust", () => {
   let s = world(place(next), item(thing, 1));
   s.items[thing].holder = other;
   expect(s.actors[R].want).toMatchObject({ kind: "place", target: next });
-  s = act(s, "accompany", (a) => a.target === R && a.destination === next);
+  s = act(s, { kind: "accompany", target: R, destination: next });
   expect(trust(s)).toBe(1);
   expect(s.actors[R].want).toMatchObject({ kind: "item", target: thing });
 });
@@ -89,7 +77,7 @@ it("takes the deeper want on the play that earns the trust", () => {
 it("credits the player who leads a resident to the person they want to see", () => {
   let s = world({ want: { kind: "person", target: other } });
   expect(s.actors[other].place).toBe(next);
-  s = act(s, "accompany", (a) => a.target === R && a.destination === next);
+  s = act(s, { kind: "accompany", target: R, destination: next });
   expect(s.actors[R].place).toBe(next);
   expect(s.actors[R].metTurn).toBe(s.turn);
   expect(trust(s)).toBe(1);
@@ -122,7 +110,7 @@ it("credits the player whose own play lays the thing", () => {
   let s = world(place(next));
   s.items[thing].holder = "vale";
   laid(s);
-  s = act(s, "drop", (a) => a.item === thing);
+  s = act(s, { kind: "drop", item: thing });
   expect(s.actors[R].metTurn).toBe(s.turn);
   expect(trust(s)).toBe(1);
 });
@@ -131,7 +119,7 @@ it("credits nobody when the want was met before the play", () => {
   for (const kind of ["wait", "talk"]) {
     let s = world(place(next));
     laid(s);
-    s = act(s, kind, (a) => kind === "wait" || a.target === R);
+    s = act(s, (a) => a.kind === kind && (kind === "wait" || a.target === R));
     expect(s.actors[R].metTurn, kind).toBe(s.turn);
     expect(trust(s), kind).toBe(0);
   }
@@ -158,7 +146,7 @@ it("credits the player once when a pack choice takes the gift that lays the thin
     let s = world(place(next));
     s.items[thing].holder = "vale";
     laid(s);
-    s = act(s, "give", (a) => a.item === thing && a.target === R);
+    s = act(s, { kind: "give", item: thing, target: R });
     expect(s.items[thing].holder).toBe(home);
     expect(s.actors[R].metTurn).toBe(s.turn);
     expect(trust(s)).toBe(1);

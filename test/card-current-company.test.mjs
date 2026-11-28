@@ -7,6 +7,7 @@ import {
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 import {
   currentCompany,
   talkedDirectly,
@@ -26,15 +27,6 @@ function start(other = fable) {
     };
   if (packPeople[other]) s.packs[packPeople[other].packId].met[other] = 0;
   return s;
-}
-function act(s, fields, actor = "vale") {
-  const action = legalActions(s, actor).find((a) =>
-    Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, JSON.stringify(fields)).toBeDefined();
-  const done = play(s, action, s.revision, actor);
-  expect(done.ok, done.error).toBe(true);
-  return done.state;
 }
 const pair = (s) =>
   s.conversations.find(

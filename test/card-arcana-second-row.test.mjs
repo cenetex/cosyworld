@@ -20,7 +20,8 @@ import {
 } from "../v2/card-game/world/arcana.mjs";
 import { boxDefs } from "../v2/card-game/world/boxes.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/play.mjs";
 
 const only = (id, seed = 7) => {
   deck.cards = data.cards.filter((card) => card.id === id);
@@ -31,22 +32,11 @@ const only = (id, seed = 7) => {
   ]);
   return s;
 };
-const act = (s, test) => {
-  const action = legalActions(s, "vale").find(test);
-  expect(action).toBeDefined();
-  const result = play(s, action, s.revision, "vale");
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
 const collect = (s) =>
   act(s, (a) => a.kind === "accept" && a.tarot !== undefined);
 const reward = (s) =>
   recordOf(s, "vale").spread.some((slot) => slot.face === "reward");
 const walk = (to) => (a) => a.kind === "move" && a.target === to && !a.item;
-const kind =
-  (k, fields = {}) =>
-  (a) =>
-    a.kind === k && Object.entries(fields).every(([key, v]) => a[key] === v);
 const proved = (s) => recordOf(s, "vale").proved;
 const night = (s) => Math.floor(s.turn / DAYLIGHT_TURNS) % 2 === 1;
 const untilNight = (s) => {
@@ -77,7 +67,7 @@ describe("the second row, played in a created world", () => {
     let s = only("arcanum-6");
     s = meet(s, "keeper");
     s.actors.keeper.trust.vale = 2;
-    s = act(s, kind("accompany", { target: "keeper" }));
+    s = act(s, { kind: "accompany", target: "keeper" });
     expect(s.log.findLast((e) => e.verb === "accompany")).toMatchObject({ accepted: true, targetId: "keeper" });
     expect(proved(collect(s))).toEqual(["arcanum-6"]);
   });
@@ -91,7 +81,7 @@ describe("the second row, played in a created world", () => {
       since: 0,
       refusals: 0,
     };
-    s = act(s, kind("accompany", { target: "keeper", destination: "pond" }));
+    s = act(s, { kind: "accompany", target: "keeper", destination: "pond" });
     expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
     expect(s.actors.vale.companion).toBeUndefined();
     expect(proved(collect(s))).toEqual(["arcanum-6"]);
@@ -103,17 +93,17 @@ describe("the second row, played in a created world", () => {
     s = act(s, walk(bindingOf(s, deck.cards[0], "vale").vessel));
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, kind("course"));
+    s = act(s, "course");
     expect(proved(collect(s))).toEqual(["arcanum-7"]);
   });
 
   it("VIII: trades one thing for another", () => {
     let s = only("arcanum-8");
-    s = act(s, kind("take", { item: "bell" }));
+    s = act(s, { kind: "take", item: "bell" });
     s = meet(s, "keeper");
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, kind("trade", { item: "bell", receive: "oil" }));
+    s = act(s, { kind: "trade", item: "bell", receive: "oil" });
     expect(s.items.oil.holder).toBe("vale");
     expect(proved(collect(s))).toEqual(["arcanum-8"]);
   });
@@ -121,7 +111,7 @@ describe("the second row, played in a created world", () => {
   it("IX: walks at night holding the lit lamp, not by day", () => {
     let s = only("arcanum-9");
     expect(bindingOf(s, deck.cards[0], "vale").light).toBe("lamp");
-    s = act(s, kind("take", { item: "lamp" }));
+    s = act(s, { kind: "take", item: "lamp" });
     s = act(s, walk("pond"));
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
@@ -136,7 +126,7 @@ describe("the second row, played in a created world", () => {
     const thing = bindingOf(s, deck.cards[0], "vale").thing;
     expect(thing).toBe("greek-figs");
     s.actors.vale.place = s.items[thing].holder;
-    s = act(s, kind("take", { item: thing }));
+    s = act(s, { kind: "take", item: thing });
     s = act(s, (a) => a.kind === "eat" && a.item === thing && !a.target);
     expect(recordOf(s, "vale").did).toEqual(["spent"]);
     expect(s.items[thing].holder).toBe(s.actors.vale.place);
@@ -144,25 +134,25 @@ describe("the second row, played in a created world", () => {
     expect(reward(s)).toBe(false);
     s = untilNight(s);
     while (night(s)) s = act(s, (a) => a.kind === "wait" && !a.sleep);
-    s = act(s, kind("take", { item: thing }));
+    s = act(s, { kind: "take", item: thing });
     expect(proved(collect(s))).toEqual(["arcanum-10"]);
   });
 
   it("XI: ends a threat with a brace and no blow", () => {
     let s = only("arcanum-11");
     s = meet(s, "keeper");
-    s = act(s, kind("threaten", { target: "keeper" }));
+    s = act(s, { kind: "threaten", target: "keeper" });
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, kind("guard"));
+    s = act(s, "guard");
     expect(s.standoffs).toEqual([]);
     expect(proved(collect(s))).toEqual(["arcanum-11"]);
   });
 
   it("XII: lets go of a quest, not of a thing", () => {
     let s = only("arcanum-12");
-    s = act(s, kind("take", { item: "bell" }));
-    s = act(s, kind("drop", { item: "bell" }));
+    s = act(s, { kind: "take", item: "bell" });
+    s = act(s, { kind: "drop", item: "bell" });
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
     sleepQuest(s, "vale", { home: homeOf });
@@ -175,15 +165,15 @@ describe("the second row, played in a created world", () => {
     let s = only("arcanum-14");
     s.actors.keeper.want = newWant("item", "bell", s.turn);
     const drink = bindingOf(s, deck.cards[0], "vale").thing;
-    s = act(s, kind("take", { item: "bell" }));
+    s = act(s, { kind: "take", item: "bell" });
     s = meet(s, "keeper");
     s.items[drink].holder = "vale";
-    s = act(s, kind("eat", { item: drink, target: "keeper" }));
+    s = act(s, { kind: "eat", item: drink, target: "keeper" });
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, kind("give", { item: "bell", target: "keeper" }));
+    s = act(s, { kind: "give", item: "bell", target: "keeper" });
     s.items[drink].holder = "vale";
-    s = act(s, kind("eat", { item: drink, target: "keeper" }));
+    s = act(s, { kind: "eat", item: drink, target: "keeper" });
     expect(s.log.findLast((e) => e.verb === "eat").accepted).toBe(true);
     expect(proved(collect(s))).toEqual(["arcanum-14"]);
   });
@@ -192,14 +182,14 @@ describe("the second row, played in a created world", () => {
     let s = only("arcanum-15");
     expect(bindingOf(s, deck.cards[0], "vale").thing).toBe("lamp");
     expect(s.actors.moth.want).toMatchObject({ kind: "item", target: "lamp" });
-    s = act(s, kind("take", { item: "lamp" }));
+    s = act(s, { kind: "take", item: "lamp" });
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
     s = act(s, walk("pond"));
     expect(proved(collect(s))).toEqual(["arcanum-15"]);
     let t = only("arcanum-15");
     t.items.cloth.holder = "station";
-    t = act(t, kind("take", { item: "cloth" }));
+    t = act(t, { kind: "take", item: "cloth" });
     t = act(t, walk("pond"));
     expect(proved(t)).toEqual([]);
     expect(reward(t)).toBe(false);
@@ -250,18 +240,18 @@ describe("the second row, played in a created world", () => {
     expect(Object.keys(s.opened).length).toBe(3);
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, kind("drop", { item: id("raven-figurine") }));
+    s = act(s, { kind: "drop", item: id("raven-figurine") });
     expect(s.opened[id("raven")]).toEqual(["vale"]);
     expect(proved(collect(s))).toEqual(["arcanum-16"]);
   });
 
   it("XVII: gives something to someone who takes it", () => {
     let s = only("arcanum-17");
-    s = act(s, kind("take", { item: "bell" }));
+    s = act(s, { kind: "take", item: "bell" });
     s = meet(s, "keeper");
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, kind("give", { item: "bell", target: "keeper" }));
+    s = act(s, { kind: "give", item: "bell", target: "keeper" });
     expect(s.items.bell.holder).toBe("keeper");
     expect(proved(collect(s))).toEqual(["arcanum-17"]);
   });
@@ -285,12 +275,12 @@ describe("the second row, played in a created world", () => {
     s.actors.rati.trust.vale = 2;
     s = act(
       s,
-      kind("accompany", { target: "rati", destination: "forest-garden" }),
+      { kind: "accompany", target: "rati", destination: "forest-garden" },
     );
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, kind("accompany", { target: "rati", destination: "forest-cottage" }));
-    s = act(s, kind("accompany", { target: "rati", destination: homeOf("vale") }));
+    s = act(s, { kind: "accompany", target: "rati", destination: "forest-cottage" });
+    s = act(s, { kind: "accompany", target: "rati", destination: homeOf("vale") });
     expect(s.actors.rati.place).toBe(homeOf("vale"));
     expect(proved(collect(s))).toEqual(["arcanum-19"]);
     let t = only("arcanum-19");
@@ -306,11 +296,11 @@ describe("the second row, played in a created world", () => {
     s.actors.keeper.want = newWant("item", "bell", s.turn);
     for (const id of ["badger", "oak", "rati", "skull"])
       s.actors[id].trust.vale = 1;
-    s = act(s, kind("take", { item: "bell" }));
+    s = act(s, { kind: "take", item: "bell" });
     s = meet(s, "keeper");
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, kind("give", { item: "bell", target: "keeper" }));
+    s = act(s, { kind: "give", item: "bell", target: "keeper" });
     expect(s.actors.keeper.trust.vale).toBeGreaterThan(0);
     expect(proved(collect(s))).toEqual(["arcanum-20"]);
   });

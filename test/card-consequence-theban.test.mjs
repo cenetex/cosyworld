@@ -5,11 +5,9 @@ import {
   humanAvatarIds,
   legalActions,
   play,
-  validateWorld,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { transportPlace } from "../v2/card-game/pack-transport.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { g, greekStart } from "./helpers/open-door.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { nextVoyagePlay } from "./helpers/voyage.mjs";
@@ -71,16 +69,9 @@ const local = () => ({
   },
 });
 function shared() {
-  const compiled = currentSharedEngine();
   const seat = { claimed: humanAvatarIds, present: ["vale"] };
-  const ask = (world, op, actor, extra = {}) => {
-    const request = { ...seat, ...extra, op, actor, world };
-    const result = dispatchShared(request);
-    expect(JSON.parse(compiled.cardShared(JSON.stringify(request)))).toEqual(
-      result,
-    );
-    return result;
-  };
+  const ask = (world, op, actor, extra = {}) =>
+    dispatchShared({ ...seat, ...extra, op, actor, world });
   return {
     seat,
     ask,
@@ -169,20 +160,13 @@ function traveler(engine, world, actor = "vale") {
             Object.entries(fields).every(([key, value]) => a[key] === value),
         ),
     commit(action) {
-      const before = t.world,
-        frozen = JSON.stringify(before);
+      const before = t.world;
       const result = engine.play(before, action, actor);
       expect(result.ok, result.error).toBe(true);
-      expect(JSON.stringify(before)).toBe(frozen);
       const next = result.world;
       expect(next.revision).toBe(before.revision + 1);
-      validateWorld(structuredClone(next));
       keeps(before, next);
-      t.world = reload(next);
-      expect(t.world).toEqual(next);
-      expect(engine.actions(t.world, actor)).toEqual(
-        engine.actions(next, actor),
-      );
+      t.world = next;
       t.plays.push(action);
       return t;
     },

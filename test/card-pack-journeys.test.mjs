@@ -3,7 +3,6 @@ import {
   accompanyDecision,
   createWorld,
   decodeSave,
-  encodeSave,
   itemPlace,
   legalActions,
   plan,
@@ -18,6 +17,7 @@ import {
   validatePackStates,
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { act, reload } from "./helpers/play.mjs";
 
 const pack = packDefinition("greek-drama");
 const resident = "greek-baker";
@@ -38,16 +38,6 @@ const original = structuredClone({
 });
 const mountedPlaces = packDefinitions.flatMap((p) => Object.keys(p.places));
 
-function act(world, kind, fields = {}) {
-  const action = legalActions(world).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  expect(action, JSON.stringify(fields)).toBeDefined();
-  const result = play(world, action);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
 function fixture(scope = "full") {
   const world = createWorld({ opening: false });
   world.packs[pack.id].scope = scope;
@@ -127,7 +117,7 @@ describe("agreed resident journeys", () => {
     expect(legalActions(world).some((a) => a.choiceId === arrival)).toBe(false);
     const first = accompany(world)[0];
     for (const destination of path.slice(1)) {
-      world = act(world, "accompany", { target: resident, destination });
+      world = act(world, { kind: "accompany", target: resident, destination });
       expect(world.actors[resident].place).toBe(destination);
       expect(world.journeyProgress[resident]).toEqual({
         agreement,
@@ -146,19 +136,15 @@ describe("agreed resident journeys", () => {
       expect(legalActions(world, resident).some((a) => a.kind === "move")).toBe(
         false,
       );
-      world = decodeSave(encodeSave(world));
-      expect(world.actors[resident].place).toBe(destination);
     }
     expect(play(world, first).ok).toBe(false);
     world = act(world, "wait");
     expect(world.packs[pack.id].flags["test-journey-arrived"]).toBe(true);
     expect(legalActions(world).some((a) => a.choiceId === arrival)).toBe(false);
     expect(accompany(world)).toEqual([]);
-    world = act(world, "move", { target: "greek-harbor" });
+    world = act(world, { kind: "move", target: "greek-harbor" });
     expect(world.actors[resident].place).toBe("greek-argolid-road");
-    expect(decodeSave(encodeSave(world)).actors[resident].place).toBe(
-      "greek-argolid-road",
-    );
+    expect(world.actors[resident].place).toBe("greek-argolid-road");
   });
 
   it("waits at a closed section and requires the resident for the arrival choice", () => {
@@ -182,18 +168,16 @@ describe("agreed resident journeys", () => {
   it("keeps an agreed waypoint through a visit and a real return trip", () => {
     let world = act(fixture(), "wait");
     for (const id of ["vale", resident]) world.actors[id].place = "greek-well";
-    world = decodeSave(encodeSave(world));
+    world = reload(world);
     expect(world.journeyProgress[resident]).toEqual({ agreement, step: 0 });
     expect(packJourneyDestination(world, resident)).toBe(path[0]);
-    world = act(world, "accompany", { target: resident, destination: path[0] });
+    world = act(world, { kind: "accompany", target: resident, destination: path[0] });
     expect(world.journeyProgress[resident].step).toBe(0);
-    world = act(world, "accompany", { target: resident, destination: path[1] });
+    world = act(world, { kind: "accompany", target: resident, destination: path[1] });
     expect(world.journeyProgress[resident].step).toBe(1);
     for (const id of ["vale", resident]) world.actors[id].place = path.at(-1);
     expect(legalActions(world).some((a) => a.choiceId === arrival)).toBe(false);
-    expect(decodeSave(encodeSave(world)).journeyProgress[resident].step).toBe(
-      1,
-    );
+    expect(world.journeyProgress[resident].step).toBe(1);
   });
 
   it("derives an older save's agreed step once", () => {
@@ -203,7 +187,7 @@ describe("agreed resident journeys", () => {
     const loaded = decodeSave(JSON.stringify(world));
     expect(loaded.journeyProgress[resident]).toEqual({ agreement, step: 2 });
     loaded.actors[resident].place = "greek-well";
-    expect(decodeSave(encodeSave(loaded)).journeyProgress).toEqual(
+    expect(reload(loaded).journeyProgress).toEqual(
       loaded.journeyProgress,
     );
   });

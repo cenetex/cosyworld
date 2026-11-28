@@ -15,6 +15,7 @@ import {
   RADIO_ITEM as radio,
   radioAudible,
 } from "../v2/card-game/radio-item.mjs";
+import { reload } from "./helpers/play.mjs";
 const booth = "ratiradio-broadcast-booth";
 const fixture = () => {
   const world = createWorld({ seed: 17 });
@@ -35,8 +36,7 @@ it("uses the single item context action and persists accepted on/off state", () 
   const result = play(world, action);
   expect(result.ok, result.error).toBe(true);
   expect(radioAudible(result.state, "vale")).toBe(true);
-  expect(decodeSave(encodeSave(result.state))).toEqual(result.state);
-  expect(play(decodeSave(encodeSave(world)), action)).toEqual(result);
+  expect(reload(result.state)).toEqual(result.state);
   expect(cardObservation(result.state, radio)).toContain("Radio on");
   expect(play(result.state, action).ok).toBe(false);
   const off = play(result.state, switchAction(result.state));
@@ -108,10 +108,7 @@ it("replays accepted shared switches from the same synthetic save and rejects st
   }
   let replay = created.world;
   for (const command of journal) {
-    const result = dispatchShared({
-      ...command,
-      world: decodeSave(encodeSave(replay)),
-    });
+    const result = dispatchShared({ ...command, world: replay });
     expect(result.ok, result.error).toBe(true);
     replay = result.world;
   }
