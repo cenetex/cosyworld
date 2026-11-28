@@ -32,7 +32,6 @@ export const OFFSTAGE_STEPS = 24;
 // Still-cast tests turn this off to isolate the story. The rules leave it unchanged.
 export const worldLife = { on: true };
 
-// --- Data ----------------------------------------------------------------
 
 const own = (o, k) => Boolean(o) && Object.hasOwn(o, k);
 const sleepOk = (z) =>

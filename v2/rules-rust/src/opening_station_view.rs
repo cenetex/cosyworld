@@ -127,7 +127,7 @@ fn settled_first_read(world: &Value) -> Option<[&Value; 2]> {
     .then_some([read, wait])
 }
 
-fn keeper_want(world: &Value, geo: &Geography) -> Option<Value> {
+pub(super) fn keeper_want(world: &Value, geo: &Geography) -> Option<Value> {
     let [read, _] = settled_first_read(world)?;
     let claim = keeper_book_claim(world, geo)?;
     let id = format!("claim:hub:keeper-log:{}", claim["id"].as_str()?);
