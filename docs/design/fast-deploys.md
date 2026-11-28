@@ -73,6 +73,15 @@ A main push that changes no image input deploys .dev without an image: the runne
 - The plan (`dev-plan`) reads the commit and image commit .dev serves from its machine config and asks `scripts/dev-release.mjs image-input` whether any image input changed since that image's commit. If none did, `dev-image` is skipped and `dev-deploy` runs `scripts/stage-dev-release.sh`: it reads the manifests .dev serves over `flyctl ssh console`, turns its blobless checkout into the text plus the changed media, builds the manifest with `build-card-assets.mjs --known`, and streams the archive to `stage`. A release identical to the one .dev serves, with the same `fly.toml`, rolls out nothing. The repository variable `COSYWORLD_DEV_RELEASES=off` builds an image for every change.
 - The cutover is `flyctl deploy --strategy immediate` of the image .dev already runs, with `COSYWORLD_SOURCE_COMMIT` set to the new commit and `COSYWORLD_IMAGE_COMMIT` to the image's. The machine restarts without pulling anything and verifies every file again at startup. Readiness waits for `/meta` to name the new commit; the deployed card-game smoke checks every file, by bytes where the checkout has them and by ETag (the manifest's hash) where it does not. A failure rolls back by deploying the previous commit and image commit, which choose the previous release. After a tag, `restore-dev` reads `<commit>/image` to return .dev to its release on the right image.
 
+### Rust changes ship the server on the volume
+
+Most changes touch Rust now, and each one used to build and push an image and roll it out (about 8 minutes). A change whose image inputs are only the crates (`v2/orchestrator-rust/`, `v2/rules-rust/`, `v2/ai-model-rust/`) ships its server in the release instead:
+
+- `image-input` also prints `server=`: `none`, `build` (a crate changed since the commit .dev serves), or `carry` (the release .dev serves already brought this server). The Dockerfile, `deploy/` and the build scripts still need an image.
+- `dev-server` compiles the release binary (25 MB) with `scripts/compile-release-server.sh`, the same saved target and toolchain as the image build, and hands it to `dev-deploy` as an artifact.
+- The archive names the server's sha256 in `server` and carries it as an object unless .dev has it. `stage` links it as `<commit>/server` (mode 0555), checks the assets with that server, and `serving` reports its hash. The entrypoint runs a chosen release's `server` in place of `/app/cosyworld-orchestrator`.
+- The lookup of where main's checks last passed runs in `dev-checks-base`, so it no longer holds the plan.
+
 ### What stays embedded
 
 Nothing from `card-game/` or the generated outputs. There is no fallback copy: a fallback would serve bytes the manifest did not vouch for, and a server without its assets should not start. Rust-owned data (the C kernel, `card_policy`) and test fixtures behind `#[cfg(test)]` stay as they are.

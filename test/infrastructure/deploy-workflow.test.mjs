@@ -204,15 +204,16 @@ describe("deploy workflow", () => {
 
   it("checks main beside the .dev build, without holding the rollout", () => {
     const checks = job("dev-checks", "dev-image");
-    expect(checks).toContain("needs: dev-plan\n    if: needs.dev-plan.outputs.deploy == 'true'");
+    expect(checks).toContain("needs: [dev-plan, dev-checks-base]\n    if: needs.dev-plan.outputs.deploy == 'true'");
     expect(checks).toContain("cancel-in-progress: true");
     expect(checks).toContain("uses: ./.github/workflows/fast-check.yml");
-    expect(checks).toContain("base: ${{ needs.dev-plan.outputs.checks-base }}");
-    expect(job("dev-plan", "dev-checks")).toContain(
-      "checks-base: ${{ steps.checked.outputs.base || steps.impact.outputs.base }}",
-    );
-    expect(job("dev-plan", "dev-checks")).toContain("node scripts/last-dev-rollout.mjs --checked");
-    expect(job("dev-deploy", "deployment-impact")).toContain("needs: [dev-plan, dev-image]");
+    expect(checks).toContain("base: ${{ needs.dev-checks-base.outputs.base }}");
+    // The plan leaves the slow lookup of where checks last passed to its own job.
+    const base = job("dev-checks-base", "dev-checks");
+    expect(base).toContain("base: ${{ steps.checked.outputs.base || needs.dev-plan.outputs.base }}");
+    expect(base).toContain("node scripts/last-dev-rollout.mjs --checked");
+    expect(job("dev-plan", "dev-checks-base")).not.toContain("--checked");
+    expect(job("dev-deploy", "deployment-impact")).toContain("needs: [dev-plan, dev-image, dev-server]");
     const called = readFileSync(
       new URL("../../.github/workflows/fast-check.yml", import.meta.url),
       "utf8",
@@ -262,7 +263,7 @@ describe("deploy workflow", () => {
     expect(dev).toContain(
       "needs: dev-plan\n    if: needs.dev-plan.outputs.deploy == 'true'",
     );
-    expect(dev).toContain("needs: [dev-plan, dev-image]");
+    expect(dev).toContain("needs: [dev-plan, dev-image, dev-server]");
     expect(impact).toContain(
       "if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')",
     );
@@ -299,10 +300,12 @@ describe("deploy workflow", () => {
     const order = [
       "node scripts/fly-machines-serve-commit.mjs cosyworld --serving || true",
       'bash scripts/plan-dev-deploy.sh "${base:-$(node scripts/last-dev-rollout.mjs)}"',
-      'node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA"',
+      'node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA" $SERVING_COMMIT',
       'bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"',
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
       "actions/cache/save@v6",
+      'bash scripts/compile-release-server.sh "$RUNNER_TEMP/release-target" "$RUNNER_TEMP/server"',
+      "name: dev-server",
       "bash scripts/serialize-primary-rollout.sh dev",
       'release="$(node scripts/fly-machines-serve-commit.mjs cosyworld --serving)"',
       'bash scripts/stage-dev-release.sh >> "$GITHUB_OUTPUT"',
@@ -321,6 +324,10 @@ describe("deploy workflow", () => {
     }
     expect(dev).toContain("needs.dev-plan.outputs.deploy == 'true' && needs.dev-plan.outputs.image == 'true'");
     expect(dev).toContain("(needs.dev-image.result == 'success' || needs.dev-plan.outputs.image != 'true')");
+    // A Rust change compiles only the server, and the release brings it.
+    expect(dev).toContain("needs.dev-plan.outputs.image != 'true' && needs.dev-plan.outputs.server == 'build'");
+    expect(dev).toContain("(needs.dev-server.result == 'success' || needs.dev-plan.outputs.server != 'build')");
+    expect(dev).toContain("needs.dev-plan.outputs.server == 'carry' && 'carry'");
     expect(dev).toContain("FAST: ${{ needs.dev-plan.outputs.image != 'true' }}");
     expect(dev).toContain("if: steps.serving.outputs.rollout == 'true' && env.FAST == 'true'");
     expect(dev).toContain("RELEASE_IMAGE: ${{ needs.dev-image.outputs.image || steps.serving.outputs.image }}");

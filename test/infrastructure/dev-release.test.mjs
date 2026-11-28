@@ -7,6 +7,7 @@ import {
   readFileSync,
   readlinkSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
@@ -67,10 +68,17 @@ describe("a .dev release without an image", () => {
     const image = commit("v2/orchestrator-rust/src/main.rs");
     const assets = commit("v2/card-game/app.mjs");
     const rust = commit("v2/orchestrator-rust/src/card_shared/engine.rs");
-    const ask = (from, to) => spawnSync("node", [tool, "image-input", from, to], { cwd: root, encoding: "utf8" }).stdout;
-    expect(ask(image, assets)).toBe(`image=false\nreason=no image input changed since ${image.slice(0, 7)}\n`);
-    expect(ask(image, rust)).toContain("image=true\nreason=v2/orchestrator-rust/src/card_shared/engine.rs is built into the image");
-    expect(ask("0".repeat(40), assets)).toBe("image=true\nreason=no image commit to compare with\n");
+    const later = commit("v2/card-game/later.mjs");
+    const docker = commit("Dockerfile");
+    const ask = (...commits) => spawnSync("node", [tool, "image-input", ...commits], { cwd: root, encoding: "utf8" }).stdout;
+    expect(ask(image, assets)).toBe(`image=false\nserver=none\nreason=no image input changed since ${image.slice(0, 7)}\n`);
+    expect(ask(image, rust)).toBe("image=false\nserver=build\nreason=v2/orchestrator-rust/src/card_shared/engine.rs is built into the server\n");
+    expect(ask(image, later, image)).toContain("server=build\n");
+    expect(ask(image, later, rust)).toContain("server=carry\n");
+    expect(ask(image, later, assets)).toContain("server=build\n");
+    expect(ask(image, later, "0".repeat(40))).toContain("server=build\n");
+    expect(ask(image, docker)).toBe("image=true\nserver=none\nreason=Dockerfile is built into the image\n");
+    expect(ask("0".repeat(40), assets)).toBe("image=true\nserver=none\nreason=no image commit to compare with\n");
   });
 
   it("reads the media .dev lacks or serves cut differently, or all of it without .dev's commit", () => {
@@ -160,6 +168,16 @@ describe("a .dev release without an image", () => {
 
     const again = pack({ manifest: built, image: imageManifest, imageDir: image, serving: JSON.parse(text), servingText: text, out: archive });
     expect(again).toMatchObject({ objects: 0, unchanged: true });
+    const server = { path: join(root, "server"), sha: sha256(readFileSync(join(root, "server"))) };
+    const serving = { serving: JSON.parse(text), servingText: text, out: archive };
+    const withServer = pack({ manifest: built, image: imageManifest, imageDir: image, ...serving, server });
+    expect(withServer).toMatchObject({ objects: 1, unchanged: false });
+    const shipped2 = mkdtempSync(join(root, "out-"));
+    spawnSync("tar", ["-xzf", archive, "-C", shipped2]);
+    expect(readFileSync(join(shipped2, "server"), "utf8")).toBe(server.sha);
+    expect(existsSync(join(shipped2, "objects", server.sha))).toBe(true);
+    const kept = pack({ manifest: built, image: imageManifest, imageDir: image, ...serving, server, servingServer: server.sha });
+    expect(kept).toMatchObject({ objects: 0, unchanged: true });
   });
 
   it("stages a commit from a blobless checkout through flyctl, and nothing when .dev serves the same", () => {
@@ -232,8 +250,26 @@ describe("a .dev release without an image", () => {
 
     const rust = write({ "v2/orchestrator-rust/src/main.rs": "fn main() {}" });
     run(clone, "git", "fetch", "-q", "--depth=1", "origin", rust);
-    const refused = stage(rust);
+    run(clone, "git", "checkout", "-q", rust);
+    const unbuilt = stage(rust);
+    expect(unbuilt.status).toBe(1);
+    expect(unbuilt.stderr).toContain(".dev's server changed since the plan: v2/orchestrator-rust/src/main.rs is built into the server");
+    const server = join(root, "built-server");
+    writeFileSync(server, "#!/bin/sh\n# built for main.rs\n");
+    const built = spawnSync("bash", ["scripts/stage-dev-release.sh"], { cwd: clone, encoding: "utf8", env: { ...env, GITHUB_SHA: rust, SERVER: server } });
+    expect(built.stdout).toBe("unchanged=false\n");
+    expect(readFileSync(join(root, "releases", rust, "server"), "utf8")).toBe(readFileSync(server, "utf8"));
+    spawnSync("sh", [store, "choose"], { env: { ...env, COSYWORLD_SOURCE_COMMIT: rust, COSYWORLD_IMAGE_COMMIT: image } });
+    const art = write({ "v2/card-game/a.webp": "a 2" });
+    run(clone, "git", "fetch", "-q", "--depth=1", "origin", art);
+    run(clone, "git", "checkout", "-q", art);
+    const carried = spawnSync("bash", ["scripts/stage-dev-release.sh"], { cwd: clone, encoding: "utf8", env: { ...env, GITHUB_SHA: art, SERVER: "carry" } });
+    expect(carried.stdout).toBe("unchanged=false\n");
+    expect(statSync(join(root, "releases", art, "server")).ino).toBe(statSync(join(root, "releases", rust, "server")).ino);
+    const docker = write({ Dockerfile: "FROM scratch\n" });
+    run(clone, "git", "fetch", "-q", "--depth=1", "origin", docker);
+    const refused = stage(docker);
     expect(refused.status).toBe(1);
-    expect(refused.stderr).toContain(".dev's image changed since the plan: v2/orchestrator-rust/src/main.rs is built into the image");
+    expect(refused.stderr).toContain(".dev's image changed since the plan: Dockerfile is built into the image");
   });
 });
