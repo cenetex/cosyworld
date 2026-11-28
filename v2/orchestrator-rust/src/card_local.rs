@@ -102,6 +102,16 @@ pub(crate) async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async {
+        #[cfg(unix)]
+        if let Ok(mut term) =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        {
+            tokio::select! {
+                _ = term.recv() => {}
+                _ = tokio::signal::ctrl_c() => {}
+            }
+            return;
+        }
         let _ = tokio::signal::ctrl_c().await;
     })
     .await?;
@@ -128,8 +138,7 @@ fn api(state: Arc<Config>) -> Router {
         .with_state(state)
 }
 
-// The browser and local API share one origin. Check Host as well as Origin so
-// another web page cannot use DNS rebinding to reach local files or inference.
+// Check Host and Origin to prevent another site from reaching the local API through DNS rebinding.
 async fn local_origin(State(config): State<Arc<Config>>, request: Request, next: Next) -> Response {
     let host = config.address.to_string();
     let origin = format!("http://{host}");
@@ -168,6 +177,9 @@ struct Speech {
 }
 
 async fn speech(State(config): State<Arc<Config>>, Json(input): Json<Speech>) -> Response {
+    if config.voice_model == "off" {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     let cast: serde_json::Value = serde_json::from_str(cosyworld_orchestrator::card_assets::text(
         "card-game/voices.json",
     ))

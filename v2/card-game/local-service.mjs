@@ -14,15 +14,18 @@ export async function setupLocalService({ fetcher = globalThis.fetch } = {}) {
   runtime = value;
   document.body.classList.add("local-app");
   const status = document.getElementById("local-model-status");
-  if (status)
-    status.textContent = `Dialogue: ${value.dialogueModel}. Voices: Chatterbox ${value.voiceModel}.`;
+  if (status) {
+    const voices =
+      value.voiceModel === "off" ? "off" : `Chatterbox ${value.voiceModel}`;
+    status.textContent = `Dialogue: ${value.dialogueModel}. Voices: ${voices}.`;
+  }
   return true;
 }
 
 export function localVoiceClient() {
   if (!runtime) return null;
   return {
-    available: () => true,
+    available: () => runtime.voiceModel !== "off",
     timeoutMs: runtime.voiceTimeoutMs,
     voiceIdentity: [runtime.voiceModel, runtime.voiceRevision],
     async clip(speaker, text, signal) {
