@@ -368,7 +368,6 @@ mod tests {
         assert_eq!(silent(&work, 0, &none), vec!["pip"]);
         work["context"]["speakers"] = json!([]);
         assert!(prepared(0, &work).unwrap().1.is_empty());
-        // A first arrival's place caption needs no speaker.
         work["context"]["scenery"] = json!(true);
         let (_, place) = prepared(0, &work).unwrap();
         assert_eq!(place, vec!["station"]);
