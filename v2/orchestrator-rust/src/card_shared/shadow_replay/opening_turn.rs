@@ -17,6 +17,7 @@ const SECOND_WAIT: (&str, PlayAssertion) = (WAIT.0, check_silent_wait);
 const DROP: (&str, PlayAssertion) = ("drop:vale:lamp:attic", check_lamp_drop);
 const TAKE: (&str, PlayAssertion) = ("take:vale:lamp:", check_lamp_take);
 const BARE_POND_MOVE: (&str, PlayAssertion) = ("move:vale::pond", check_bare_pond_move);
+const BARE_STATION_MOVE: (&str, PlayAssertion) = ("move:vale::station", check_bare_station_move);
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
@@ -126,29 +127,66 @@ fn sqlite_rules_wasm_parity_replays_the_second_bare_pond_move() -> Result<()> {
     )
 }
 
+#[test]
+fn sqlite_rules_wasm_parity_replays_station_after_the_first_pond_move() -> Result<()> {
+    replay_opening_turns(
+        "station-after-first-pond-move",
+        unseeded_opening()?,
+        true,
+        &[BARE_POND_MOVE, BARE_STATION_MOVE],
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_station_after_the_second_pond_move() -> Result<()> {
+    replay_opening_turns(
+        "station-after-second-pond-move",
+        unseeded_opening()?,
+        true,
+        &[WAIT, BARE_POND_MOVE, BARE_STATION_MOVE],
+    )
+}
+
 fn check_bare_pond_move(lamp: &Value, reply: &Value) {
+    check_bare_move(lamp, reply, "attic", "pond");
+    let world = &reply["world"];
+    assert_eq!(world["opening"]["crossed"], true);
+    assert_eq!(world["speechVoices"]["vale"], json!(["vale", "moth"]));
+}
+
+fn check_bare_station_move(lamp: &Value, reply: &Value) {
+    check_bare_move(lamp, reply, "pond", "station");
+    let world = &reply["world"];
+    let followed = &reply["events"][1];
+    assert_eq!(followed["actorId"], "moth");
+    assert_eq!(followed["verb"], "move");
+    assert_eq!(followed["locationId"], "station");
+    assert_eq!(world["actors"]["moth"]["place"], "station");
+    assert_eq!(world["opening"]["met"]["keeper"], world["turn"]);
+    assert_eq!(world["speechVoices"]["vale"], json!(["vale", "keeper"]));
+}
+
+fn check_bare_move(lamp: &Value, reply: &Value, from: &str, to: &str) {
     let event = &reply["events"][0];
     assert_eq!(event["verb"], "move");
-    assert_eq!(event["fromLocationId"], "attic");
-    assert_eq!(event["locationId"], "pond");
+    assert_eq!(event["fromLocationId"], from);
+    assert_eq!(event["locationId"], to);
     assert_eq!(event["itemId"], Value::Null);
-    assert_eq!(event["targetId"], "pond");
+    assert_eq!(event["targetId"], to);
     assert_eq!(event["light"], false);
     let world = &reply["world"];
-    assert_eq!(world["actors"]["vale"]["place"], "pond");
+    assert_eq!(world["actors"]["vale"]["place"], to);
     assert_eq!(world["actors"]["vale"]["heldItem"], Value::Null);
-    assert_eq!(world["opening"]["crossed"], true);
     assert_eq!(
         world["arrival"],
-        json!({"seq":event["seq"],"fromLocationId":"attic","locationId":"pond"})
+        json!({"seq":event["seq"],"fromLocationId":from,"locationId":to})
     );
     let carried = &world["items"]["lamp"];
     assert_eq!(carried["holder"], "vale");
     assert_eq!(carried["lit"], false);
-    assert_eq!(carried["fuelPlace"], "pond");
+    assert_eq!(carried["fuelPlace"], to);
     assert_eq!(carried["fuelVisit"], false);
     assert_eq!(carried["fuel"], lamp["fuel"]);
-    assert_eq!(world["speechVoices"]["vale"], json!(["vale", "moth"]));
 }
 
 fn check_wait(_: &Value, reply: &Value) {

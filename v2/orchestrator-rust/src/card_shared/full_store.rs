@@ -401,8 +401,7 @@ fn valid_reveal(ids: &[String]) -> bool {
             .all(|id| id.len() < 128 && crate::routes::card_game::narrative::known_card(id))
         && ids.iter().collect::<std::collections::BTreeSet<_>>().len() == ids.len()
 }
-/// Rejected plays per user, matching the queued-play minute limit. With
-/// `record`, count one rejection; without it, report whether the budget is spent.
+/// Record a rejection or check its separate per-user budget, sized to the queued-play minute limit.
 fn rejections(user: &str, record: bool) -> bool {
     use crate::rate_limit::{RateLimit, RateLimiter};
     use std::{
