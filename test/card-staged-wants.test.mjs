@@ -245,7 +245,6 @@ describe("selection", () => {
     stage(item("greek-figs"), item("greek-shovel"), item("greek-wine-skin"));
     const s = world();
     const legacy = world().actors["greek-guard"];
-    // The same record as any resident's: staging adds no field.
     const extra = Object.keys(s.actors[R]).filter(
       (key) => !Object.hasOwn(legacy, key),
     );
