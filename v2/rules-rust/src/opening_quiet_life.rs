@@ -1,7 +1,7 @@
 use super::{
     create_geography::Geography,
     initial_wants::{People, Person},
-    opening_content, opening_play, opening_visitor_routes,
+    opening_content, opening_mirror_move, opening_play, opening_visitor_routes,
     pack_state::Catalog,
 };
 use serde_json::{json, Value};
@@ -78,6 +78,11 @@ pub(super) fn verify_second_attic(world: &mut Value, geo: &Geography<'_>) -> Opt
     verify_opening_day(world, geo)
 }
 
+pub(super) fn verify_second_pond(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    opening_mirror_move::second_arrival(world)?;
+    verify_opening_day(world, geo)
+}
+
 fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let room = world["actors"]["vale"]["place"].as_str()?.to_owned();
@@ -145,12 +150,16 @@ fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     Some(())
 }
 
-pub(super) fn second_attic_projection(request: &Value) -> Option<Value> {
+pub(super) fn second_projection(request: &Value) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = request.get("world")?.clone();
-    verify_second_attic(&mut world, &geo)?;
+    match request["op"].as_str()? {
+        "opening_second_attic_life" => verify_second_attic(&mut world, &geo)?,
+        "opening_second_pond_life" => verify_second_pond(&mut world, &geo)?,
+        _ => return None,
+    }
     Some(json!({"ok":true, "world":world}))
 }
 

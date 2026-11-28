@@ -215,8 +215,8 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_second_attic_wants" | "opening_second_pond_wants") => {
             opening_wants::second_projection(request).unwrap_or(Value::Null)
         }
-        Some("opening_second_attic_life") => {
-            opening_quiet_life::second_attic_projection(request).unwrap_or(Value::Null)
+        Some("opening_second_attic_life" | "opening_second_pond_life") => {
+            opening_quiet_life::second_projection(request).unwrap_or(Value::Null)
         }
         Some("opening_history_walkers") => {
             opening_history_walkers::projection(request).unwrap_or(Value::Null)
