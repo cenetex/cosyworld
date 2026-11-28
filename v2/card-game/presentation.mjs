@@ -1,4 +1,3 @@
-// The action panel shows after the speech reaches its next-choice tap.
 // A committed play's words that keep the Thinking card past this grace
 // stop holding the hand: the rules already ran, and dialogue never gates
 // play. The card stays and the late line types in when it comes.
@@ -82,11 +81,40 @@ export function tapPrompt(verb, complete, label = verb) {
   return { hint: word ? `Tap to ${word}` : "", label };
 }
 export function handFocusId(frames, ids) {
-  for (const id of [...ids].reverse()) {
+  const preferred = [...ids];
+  const length = frames.length + preferred.length;
+  if (
+    viewModel?.hand_input &&
+    viewModel.hand_focus &&
+    viewModel.memory &&
+    length <= 0xffff
+  ) {
+    const offset = viewModel.hand_input(length);
+    if (offset) {
+      const indexes = new Map();
+      frames.forEach(({ id }, index) => {
+        if (!Number.isNaN(id) && !indexes.has(id)) indexes.set(id, index);
+      });
+      const indexOf = (id) => indexes.get(id) ?? -1;
+      const input = new Int32Array(viewModel.memory.buffer, offset, length);
+      frames.forEach(({ hidden, holder }, index) => {
+        input[index] = hidden ? (holder ? indexOf(holder) : -1) : -2;
+      });
+      input.set(preferred.map(indexOf), frames.length);
+      return frames[viewModel.hand_focus(frames.length)]?.id;
+    }
+  }
+  for (const id of preferred.reverse()) {
     let at = frames.findIndex((frame) => frame.id === id);
-    for (let step = 0; at >= 0 && frames[at].hidden && step < frames.length; step++) {
+    for (
+      let step = 0;
+      at >= 0 && frames[at].hidden && step < frames.length;
+      step++
+    ) {
       const holder = frames[at].holder;
-      const next = holder ? frames.findIndex((frame) => frame.id === holder) : -1;
+      const next = holder
+        ? frames.findIndex((frame) => frame.id === holder)
+        : -1;
       if (next < 0) break;
       at = next;
     }
@@ -95,6 +123,23 @@ export function handFocusId(frames, ids) {
         if (frames[index] && !frames[index].hidden) return frames[index].id;
   }
   return frames.find((frame) => !frame.hidden)?.id;
+}
+export function lockedStackProjection(count, index, open, holderExpanded) {
+  if (
+    !viewModel?.locked_stack ||
+    count > 0x1fffffff ||
+    typeof open !== "boolean" ||
+    typeof holderExpanded !== "boolean"
+  )
+    return null;
+  const state = viewModel.locked_stack(count, index, open, holderExpanded);
+  return {
+    kind: "locks",
+    open: Boolean(state & 1),
+    top: Boolean(state & 2),
+    under: state >>> 3,
+    shown: Boolean(state & 4),
+  };
 }
 export function holdDialogueChoice({ queued, live, complete, speaking, next }) {
   if (viewModel)

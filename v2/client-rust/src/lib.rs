@@ -1,5 +1,9 @@
 #![deny(unsafe_code)]
 
+mod hand;
+
+pub use hand::{LockedStack, VISIBLE_FRAME, hand_focus, locked_stack};
+
 #[derive(Debug, Default, Eq, PartialEq)]
 #[repr(u32)]
 pub enum DialoguePhase {
@@ -51,7 +55,50 @@ pub fn hold_dialogue_choice(
 
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use super::{DialoguePresentation, hold_dialogue_choice};
+    use super::{DialoguePresentation, LockedStack, hold_dialogue_choice};
+    use std::cell::RefCell;
+
+    thread_local! {
+        static HAND: RefCell<Vec<i32>> = const { RefCell::new(Vec::new()) };
+    }
+
+    #[expect(unsafe_code, reason = "Browser ABI export name is unique")]
+    #[unsafe(no_mangle)]
+    extern "C" fn hand_input(length: usize) -> usize {
+        if !(1..=u16::MAX as usize).contains(&length) {
+            return 0;
+        }
+        HAND.with_borrow_mut(|buffer| {
+            buffer.resize(length, 0);
+            buffer.as_mut_ptr() as usize
+        })
+    }
+
+    #[expect(unsafe_code, reason = "Browser ABI export name is unique")]
+    #[unsafe(no_mangle)]
+    extern "C" fn hand_focus(frame_count: usize) -> i32 {
+        HAND.with_borrow(|buffer| {
+            let Some((frames, preferred)) = buffer.split_at_checked(frame_count) else {
+                return -1;
+            };
+            super::hand_focus(frames, preferred).map_or(-1, |index| index as i32)
+        })
+    }
+
+    #[expect(unsafe_code, reason = "Browser ABI export name is unique")]
+    #[unsafe(no_mangle)]
+    extern "C" fn locked_stack(count: u32, index: u32, open: bool, holder: bool) -> u32 {
+        let Some(LockedStack {
+            open,
+            top,
+            under,
+            shown,
+        }) = super::locked_stack(count, index, open, holder)
+        else {
+            return 0;
+        };
+        (under << 3) | (u32::from(shown) << 2) | (u32::from(top) << 1) | u32::from(open)
+    }
 
     #[expect(
         unsafe_code,
