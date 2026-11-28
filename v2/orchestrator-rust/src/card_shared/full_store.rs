@@ -230,7 +230,6 @@ fn unlock(c: &Connection, id: &str, result: &Value, seq: i64, now: i64) {
         vec![]
     });
     for (user, a) in found {
-        // A world that cannot open leaves nothing half-made behind.
         let opened = c
             .execute_batch("SAVEPOINT unlock_world")
             .map_err(sql_error)

@@ -21,6 +21,7 @@ struct Report {
     heads: Vec<proof::Head>,
     checked: usize,
     unsupported: BTreeMap<String, usize>,
+    unsupported_plays: BTreeMap<&'static str, usize>,
     historical: usize,
     noncurrent_heads: usize,
 }
@@ -33,6 +34,9 @@ impl Report {
         self.noncurrent_heads += other.noncurrent_heads;
         for (op, count) in other.unsupported {
             *self.unsupported.entry(op).or_default() += count;
+        }
+        for (kind, count) in other.unsupported_plays {
+            *self.unsupported_plays.entry(kind).or_default() += count;
         }
     }
 
@@ -50,6 +54,47 @@ impl Report {
             return Err("No current journal operations were checked by the candidate.".into());
         }
         Ok(())
+    }
+}
+
+fn play_kind(request: &Value) -> &'static str {
+    const KINDS: &[&str] = &[
+        "accept",
+        "accompany",
+        "ask",
+        "attack",
+        "choose",
+        "course",
+        "drop",
+        "eat",
+        "give",
+        "guard",
+        "intercept",
+        "move",
+        "radio",
+        "read",
+        "ring",
+        "take",
+        "talk",
+        "threaten",
+        "trade",
+        "use",
+        "wait",
+    ];
+    let action = &request["action"];
+    let key = action.as_str().or_else(|| action["key"].as_str());
+    match key
+        .and_then(|key| key.split_once(':'))
+        .map(|(kind, _)| kind)
+    {
+        Some("guard-way") => "guard",
+        Some("sleep") => "wait",
+        Some(kind) => KINDS
+            .iter()
+            .copied()
+            .find(|&known| known == kind)
+            .unwrap_or("other"),
+        None => "other",
     }
 }
 
@@ -112,11 +157,18 @@ fn verify(
             }
             let response = candidate(version, pack, &request)
                 .map_err(|_| format!("candidate failed at {}", context()))?;
+            let unsupported_play =
+                (op == "play" && response.is_none()).then(|| play_kind(&request));
             let reference = quickjs(request)?;
             match response {
                 Some(response) if response == reference => report.checked += 1,
                 Some(_) => return Err(format!("reducer output differs at {}", context())),
-                None => *report.unsupported.entry(op).or_default() += 1,
+                None => {
+                    if let Some(kind) = unsupported_play {
+                        *report.unsupported_plays.entry(kind).or_default() += 1;
+                    }
+                    *report.unsupported.entry(op).or_default() += 1;
+                }
             }
             Ok(reference)
         })?;
@@ -272,6 +324,21 @@ fn cutover_requires_current_heads_and_observed_coverage() {
     );
 }
 
+#[test]
+fn play_grouping_only_exposes_known_kinds() {
+    assert_eq!(play_kind(&json!({"action":"move:vale:lamp:pond"})), "move");
+    assert_eq!(play_kind(&json!({"action":{"key":"sleep:vale::"}})), "wait");
+    assert_eq!(
+        play_kind(&json!({"action":"guard-way:vale::pond"})),
+        "guard"
+    );
+    assert_eq!(
+        play_kind(&json!({"action":{"key":"private:world","kind":"move"}})),
+        "other"
+    );
+    assert_eq!(play_kind(&json!({"action":{"kind":"move"}})), "other");
+}
+
 #[cfg(feature = "rules-wasm")]
 fn read_candidate() -> Result<Vec<u8>> {
     let artifact = std::env::var_os("COSYWORLD_RULES_WASM")
@@ -342,6 +409,9 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     );
     for (op, count) in &report.unsupported {
         println!("Unsupported {op}: {count}");
+    }
+    for (kind, count) in &report.unsupported_plays {
+        println!("Unsupported play ({kind}): {count}");
     }
     println!(
         "WASM direct fixture totals: matched={} unsupported={}",
