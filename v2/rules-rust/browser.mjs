@@ -53,9 +53,12 @@ export function browserRules(bytes) {
         (key === "move:vale::pond" ||
           key === "move:vale:lamp:pond" ||
           key === "move:vale:cloth:pond" ||
-          key === "move:vale::greek-ship" ||
-          key === "move:vale:cloth:greek-ship" ||
           key === "drop:vale:lamp:pond");
+      const shipPlay =
+        request.op === "play" &&
+        (key === "move:vale::greek-ship" ||
+          key === "move:vale:cloth:greek-ship" ||
+          key === "course:vale::greek-harbor");
       const stationPlay =
         request.op === "play" &&
         (key === "move:vale::station" ||
@@ -97,6 +100,7 @@ export function browserRules(bytes) {
         ].includes(request.op) ||
         atticPlay ||
         pondPlay ||
+        shipPlay ||
         stationPlay ||
         orderedRoom;
       const actors = ordered ? request.world?.actors : null;

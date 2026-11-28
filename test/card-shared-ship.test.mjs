@@ -151,7 +151,6 @@ describe("shared ship boarding", () => {
       (a) => a.kind === "move" && a.target === "greek-harbor",
     );
     s = move(s, "vale", "greek-ship");
-    // A new boarder cannot step straight back ashore.
     expect(
       ask(s, "vale").actions.some(
         (a) => a.kind === "move" && a.target === "greek-harbor",
