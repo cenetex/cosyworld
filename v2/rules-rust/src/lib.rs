@@ -10,7 +10,9 @@ use serde_json::{json, Value};
 
 mod join;
 mod opening;
+mod opening_play;
 mod opening_reflection;
+mod profiles;
 mod reset;
 
 pub const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
@@ -90,6 +92,7 @@ pub fn reduce(request: &Value) -> Value {
         },
         Some("presence") => opening::presence(request).unwrap_or(Value::Null),
         Some("hold") => opening::hold(request).unwrap_or(Value::Null),
+        Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
         Some("join_state") => opening::join_state(request).unwrap_or(Value::Null),
