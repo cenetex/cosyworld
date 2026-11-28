@@ -2,7 +2,7 @@ use super::{
     authored_order::Order,
     opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
-    opening_roster, opening_visitor_routes,
+    opening_roster, opening_station_move, opening_visitor_routes,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     seed, Geography,
@@ -13,8 +13,9 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
 }
 
-fn quiet_turn(world: &Value) -> Option<()> {
-    if world["turn"] != 2
+fn quiet_turn(world: &Value) -> Option<u64> {
+    let turn = world["turn"].as_u64()?;
+    if !matches!(turn, 2 | 3)
         || world.get("began").is_some_and(|began| began != 0)
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
@@ -29,8 +30,8 @@ fn quiet_turn(world: &Value) -> Option<()> {
     {
         return None;
     }
-    match world["actors"]["vale"]["place"].as_str()? {
-        "attic" => entries(&world["log"])
+    match (turn, world["actors"]["vale"]["place"].as_str()?) {
+        (2, "attic") => entries(&world["log"])
             .any(|event| {
                 event["turn"] == 2
                     && event["actorId"] == "vale"
@@ -41,9 +42,11 @@ fn quiet_turn(world: &Value) -> Option<()> {
                     && event["guards"].is_null()
             })
             .then_some(()),
-        "pond" => opening_mirror_move::second_arrival(world),
+        (2, "pond") => opening_mirror_move::second_arrival(world),
+        (_, "station") => opening_station_move::arrival(world).map(|_| ()),
         _ => None,
-    }
+    }?;
+    Some(turn)
 }
 
 fn room<'a>(geo: &Geography<'a>, id: &str) -> Option<&'a Value> {
@@ -61,7 +64,7 @@ pub(super) fn perform(
     custody: &mut Custody,
     actor: &str,
 ) -> Option<()> {
-    quiet_turn(world)?;
+    let turn = quiet_turn(world)?;
     let avatar = entries(&geo.files()["v2/card-game/shared-cast.json"]["avatars"])
         .find(|avatar| avatar["id"] == actor)?;
     let home = avatar["home"]["id"].as_str()?;
@@ -72,9 +75,9 @@ pub(super) fn perform(
         || ["sleeping", "homeward", "attend", "guarding", "under"]
             .iter()
             .any(|field| !a[*field].is_null())
-        || a["dwellUntil"].as_u64().is_some_and(|until| until > 2)
-        || opening_pickups::resting(a, 2)
-        || world["peaceUntil"][actor].as_u64()? > 2
+        || a["dwellUntil"].as_u64().is_some_and(|until| until > turn)
+        || opening_pickups::resting(a, turn)
+        || world["peaceUntil"][actor].as_u64()? > turn
         || !world["defeats"][actor].is_null()
         || !world["placeCard"][home].is_null()
         || entries(&world["memories"][actor]["learning"])
@@ -93,7 +96,7 @@ pub(super) fn perform(
     }
     let target = a["want"]["target"].as_str()?;
     let place = world["actors"][target]["place"].as_str()?.to_owned();
-    let routes = opening_visitor_routes::person_routes(world, geo, actor)?;
+    let routes = opening_visitor_routes::home_person_routes(world, geo, actor)?;
     let to = if routes.direct.is_some() {
         routes.direct
     } else if place == "attic" {
@@ -126,7 +129,8 @@ pub(super) fn perform(
     let crossing = entries(&homes["crossings"])
         .find(|crossing| crossing["from"] == home && crossing["to"] == to)?;
     let id = crossing["id"].as_str()?;
-    if world["doors"][home] != to
+    if (to == "station" && world["actors"]["vale"]["place"] == to)
+        || world["doors"][home] != to
         || crossing["retired"] == true
         || !crossing["signal"].is_null()
         || !crossing["transport"].is_null()
@@ -153,7 +157,7 @@ pub(super) fn perform(
     } else {
         ""
     };
-    let dwell = 2 + 24 + seed::hash(&format!("{actor}@2")) % 6;
+    let dwell = turn + 24 + u64::from(seed::hash(&format!("{actor}@{turn}")) % 6);
     custody.transfer_one(actor, home)?;
     world["items"][item]["holder"] = json!(home);
     world["crossings"]

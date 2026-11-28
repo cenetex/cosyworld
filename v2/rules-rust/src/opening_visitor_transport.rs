@@ -91,9 +91,8 @@ impl<'a> Ship<'a> {
 
 fn knows_lane(world: &Value, geo: &Geography, actor: &str, from: &str, to: &str) -> Option<bool> {
     let authored = |dock| geo.packs().find_map(|pack| pack["places"].get(dock));
-    // Shared avatars live on the hub shore for lane knowledge.
-    if authored(from).is_none()
-        || authored(to).is_none()
+    let hub_shore = authored(from).is_none() || authored(to).is_none();
+    if hub_shore
         || Ship::find(geo, |_, ship| ship["shipmaster"] == actor).is_some()
         || entries(&world["routeKnowledge"][actor])
             .any(|edge| edge[0] == format!("sea:{from}") && edge[1] == format!("sea:{to}"))
