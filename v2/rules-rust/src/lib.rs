@@ -83,7 +83,7 @@ pub use create_geography::Geography;
 pub use opening_pond_view::completed_move_response;
 pub use opening_station_read::begin_station_log_read;
 pub use opening_station_read_wait::settle_station_read_wait;
-pub use opening_station_view::completed_station_response;
+pub use opening_station_view::{begin_keeper_abandon, completed_station_response};
 pub use opening_take_response::completed_take_response;
 pub use opening_view::create_response;
 pub use opening_wait_response::{completed_second_wait_response, completed_wait_response};
@@ -214,6 +214,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_historic_awake_station_view") => {
             opening_station_view::historic_awake_projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_keeper_abandon") => {
+            opening_station_view::keeper_abandon_projection(request).unwrap_or(Value::Null)
         }
         Some("opening_station_train_quest") => {
             opening_station_view::accept_train(request).unwrap_or(Value::Null)

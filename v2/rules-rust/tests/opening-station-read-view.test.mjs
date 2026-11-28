@@ -1,13 +1,39 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { isDeepStrictEqual } from "node:util";
+import { currentSharedEngine } from "../../../test/fixtures/shared-engine.mjs";
 import { reducers } from "./parity.mjs";
 
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const keeperQuest = "accept:vale::keeper";
+const abandon = "drop:vale:::0";
+const abandonOp = "opening_keeper_abandon";
 
-test("reading the Keeper’s Log, accepting the quest, and reloading match pinned replies", async () => {
+function traceKeeperAbandon(source) {
+  const loop = "    for (const id of residents2) {";
+  const action =
+    "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
+  for (const marker of [loop, action])
+    assert.equal(source.split(marker).length, 2);
+  return source
+    .replace(
+      loop,
+      `    if (next.turn === 4 && next.actors.vale.gaveUp?.target === "pond")
+      globalThis.abandonPhase = structuredClone(next);
+${loop}`,
+    )
+    .replace(
+      action,
+      `      const chosen = read2 ?? plan(next, id).action;
+      if (next.turn === 4 && next.actors.vale.gaveUp?.target === "pond" && id === "moth")
+        globalThis.pipAction = chosen.key;
+      perform(next, chosen, round2, residents2);`,
+    );
+}
+
+test("Keeper Log reading, acceptance, reload and primary abandon match pinned states", async () => {
   const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(traceKeeperAbandon);
   const run = (request) => {
     const reply = pinned(request);
     assert.equal(reply.ok, true, reply.error);
@@ -93,8 +119,9 @@ test("reading the Keeper’s Log, accepting the quest, and reloading match pinne
       action: sorted ? { key: keeperQuest } : keeperQuest,
       revision: world.revision,
     };
+    const acceptedPinned = run(acceptance);
     accepted = wasm(acceptance);
-    assert.ok(isDeepStrictEqual(accepted, run(acceptance)), `accept ${seed}`);
+    assert.ok(isDeepStrictEqual(accepted, acceptedPinned), `accept ${seed}`);
     assert.deepEqual(accepted.events, []);
     assert.equal(accepted.world.eventSeq, world.eventSeq);
     assert.equal(accepted.world.turn, world.turn);
@@ -102,9 +129,53 @@ test("reading the Keeper’s Log, accepting the quest, and reloading match pinne
     assert.equal(accepted.world.actors.vale.want.from, "quest:from:keeper");
     assert.equal(accepted.actions.at(-1).key, "drop:vale:::0");
     for (const present of [["vale"], []]) {
-      const request = { ...seats, op: "view", world: structuredClone(accepted.world), present };
-      assert.ok(isDeepStrictEqual(wasm(request), run(request)), `accepted ${seed}/${present}`);
+      const request = {
+        ...seats,
+        op: "view",
+        world: structuredClone(accepted.world),
+        present,
+      };
+      assert.ok(
+        isDeepStrictEqual(wasm(request), run(request)),
+        `accepted ${seed}/${present}`,
+      );
     }
+
+    const drop = {
+      ...seats,
+      op: "play",
+      world: acceptedPinned.world,
+      action: sorted ? { key: abandon } : abandon,
+    };
+    const fullDrop = JSON.parse(reference.cardShared(JSON.stringify(drop)));
+    assert.equal(fullDrop.ok, true, fullDrop.error);
+    assert.equal(reference.pipAction, "give:moth:cloth:vale");
+    assert.deepEqual(
+      fullDrop.events.map(({ actorId, verb }) => [actorId, verb]),
+      [
+        ["vale", "drop"],
+        ["moth", "give"],
+      ],
+    );
+    const stage = JSON.parse(JSON.stringify(reference.abandonPhase));
+    const probe = { ...drop, op: abandonOp, revision: drop.world.revision };
+    const primary = wasm(probe);
+    const different = Object.keys(stage).find(
+      (key) => !isDeepStrictEqual(stage[key], primary?.world[key]),
+    );
+    assert.ok(
+      isDeepStrictEqual(primary, { ok: true, world: stage }),
+      `drop stage ${seed} ${different ?? ""}`,
+    );
+    assert.deepEqual(primary.world.log.at(-1), fullDrop.events[0]);
+    assert.equal(primary.world.items.cloth.holder, "moth");
+    assert.equal(fullDrop.world.items.cloth.holder, "vale");
+    assert.equal(wasm({ ...probe, revision: probe.revision - 1 }), null);
+    assert.equal(wasm({ ...probe, present: [] }), null);
+    assert.equal(
+      wasm({ ...probe, world: stage, revision: stage.revision }),
+      null,
+    );
   }
   for (const change of [
     (world) => {
@@ -121,10 +192,17 @@ test("reading the Keeper’s Log, accepting the quest, and reloading match pinne
     change(world);
     assert.equal(wasm({ ...sample, world }), null);
   }
-  const repeat = { ...acceptance, world: accepted.world, revision: accepted.world.revision };
+  const repeat = {
+    ...acceptance,
+    world: accepted.world,
+    revision: accepted.world.revision,
+  };
   assert.equal(pinned(repeat).ok, false);
   assert.equal(wasm(repeat), null);
-  assert.equal(wasm({ ...acceptance, revision: acceptance.revision - 1 }), null);
+  assert.equal(
+    wasm({ ...acceptance, revision: acceptance.revision - 1 }),
+    null,
+  );
   assert.equal(wasm({ ...acceptance, present: [] }), null);
   const missingClaim = structuredClone(acceptance.world);
   delete missingClaim.knowledge.facts["claim:hub:keeper-log:pond-signal"];
