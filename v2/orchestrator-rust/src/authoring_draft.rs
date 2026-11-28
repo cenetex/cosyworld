@@ -5,7 +5,7 @@ use std::collections::HashSet;
 pub(super) const MAX_METADATA_BYTES: usize = 10 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_ASSET_BYTES: u64 = 16 * 1024 * 1024;
-const MAX_TOTAL_ASSET_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_TOTAL_ASSET_BYTES: u64 = 384 * 1024 * 1024;
 
 fn fields(value: &Value, names: &[&str]) -> bool {
     value
@@ -283,7 +283,7 @@ mod tests {
             .push(json!({"kind":"file","path":"book.md"}));
         assert!(!valid(&value));
         value = draft();
-        value["assets"] = json!((0..16)
+        value["assets"] = json!((0..24)
             .map(|i| file(&format!("{i}.png"), "image/png", MAX_ASSET_BYTES))
             .collect::<Vec<_>>());
         assert!(valid(&value));

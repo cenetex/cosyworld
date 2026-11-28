@@ -142,6 +142,8 @@ describe("the second row, played in a created world", () => {
     expect(s.items[thing].holder).toBe(s.actors.vale.place);
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
+    s = untilNight(s);
+    while (night(s)) s = act(s, (a) => a.kind === "wait" && !a.sleep);
     s = act(s, kind("take", { item: thing }));
     expect(proved(collect(s))).toEqual(["arcanum-10"]);
   });
@@ -392,10 +394,10 @@ describe("the words added for these cards", () => {
 
   it("binds a ship, a drink, a lamp and a wanted thing only while live", () => {
     const s = createWorld({ seed: 7 });
-    expect(candidates(s, "transport")).toEqual(["greek-ship"]);
+    expect(candidates(s, "transport")).toEqual(["greek-scylla", "greek-ship"]);
     expect(candidates(s, "item", "lamp")).toEqual(["lamp"]);
     expect(slotBinding(s, { card: "arcanum-9", bind: { light: "station-lantern" } }, "vale").light).toBe("lamp");
-    expect(candidates(s, "item", "drink")).toEqual(["greek-wine-skin"]);
+    expect(candidates(s, "item", "drink")).toEqual(["greek-water-jar", "greek-wine-skin"]);
     expect(candidates(s, "item", "wanted")).toContain("lamp");
     s.actors.moth.want = null;
     expect(candidates(s, "item", "wanted")).not.toContain("lamp");

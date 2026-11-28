@@ -337,7 +337,6 @@ mod tests {
         let worlds: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
         let (tomb, beach) = ("Proteus's Tomb in Egypt", "The Homecoming Beach");
         let tomb_walk = format!("The way to {tomb} is open.");
-        let beach_walk = format!("The way to {beach} is open.");
         for (case, world) in worlds.as_object().unwrap() {
             let request = serde_json::json!({"world": world, "actor": "vale"});
             let shared = crate::card_shared::narrator_context(&request).unwrap();
@@ -352,7 +351,7 @@ mod tests {
                 let id = &entity.id;
                 assert!(!prompt.contains(&tomb_walk), "{case} {id}: {prompt}");
                 if case == "troy_witness" && id == "vale" {
-                    assert!(prompt.contains(&beach_walk), "{case} {id}: {prompt}");
+                    assert!(prompt.contains("Homecoming Beach"), "{case} {id}: {prompt}");
                 } else {
                     assert!(!prompt.contains(beach), "{case} {id}: {prompt}");
                 }

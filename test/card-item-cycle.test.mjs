@@ -64,7 +64,10 @@ import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 
 const LOOP = ["greek-bread", "greek-test-figs", "greek-test-wine"];
 // The Open Door's urn waits, made by nobody yet, at Eleusis: outside this loop.
-const inLoop = (used) => used.filter((id) => id !== "greek-ash-urn");
+const unmade = (id) =>
+  !LOOP.includes(id) && !packDefinition("greek-drama").items[id]?.locked;
+const inLoop = (used) =>
+  used.filter((id) => id !== "greek-ash-urn" && !unmade(id));
 const reload = (s) => decodeSave(encodeSave(s));
 function act(s, kind, fields = {}, actor = "vale") {
   const action = legalActions(s, actor).find(

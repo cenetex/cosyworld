@@ -193,7 +193,7 @@ it("preflights missing files and all media byte limits before reading media", as
     let reads = 0;
     const value = pack();
     if (mode === "total")
-      value.extra = Array.from({ length: 17 }, (_, i) => `assets/${i}.png`);
+      value.extra = Array.from({ length: 25 }, (_, i) => `assets/${i}.png`);
     opts.files[0] = file(opts.packPath, value);
     if (mode === "missing") opts.files.pop();
     if (mode === "total")

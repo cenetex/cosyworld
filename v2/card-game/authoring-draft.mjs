@@ -5,7 +5,7 @@ export const DRAFT_LIMITS = Object.freeze({
   document: 8 * 1024 * 1024,
   assets: 512,
   assetBytes: 16 * 1024 * 1024,
-  totalAssetBytes: 256 * 1024 * 1024,
+  totalAssetBytes: 384 * 1024 * 1024,
 });
 const utf8 = new TextEncoder();
 const record = (v) =>
@@ -143,7 +143,7 @@ function checked(value) {
   need(
     value.assets.reduce((sum, a) => sum + a.size, 0) <=
       DRAFT_LIMITS.totalAssetBytes,
-    "Keep asset files within 256 MiB in total.",
+    "Keep asset files within 384 MiB in total.",
   );
   need(
     Array.isArray(value.sources) &&

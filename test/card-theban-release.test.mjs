@@ -84,6 +84,7 @@ const beyondAjax = [
 // known lane, so the initial land walks stop at the anchorage.
 const scyllaPlaces = [
   "greek-scylla",
+  "greek-aulis",
   "greek-lemnos",
   "greek-thrace",
   "greek-tauris",

@@ -62,6 +62,8 @@ const NO_INVITE = {
     "Skull's home, the Moonlit Trail, is shut until the drain is cleared: out of it he could not walk home.",
   "greek-guard": "The Gate Guard is a lock: if he leaves his post the way opens for everyone.",
   "greek-polynices-shade": "The Shade is a night apparition at the Hollow.",
+  "greek-helen-troy": "Troy Beach has no road out; Helen leaves it only by the ship to Lemnos.",
+  "greek-menelaus-troy": "Troy Beach has no road out; Menelaus leaves it only by the ship to Lemnos.",
   "greek-cilissa": "Cilissa travels only by the escort she agrees to at the tomb.",
   "greek-aethra":
     "Aethra keeps to Demeter's altar, where she makes the urn; her cloth can come home with nobody there.",
@@ -180,6 +182,7 @@ describe("who can be invited along and threatened", () => {
     }
     castWorld = createWorld({ seed: 7, packScopes: scopes });
     for (const state of Object.values(castWorld.crossings)) state.discovered = true;
+    castWorld.packs["greek-drama"].flags["greek-ajax-open"] = true;
   });
   afterAll(() => {
     for (const [a, requires, appearsWhen] of restore) {

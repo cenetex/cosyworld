@@ -2398,7 +2398,6 @@
         places: {
           "greek-harbor": {
             name: "The Wine-Dark Harbor",
-            text: "Follow the Theban Harbor Road to the city, or take the Argolid Crossroads toward Argos and Corinth.",
             exits: [
               "greek-road-thebes",
               "greek-argolid-road"
@@ -2434,7 +2433,7 @@
           },
           "greek-gate": {
             name: "Theban City Gate",
-            text: "The gate opens onto the Exposed Battlefield. The guard accepts Creon\u2019s Writ or the Herald\u2019s Truce.",
+            seed: "The gate opens onto the Exposed Battlefield. The guard accepts Creon\u2019s Writ or the Herald\u2019s Truce.",
             exits: [
               "greek-courtyard"
             ],
@@ -2499,14 +2498,12 @@
           },
           "greek-aulis": {
             name: "Aulis Anchorage",
-            text: "The Scylla sails back to Pagasae from these mooring stones.",
             exits: [],
             backdrop: "assets/greek-drama/aulis-anchorage-day.webp",
             seed: "The conflict of Iphigenia at Aulis is unfolding here."
           },
           "greek-athens": {
             name: "Athenian Agora",
-            text: "The Sacred Way leads to Eleusis. Pass the Acropolis Treasury for the Areopagus. Take the Civic Avenue for Piraeus, Marathon, and Delphi.",
             exits: [
               "greek-acropolis",
               "greek-road-athens-eleusis",
@@ -2516,7 +2513,6 @@
           },
           "greek-civic-avenue": {
             name: "Civic Avenue",
-            text: "The colonnade leads into the Agora. Take the Road to Delphi for Pagasae, or walk to the City Road Fork for Piraeus and Marathon.",
             exits: [
               "greek-athens",
               "greek-road-sacred-way",
@@ -2526,7 +2522,6 @@
           },
           "greek-city-road-fork": {
             name: "City Road Fork",
-            text: "The Long Walls lead down to Piraeus Quays. The North Gate leads to Marathon and Assembly Hill. Follow the Civic Avenue into the Agora or onward to Delphi.",
             exits: [
               "greek-civic-avenue",
               "greek-north-gate"
@@ -2535,7 +2530,6 @@
           },
           "greek-north-gate": {
             name: "North Gate",
-            text: "Marathon Road leads to the altar. Assembly Hill leads to the Thinkery and the House of Demos. Return to the City Road Fork for Piraeus or the Agora.",
             exits: [
               "greek-city-road-fork",
               "greek-road-athens-marathon",
@@ -2545,14 +2539,12 @@
           },
           "greek-piraeus": {
             name: "Piraeus Quays",
-            text: "Follow the Long Walls inland to the City Road Fork, then take the Civic Avenue to the Athenian Agora.",
             exits: [],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             seed: "From the Charybdis\u2019s quay, the Long Walls lead to Athens and the inland route to Pagasae."
           },
           "greek-assembly": {
             name: "The Assembly Hill",
-            text: "Praxagora takes the first Bread offered for the common table and records it in the register. The lanes below the steps lead to the House of Demos and the Thinkery. The North Gate leads back to the city roads.",
             exits: [
               "greek-north-gate",
               "greek-demos-house",
@@ -2563,7 +2555,6 @@
           },
           "greek-acropolis": {
             name: "Acropolis Treasury",
-            text: "The treasury chest stands above the steps. Lysistrata hears callers in daylight and keeps watch if she has the key. Lampito keeps the table open longer when she has Bread to share.",
             exits: [
               "greek-athens",
               "greek-festival",
@@ -2582,7 +2573,6 @@
           },
           "greek-thinkery": {
             name: "The Thinkery",
-            text: "The Juror\u2019s House is next door. Return through Assembly Hill for the North Gate.",
             exits: [
               "greek-assembly",
               "greek-jury-house"
@@ -2608,7 +2598,6 @@
           },
           "greek-attic-farm": {
             name: "The Attic Farm",
-            text: "The farm paths lead to Colonus Grove and Acharnae Market. Return to the Lower Precinct for the sanctuary.",
             exits: [
               "greek-eleusis-lower-precinct",
               "greek-colonus",
@@ -2619,7 +2608,6 @@
           },
           "greek-acharnae": {
             name: "Acharnae Market",
-            text: "The path leads to the Attic Farm. Dicaeopolis speaks for his household. The Megarian needs a seal to open his stall. Thaleia bakes at Piraeus when the Bread runs out.",
             exits: [
               "greek-attic-farm",
               "greek-bird-wilderness"
@@ -2629,7 +2617,6 @@
           },
           "greek-colonus": {
             name: "Colonus Grove",
-            text: "The path out of the grove leads back to the Attic Farm.",
             exits: [
               "greek-attic-farm"
             ],
@@ -2638,7 +2625,6 @@
           },
           "greek-eleusis": {
             name: "Eleusinian Sanctuary",
-            text: "The Sacred Way leads to the Athenian Agora and the Cithaeron Road to the Exposed Battlefield. Go down to the Lower Precinct for the Attic Farm and the Underworld Landing.",
             exits: [
               "greek-cithaeron",
               "greek-road-athens-eleusis",
@@ -2649,7 +2635,6 @@
           },
           "greek-eleusis-lower-precinct": {
             name: "Lower Precinct",
-            text: "Climb back to the Eleusinian Sanctuary or follow the farm path to the Attic Farm. The stone steps descend to the Underworld Landing.",
             exits: [
               "greek-eleusis",
               "greek-underworld",
@@ -2670,7 +2655,6 @@
           },
           "greek-marathon": {
             name: "Marathon Altar",
-            text: "Demophon\u2019s watch shelters families inside the altar enclosure. Take Marathon Road to the North Gate. Continue to the City Road Fork for the Long Walls to Piraeus.",
             exits: [
               "greek-road-athens-marathon"
             ],
@@ -2679,7 +2663,6 @@
           },
           "greek-argolid-road": {
             name: "The Argolid Crossroads",
-            text: "The Shore Altar path leads to Corinth and the Jury Yard. The tomb path starts here. Ismene keeps the tomb account, Creon the palace account, and Dione the farmhouse account. Giving the Record of the House of Atreus to one of them decides which household path opens for everyone.",
             exits: [
               "greek-harbor",
               "greek-argos-sanctuary"
@@ -2688,7 +2671,6 @@
           },
           "greek-argos-sanctuary": {
             name: "Argive Shore Altar",
-            text: "The Danaids bake for travelers here. Bring Water to their leader when the bread bench is bare. The coast path continues to Corinth, the inland path leads to the Argive Jury Yard, and the Crossroads lead back to the harbor.",
             exits: [
               "greek-argolid-road",
               "greek-argive-jury",
@@ -2729,7 +2711,6 @@
           },
           "greek-argos-tomb": {
             name: "Agamemnon's Tomb",
-            text: "Electra\u2019s tablet tells who met here. You can take it to read and leave it here, or carry it to Athena\u2019s court on the Areopagus, beyond the Acropolis in Athens.",
             exits: [],
             backdrop: "assets/greek-drama/house-atreus-tomb.webp",
             requires: [
@@ -2817,7 +2798,6 @@
           },
           "greek-corinth": {
             name: "Medea\u2019s House in Corinth",
-            text: "The coast path returns to the Argive Shore Altar. The other way leads to Troezen.",
             exits: [
               "greek-argos-sanctuary",
               "greek-troezen"
@@ -2835,7 +2815,6 @@
           },
           "greek-delphi": {
             name: "Delphic Temple",
-            text: "The Oeta Road crosses the pass to the House at Trachis. Continue through Pherae for the coast, or take the south road back to the Athenian Agora.",
             exits: [
               "greek-road-sacred-way",
               "greek-oeta",
@@ -2845,7 +2824,6 @@
           },
           "greek-trachis": {
             name: "House at Trachis",
-            text: "Follow the road down to Pherae for the coast. The Oeta Road climbs back to Delphi.",
             exits: [
               "greek-oeta",
               "greek-pherae"
@@ -2855,7 +2833,7 @@
           },
           "greek-oeta": {
             name: "The Oeta Road",
-            text: "The pass links Delphi and Trachis. Continue through Trachis for Pherae and the coast.",
+            seed: "The pass links Delphi and Trachis. Continue through Trachis for Pherae and the coast.",
             exits: [
               "greek-delphi",
               "greek-trachis"
@@ -2868,7 +2846,6 @@
           },
           "greek-pherae": {
             name: "The House of Admetus at Pherae",
-            text: "Alcestis\u2019s servant shares bread with the children and passing travelers at the outer bench. The shore path leads to Pagasae Anchorage. The road toward Delphi passes through Trachis.",
             exits: [
               "greek-trachis",
               "greek-thetis",
@@ -2879,7 +2856,6 @@
           },
           "greek-pagasae": {
             name: "Pagasae Anchorage",
-            text: "Ask Philon about the Scylla\u2019s courses at the mooring stones. The shore path leads back to Pherae.",
             exits: [
               "greek-pherae"
             ],
@@ -2906,7 +2882,6 @@
           },
           "greek-greek-camp": {
             name: "The Greek Camp at Troy",
-            text: "Camp Lane passes between the tents. The path down to the water returns to the Boarding Shore Below Troy.",
             exits: [
               "greek-troy",
               "greek-ajax-landing",
@@ -2917,7 +2892,7 @@
           },
           "greek-trojan-camp-lane": {
             name: "Camp Lane",
-            text: "The lane forks toward Ajax\u2019s household tent and grave. The third path returns to the main camp.",
+            seed: "The lane forks toward Ajax\u2019s household tent and grave. The third path returns to the main camp.",
             exits: [
               "greek-greek-camp",
               "greek-ajax-household",
@@ -2945,7 +2920,6 @@
           },
           "greek-trojan-camp": {
             name: "Trojan Night Camp",
-            text: "Hector checks the stalls in daylight. The wounded charioteer gives his account at the start of the night watch.",
             exits: [
               "greek-troy"
             ],
@@ -2954,7 +2928,7 @@
           },
           "greek-troy-beach": {
             name: "The Homecoming Beach",
-            text: "The Scylla calls here from Lemnos. The same course leads back to the island.",
+            seed: "The Scylla calls here from Lemnos. The same course leads back to the island.",
             exits: [],
             backdrop: "assets/greek-drama/homecoming-beach-day.webp",
             requires: [
@@ -2967,14 +2941,12 @@
           },
           "greek-lemnos": {
             name: "The Lemnian Cave",
-            text: "Ask Philoctetes about the Scylla\u2019s courses between Lemnos, Pagasae and Thrace.",
             exits: [],
             backdrop: "assets/greek-drama/lemnian-cave-day.webp",
             seed: "The conflict of Philoctetes is unfolding here."
           },
           "greek-thrace": {
             name: "Thracian Shore",
-            text: "Hecuba can tell you which course to take for Tauris or back to Lemnos.",
             exits: [],
             backdrop: "assets/greek-drama/thracian-shore-day.webp",
             seed: "The conflict of Hecuba is unfolding here."
@@ -3040,7 +3012,6 @@
           },
           "greek-underworld": {
             name: "The Underworld Landing",
-            text: "The stone steps lead back up to the Lower Precinct.",
             exits: [
               "greek-eleusis-lower-precinct"
             ],
@@ -3146,7 +3117,7 @@
           },
           "greek-road-athens-piraeus": {
             name: "The Long Walls",
-            text: "The walls run from Piraeus Quays to the City Road Fork in Athens.",
+            seed: "The walls run from Piraeus Quays to the City Road Fork in Athens.",
             exits: [
               "greek-piraeus",
               "greek-city-road-fork"
@@ -3184,7 +3155,7 @@
           },
           "greek-road-athens-marathon": {
             name: "Marathon Road",
-            text: "One way leads back to the North Gate. The other continues to Marathon Altar.",
+            seed: "One way leads back to the North Gate. The other continues to Marathon Altar.",
             exits: [
               "greek-north-gate",
               "greek-marathon"
@@ -3236,7 +3207,7 @@
           },
           "greek-road-sacred-way": {
             name: "The Road to Delphi",
-            text: "The Civic Avenue leads into Athens. The Delphic Temple lies inland, on the way to Pagasae.",
+            seed: "The Civic Avenue leads into Athens. The Delphic Temple lies inland, on the way to Pagasae.",
             exits: [
               "greek-civic-avenue",
               "greek-delphi"
@@ -3475,7 +3446,6 @@
           },
           "greek-cadmea-street": {
             name: "Cadmea Street",
-            text: "The older accounts of Thebes begin here. The Seventh Gate looks out on the siege. Oedipus\u2019s palace stands farther along the street.",
             exits: [
               "greek-well",
               "greek-seven-gates",
@@ -3495,7 +3465,6 @@
           },
           "greek-oedipus-court": {
             name: "Oedipus\u2019s Palace Forecourt",
-            text: "The city is in the reign of Oedipus. Cadmea Street leads back to the Market Well.",
             exits: [
               "greek-cadmea-street",
               "greek-jocasta-rooms",
@@ -3530,7 +3499,6 @@
           },
           "greek-argive-jury": {
             name: "The Jury Yard of Argos",
-            text: "Return to the crossroads by way of the Shore Altar. The paths to the old palace and the farmhouse depend on which account of the House of Atreus has been given.",
             exits: [
               "greek-argos-sanctuary"
             ],
@@ -3547,7 +3515,6 @@
           },
           "greek-areopagus": {
             name: "The Court on the Areopagus",
-            text: "Go back through the Acropolis to Athens. Athena accepts the tablet from Agamemnon\u2019s tomb and accounts from the Argive Palace Threshold. You can bring a record or tell her what you read.",
             exits: [
               "greek-acropolis"
             ],
@@ -5068,7 +5035,7 @@
             standoffs: false,
             personalQuests: false,
             seed: "The Servant of Alcestis asks for help with the dispute at The House of Admetus at Pherae.",
-            text: "I keep watch beside Alcestis, who has died in Admetus\u2019s place. Heracles takes supper as our guest without knowing whom we mourn, and the children hear him singing from the next room.",
+            text: "I keep watch beside Alcestis, who died in Admetus\u2019s place. Heracles takes supper without knowing whom we mourn, and the children can hear him singing. Her mourning cloth lies next to the bier.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -5140,7 +5107,7 @@
             standoffs: false,
             personalQuests: false,
             seed: "Phaedra\u2019s Nurse asks for help with the dispute at The Palace Steps at Troezen.",
-            text: "I told Hippolytus what Phaedra begged me to keep secret. She has left a sealed accusation, and Theseus stands ready to punish his son before he has heard how the secret came out.",
+            text: "Phaedra left a sealed accusation. I was the one who spoke to Hippolytus, and I will answer for what I said if Theseus calls me.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -5421,7 +5388,7 @@
             standoffs: false,
             personalQuests: false,
             seed: "Electra asks for help with the dispute at The Jury Yard of Argos.",
-            text: "I have sat with my brother since he killed our mother. Our grandfather Tyndareus calls for judgment, and I am here with a written appeal for time to speak before Argos votes.",
+            text: "I have sat with my brother since he killed our mother, and today Argos votes on both our lives. Our grandfather Tyndareus calls for judgment while I wait at the yard with a written appeal for time to speak. Give Electra the board to lodge before the vote. Entrust Tyndareus with the appeal as a family plea.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -5558,7 +5525,7 @@
             standoffs: false,
             personalQuests: false,
             seed: "Silenus asks for help with the dispute at Sicilian Cave of Polyphemus.",
-            text: "My master counts my cheeses when he comes home. I\u2019ll trade you one for the wineskin from the ship before he checks the stock.",
+            text: "I\u2019ll trade a cheese for the wineskin from the ship. My master will give the satyrs a rest if you bring him Wine from the Theban City Gate.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -5573,7 +5540,6 @@
             standoffs: false,
             personalQuests: false,
             seed: "Polyphemus can release the satyrs from their churns at the Sicilian cave.",
-            text: "Bring me Wine from the Theban City Gate and I\u2019ll give the satyrs a rest from the churns.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -5804,7 +5770,7 @@
             standoffs: false,
             personalQuests: false,
             seed: "Lysistrata asks for help with the dispute at Acropolis Treasury.",
-            text: "The magistrate sent a wagon for the army\u2019s pay. I mean it to leave empty. Lampito keeps a table on the steps for anyone who has come to talk.",
+            text: "The magistrate sent a wagon for the army\u2019s pay. With the key in my hands I can keep the chest locked. Give it to Lampito if you want her to pledge one chest to hospitality. She can share a loaf now with whoever is at the table.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -5840,7 +5806,6 @@
             standoffs: false,
             personalQuests: false,
             seed: "Lampito keeps a table on the treasury steps and makes room for travelers.",
-            text: "If you bring Bread, I can break it here with whoever is at the table. Lysistrata answers for the chest.",
             tastes: {
               likes: "a traveler who shares a loaf",
               sore: "a promise without a deed"
@@ -33435,7 +33400,20 @@
       )
     };
   }
-  var GENERIC = /* @__PURE__ */ new Set(["account", "card", "list", "record", "plea", "seed"]);
+  var GENERIC = /* @__PURE__ */ new Set([
+    "account",
+    "card",
+    "list",
+    "record",
+    "plea",
+    "seed",
+    "bread",
+    "wine",
+    "water",
+    "milk",
+    "honey",
+    "watch"
+  ]);
   var itemNouns = /* @__PURE__ */ new Map();
   for (const [id, p] of Object.entries({ ...entity_profiles_default, ...packThings }))
     if (p.kind === "item" || packThings[id]) {
