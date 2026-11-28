@@ -27,6 +27,7 @@ mod opening_grounded_lamp;
 pub mod opening_history;
 mod opening_history_walkers;
 mod opening_hub_residents;
+mod opening_mirror_move;
 mod opening_pickups;
 mod opening_place_cards;
 mod opening_play;
@@ -154,6 +155,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_bard_move") => opening_roaming::projection(request).unwrap_or(Value::Null),
         Some("opening_wait_settlement") => {
             opening_settlement::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_mirror_move") => {
+            opening_mirror_move::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_pickups") => opening_pickups::projection(request).unwrap_or(Value::Null),
         Some("opening_place_cards") => {
