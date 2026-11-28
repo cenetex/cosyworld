@@ -26,10 +26,29 @@ test("fresh create reports unsupported options outside the parity scope", async 
     { seed: "4242" },
     { seed: 4_294_967_296 },
     { hidden: "mara" },
-    { absent: ["mara"] },
-    { homecoming: "mara" },
+    { absent: ["vale"] },
+    { homecoming: "vale" },
     { actor: "mara" },
   ]) {
     assert.equal(wasm({ op: "create", ...args }), null);
+  }
+});
+
+
+test("fresh absence and homecoming options match the complete pinned response", async () => {
+  const { pinned, wasm } = await reducers();
+  const visitors = ["mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
+  for (const history of [false, true]) {
+    for (const [index, actor] of visitors.entries()) {
+      const absent = [visitors[(index + 1) % visitors.length]];
+      const request = { op: "create", seed: 4242, history, absent, homecoming: actor };
+      const reference = pinned(request);
+      assert.equal(reference.ok, true);
+      assert.ok(isDeepStrictEqual(wasm(request), reference), `${actor} at history ${history}`);
+    }
+  }
+  for (const absent of [["mara"], visitors]) {
+    const request = { op: "create", absent };
+    assert.ok(isDeepStrictEqual(wasm(request), pinned(request)));
   }
 });

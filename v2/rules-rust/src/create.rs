@@ -1,7 +1,8 @@
 use super::pack_state::{self, Catalog};
 use super::{
     create_geography::Geography, initial_wants::People, opening_candidates, opening_evidence,
-    opening_history, opening_view, seed, validate, Lamp, LampPosition,
+    opening_history, opening_view, seed, seed_arrivals::ArrivalOptions, validate, Lamp,
+    LampPosition,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -228,11 +229,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if !request["save"].is_null() {
         return validate::import_refusal(request);
     }
-    if !request["hidden"].is_null()
-        || !request["homecoming"].is_null()
-        || !(request["absent"].is_null() || request["absent"] == json!([]))
-        || !matches!(request["actor"].as_str(), None | Some("vale" | ""))
-    {
+    if !matches!(request["actor"].as_str(), None | Some("vale" | "")) {
         return None;
     }
     if !request["actor"].is_null() && !request["actor"].is_string() {
@@ -243,11 +240,29 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         None | Some(Value::Null) => None,
         Some(seed) => Some(u32::try_from(seed.as_u64()?).ok()?),
     };
-    let world = fresh(&files, seed, request["history"] == true)?;
+    let arrivals = ArrivalOptions::parse(request)?;
+    if arrivals.hidden.is_some() {
+        return None;
+    }
+    let history = request["history"] == true;
+    let world = if arrivals.is_empty() {
+        fresh(&files, seed, history)?
+    } else {
+        with_arrivals(&files, seed, history, &arrivals)?
+    };
     opening_view::create_response(world, &files, "vale")
 }
 
 pub(super) fn fresh(files: &Value, seed: Option<u32>, history: bool) -> Option<Value> {
+    with_arrivals(files, seed, history, &ArrivalOptions::default())
+}
+
+fn with_arrivals(
+    files: &Value,
+    seed: Option<u32>,
+    history: bool,
+    arrivals: &ArrivalOptions,
+) -> Option<Value> {
     let catalog = Catalog::from_files(files)?;
     let geo = Geography::new(files, catalog.packs())?;
     let people = People::new(files, catalog.packs())?;
@@ -263,7 +278,11 @@ pub(super) fn fresh(files: &Value, seed: Option<u32>, history: bool) -> Option<V
         opening_history::begin(&mut world, files)?;
     }
     begin_shared(&mut world, files)?;
+    arrivals.apply(&mut world, files)?;
     opening_candidates::fill(&mut world, &geo, &people, files)?;
+    if let Some(actor) = arrivals.homecoming {
+        world["actors"][actor]["want"] = Value::Null;
+    }
     settle_hands_and_lamp(&mut world, &geo)?;
     settle_station(&mut world, files, &geo)?;
     Some(world)
@@ -340,6 +359,12 @@ fn settle_station(world: &mut Value, files: &Value, geo: &Geography) -> Option<(
     {
         return None;
     }
+    let mut visitors = vec![None];
+    for (actor, resident) in world["actors"].as_object()? {
+        if resident["place"] == station && geo.entity_active(world, actor)? {
+            visitors.push(Some(actor.as_str()));
+        }
+    }
     let mut extra = Vec::new();
     let base = geo.base_exits(station)?;
     for pack in geo.packs() {
@@ -350,8 +375,7 @@ fn settle_station(world: &mut Value, files: &Value, geo: &Geography) -> Option<(
             .filter(|c| c["from"] == station)
         {
             if crossing["retired"] == true
-                || (crossing["travelers"] == "player"
-                    && world["actors"]["vale"]["place"] != station)
+                && world["crossings"][crossing["id"].as_str()?]["discovered"] != true
             {
                 continue;
             }
@@ -362,11 +386,14 @@ fn settle_station(world: &mut Value, files: &Value, geo: &Geography) -> Option<(
                 return None;
             }
             let to = crossing["to"].as_str()?;
-            if !base.contains(&crossing["to"])
-                && geo.entity_active(world, to)?
-                && geo.conditions_met(world, pack_id, &crossing["requires"], Some("vale"))?
-            {
-                extra.push(to);
+            if base.contains(&crossing["to"]) || !geo.entity_active(world, to)? {
+                continue;
+            }
+            for &actor in &visitors {
+                if geo.conditions_met(world, pack_id, &crossing["requires"], actor)? {
+                    extra.push(to);
+                    break;
+                }
             }
         }
         for route in pack["routes"]
@@ -384,9 +411,17 @@ fn settle_station(world: &mut Value, files: &Value, geo: &Geography) -> Option<(
             }
         }
     }
-    if !extra.is_empty() {
-        return None;
+    let mut order = Vec::new();
+    for old in world["stationExitOrder"].as_array().into_iter().flatten() {
+        if old.as_str().is_some_and(|old| extra.contains(&old)) {
+            order.push(old.clone());
+        }
     }
-    world["stationExitOrder"] = json!([]);
+    for new in extra {
+        if !order.iter().any(|old| old == new) {
+            order.push(json!(new));
+        }
+    }
+    world["stationExitOrder"] = Value::Array(order);
     Some(())
 }

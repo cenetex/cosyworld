@@ -21,7 +21,6 @@ export const hidingPlaces = (world) =>
     .filter((pack) => world.packs?.[pack.id] && pack.hiding)
     .flatMap((pack) => pack.hiding.pool.map((entry) => entry.id));
 
-// Leave the absent avatars out and put the hidden one in its hiding place.
 export function hideAvatar(world, { hidden, absent } = {}) {
   if (hidden == null && absent == null) return world;
   const out = absent ?? [];
