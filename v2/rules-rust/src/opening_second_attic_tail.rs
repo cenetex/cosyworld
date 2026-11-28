@@ -1,8 +1,13 @@
-use super::{create, initial_wants, opening_content, pack_state::Catalog, Geography};
+use super::{
+    create, initial_wants, opening_content, opening_mirror_move, opening_wait_response,
+    pack_state::Catalog, Geography,
+};
 use serde_json::{json, Value};
 
 const STATION: &str = "station";
 const WAYFINDER: &str = "elysium-wayfinder";
+const POND: &str = "pond";
+const PIP: &str = "moth";
 
 fn fresh_attic(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
@@ -14,7 +19,9 @@ fn fresh_attic(world: &Value) -> Option<u64> {
 }
 
 pub(super) fn verify_station(world: &Value, geo: &Geography) -> Option<()> {
-    fresh_attic(world)?;
+    if fresh_attic(world).is_none() {
+        opening_mirror_move::second_arrival(world)?;
+    }
     verify_station_order(world, geo)
 }
 
@@ -43,8 +50,8 @@ pub(super) fn verify_station_order(world: &Value, geo: &Geography) -> Option<()>
 }
 
 pub(super) fn verify_wayfinder(world: &Value, geo: &Geography) -> Option<()> {
-    if fresh_attic(world)? != 2 {
-        return None;
+    if fresh_attic(world) != Some(2) {
+        opening_mirror_move::second_arrival(world)?;
     }
     if !world["items"].as_object()?.contains_key(WAYFINDER) {
         return Some(());
@@ -69,6 +76,16 @@ fn second_attic(world: &Value) -> Option<()> {
         .then_some(())
 }
 
+fn second_scene(world: &Value) -> Option<&'static str> {
+    if world["actors"]["vale"]["place"] == POND {
+        opening_mirror_move::second_arrival(world)?;
+        Some(POND)
+    } else {
+        second_attic(world)?;
+        Some("attic")
+    }
+}
+
 fn no_arcana(world: &Value, geo: &Geography) -> Option<()> {
     let authored = &geo.files()["v2/card-game/arcana.json"];
     (authored["calls"].as_u64()? > 0
@@ -80,22 +97,27 @@ fn no_arcana(world: &Value, geo: &Geography) -> Option<()> {
 }
 
 pub(super) fn verify_stops(world: &Value, geo: &Geography) -> Option<()> {
-    second_attic(world)?;
+    let scene = second_scene(world)?;
     no_arcana(world, geo)?;
+    let pond = scene == POND;
+    if pond && (world["actors"][PIP]["place"] != POND || !geo.entity_active(world, PIP)?) {
+        return None;
+    }
     let forest = &geo.files()["v2/card-game/forest.json"];
     (forest["people"]["vale"]["stops"].is_null()
-        && geo
-            .packs()
-            .all(|pack| pack["avatars"].get("vale").is_none())
-        && world["actors"]
-            .as_object()?
-            .iter()
-            .all(|(id, actor)| id == "vale" || actor["place"] != "attic"))
+        && geo.packs().all(|pack| {
+            pack["avatars"].get("vale").is_none() && (!pond || pack["avatars"].get(PIP).is_none())
+        })
+        && world["actors"].as_object()?.iter().all(|(id, actor)| {
+            id == "vale"
+                || actor["place"] != scene
+                || (pond && (id == PIP || geo.entity_active(world, id) == Some(false)))
+        }))
     .then_some(())
 }
 
 pub(super) fn verify_wake(world: &Value) -> Option<()> {
-    second_attic(world)?;
+    second_scene(world)?;
     world["actors"]
         .as_object()?
         .values()
@@ -216,7 +238,13 @@ fn no_new_rumours(before: &Value, world: &Value) -> Option<()> {
 }
 
 pub(super) fn verify_final(before: &Value, world: &Value, geo: &Geography) -> Option<()> {
-    second_attic(world)?;
+    let scene = second_scene(world)?;
+    if scene == POND
+        && (opening_wait_response::settled_first_wait(before) != Some(1)
+            || before["eventSeq"].as_u64()?.checked_add(1) != world["arrival"]["seq"].as_u64())
+    {
+        return None;
+    }
     no_arcana(world, geo)?;
     sealed_at_rest(world, geo)?;
     guards_stable(world, geo)?;
