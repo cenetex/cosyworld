@@ -77,7 +77,7 @@ test("both Station arrival horizons match pinned Bard dwell and offstage life", 
   assert.equal(wasm({ op: "opening_station_life", world: state }), null);
 });
 
-function traceHistoricStation(source) {
+function traceDwellAndWalkers(source) {
   const plan = "      const chosen = plan(next, id);";
   const walkers = "    const dawnOrDusk = s.turn % DAYLIGHT_TURNS === 0;";
   const walked = "    if (!moved2.length) return;";
@@ -107,7 +107,7 @@ $&`,
 
 test("historic Station preserves Bard dwell and proves no offstage walks", async () => {
   const { pinned, wasm } = await reducers();
-  const reference = currentSharedEngine(traceHistoricStation);
+  const reference = currentSharedEngine(traceDwellAndWalkers);
   const copy = (state) => JSON.parse(JSON.stringify(state));
   const dwell = "opening_bard_dwell";
   const walkers = "opening_history_walkers";
@@ -212,9 +212,119 @@ test("historic Station preserves Bard dwell and proves no offstage walks", async
   );
 });
 
+test("the Bard dwells on both quiet Station departures", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(traceDwellAndWalkers);
+  const copy = (world) => JSON.parse(JSON.stringify(world));
+  const op = "opening_bard_dwell";
+  function run(request) {
+    const reply = pinned(request);
+    assert.equal(reply.ok, true, reply.error);
+    return reply.world;
+  }
+  const play = (world, action) => run({ ...seats, op: "play", world, action });
+  function observe(world, action) {
+    reference.bardPlays = [];
+    const reply = JSON.parse(
+      reference.cardShared(
+        JSON.stringify({ ...seats, op: "play", world, action }),
+      ),
+    );
+    assert.equal(reply.ok, true, reply.error);
+    return [copy(reference.beforeBard), copy(reference.beforeLife)];
+  }
+
+  let sample, station, read, accepted;
+  for (const seed of [undefined, 2, 17, 42, 4242]) {
+    for (const mode of ["stowed", "dry"]) {
+      let world = run({ op: "create", seed });
+      if (mode === "dry") {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      } else {
+        world = run({
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+      }
+      const carry = mode === "dry" ? "lamp" : "";
+      const pond = play(world, "move:vale::pond");
+      station = play(pond, `move:vale:${carry}:station`);
+      if (mode === "dry")
+        station.actors = Object.fromEntries(
+          Object.entries(station.actors).toSorted(),
+        );
+      read = play(station, "read:vale:keeper-log:");
+      accepted = play(read, "accept:vale::keeper");
+      for (const [target, saved, turn] of [
+        ["behind-station", station, 3],
+        ["pond", accepted, 4],
+      ]) {
+        const prior = structuredClone(saved);
+        const roads = prior.routeKnowledge[bard];
+        const forgotten = seed === 42;
+        if (forgotten) {
+          const index = roads.findIndex(
+            ([from]) => from === prior.actors[bard].place,
+          );
+          assert.ok(index >= 0);
+          roads.splice(index, 1);
+        }
+        const action = `move:vale:${carry}:${target}`;
+        const [before, after] = observe(
+          prior,
+          mode === "dry" ? { key: action } : action,
+        );
+        const label = `${seed} ${mode} ${target}`;
+        assert.deepEqual(copy(reference.bardPlays), [`wait:${bard}::`], label);
+        assert.equal(after.turn, turn, label);
+        assert.equal(after.eventSeq, before.eventSeq, label);
+        assert.equal(after.actors[bard].dwellUntil, 26, label);
+        assert.equal(
+          after.routeKnowledge[bard].length,
+          roads.length + Number(forgotten),
+          label,
+        );
+        const actual = wasm({ op, world: before });
+        assert.ok(isDeepStrictEqual(actual, { ok: true, world: after }), label);
+        sample = before;
+      }
+    }
+  }
+  for (const world of [station, read]) {
+    const [before] = observe(world, "move:vale::pond");
+    assert.equal(wasm({ op, world: before }), null);
+  }
+  for (const mutate of [
+    (world) => {
+      world.arrival.fromLocationId = "attic";
+    },
+    (world) => {
+      world.heldActors.push("mara");
+    },
+    (world) => {
+      delete world.knowledge.known.vale["quest:keeper:pond"];
+    },
+    (world) => {
+      world.packs.ratiradio.flags["rati-awake"] = true;
+    },
+  ]) {
+    const world = structuredClone(sample);
+    mutate(world);
+    assert.equal(wasm({ op, world }), null);
+  }
+  reference.setupBard = (world) => {
+    world.actors[bard].dwellUntil = world.turn;
+  };
+  const [expired] = observe(accepted, "move:vale::pond");
+  assert.match(reference.bardPlays[0], /^move:greek-rhapsode::/);
+  assert.equal(wasm({ op, world: expired }), null);
+});
+
 test("Bard dwell and offstage walks match when Pip follows to historic Station", async () => {
   const { pinned, wasm } = await reducers();
-  const reference = currentSharedEngine(traceHistoricStation);
+  const reference = currentSharedEngine(traceDwellAndWalkers);
   const copy = (value) => JSON.parse(JSON.stringify(value));
   const run = (request) => {
     const result = pinned(request);
