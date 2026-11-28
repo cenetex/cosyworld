@@ -16,6 +16,63 @@ impl Report {
     }
 }
 
+fn without_save_stack(message: &str) -> &str {
+    let Some((primary, stack)) = message
+        .strip_suffix(')')
+        .and_then(|message| message.split_once(" ("))
+    else {
+        return message;
+    };
+    let first = match primary {
+        "This save needs a fresh start." => "upgradeSave",
+        "This save needs a fresh start. Your previous save is kept until you choose New game." => {
+            "validateWorld"
+        }
+        _ => return message,
+    };
+    let mut frames = stack.split(" < ");
+    let recognized = [first, "decodeSave", "load", "dispatchShared"]
+        .into_iter()
+        .all(|name| {
+            frames
+                .next()
+                .and_then(|frame| frame.split_once(':'))
+                .is_some_and(|(candidate, line)| {
+                    candidate == name
+                        && line.bytes().all(|byte| byte.is_ascii_digit())
+                        && line.parse::<u32>().is_ok_and(|line| line > 0)
+                })
+        });
+    if recognized && frames.next().is_none() {
+        primary
+    } else {
+        message
+    }
+}
+
+fn same_reply(request: &Value, actual: &Value, reference: &Value) -> bool {
+    if actual == reference {
+        return true;
+    }
+    if request["op"] != "validate" || actual["ok"] != false || reference["ok"] != false {
+        return false;
+    }
+    let (Some(actual), Some(reference)) = (actual.as_object(), reference.as_object()) else {
+        return false;
+    };
+    actual.len() == reference.len()
+        && actual.iter().all(|(field, actual)| {
+            let reference = reference.get(field);
+            if field == "error" {
+                let actual = actual.as_str().map(without_save_stack);
+                let reference = reference.and_then(Value::as_str).map(without_save_stack);
+                actual.is_some() && actual == reference
+            } else {
+                Some(actual) == reference
+            }
+        })
+}
+
 pub(super) fn verify(
     mut candidate: impl FnMut(&str, Option<&str>, &Value) -> Result<Option<Value>>,
 ) -> Result<Report> {
@@ -33,7 +90,7 @@ pub(super) fn verify(
         match candidate(version, pack, &request)
             .map_err(|_| format!("Candidate failed for direct fixture {name}"))?
         {
-            Some(actual) if actual == reference => report.matched += 1,
+            Some(actual) if same_reply(&request, &actual, &reference) => report.matched += 1,
             Some(_) => return Err(format!("Reducer output differs for direct fixture {name}")),
             None => report.unsupported.push(name),
         }
@@ -61,6 +118,9 @@ pub(super) fn verify(
     let mut invalid = request("validate");
     invalid["world"] = json!({"schema":1});
     check("validate-malformed", invalid, false)?;
+    let mut empty = request("validate");
+    empty["world"] = json!({"schema":8});
+    check("validate-empty-current", empty, false)?;
 
     let mut unavailable = request("play");
     unavailable["action"] = json!("unknown-card");
@@ -79,7 +139,7 @@ fn requires_each_fixture_in_full_coverage_mode() -> Result<()> {
         engine::reduce_pack_envelope(version, pack, request.clone()).map(Some)
     };
     let report = verify(equal)?;
-    assert_eq!(report.matched, 8);
+    assert_eq!(report.matched, 9);
     report.require_coverage(true)?;
 
     let report = verify(|version, pack, request| {
@@ -88,11 +148,38 @@ fn requires_each_fixture_in_full_coverage_mode() -> Result<()> {
         }
         equal(version, pack, request)
     })?;
-    assert_eq!(report.matched, 7);
+    assert_eq!(report.matched, 8);
     assert_eq!(report.unsupported, ["validate-malformed"]);
     assert!(report.require_coverage(false).is_ok());
     assert!(report.require_coverage(true).is_err());
     Ok(())
+}
+
+#[test]
+fn validates_only_recognized_save_diagnostics_as_the_same_refusal() {
+    let request = json!({"op":"validate"});
+    let bare = json!({"ok":false,"error":"This save needs a fresh start."});
+    let traced = json!({
+        "ok":false,
+        "error":"This save needs a fresh start. (upgradeSave:1 < decodeSave:2 < load:3 < dispatchShared:4)"
+    });
+    assert!(same_reply(&request, &bare, &traced));
+    assert!(same_reply(&request, &traced, &bare));
+    assert!(!same_reply(&json!({"op":"play"}), &bare, &traced));
+    for error in [
+        "This save needs a fresh start. (unknown)",
+        "This save needs a fresh start. (decline:1 < decodeSave:2 < load:3 < dispatchShared:4)",
+        "This save needs a fresh start. (upgradeSave:1 < decodeSave:zero < load:3 < dispatchShared:4)",
+        "This save is corrupt. (upgradeSave:1 < decodeSave:2 < load:3 < dispatchShared:4)",
+    ] {
+        assert!(!same_reply(&request, &bare, &json!({"ok":false,"error":error})));
+    }
+    let mut extra = traced.clone();
+    extra["world"] = json!({"revision":1});
+    assert!(!same_reply(&request, &bare, &extra));
+    let mut different = bare.clone();
+    different["world"] = json!({"revision":2});
+    assert!(!same_reply(&request, &different, &extra));
 }
 
 #[test]
