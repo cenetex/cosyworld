@@ -2,6 +2,76 @@ use super::{opening, opening_content, opening_wait, pack_state::Catalog, Geograp
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub(super) fn validate_arrivals(world: &Value) -> Option<()> {
+    let absent = match world.get("absent") {
+        None => Vec::new(),
+        Some(value) => opening::seats(value)?,
+    };
+    if absent.contains(&"vale") || (world.get("absent").is_some() && absent.is_empty()) {
+        return None;
+    }
+    if let Some(hidden) = world.get("hidden") {
+        let id = hidden["actor"].as_str()?;
+        let place = hidden["place"].as_str()?;
+        if id == "vale"
+            || place == "attic"
+            || !opening::is_seat(id)
+            || absent.contains(&id)
+            || hidden.as_object()?.len() != 3
+            || !hidden["met"].as_array()?.is_empty()
+            || world["actors"][id]["place"] != place
+        {
+            return None;
+        }
+    }
+    Some(())
+}
+
+pub(super) fn visit_hidden(world: &mut Value, geo: &Geography) -> Option<()> {
+    let Some(hidden) = world.get("hidden") else {
+        return Some(());
+    };
+    let id = hidden["actor"].as_str()?;
+    if !geo.entity_active(world, id)? {
+        return Some(());
+    }
+    let id = id.to_owned();
+    let actor = world["actors"].get(&id)?;
+    let place = actor["place"].as_str()?;
+    let want = &actor["want"];
+    if !want["step"].is_null()
+        || (want["kind"] == "place" && want["target"] == place)
+        // Item wants can be met by equivalent copies in the avatar's custody.
+        || (want["kind"] == "item"
+            && world["items"]
+                .as_object()?
+                .values()
+                .any(|item| item["holder"] == id))
+    {
+        return None;
+    }
+    let authored = geo.packs().find_map(|pack| {
+        world["packs"].get(pack["id"].as_str()?)?;
+        pack["hiding"]["pool"]
+            .as_array()?
+            .iter()
+            .any(|entry| entry["id"] == place)
+            .then(|| pack["places"].get(place))?
+    })?;
+    let sanctuary = authored["sanctuary"] == true;
+    let place = json!(place);
+    let actor = world["actors"].get_mut(&id)?;
+    if sanctuary {
+        actor["sanctuary"] = place.clone();
+    }
+    let visited = actor["visited"].as_array_mut()?;
+    if !visited.contains(&place) {
+        visited.push(place);
+        visited.drain(..visited.len().saturating_sub(64));
+    }
+    Some(())
+}
+
 pub(super) fn actor_order<'a>(request: &'a Value, world: &'a Value) -> Option<Vec<&'a str>> {
     let actors = world["actors"].as_object()?;
     let Some(order) = request.get("actorOrder") else {
