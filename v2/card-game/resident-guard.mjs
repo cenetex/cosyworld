@@ -106,9 +106,8 @@ export function guardOf(s, from, to, traveller = null) {
 export const guardedFrom = (place) => guardedExits(null, place);
 const inStandoff = (s, id) =>
   (s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, id));
-// After every round: a resident guard stands at its post unless lifted or
-// fighting, and re-guards when it walks home; a player's guard lapses when
-// its player leaves or stands elsewhere.
+// Residents at their posts guard unless the way is lifted or they are fighting.
+// A player's guard lapses when the player leaves or stands elsewhere.
 export function settleGuards(s) {
   guardData();
   for (const id of residentGuards) {
