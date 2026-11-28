@@ -244,6 +244,7 @@ fn pip_wants_lamp(world: &Value) -> bool {
 
 pub(super) fn verify_awake_station(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let follow_seq = opening_station_move::historic_follow(world)?;
+    let moved = opening_station_move::historic_resident_moves(world)?;
     let log = world["log"].as_array()?;
     let follow_index = log.iter().position(|event| event["seq"] == follow_seq)?;
     let follow = &log[follow_index];
@@ -262,6 +263,7 @@ pub(super) fn verify_awake_station(world: &Value, geo: &Geography<'_>) -> Option
         || keeper["place"] != "station"
         || wake["seq"] != world["eventSeq"]
         || wake["seq"] != follow_seq.checked_add(remote.len() as u64 + 1)?
+        || wake["seq"] != moved.checked_add(1)?
         || wake["turn"] != turn
         || wake["kind"] != "narration"
         || wake["generated"] == true
@@ -274,26 +276,7 @@ pub(super) fn verify_awake_station(world: &Value, geo: &Geography<'_>) -> Option
     {
         return None;
     }
-    match remote {
-        [] => Some(()),
-        [cass]
-            if cass["seq"] == follow_seq.checked_add(1)?
-                && cass["turn"] == turn
-                && cass["kind"] == "action"
-                && cass["generated"] != true
-                && cass["actorId"] == "orin"
-                && cass["verb"] == "move"
-                && cass["fromLocationId"] == "pavilion"
-                && cass["locationId"] == "willows-bank"
-                && cass["targetId"] == "willows-bank"
-                && cass["witnesses"] == json!(["orin", "board"])
-                && cass["itemId"].is_null()
-                && world["actors"]["orin"]["place"] == "willows-bank" =>
-        {
-            Some(())
-        }
-        _ => None,
-    }
+    Some(())
 }
 
 fn station_wants_state(world: &Value, pip_place: &str, vale_want: &Value) -> Option<()> {
