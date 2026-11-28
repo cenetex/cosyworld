@@ -7,8 +7,6 @@ import { DAY_TURNS, life, lifeField, worldLife } from "./resident-home.mjs";
 // Bedtimes and rise times scatter by up to this many turns either way.
 export const SLEEP_SCATTER = 3;
 
-// --- Sleep ---------------------------------------------------------------
-
 // `{from, to}` in clock turns (turn mod DAY_TURNS), wrapping past the day's
 // end, or null for one who never sleeps. Players' away avatars keep the
 // default.

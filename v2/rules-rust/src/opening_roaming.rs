@@ -206,6 +206,9 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
 }
 
 pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    if world["actors"]["vale"]["place"] == "pond" {
+        super::opening_mirror_move::second_arrival(world)?;
+    }
     let turn = world["turn"].as_u64()?;
     let actor = world["actors"].get(BARD)?;
     let here = actor["place"].as_str()?;
