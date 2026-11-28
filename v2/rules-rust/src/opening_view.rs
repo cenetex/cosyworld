@@ -39,8 +39,14 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         return None;
     }
     let (world, can_sleep) = match opening::supported_world(request) {
-        Some(world) => (world, false),
-        None => (after_wait_world(request, &claimed)?, true),
+        Some(world) => {
+            opening_play::attic_state(world)?;
+            (world, false)
+        }
+        None => {
+            let world = request.get("world")?;
+            (world, after_play_sleep(world, &claimed)?)
+        }
     };
     if world["absent"]
         .as_array()
@@ -50,11 +56,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         return None;
     }
     let mirror = attic_mirror(world, &present)?;
-    let files = if can_sleep {
-        opening_play::attic_content_files(request)?
-    } else {
-        opening_play::attic_files(world, request)?
-    };
+    let files = opening_play::attic_content_files(request)?;
     if other_attic_content(&files)? {
         return None;
     }
@@ -67,14 +69,17 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     }
 }
 
-fn after_wait_world<'a>(request: &'a Value, claimed: &[&str]) -> Option<&'a Value> {
-    let world = request.get("world")?;
-    let turn = opening_wait_response::settled_first_wait(world)?;
+fn after_play_sleep(world: &Value, claimed: &[&str]) -> Option<bool> {
+    let turn = world["turn"].as_u64()?;
+    let waited = opening_wait_response::settled_first_wait(world) == Some(turn);
+    if !waited {
+        first_lamp_drop(world)?;
+    }
     let revision = world["revision"].as_u64()?;
     let lamp = &world["items"]["lamp"];
     let fuel = super::lamp_state(lamp).ok()?;
     let held = world["actors"]["vale"].get("heldItem")?;
-    let lit = held == "lamp" && fuel.fuel_rooms > 0;
+    let lit = (held == "lamp" || lamp["holder"] == "attic") && fuel.fuel_rooms > 0;
     if !(turn..=opening::MAX_REVISION).contains(&revision)
         || world["opening"]["crossed"] != false
         || world["speechVoices"]["vale"] != json!(["vale"])
@@ -89,12 +94,44 @@ fn after_wait_world<'a>(request: &'a Value, claimed: &[&str]) -> Option<&'a Valu
     {
         return None;
     }
-    Some(world)
+    Some(waited)
+}
+
+fn first_lamp_drop(world: &Value) -> Option<()> {
+    let vale = &world["actors"]["vale"];
+    if world["schema"] != 8
+        || world["sharedVersion"] != 1
+        || world["turn"] != 1
+        || world.get("began").is_some()
+        || vale["place"] != "attic"
+        || vale.get("heldItem") != Some(&Value::Null)
+        || vale.get("want") != Some(&Value::Null)
+        || vale["waitSpeech"] != json!({"place":"attic","turn":null})
+        || !world["defeats"]["vale"].is_null()
+        || !world["disabledPacks"].is_null()
+        || world["items"]["lamp"]["holder"] != "attic"
+    {
+        return None;
+    }
+    opening_play::quiet_attic_scene(world)?;
+    let mut actions = world["log"].as_array()?.iter().filter(|entry| {
+        entry["kind"] == "action" && entry["actorId"] == "vale" && entry["generated"] != true
+    });
+    let drop = actions.next()?;
+    (drop["verb"] == "drop"
+        && drop["turn"] == 1
+        && drop["itemId"] == "lamp"
+        && drop["locationId"] == "attic"
+        && drop["fromLocationId"] == "attic"
+        && drop["targetId"] == "attic"
+        && actions.next().is_none())
+    .then_some(())
 }
 
 pub(super) fn attic_mirror(world: &Value, present: &[&str]) -> Option<Mirror> {
     let quest = world["actors"]["vale"].get("want")?;
-    if world["items"]["lamp"]["lit"] == true {
+    let lamp = &world["items"]["lamp"];
+    if lamp["lit"] == true {
         let quest_accepted = *quest == opening_play::pond_quest(world);
         if !quest.is_null() && !quest_accepted {
             return None;
@@ -103,7 +140,7 @@ pub(super) fn attic_mirror(world: &Value, present: &[&str]) -> Option<Mirror> {
     } else {
         if !quest.is_null()
             || world["actors"]["vale"].get("heldItem") != Some(&Value::Null)
-            || world["opened"]["pond"] != json!(["vale"])
+            || (lamp["holder"] != "attic" && world["opened"]["pond"] != json!(["vale"]))
         {
             return None;
         }
