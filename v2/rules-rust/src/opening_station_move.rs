@@ -158,23 +158,31 @@ pub(super) fn historic_follow(world: &Value) -> Option<u64> {
 pub(super) fn historic_resident_moves(world: &Value) -> Option<u64> {
     let follow = historic_follow(world)?;
     let after = follow.checked_add(1)?;
-    let cass = world["log"]
+    let visitor = world["log"]
         .as_array()?
         .iter()
-        .find(|event| event["seq"] == after && event["actorId"] == "orin");
-    let Some(cass) = cass else {
+        .find(|event| event["seq"] == after && event["kind"] == "action");
+    let Some(visitor) = visitor else {
         return Some(follow);
     };
+    if opening_station_view::historic_ada_move(world, visitor) {
+        let ship = &world["transports"]["greek-ship"];
+        return (ship["phase"] == "docked"
+            && ship["dock"] == "greek-harbor"
+            && ship["since"] == world["turn"]
+            && ship["riders"].as_array()?.is_empty())
+        .then_some(after);
+    }
     let actor = &world["actors"]["orin"];
     (actor["place"] == "willows-bank"
         && actor["visited"] == json!(["pavilion", "willows-bank"])
         && actor["heldItem"].is_null()
         && world["items"]["board"]["holder"] == "pavilion"
-        && cass["kind"] == "action"
-        && cass["generated"] != true
-        && cass["itemId"].is_null()
-        && cass["witnesses"] == json!(["orin", "board"])
-        && move_event(cass, 482, "pavilion", "willows-bank"))
+        && visitor["actorId"] == "orin"
+        && visitor["generated"] != true
+        && visitor["itemId"].is_null()
+        && visitor["witnesses"] == json!(["orin", "board"])
+        && move_event(visitor, 482, "pavilion", "willows-bank"))
     .then_some(after)
 }
 

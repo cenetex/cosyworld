@@ -110,7 +110,6 @@ export function rangeOf(s, id) {
 // A pack resident with a range of 1 or more pursues its wants by walking.
 export const wanders = (s, id) =>
   Boolean(packPeople[id]) && !humanAvatar(id) && (rangeOf(s, id) ?? 0) > 0;
-// Kept home: a range of 0, from its pack or this data.
 export const keepsHome = (s, id) => rangeOf(s, id) === 0;
 export const mayBoard = (s, id) => {
   const range = rangeOf(s, id);

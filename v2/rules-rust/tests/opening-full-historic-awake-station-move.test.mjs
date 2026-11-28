@@ -57,12 +57,25 @@ test("historic Station arrivals with awake Pip return the complete pinned reply"
             isDeepStrictEqual(actual, expected),
             `${label}/${different}`,
           );
+          const cassMoves =
+            previous.actors.orin.want.target === "willows-swede";
+          const sageMoves =
+            previous.actors.ada.want.target === "vale" &&
+            previous.doors.loft === "greek-ship";
           assert.deepEqual(
             actual.events.map(({ actorId }) => actorId),
-            seed === 17
-              ? ["vale", "moth", "orin", "keeper"]
-              : ["vale", "moth", "keeper"],
+            [
+              "vale",
+              "moth",
+              ...(cassMoves ? ["orin"] : []),
+              ...(sageMoves ? ["ada"] : []),
+              "keeper",
+            ],
           );
+          if (sageMoves) {
+            assert.equal(actual.world.items.shears.holder, "loft");
+            assert.equal(actual.world.transports["greek-ship"].since, 482);
+          }
           assert.equal(
             actual.world.actors.moth.homeward,
             seed === 17 ? true : undefined,
