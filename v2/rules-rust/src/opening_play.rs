@@ -1,4 +1,4 @@
-use super::{opening, profiles};
+use super::{opening, opening_station_view, profiles};
 use serde_json::{json, Value};
 
 const ACCEPT_POND: &str = "accept:vale::box:pond";
@@ -14,6 +14,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         .as_str()
         .filter(|key| key.splitn(4, ':').count() == 4)
         .or_else(|| action["key"].as_str());
+    if key == Some(opening_station_view::ACCEPT_TRAIN) {
+        return opening_station_view::accept_train(request);
+    }
     if matches!(key, Some("move:vale::station" | "move:vale:lamp:station")) {
         return super::opening_full_station_move::reduce(request);
     }

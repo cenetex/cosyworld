@@ -136,7 +136,10 @@ fn encode_request(
         Some("wait:vale::" | "drop:vale:lamp:attic" | "take:vale:lamp:")
     );
     let pond_play = matches!(play, Some("move:vale::pond" | "move:vale:lamp:pond"));
-    let station_play = matches!(play, Some("move:vale::station" | "move:vale:lamp:station"));
+    let station_play = matches!(
+        play,
+        Some("move:vale::station" | "move:vale:lamp:station" | "accept:vale::box:train")
+    );
     let room = request
         .get("world")
         .and_then(|world| world["actors"]["vale"]["place"].as_str());
@@ -299,6 +302,21 @@ mod tests {
         let long = "x".repeat(MAX_JSON_BYTES + 1);
         assert!(encode_request(&json!({"op":"view"}), Some(&long), false).is_err());
         assert!(encode_request(&json!({"op":"view", "world":long}), Some(pack), false).is_err());
+    }
+
+    #[test]
+    fn orders_station_train_play_and_its_private_reload() {
+        let world = json!({"actors":{"vale":{"place":"station"},"moth":{},"keeper":{}}});
+        let keys: Vec<_> = world["actors"].as_object().unwrap().keys().collect();
+        for request in [
+            json!({"op":"play", "action":"accept:vale::box:train", "world":world}),
+            json!({"op":"play", "action":{"key":"accept:vale::box:train"}, "world":world}),
+            json!({"op":"view", "world":world}),
+        ] {
+            let encoded = encode_request(&request, Some("{}"), false).unwrap();
+            let encoded: Value = serde_json::from_slice(&encoded).unwrap();
+            assert_eq!(encoded["actorOrder"], json!(keys));
+        }
     }
 
     #[test]

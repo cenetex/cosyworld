@@ -19,7 +19,7 @@ const RUE: &str = "rue";
 const STATION: &str = "station";
 const POND: &str = "pond";
 const ROUTES: &str = "routes";
-const ACCEPT_TRAIN: &str = "accept:vale::box:train";
+pub(super) const ACCEPT_TRAIN: &str = "accept:vale::box:train";
 const EXITS: [&str; 2] = [POND, "behind-station"];
 const LAMP: &str = "lamp";
 const WAYFINDER: &str = "elysium-wayfinder";
@@ -162,6 +162,7 @@ fn station_scene<'a>(
     world: &Value,
     geo: &Geography<'_>,
     actor_order: &[&'a str],
+    train_accepted: bool,
 ) -> Option<Vec<&'a str>> {
     let turn = world["turn"].as_u64()?;
     let actors = world["actors"].as_object()?;
@@ -185,14 +186,23 @@ fn station_scene<'a>(
             .iter()
             .any(|key| entries(&world[*key]).any(|id| id == WAYFINDER || id == "routes"))
         || vale["waitSpeech"] != json!({"place":STATION,"turn":null})
-        || ["want", "closed", "arcana"]
-            .iter()
-            .any(|key| !vale[*key].is_null())
+        || ["closed", "arcana"].iter().any(|key| !vale[*key].is_null())
         || lamp["lit"] != false
         || fuel.fuel_place != STATION
         || lamp["fuel"] != fuel.fuel_rooms * 4
         || !(vale["heldItem"].is_null() || (vale["heldItem"] == LAMP && fuel.fuel_rooms == 0))
     {
+        return None;
+    }
+    if train_accepted {
+        if rue_arrived(world)
+            || vale["want"] != train_want(turn)
+            || vale.get("content").is_some()
+            || world["items"].get(ROUTES).is_none()
+        {
+            return None;
+        }
+    } else if !vale["want"].is_null() {
         return None;
     }
     let mut cast = vec![VALE, PIP, KEEPER];
@@ -253,6 +263,7 @@ fn actions(
     authored: &Order,
     profiles: &Value,
     company: &[&str],
+    train_accepted: bool,
 ) -> Option<Vec<Value>> {
     let name = |id: &str| profiles[id]["name"].as_str();
     let vale = name(VALE)?;
@@ -354,17 +365,27 @@ fn actions(
         }
     }
     out.extend(trades);
-    let text = format!("{vale} accepts the closed box's quest.");
-    let mut train = offer("accept", None, None, text, &[]);
-    train["box"] = json!("train");
-    train["key"] = json!(ACCEPT_TRAIN);
-    out.push(train);
+    if !train_accepted {
+        let text = format!("{vale} accepts the closed box's quest.");
+        let mut train = offer("accept", None, None, text, &[]);
+        train["box"] = json!("train");
+        train["key"] = json!(ACCEPT_TRAIN);
+        out.push(train);
+    }
     if world["placeCard"][STATION] == WAYFINDER {
         let text = format!("{vale} accepts {station}'s quest.");
         let mut place = offer("accept", None, None, text, &[]);
         place["place"] = json!(STATION);
         place["key"] = json!("accept:vale::place:station");
         out.push(place);
+    }
+    if train_accepted {
+        let board = name(ROUTES)?;
+        let text = format!("{vale} abandons their quest to bring {board} to {station}.");
+        let mut abandon = offer("drop", None, None, text, &[]);
+        abandon["quest"] = json!(0);
+        abandon["key"] = json!("drop:vale:::0");
+        out.push(abandon);
     }
     Some(out)
 }
@@ -374,13 +395,14 @@ fn station_projection(
     geo: &Geography<'_>,
     authored: &Order,
     actor_order: &[&str],
+    train_accepted: bool,
     profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<(Vec<Value>, Value)> {
-    let company = station_scene(world, geo, actor_order)?;
+    let company = station_scene(world, geo, actor_order, train_accepted)?;
     station_paths(world, geo)?;
     let profiles = profile_source()?;
     Some((
-        actions(world, geo, authored, &profiles, &company)?,
+        actions(world, geo, authored, &profiles, &company, train_accepted)?,
         profiles,
     ))
 }
@@ -482,7 +504,7 @@ pub(super) fn settled_speech_voices(
     {
         return None;
     }
-    station_scene(world, geo, order)?;
+    station_scene(world, geo, order, false)?;
     station_paths(world, geo)?;
     Some(named)
 }
@@ -518,7 +540,8 @@ pub(super) fn completed_station_response_with_profiles(
     if present != [VALE] || chronology(&world)? != before_seq.checked_add(1)? {
         return None;
     }
-    let (plans, profiles) = station_projection(&world, geo, authored, actor_order, profile_source)?;
+    let (plans, profiles) =
+        station_projection(&world, geo, authored, actor_order, false, profile_source)?;
     let events = arrival_events(&world, before_seq, false)?
         .into_iter()
         .cloned()
@@ -533,6 +556,13 @@ pub(super) fn completed_station_response_with_profiles(
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = Value::Array(events);
     Some(response)
+}
+
+fn train_want(turn: u64) -> Value {
+    json!({
+        "kind":"item", "target":ROUTES, "since":turn, "refusals":0, "story":true,
+        "step":{"verb":"bring","at":STATION}, "from":"quest:box:train",
+    })
 }
 
 pub(super) fn accept_train(request: &Value) -> Option<Value> {
@@ -550,12 +580,13 @@ pub(super) fn accept_train(request: &Value) -> Option<Value> {
                 .as_array()
                 .is_some_and(Vec::is_empty))
         || world["speechVoices"][VALE] != json!([VALE, KEEPER])
-        || world["items"].get(ROUTES).is_none()
+        || !world["actors"][VALE]["want"].is_null()
     {
         return None;
     }
+    let turn = world["turn"].as_u64()?;
     let revision = world["revision"].as_u64()?.checked_add(1)?;
-    if revision > opening::MAX_REVISION {
+    if revision <= turn || revision > opening::MAX_REVISION {
         return None;
     }
     arrival_events(
@@ -567,32 +598,14 @@ pub(super) fn accept_train(request: &Value) -> Option<Value> {
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    let (mut plans, profiles) = station_projection(world, &geo, &authored, &order, || {
-        profiles::project(geo.files())
-    })?;
-    let train = plans.iter().position(|plan| plan["key"] == ACCEPT_TRAIN)?;
-    plans.remove(train);
-    let vale = profiles[VALE]["name"].as_str()?;
-    let board = profiles[ROUTES]["name"].as_str()?;
-    let station = profiles[STATION]["name"].as_str()?;
-    let text = format!("{vale} abandons their quest to bring {board} to {station}.");
-    let mut abandon = offer("drop", None, None, text, &[]);
-    abandon["quest"] = json!(0);
-    abandon["key"] = json!("drop:vale:::0");
-    plans.push(abandon);
-
-    let turn = world["turn"].as_u64()?;
     let mut world = world.clone();
     let vale = world["actors"][VALE].as_object_mut()?;
     vale.remove("content");
-    vale.insert(
-        "want".into(),
-        json!({
-            "kind":"item", "target":ROUTES, "since":turn, "refusals":0, "story":true,
-            "step":{"verb":"bring","at":STATION}, "from":"quest:box:train",
-        }),
-    );
+    vale.insert("want".into(), train_want(turn));
     world["revision"] = revision.into();
+    let (plans, profiles) = station_projection(&world, &geo, &authored, &order, true, || {
+        profiles::project(geo.files())
+    })?;
     super::opening_held_items::settle(&mut world, &geo, None)?;
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = json!([]);
@@ -601,9 +614,10 @@ pub(super) fn accept_train(request: &Value) -> Option<Value> {
 
 pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let world = request.get("world")?;
+    let train_accepted = !world["actors"][VALE]["want"].is_null();
     if request["claimed"] != json!([VALE])
         || (!present.is_empty() && present != [VALE])
-        || (rue_arrived(world) && present != [VALE])
+        || ((rue_arrived(world) || train_accepted) && present != [VALE])
         || world["speechVoices"][VALE] != json!(voices(world))
     {
         return None;
@@ -617,9 +631,10 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let actor_order = super::opening_roster::actor_order(request, world)?;
-    let (plans, profiles) = station_projection(world, &geo, &authored, &actor_order, || {
-        profiles::project(geo.files())
-    })?;
+    let (plans, profiles) =
+        station_projection(world, &geo, &authored, &actor_order, train_accepted, || {
+            profiles::project(geo.files())
+        })?;
     let projected = opening_view::private_world(world, request)?;
     Some(station_response(
         json!({"ok":true,"world":projected}),

@@ -75,7 +75,7 @@ for (const [seed, second, dry, sorted, carry] of [...quiet, ...rue]) {
         world["speechVoices"] = row["priorVoices"].clone();
         assert_eq!(chronology(&world), Some(before + 1), "{}", row["label"]);
         assert!(
-            station_scene(&world, &geo, &order).is_some(),
+            station_scene(&world, &geo, &order, false).is_some(),
             "scene {}",
             row["label"]
         );

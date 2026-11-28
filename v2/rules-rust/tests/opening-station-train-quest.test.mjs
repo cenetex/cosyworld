@@ -13,7 +13,7 @@ function success(pinned, request) {
   return reply;
 }
 
-test("the quiet Station train quest matches the pinned complete acceptance reply", async () => {
+test("quiet Station train acceptance and seated reload match pinned replies", async () => {
   const { pinned, wasm } = await reducers();
   let request;
   let accepted;
@@ -41,10 +41,13 @@ test("the quiet Station train quest matches the pinned complete acceptance reply
             lines: [{ actorId: "keeper", text: "The train is still out of sight." }],
           }));
         }
-        saved.actors = Object.fromEntries(Object.entries(saved.actors).sort());
-        request = { ...seats, world: saved, action: waited ? { key } : key, revision: saved.revision };
-        const expected = success(pinned, { ...request, op: "play" });
-        accepted = wasm({ ...request, op });
+        if (waited) {
+          saved.actors = Object.fromEntries(Object.entries(saved.actors).reverse());
+        }
+        request = { ...seats, op: "play", world: saved, action: waited ? { key } : key };
+        if (mode === "stowed") request.revision = saved.revision;
+        const expected = success(pinned, request);
+        accepted = wasm(request);
         const label = JSON.stringify({ seed, mode, waited });
         assert.ok(isDeepStrictEqual(accepted, expected), label);
         assert.equal(accepted.world.revision, saved.revision + 1);
@@ -55,16 +58,33 @@ test("the quiet Station train quest matches the pinned complete acceptance reply
         assert.ok(accepted.actions.every((action) => action.key !== key));
         placeOffer ||= accepted.actions.some((action) => action.key === "accept:vale::place:station");
         wayfinder ||= accepted.actions.some((action) => action.key === "take:vale:elysium-wayfinder:");
+        const persisted = JSON.parse(JSON.stringify(accepted.world));
+        if (!waited) {
+          persisted.actors = Object.fromEntries(Object.entries(persisted.actors).reverse());
+        }
+        const reloaded = { ...seats, op: "view", world: persisted };
+        const privateView = wasm(reloaded);
+        assert.ok(isDeepStrictEqual(privateView, success(pinned, reloaded)), label);
+        assert.deepEqual(privateView.world.actors.vale.want, accepted.world.actors.vale.want);
+        assert.equal(privateView.world.memories.keeper.subjects, undefined);
+        assert.ok(!Object.hasOwn(privateView, "events"));
       }
     }
   }
   assert.ok(placeOffer && wayfinder);
+  const saved = { ...request.world, actors: Object.fromEntries(Object.entries(request.world.actors).sort()) };
+  const canonical = { ...request, world: saved };
+  assert.ok(isDeepStrictEqual(wasm({ ...canonical, op }), success(pinned, canonical)));
   const repeat = { ...request, world: accepted.world, revision: accepted.world.revision };
-  assert.equal(pinned({ ...repeat, op: "play" }).ok, false);
-  assert.equal(wasm({ ...repeat, op }), null);
-  assert.equal(wasm({ ...request, op, revision: request.revision - 1 }), null);
+  assert.equal(pinned(repeat).ok, false);
+  assert.equal(wasm(repeat), null);
+  assert.equal(wasm({ ...request, revision: request.world.revision - 1 }), null);
   const open = structuredClone(request.world);
   open.items.routes.holder = "station";
-  assert.equal(pinned({ ...request, op: "play", world: open }).ok, false);
-  assert.equal(wasm({ ...request, op, world: open }), null);
+  assert.equal(pinned({ ...request, world: open }).ok, false);
+  assert.equal(wasm({ ...request, world: open }), null);
+  const view = { ...seats, op: "view", world: structuredClone(accepted.world) };
+  assert.equal(wasm({ ...view, present: [] }), null);
+  view.world.actors.vale.want.step.at = "pond";
+  assert.equal(wasm(view), null);
 });

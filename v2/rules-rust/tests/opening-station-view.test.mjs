@@ -77,6 +77,9 @@ test("seated Station reloads keep Rue, offers and the published speech", async (
           world: { ...world, actors },
           action,
         });
+        assert.equal(wasm({
+          ...seats, op: "play", world: arrived, action: "accept:vale::box:train",
+        }), null);
         const spoken = run({
           ...seats,
           op: "speech",
