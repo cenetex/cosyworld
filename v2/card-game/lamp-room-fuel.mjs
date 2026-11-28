@@ -43,7 +43,6 @@ export function roomFuelFromTurns(fuel, place) {
   return { ...filledLampRoomFuel(place), fuelRooms: Math.ceil(fuel / 4) };
 }
 
-// Call after each actual lamp location or hand change, regardless of carrier.
 // A dark arrival defers its charge until lit. Each return is a new visit, but
 // staying, talking, waiting and same-room hand toggles never spend fuel.
 export function settleLampRoomFuel(
