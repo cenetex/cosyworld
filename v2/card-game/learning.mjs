@@ -21,8 +21,7 @@ export function requestConditions(world, action) {
     (world.motives?.grievances[action.target] || [])
       .filter((g) => grievanceActive(world, g))
       .map((g) => [g.other, g.kind, g.weight]),
-    // The other side's quest changes when a gift meets it, so it stays out of
-    // the conditions; these slots keep the layout adaptive learning reads.
+    // These slots preserve the learning layout while excluding the other actor's changing quest.
     [null, null],
     null,
     Object.keys(world.items)

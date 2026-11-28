@@ -163,6 +163,7 @@ fn encode_request(
                 | "opening_historic_awake_station_view"
                 | "opening_keeper_abandon"
                 | "opening_keeper_abandon_gift"
+                | "opening_keeper_return_gift"
                 | "opening_keeper_abandon_reply"
                 | "opening_pond_ask"
                 | "opening_station_residents"
