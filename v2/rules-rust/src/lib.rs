@@ -37,6 +37,7 @@ mod opening_pickups;
 mod opening_place_cards;
 mod opening_play;
 mod opening_pond_ask;
+mod opening_pond_call;
 mod opening_pond_call_view;
 mod opening_pond_lamp_drop;
 mod opening_pond_place_returns;
@@ -230,6 +231,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_pond_call_view") => {
             opening_pond_call_view::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_pond_call") => opening_pond_call::projection(request).unwrap_or(Value::Null),
         Some("opening_pond_lamp_drop") => {
             opening_pond_lamp_drop::projection(request).unwrap_or(Value::Null)
         }

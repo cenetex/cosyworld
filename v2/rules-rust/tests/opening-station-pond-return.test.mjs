@@ -32,7 +32,15 @@ function tracePrimary(source) {
       `    if (${drop}) globalThis.${frame} = structuredClone(s);\n${target}`,
     );
   }
-  return source;
+  const pending = "    const narrate = () => {";
+  assert.equal(source.split(pending).length, 2);
+  return source.replace(
+    pending,
+    `
+    if (defer && s.turn === 7 && s.actors.vale.place === "pond" && globalThis.callQueue === undefined)
+      globalThis.callQueue = structuredClone(pending);
+${pending}`,
+  );
 }
 
 test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state", async () => {
@@ -178,6 +186,7 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
           action: "drop:vale:lamp:pond",
           revision: ready.revision,
         };
+        reference.callQueue = undefined;
         const called = JSON.parse(reference.cardShared(JSON.stringify(drop)));
         assert.equal(called.ok, true, called.error);
         const op = "opening_pond_lamp_drop";
@@ -197,6 +206,19 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
           `record ${label}`,
         );
         assert.equal(grounded.world.items.lamp.lit, !dry);
+        const crossing = wasm({
+          op: "opening_pond_call",
+          world: cut("grounded"),
+        });
+        assert.ok(
+          isDeepStrictEqual(crossing, {
+            ok: true,
+            world: cut("beforeDropLog"),
+            pending: cut("callQueue"),
+          }),
+          `signal ${label}`,
+        );
+        assert.equal(crossing.pending.length, dry ? 0 : sorted ? 1 : 2);
         assert.equal(
           wasm({ ...drop, op, phase: "ground", revision: ready.revision - 1 }),
           null,
