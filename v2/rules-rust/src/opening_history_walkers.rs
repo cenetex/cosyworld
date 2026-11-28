@@ -16,6 +16,7 @@ pub(super) fn verify(
     let turn = match room {
         "attic" => opening_resident_sleep::historic_attic(world)?,
         "pond" => opening_resident_sleep::historic_pond(world)?,
+        "station" => opening_resident_sleep::historic_station(world, geo)?,
         _ => return None,
     };
     let turn = u64::try_from(turn).ok()?;

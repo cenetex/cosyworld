@@ -316,16 +316,21 @@ pub(super) fn sleeping_pip_at_pond(world: &Value, geo: &Geography<'_>, arrival: 
         .then_some(())
 }
 
-pub(super) fn settle_station(
-    world: &mut Value,
-    geo: &Geography<'_>,
-    residents: &Residents<'_>,
-) -> Option<()> {
+pub(super) fn historic_station(world: &Value, geo: &Geography<'_>) -> Option<i64> {
     let (turn, arrival) = quiet_historic_station(world)?;
     if geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"] {
         return None;
     }
     sleeping_pip_at_pond(world, geo, arrival)?;
+    Some(turn)
+}
+
+pub(super) fn settle_station(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    residents: &Residents<'_>,
+) -> Option<()> {
+    let turn = historic_station(world, geo)?;
     for (id, actor) in world["actors"].as_object()? {
         if actor["place"] == "station"
             && !matches!(id.as_str(), "vale" | "keeper")

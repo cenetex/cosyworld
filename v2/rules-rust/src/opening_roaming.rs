@@ -1,6 +1,6 @@
 use super::{
     create, create_geography::Geography, opening, opening_content, opening_play,
-    opening_visitor_routes, pack_state::Catalog, seed,
+    opening_resident_sleep, opening_visitor_routes, pack_state::Catalog, seed,
 };
 use serde_json::{json, Value};
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
@@ -161,7 +161,7 @@ pub(super) fn bard_move(world: &mut Value, geo: &Geography) -> Option<Value> {
         return None;
     }
     let chosen = chosen_move(world, geo, turn)?;
-    let dwell = turn.checked_add(24 + u64::from(seed::hash(&format!("{BARD}@{turn}")) % 6))?;
+    let dwell = dwell_after(turn)?;
     let actor = &mut world["actors"][BARD];
     let visited = actor["visited"].as_array_mut()?;
     if !visited.iter().any(|place| place == &chosen.to) {
@@ -205,33 +205,67 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     )
 }
 
+fn dwell_after(turn: u64) -> Option<u64> {
+    turn.checked_add(24 + u64::from(seed::hash(&format!("{BARD}@{turn}")) % 6))
+}
+
+fn only_bard_roams(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    for pack in geo.packs() {
+        let region = pack["id"].as_str()?;
+        for (id, person) in pack["avatars"].as_object().into_iter().flatten() {
+            if id != BARD
+                && person["roamingQuest"] == "latest-completion"
+                && geo.conditions_met(world, region, &person["requires"], None)?
+            {
+                return None;
+            }
+        }
+    }
+    Some(())
+}
+
 pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     let turn = world["turn"].as_u64()?;
-    match (turn, world["actors"]["vale"]["place"].as_str()?) {
-        (2 | 3, "station") => {
-            super::opening_station_move::arrival(world)?;
+    let historic = world.get("began").is_some_and(|began| began != 0);
+    let prior = match (historic, turn, world["actors"]["vale"]["place"].as_str()?) {
+        (true, 482, "station") => {
+            opening_resident_sleep::historic_station(world, geo)?;
+            only_bard_roams(world, geo)?;
+            turn.checked_sub(1)?
         }
-        (2, "pond") => super::opening_mirror_move::second_arrival(world)?,
-        (2, _) => (),
+        (false, 2 | 3, "station") => {
+            super::opening_station_move::arrival(world)?;
+            1
+        }
+        (false, 2, "pond") => {
+            super::opening_mirror_move::second_arrival(world)?;
+            1
+        }
+        (false, 2, _) => 1,
         _ => return None,
-    }
+    };
     let actor = world["actors"].get(BARD)?;
     let here = actor["place"].as_str()?;
     let pack = geo.packs().find(|pack| pack["id"] == GREEK)?;
     let person = pack["avatars"].get(BARD)?;
     let want = &actor["want"];
     let target = world["actors"].get(want["target"].as_str()?)?;
+    let arrival = world["arrival"]["seq"].as_u64().unwrap_or(0);
     let prior_move = world["log"].as_array()?.iter().any(|entry| {
         entry["actorId"] == BARD
-            && entry["turn"] == 1
+            && entry["turn"] == prior
             && entry["verb"] == "move"
             && entry["locationId"] == here
             && entry["generated"] != true
+            && (!historic
+                || (entry["kind"] == "action"
+                    && entry["targetId"] == here
+                    && entry["seq"].as_u64().is_some_and(|seq| seq < arrival)))
     });
-    if world.get("began").is_some_and(|began| began != 0)
-        || world["sharedVersion"] != 1
+    if world["sharedVersion"] != 1
         || world["controlledActors"] != json!(["vale"])
         || actor["dwellUntil"].as_u64()? <= turn
+        || (historic && actor["dwellUntil"] != dwell_after(prior)?)
         || want["kind"] != "person"
         || !want["step"].is_null()
         || target["place"].as_str()? == here
