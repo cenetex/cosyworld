@@ -4,6 +4,15 @@ use std::{
     sync::OnceLock,
 };
 
+type PackEdge<'a> = (&'a Value, &'a Value);
+type EdgesBySource = BTreeMap<String, Vec<(usize, usize)>>;
+
+#[derive(Default)]
+struct PackEdges {
+    crossings: EdgesBySource,
+    routes: EdgesBySource,
+}
+
 pub struct Geography<'a> {
     files: &'a Value,
     packs: Vec<&'a Value>,
@@ -12,6 +21,7 @@ pub struct Geography<'a> {
     section_requirements: BTreeMap<(&'a str, &'a str), &'a Value>,
     humans: Vec<&'a str>,
     attic_interior: OnceLock<Option<BTreeSet<String>>>,
+    pack_edges: OnceLock<PackEdges>,
 }
 
 #[derive(Clone, Copy)]
@@ -71,6 +81,7 @@ impl<'a> Geography<'a> {
             section_requirements,
             humans,
             attic_interior: OnceLock::new(),
+            pack_edges: OnceLock::new(),
         })
     }
 
@@ -474,6 +485,52 @@ impl<'a> Geography<'a> {
         self.packs.iter().copied()
     }
 
+    fn pack_edges(&self) -> &PackEdges {
+        self.pack_edges.get_or_init(|| {
+            let mut grouped = PackEdges::default();
+            for (pack_index, pack) in self.packs().enumerate() {
+                for (field, edges) in [
+                    ("crossings", &mut grouped.crossings),
+                    ("routes", &mut grouped.routes),
+                ] {
+                    for (edge_index, edge) in array(&pack[field]).enumerate() {
+                        if let Some(source) = edge["from"].as_str() {
+                            edges
+                                .entry(source.into())
+                                .or_default()
+                                .push((pack_index, edge_index));
+                        }
+                    }
+                }
+            }
+            grouped
+        })
+    }
+
+    fn edges_from<'s>(
+        &'s self,
+        edges: &'s EdgesBySource,
+        source: &str,
+        field: &'static str,
+    ) -> impl Iterator<Item = PackEdge<'a>> + 's {
+        edges
+            .get(source)
+            .into_iter()
+            .flatten()
+            .map(move |&(pack, edge)| {
+                let pack = self.packs[pack];
+                (pack, &pack[field][edge])
+            })
+    }
+
+    pub(super) fn crossings_from(&self, source: &str) -> impl Iterator<Item = PackEdge<'a>> + '_ {
+        self.edges_from(&self.pack_edges().crossings, source, "crossings")
+    }
+
+    pub(super) fn routes_from(&self, source: &str) -> impl Iterator<Item = PackEdge<'a>> + '_ {
+        self.edges_from(&self.pack_edges().routes, source, "routes")
+    }
+
     pub(super) fn resident_pack(&self, id: &str) -> Option<&'a Value> {
         let &(pack, _) = self.entities.get(id)?;
         (!self.humans.contains(&id) && pack["avatars"].get(id).is_some()).then_some(pack)
@@ -610,14 +667,9 @@ impl<'a> Geography<'a> {
     }
 
     pub fn pack_route_open(&self, world: &Value, from: &str, to: &str) -> Option<bool> {
-        for pack in self.packs() {
-            let pack_id = pack["id"].as_str()?;
-            for route in
-                array(&pack["routes"]).filter(|route| route["from"] == from && route["to"] == to)
-            {
-                if self.route_open(world, pack_id, route)? {
-                    return Some(true);
-                }
+        for (pack, route) in self.routes_from(from) {
+            if route["to"] == to && self.route_open(world, pack["id"].as_str()?, route)? {
+                return Some(true);
             }
         }
         Some(false)
@@ -733,6 +785,48 @@ fn contains(value: &Value, id: &str) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn indexed_pack_edges_keep_authored_order_and_evaluate_live_gates() {
+        let files = json!({"v2/card-game/shared-cast.json": {"avatars":[]}});
+        let first = json!({
+            "id":"z-first", "routes":[
+                {"from":"station", "to":"pond", "requires":[{"kind":"flag", "key":"gate", "value":true}]},
+                {"from":"pond", "to":"attic"},
+                {"from":"station", "to":"loft"},
+            ], "crossings":[{"from":"station", "to":"train"}],
+        });
+        let second = json!({
+            "id":"a-second", "routes":[
+                {"from":"station", "to":"pond", "requires":[{"kind":"flag", "key":"gate", "value":true}]},
+            ], "crossings":[{"from":"station", "to":"pavilion"}],
+        });
+        let geo = Geography::new(&files, [&first, &second].into_iter()).unwrap();
+        fn destinations<'a>(edges: impl Iterator<Item = PackEdge<'a>>) -> Vec<String> {
+            edges
+                .map(|(pack, edge)| {
+                    format!(
+                        "{}/{}",
+                        pack["id"].as_str().unwrap(),
+                        edge["to"].as_str().unwrap()
+                    )
+                })
+                .collect()
+        }
+        assert_eq!(
+            destinations(geo.routes_from("station")),
+            ["z-first/pond", "z-first/loft", "a-second/pond"]
+        );
+        assert_eq!(
+            destinations(geo.crossings_from("station")),
+            ["z-first/train", "a-second/pavilion"]
+        );
+        assert!(geo.routes_from("attic").next().is_none());
+        let mut world = json!({"packs":{"z-first":{}, "a-second":{}}});
+        assert_eq!(geo.pack_route_open(&world, "station", "pond"), Some(false));
+        world["packs"]["a-second"]["flags"] = json!({"gate":true});
+        assert_eq!(geo.pack_route_open(&world, "station", "pond"), Some(true));
+    }
 
     #[test]
     fn custody_walks_through_containers_and_stops_at_the_first_repeated_holder() {

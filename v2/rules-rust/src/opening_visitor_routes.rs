@@ -124,38 +124,33 @@ fn ordinary_exits<'a>(
             add(&mut ways, route["to"].as_str()?);
         }
     }
-    for pack in geo.packs() {
-        let id = pack["id"].as_str()?;
-        for crossing in entries(&pack["crossings"]).filter(|crossing| crossing["from"] == from) {
-            if crossing_open(world, geo, actor, id, crossing)? {
-                if let Some(transport) = crossing["transport"].as_str() {
-                    if let Some(ship) =
-                        opening_visitor_transport::board(world, geo, actor, transport, from)?
-                    {
-                        add(&mut ways, ship);
-                    }
-                } else {
-                    add(&mut ways, crossing["to"].as_str()?);
+    for (pack, crossing) in geo.crossings_from(from) {
+        if crossing_open(world, geo, actor, pack["id"].as_str()?, crossing)? {
+            if let Some(transport) = crossing["transport"].as_str() {
+                if let Some(ship) =
+                    opening_visitor_transport::board(world, geo, actor, transport, from)?
+                {
+                    add(&mut ways, ship);
                 }
+            } else {
+                add(&mut ways, crossing["to"].as_str()?);
             }
         }
     }
     for to in opening_visitor_transport::exits(world, geo, actor, from, previous)? {
         add(&mut ways, to);
     }
-    for pack in geo.packs() {
-        let id = pack["id"].as_str()?;
-        for route in entries(&pack["routes"]).filter(|route| route["from"] == from) {
-            let to = route["to"].as_str()?;
-            if entries(&route["travelerRequires"]).next().is_some() {
-                personal.insert(to);
-            }
-            if geo.route_open(world, id, route)?
-                && geo.conditions_met(world, id, &route["travelerRequires"], Some(actor))?
-            {
-                allowed.insert(to);
-                add(&mut ways, to);
-            }
+    for (pack, route) in geo.routes_from(from) {
+        let pack = pack["id"].as_str()?;
+        let to = route["to"].as_str()?;
+        if entries(&route["travelerRequires"]).next().is_some() {
+            personal.insert(to);
+        }
+        if geo.route_open(world, pack, route)?
+            && geo.conditions_met(world, pack, &route["travelerRequires"], Some(actor))?
+        {
+            allowed.insert(to);
+            add(&mut ways, to);
         }
     }
     let guardable = &geo.files()["v2/card-game/world-life.json"]["guardable"];
@@ -222,9 +217,7 @@ fn station_exits<'a>(world: &Value, geo: &Geography<'a>) -> Option<Vec<&'a str>>
     let station = "station";
     if entries(&geo.files()["v2/card-game/forest.json"]["reflectionRoutes"])
         .any(|route| route["from"] == station)
-        || geo
-            .packs()
-            .any(|pack| entries(&pack["routes"]).any(|route| route["from"] == station))
+        || geo.routes_from(station).next().is_some()
     {
         return None;
     }
@@ -247,21 +240,19 @@ fn station_exits<'a>(world: &Value, geo: &Geography<'a>) -> Option<Vec<&'a str>>
         }
     }
     let mut available = Vec::new();
-    for pack in geo.packs() {
-        let pack_id = pack["id"].as_str()?;
-        for crossing in entries(&pack["crossings"]).filter(|crossing| crossing["from"] == station) {
-            if crossing.get("transport").is_some() {
-                return None;
-            }
-            let to = crossing["to"].as_str()?;
-            if roads.contains(&to) {
-                continue;
-            }
-            for &visitor in &visitors {
-                if crossing_open_for(world, geo, visitor, pack_id, crossing)? {
-                    add(&mut available, to);
-                    break;
-                }
+    for (pack, crossing) in geo.crossings_from(station) {
+        let pack = pack["id"].as_str()?;
+        if crossing.get("transport").is_some() {
+            return None;
+        }
+        let to = crossing["to"].as_str()?;
+        if roads.contains(&to) {
+            continue;
+        }
+        for &visitor in &visitors {
+            if crossing_open_for(world, geo, visitor, pack, crossing)? {
+                add(&mut available, to);
+                break;
             }
         }
     }

@@ -60,7 +60,6 @@ it("preserves admission through saves, uses a stable simultaneous tie, and migra
 it("settles a real closing play without displacing another admitted exit", () => {
   let s = fixture();
   for (const item of ["routes", "board"]) open(s, item);
-  // Taking the route map keeps it near Station until Vale leaves.
   const take = legalActions(s).find((a) => a.kind === "take" && a.item === "routes");
   expect(take).toBeDefined();
   const taken = play(s, take);
