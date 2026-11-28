@@ -4,10 +4,11 @@ use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod direct;
+mod proof;
 
 #[derive(Debug, Default, PartialEq)]
 struct Report {
-    worlds: usize,
+    heads: Vec<proof::Head>,
     checked: usize,
     unsupported: BTreeMap<String, usize>,
     historical: usize,
@@ -16,7 +17,7 @@ struct Report {
 
 impl Report {
     fn add(&mut self, other: Self) {
-        self.worlds += other.worlds;
+        self.heads.extend(other.heads);
         self.checked += other.checked;
         self.historical += other.historical;
         self.noncurrent_heads += other.noncurrent_heads;
@@ -128,7 +129,7 @@ fn verify(
             "checkpoint differs from journal head at sequence {head}"
         ));
     }
-    report.worlds = 1;
+    report.heads.push(proof::Head::new(world, head, &state));
     report.noncurrent_heads = usize::from(
         rebuilt.version != engine::version() || rebuilt.pack.as_deref() != Some(content::current()),
     );
@@ -223,7 +224,7 @@ fn checks_active_worlds_including_untouched_checkpoints() -> Result<()> {
         engine::reduce_journal(version, pack, request.clone()).map(Some)
     };
     let report = verify_worlds(&c, &worlds, equal)?;
-    assert_eq!(report.worlds, 2);
+    assert_eq!(report.heads.len(), 2);
     assert_eq!(report.checked, 2);
     report.require_coverage(true)?;
     let report = verify_worlds(&c, &worlds, |_, _, _| Ok(None))?;
@@ -272,6 +273,11 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     };
     let world = std::env::var("COSYWORLD_REPLAY_WORLD").ok();
     let all = std::env::var("COSYWORLD_REPLAY_ALL").as_deref() == Ok("1");
+    let full = std::env::var("COSYWORLD_REQUIRE_FULL_REPLAY").as_deref() == Ok("1");
+    let proof = std::env::var_os("COSYWORLD_EPOCH_PROOF");
+    if proof.is_some() && !(all && full) {
+        return Err("Epoch proof export requires all active worlds and strict replay.".into());
+    }
     let (mut c, world) = match (std::env::var_os("COSYWORLD_REPLAY_DB"), world, all) {
         (Some(path), world, all) if world.is_none() == all => {
             let c = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
@@ -293,7 +299,7 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     let direct = direct::verify(&mut candidate)?;
     println!(
         "WASM replay totals: worlds={} matched={} unsupported={} historical={} noncurrent_heads={}",
-        report.worlds,
+        report.heads.len(),
         report.checked,
         report.unsupported.values().sum::<usize>(),
         report.historical,
@@ -310,7 +316,9 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     for name in &direct.unsupported {
         println!("Unsupported direct fixture: {name}");
     }
-    let full = std::env::var("COSYWORLD_REQUIRE_FULL_REPLAY").as_deref() == Ok("1");
+    if let Some(path) = proof {
+        return proof::export(std::path::Path::new(&path), &bytes, &report, &direct);
+    }
     report.require_coverage(full)?;
     direct.require_coverage(full)
 }

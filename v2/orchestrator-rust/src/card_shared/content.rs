@@ -2,8 +2,7 @@
 //!
 //! Rules bundles read packs, forest, weather and cast data from
 //! `globalThis.cardContent`. Each revision's SHA-256 names its immutable
-//! bytes in `card_full_packs`, saved before journal rows can reference it.
-//! Replay verifies those bytes.
+//! bytes in `card_full_packs`, saved before any reference and verified on replay.
 use super::store::{sql_error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest, Sha256};
