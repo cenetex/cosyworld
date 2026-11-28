@@ -2,6 +2,7 @@ use super::{
     opening::stored_response,
     opening_evidence::{remember_moment, trim_log},
     opening_reflection::{quiet_attic_world, trim_text, valid_text},
+    opening_take_response::settled_take,
     opening_view::first_lamp_drop,
     opening_wait_response::settled_first_wait,
 };
@@ -55,6 +56,11 @@ fn speech_world(request: &Value) -> Option<&Value> {
     match world["items"]["elysium-wayfinder"]["holder"].as_str()? {
         "behind-station" | "pond" => Some(world),
         "station" if grounded => Some(world),
+        "station"
+            if world["speechVoices"][ACTOR] == json!([ACTOR]) && settled_take(world).is_some() =>
+        {
+            Some(world)
+        }
         "station" if world["began"].as_u64()? > 0 => {
             settled_first_wait(world)?;
             Some(world)
