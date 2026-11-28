@@ -78,6 +78,7 @@ fn talk(c: &rusqlite::Connection, id: &str, world: &mut World, actor: usize, top
 
 // The source-model fixture reaches this saved vigil through every earlier
 // journey. The native host validates it before journaling the remaining rite.
+// Start the journal after the light changes so the first witness is at the camp.
 fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -90,9 +91,13 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
             "--input-type=module",
             "-e",
             "import { ajaxGrave } from './test/helpers/greek-ajax.mjs';\
+             import { playGreek } from './test/helpers/open-door.mjs';\
+             import { DAYLIGHT_TURNS } from './v2/card-game/daylight.mjs';\
              import { learnLane } from './v2/card-game/pack-transport.mjs';\
              import { startDwell } from './v2/card-game/world/dwell.mjs';\
-             const world = ajaxGrave('appeal', false);\
+             let world = ajaxGrave('appeal', false);\
+             startDwell(world, 'greek-ajax-odysseus');\
+             while (world.turn % DAYLIGHT_TURNS) world = playGreek(world, 'wait');\
              startDwell(world, 'greek-ajax-teucer');\
              const dione = world.actors['greek-baker'];\
              dione.place = 'greek-courtyard';\
