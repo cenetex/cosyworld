@@ -180,8 +180,8 @@ pub fn install(world: &mut Value, files: &Value) -> Option<()> {
         world["actors"][MOTH]["told"] = json!(told);
     }
     world["eventSeq"] = log.last()?["seq"].clone();
-    world["log"] = json!(log);
-    world["memories"] = json!(memories);
+    world["log"] = Value::Array(log);
+    world["memories"] = Value::Object(memories);
     world["knowledge"] = knowledge;
     Some(())
 }

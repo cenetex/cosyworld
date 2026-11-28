@@ -372,9 +372,8 @@ export function installWants(s) {
   }
 }
 
-// Candidates: items held by others that the actor values above the least
-// valued thing it carries and could get by gift or trade, known places it has
-// not visited, and known people it has not talked with. An item nobody would
+// Candidates: obtainable held items worth more than the least valuable
+// carried item, unvisited places, and people the actor has not talked with. An item nobody would
 // part with stays out of the near pool, so an empty-handed avatar's curiosity
 // can run dry and start over instead of circling a hoard (#1781). `api` supplies world reads owned by world.mjs.
 // With `wide`, nothing near is left, so anyone known and anything they hold

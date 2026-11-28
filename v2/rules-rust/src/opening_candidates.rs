@@ -10,11 +10,19 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 struct Context<'a> {
     pub active: BTreeSet<&'a str>,
     pub regions: BTreeMap<&'a str, &'a str>,
-    forest: &'a Value,
+    items: BTreeMap<&'a str, Item<'a>>,
+    hands: BTreeMap<String, Vec<&'a str>>,
+    pack_values: BTreeMap<&'a str, &'a Value>,
     authored: BTreeMap<&'a str, Vec<(&'a str, bool)>>,
 }
 
-type Pool<'a> = BTreeSet<(&'static str, &'a str)>;
+struct Item<'a> {
+    root: String,
+    rules: &'a Value,
+    reserved: Option<bool>,
+}
+
+type Pool<'a> = Vec<(&'static str, &'a str)>;
 
 fn member(array: &Value, key: &str) -> bool {
     array
@@ -41,7 +49,9 @@ pub(super) fn fill(
             .map(|(&id, person)| (id, person.pack))
             .collect(),
         authored,
-        forest,
+        items: BTreeMap::new(),
+        hands: BTreeMap::new(),
+        pack_values: BTreeMap::new(),
     };
     for &id in people.people.keys() {
         if geo.entity_active(world, id)? {
@@ -49,12 +59,36 @@ pub(super) fn fill(
         }
     }
     for region in std::iter::once(forest).chain(geo.packs()) {
+        let pack = region["id"].as_str().unwrap_or("hub");
+        context.pack_values.insert(pack, &region["values"]);
         for field in ["things", "items", "places"] {
-            for id in region[field]
-                .as_object()
-                .into_iter()
-                .flat_map(|entries| entries.keys())
-            {
+            for (id, definition) in region[field].as_object().into_iter().flatten() {
+                if field != "places" {
+                    let root = initial_wants::root(world, id)?.to_owned();
+                    if context.regions.contains_key(root.as_str()) {
+                        context.hands.entry(root.clone()).or_default().push(id);
+                    }
+                    let reserved = &definition["reservedUntil"];
+                    let reserved = if reserved.as_array().is_some_and(|terms| !terms.is_empty()) {
+                        geo.conditions_met(world, pack, reserved, None)
+                            .map(|open| !open)
+                    } else {
+                        Some(false)
+                    };
+                    let rules = if field == "things" {
+                        &definition["valueRules"]
+                    } else {
+                        &Value::Null
+                    };
+                    context.items.insert(
+                        id,
+                        Item {
+                            root,
+                            rules,
+                            reserved,
+                        },
+                    );
+                }
                 if geo.entity_active(world, id)? {
                     context.active.insert(id);
                 }
@@ -104,7 +138,6 @@ pub(super) fn fill(
         };
         let (pick, reset) = pick_want(
             world,
-            geo,
             &context,
             id,
             person,
@@ -228,10 +261,8 @@ fn reachable<'a>(
     Some(found)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn pick_want<'a>(
     world: &Value,
-    geo: &Geography,
     context: &Context<'a>,
     actor: &str,
     person: &Person,
@@ -240,18 +271,15 @@ fn pick_want<'a>(
     allowed: Option<&BTreeSet<String>>,
 ) -> Option<(Option<Value>, bool)> {
     let me = &world["actors"][actor];
-    let items = world["items"].as_object()?;
-    let mut held = Vec::new();
     let mut floor = i64::MAX;
-    for id in items.keys() {
-        if initial_wants::root(world, id)? == actor {
-            floor = floor.min(value_of(world, geo, context, actor, person, id)?);
-            held.push(id.as_str());
+    if let Some(items) = context.hands.get(actor) {
+        for id in items {
+            floor = floor.min(value_of(world, context, actor, person, id)?);
         }
-    }
-    if held.is_empty() {
+    } else {
         floor = 1;
     }
+    floor = floor.max(1);
     let turn = world["turn"].as_u64()?;
     let mut range = Pool::new();
     for &id in &context.active {
@@ -260,34 +288,35 @@ fn pick_want<'a>(
             continue;
         }
         if context.regions.contains_key(id) && id != actor {
-            range.insert(("person", id));
+            range.push(("person", id));
         } else if reach.contains(id) {
-            range.insert(("place", id));
-        } else if items.contains_key(id) {
-            let holder = initial_wants::root(world, id)?;
+            range.push(("place", id));
+        } else if let Some(item) = context.items.get(id) {
+            let holder = item.root.as_str();
             let other_want = &world["actors"][holder]["want"];
             if holder != actor
                 && context.regions.contains_key(holder)
                 && (other_want["kind"] != "item" || other_want["target"] != id)
-                && value_of(world, geo, context, actor, person, id)? > floor
+                && value_of(world, context, actor, person, id)? > floor
             {
-                range.insert(("item", id));
+                range.push(("item", id));
             }
         }
     }
+    range.sort_unstable();
     let mut near = Pool::new();
     let mut refreshed = Pool::new();
     let mut wide = Pool::new();
     for &(kind, id) in &range {
         let place = match kind {
             "person" => world["actors"][id]["place"].as_str()?,
-            "item" => world["actors"][initial_wants::root(world, id)?]["place"].as_str()?,
+            "item" => world["actors"][context.items.get(id)?.root.as_str()]["place"].as_str()?,
             _ => id,
         };
         if allowed.is_some_and(|a| !a.contains(place)) {
             continue;
         }
-        wide.insert((kind, id));
+        wide.push((kind, id));
         if place != here && !reach.contains(place) {
             continue;
         }
@@ -302,11 +331,11 @@ fn pick_want<'a>(
         if kind == "place" && id == here {
             continue;
         }
-        refreshed.insert((kind, id));
+        refreshed.push((kind, id));
         if !(kind == "place" && member(&me["visited"], id)
             || kind == "person" && member(&me["talked"], id))
         {
-            near.insert((kind, id));
+            near.push((kind, id));
         }
     }
     let reset = near.is_empty();
@@ -318,49 +347,36 @@ fn pick_want<'a>(
     };
     let roll = initial_wants::run_hash(world, &format!("want:{actor}:{turn}"));
     let index = roll as usize % pool.len();
-    let (kind, target) = pool.into_iter().nth(index)?;
+    let (kind, target) = pool[index];
     Some((Some(initial_wants::simple_want(kind, target, turn)), reset))
 }
 
 fn value_of(
     world: &Value,
-    geo: &Geography,
     context: &Context,
     actor: &str,
     person: &Person,
-    item: &str,
+    id: &str,
 ) -> Option<i64> {
-    let mut value = person.data["values"][item].as_i64().unwrap_or(1);
-    for pack in geo.packs() {
-        if pack["items"][item]["reservedUntil"].is_array()
-            && !geo.conditions_met(
-                world,
-                pack["id"].as_str()?,
-                &pack["items"][item]["reservedUntil"],
-                None,
-            )?
-        {
-            return Some(1);
-        }
-        if pack["id"] == person.pack {
-            value = pack["values"][actor][item].as_i64().unwrap_or(value);
-        }
+    let item = context.items.get(id)?;
+    if item.reserved? {
+        return Some(1);
     }
-    let rules = context.forest["things"][item]["valueRules"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .chain(
-            person.data["valueRules"][item]
-                .as_array()
-                .into_iter()
-                .flatten(),
-        );
+    let mut value = context.pack_values.get(person.pack)?[actor][id]
+        .as_i64()
+        .or_else(|| person.data["values"][id].as_i64())
+        .unwrap_or(1);
+    let rules = item.rules.as_array().into_iter().flatten().chain(
+        person.data["valueRules"][id]
+            .as_array()
+            .into_iter()
+            .flatten(),
+    );
     for rule in rules {
         let mut holds = true;
         for fact in rule["when"].as_array()? {
             if let Some(held) = fact["holds"].as_str() {
-                holds &= initial_wants::root(world, held)? == actor;
+                holds &= context.items.get(held)?.root == actor;
             } else {
                 let number = world["items"][fact["item"].as_str()?][fact["field"].as_str()?]
                     .as_i64()
