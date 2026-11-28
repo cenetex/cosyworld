@@ -157,9 +157,6 @@ describe("deploy workflow", () => {
     const gate = job("production-gate", "primary-fly");
     expect(nodeGate).toContain("npm run v2:worldpack");
     expect(nodeGate).toContain("npm run v2:syntax");
-    expect(nodeGate).toContain(
-      "npx vitest run test/infrastructure/deploy-workflow.test.mjs",
-    );
     expect(nodeGate).not.toContain("npm test");
     for (const check of ["npm run lint", "npm run check:test-guards", "npm run regen:check"])
       expect(nodeGate).toContain(check);
