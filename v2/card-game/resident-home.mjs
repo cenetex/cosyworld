@@ -24,7 +24,6 @@ import { BOARDY } from "./boardyai.mjs";
 export { life };
 // The rules day: day then night, turn 0 is 06:00 and each turn half an hour.
 export const DAY_TURNS = DAYLIGHT_TURNS * 2;
-// The most off-stage steps one play takes, so a busy world stays cheap.
 export const OFFSTAGE_STEPS = 24;
 // Still-cast tests turn this off to isolate the story. The rules leave it unchanged.
 export const worldLife = { on: true };
