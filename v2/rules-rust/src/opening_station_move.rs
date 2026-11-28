@@ -68,12 +68,20 @@ fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool {
 
 pub(super) fn arrival(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
+    (matches!(turn, 2 | 3) && world.get("began").is_none()).then_some(())?;
+    arrived_from_pond(world, turn, turn == 3)
+}
+
+pub(super) fn historic_arrival(world: &Value) -> Option<u64> {
+    (world["began"] == 480 && world["turn"] == 482).then_some(())?;
+    arrived_from_pond(world, 482, false)
+}
+
+fn arrived_from_pond(world: &Value, turn: u64, waited: bool) -> Option<u64> {
     let receipt = &world["arrival"];
     let seq = receipt["seq"].as_u64()?;
     let vale = &world["actors"][VALE];
-    if !matches!(turn, 2 | 3)
-        || world.get("began").is_some()
-        || !quiet_opening(world)
+    if !quiet_opening(world)
         || world["schema"] != 8
         || world["sharedVersion"] != 1
         || world["opening"]["version"] != 1
@@ -94,7 +102,7 @@ pub(super) fn arrival(world: &Value) -> Option<u64> {
         .iter()
         .filter(|event| vale_action(event));
     let first = actions.next()?;
-    let pond = if turn == 3 {
+    let pond = if waited {
         if !ordinary_attic_wait(first) || first["turn"] != 1 {
             return None;
         }

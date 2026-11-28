@@ -1841,8 +1841,7 @@ function wakeUp(s, id, woke, text) {
     ...(dream ? { dream } : {}),
   });
 }
-// After the lamp burns each round, every sleeper wakes at the first change
-// where it sleeps. `before` is the world as the round began.
+// After the lamp burns, compare with the prior round to wake sleepers whose scene changed.
 function wakeSleepers(s, before, voyages) {
   for (const id of actorIds) {
     const z = s.actors[id].sleeping;

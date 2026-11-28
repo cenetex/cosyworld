@@ -245,6 +245,12 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_pond_resident_sleep") => {
             opening_resident_sleep::pond_projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_station_resident_sleep") => {
+            opening_resident_sleep::station_projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_station_wake") => {
+            opening_resident_sleep::station_wake_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_hub_idle") => {
             opening_hub_residents::projection(request).unwrap_or(Value::Null)
         }
