@@ -3,8 +3,10 @@ use super::{
     opening::{self, MAX_REVISION},
     opening_content,
     opening_full_wait::visible_items,
-    opening_pond_ship_course, opening_roster, opening_settlement,
-    opening_station_move::{departure_witnesses, quiet_opening},
+    opening_pond_ship_board::boarding_event,
+    opening_pond_ship_view::{caption_voice, room_cast, settled_speakers},
+    opening_roster, opening_settlement,
+    opening_station_move::departure_witnesses,
     opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -73,6 +75,18 @@ fn room<'a>(
     .then_some(cast)
 }
 
+pub(super) fn departure_head<'name>(
+    world: &Value,
+    geo: &Geography<'_>,
+    name: impl Fn(&str) -> Option<&'name str>,
+) -> Option<u64> {
+    if world["turn"] != 9 {
+        return None;
+    }
+    settled_speakers(world, geo, name)?;
+    world["eventSeq"].as_u64()
+}
+
 pub(super) fn begin_with<T>(
     before: &Value,
     geo: &Geography<'_>,
@@ -81,33 +95,13 @@ pub(super) fn begin_with<T>(
     evidence: &ResidentEvidence,
     prepare: impl FnOnce(&Value) -> Option<T>,
 ) -> Option<(Value, T)> {
-    let course = opening_pond_ship_course::event(before)?;
-    let departed = before["log"].as_array()?.last()?;
+    let previous = departure_head(before, geo, |id| evidence.profile(id)?["name"].as_str())?;
     let actor = &before["actors"][VALE];
-    let ship = evidence.profile(SHIP)?["name"].as_str()?;
-    let harbor = evidence.profile(HARBOR)?["name"].as_str()?;
-    if departed["seq"] != before["eventSeq"]
-        || departed["seq"] != course["seq"].as_u64()?.checked_add(1)?
-        || departed["turn"] != 9
-        || departed["kind"] != "narration"
-        || !departed["actorId"].is_null()
-        || departed["generated"] == true
-        || departed["locationId"] != SHIP
-        || departed["text"] != format!("{ship} casts off for {harbor}.")
-        || before["transports"][SHIP] != sailing()
-        || before["schema"] != 8
-        || before["sharedVersion"] != 1
-        || !quiet_opening(before)
-        || !before["standoffs"].as_array()?.is_empty()
-        || !before["conversations"].as_array()?.is_empty()
-        || !actor["sleeping"].is_null()
-        || before["memories"][VALE]["learning"]
-            .as_array()
-            .is_some_and(|trials| !trials.is_empty())
+    if before["memories"][VALE]["learning"]
+        .as_array()
+        .is_some_and(|trials| !trials.is_empty())
         || before["stationExitOrder"]
             != json!(super::create::station_order(before, geo.files(), geo)?)
-        || actor["heldItem"] != CLOTH
-        || before["items"][CLOTH]["holder"] != VALE
         || actor["waitSpeech"] != json!({"place":SHIP,"turn":null})
         || geo.files()["v2/card-game/forest.json"]["people"][VALE]["home"] == SHIP
         || geo.packs().any(|pack| {
@@ -144,33 +138,81 @@ pub(super) fn begin_with<T>(
     let detail = json!({"speaker":"World","kind":"action","verb":"wait","actorId":VALE,
         "text":format!("{vale} waits one turn."),"locationId":SHIP,"witnesses":witnesses});
     evidence.record(&mut world, &cast, &[CLOTH], detail, true)?;
-    wait_event(&world)?;
+    if wait_event(&world)?["seq"] != previous.checked_add(1)? {
+        return None;
+    }
     Some((world, prepared))
 }
 
 pub(super) fn wait_event(world: &Value) -> Option<&Value> {
-    let seq = opening_pond_ship_course::retained_event(world)?["seq"]
-        .as_u64()?
-        .checked_add(2)?;
+    if world["turn"] != 10 {
+        return None;
+    }
+    let board = boarding_event(world)?;
+    let boarded = board["seq"].as_u64()?;
+    let ada = board["cast"].as_array()?.iter().any(|actor| actor == ADA);
     let log = world["log"].as_array()?;
-    let offset = log.iter().rposition(|event| event["seq"] == seq)?;
-    let event = &log[offset];
-    let departed = &log[offset.checked_sub(1)?];
-    (world["turn"] == 10
-        && world["actors"][VALE]["place"] == SHIP
-        && departed["seq"] == seq - 1
-        && departed["turn"] == 9
-        && departed["kind"] == "narration"
-        && departed["locationId"] == SHIP
-        && departed["actorId"].is_null()
-        && departed["generated"] != true
-        && event["turn"] == 10
-        && vale_action(event)
-        && event["verb"] == "wait"
-        && event["locationId"] == SHIP
-        && event["sleep"].is_null()
-        && event["guards"].is_null())
-    .then_some(event)
+    let after_board = log
+        .iter()
+        .position(|event| event["seq"] == boarded)?
+        .checked_add(1)?;
+    let suffix = log.get(after_board..)?;
+    let end = suffix.iter().position(|event| event["turn"] == 10)?;
+    let (voyage, after_voyage) = suffix.split_at(end);
+    let wait = after_voyage.first()?;
+    let boarding_caps = voyage.iter().take_while(|entry| entry["turn"] == 8).count();
+    let (boarding_captions, at_sea) = voyage.split_at(boarding_caps);
+    let [course, departed, sea_captions @ ..] = at_sea else {
+        return None;
+    };
+    room_cast(&board["cast"], ada)?;
+    room_cast(&course["cast"], ada)?;
+    room_cast(&wait["cast"], ada)?;
+    let items = &board["items"];
+    if voyage
+        .iter()
+        .chain([wait])
+        .enumerate()
+        .any(|(index, entry)| entry["seq"].as_u64() != boarded.checked_add(index as u64 + 1))
+        || course["turn"] != 9
+        || !vale_action(course)
+        || course["verb"] != "course"
+        || course["fromLocationId"] != SHIP
+        || course["locationId"] != SHIP
+        || course["targetId"] != HARBOR
+        || !course["itemId"].is_null()
+        || course["items"] != *items
+        || departed["turn"] != 9
+        || departed["kind"] != "narration"
+        || departed["locationId"] != SHIP
+        || !departed["actorId"].is_null()
+        || departed["generated"] == true
+        || departed["speaker"] != "World"
+        || !departed["verb"].is_null()
+        || !departed["witnesses"].is_null()
+        || departed["cast"] != course["cast"]
+        || departed["items"] != *items
+        || departed["light"] != false
+        || !vale_action(wait)
+        || wait["verb"] != "wait"
+        || wait["locationId"] != SHIP
+        || wait["items"] != *items
+        || wait["light"] != false
+        || !wait["sleep"].is_null()
+        || !wait["guards"].is_null()
+    {
+        return None;
+    }
+    for line in boarding_captions {
+        caption_voice(line, ada, true, items)?;
+    }
+    for line in sea_captions {
+        if line["turn"] != 9 {
+            return None;
+        }
+        caption_voice(line, ada, false, items)?;
+    }
+    Some(wait)
 }
 
 pub(super) fn docking_event(world: &Value) -> Option<&Value> {

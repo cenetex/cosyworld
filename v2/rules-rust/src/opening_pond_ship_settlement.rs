@@ -116,7 +116,9 @@ pub(super) fn settle_wait_after_docking(
     geo: &Geography<'_>,
     evidence: &ResidentEvidence,
 ) -> Option<()> {
-    let course = opening_pond_ship_course::event(before)?;
+    opening_pond_ship_wait::departure_head(before, geo, |id| {
+        evidence.profile(id)?["name"].as_str()
+    })?;
     let wait = opening_pond_ship_wait::wait_event(world)?;
     let docking = opening_pond_ship_wait::docking_event(world)?;
     let ship = world.get("transports")?.get("greek-ship")?;
@@ -130,9 +132,7 @@ pub(super) fn settle_wait_after_docking(
         ["sea:greek-harbor", "sea:pond"],
         ["sea:pond", "sea:greek-harbor"]
     ]);
-    if before["eventSeq"] != course["seq"].as_u64()?.checked_add(1)?
-        || before["transports"]["greek-ship"]["phase"] != "sea"
-        || before["actors"]["vale"]["waitSpeech"] != speech
+    if before["actors"]["vale"]["waitSpeech"] != speech
         || world["actors"]["vale"]["waitSpeech"] != speech
         || ship["version"] != 3
         || !ship["destination"].is_null()

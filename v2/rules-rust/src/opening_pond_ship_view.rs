@@ -33,7 +33,7 @@ fn rows(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
 }
 
-fn room_cast(cast: &Value, ada: bool) -> Option<()> {
+pub(super) fn room_cast(cast: &Value, ada: bool) -> Option<()> {
     let cast = cast.as_array()?;
     (cast.len() == 1 + usize::from(ada)
         && cast.iter().any(|id| id == VALE)
@@ -301,6 +301,16 @@ fn caption<'name>(
     items: &Value,
     name: impl Fn(&str) -> Option<&'name str>,
 ) -> Option<()> {
+    let voice = caption_voice(line, ada, docked, items)?;
+    (line["speaker"] == name(voice)?).then_some(())
+}
+
+pub(super) fn caption_voice<'line>(
+    line: &'line Value,
+    ada: bool,
+    docked: bool,
+    items: &Value,
+) -> Option<&'line str> {
     let voice = match line["kind"].as_str()? {
         "dialogue" => line["actorId"].as_str()?,
         "narration" if line["actorId"].is_null() => SHIP,
@@ -310,13 +320,12 @@ fn caption<'name>(
     ((voice == VALE || voice == SHIP || (ada && docked && voice == ADA))
         && (voice != SHIP || line["kind"] == "narration")
         && line["entityId"] == voice
-        && line["speaker"] == name(voice)?
         && line["locationId"] == SHIP
         && line["generated"] == true
         && &line["items"] == items
         && line["light"] == false
         && line.get("elysiumName").is_none())
-    .then_some(())
+    .then_some(voice)
 }
 
 fn course_events<'a, 'name>(

@@ -146,7 +146,6 @@ describe("a real voyage", () => {
     let s = setup("pond");
     s = act(s, "vale", "move", "greek-ship");
     expect(state(s)).toMatchObject({ phase: "docked", dock: "pond" });
-    // No straight return: the boarding port is never a card aboard.
     expect(targets(s, "vale", "move")).toEqual([]);
     expect(targets(s, "vale", "course")).toEqual(["greek-harbor"]);
     expect(availableCards(ask(s, "vale").world)).toContain("greek-harbor");

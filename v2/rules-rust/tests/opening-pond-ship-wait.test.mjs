@@ -82,9 +82,36 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
   };
   const play = (world, action) =>
     run({ ...seats, op: "play", world, action }).world;
+  const preserveActorOrder = (updated, before) => ({
+    ...updated,
+    actors: Object.fromEntries(
+      Object.keys(before.actors).map((id) => [id, updated.actors[id]]),
+    ),
+  });
+  const publish = (world, lines, context = {}) => {
+    const request = {
+      ...seats,
+      ...context,
+      op: "speech",
+      world,
+      room: ship,
+      lines,
+    };
+    const actual = wasm(request);
+    assert.ok(
+      isDeepStrictEqual(actual, run(request)),
+      `speech at ${world.turn}`,
+    );
+    return preserveActorOrder(actual.world, world);
+  };
   let sample, arriving, arrived, completed;
   for (const seed of [undefined, 2, 17, 4242]) {
-    for (const ordered of [false, true]) {
+    for (const [ordered, spoken] of [
+      [false, false],
+      [true, false],
+      [false, true],
+      [true, true],
+    ]) {
       let world = run({ op: "create", seed }).world;
       world = run({
         ...seats,
@@ -111,16 +138,28 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
         world,
         ordered ? "move:vale:cloth:greek-ship" : "move:vale::greek-ship",
       );
-      if (ordered && seed === 17) {
-        world = run({
-          ...seats,
-          op: "speech",
-          room: ship,
-          world,
-          lines: [{ entityId: ship, text: "The hull creaks softly." }],
-        }).world;
+      if (ordered && (spoken || seed === 17)) {
+        world = publish(world, [
+          { entityId: ship, text: "A board creaks beneath the rail." },
+        ]);
       }
       world = play(world, "course:vale::greek-harbor");
+      if (spoken) {
+        world = publish(world, [
+          { actorId: "vale", text: "We’re underway." },
+          { entityId: ship, text: "The wind catches the rigging." },
+        ]);
+        world = publish(
+          world,
+          [{ entityId: ship, text: "Water breaks at the bow." }],
+          { present: [] },
+        );
+        world = publish(
+          world,
+          [{ actorId: "vale", text: "I can see the harbor." }],
+          { claimed: [], present: [] },
+        );
+      }
       const request = {
         ...seats,
         op: "play",
@@ -132,11 +171,11 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
       const reply = run(request);
       const waited = captured("waited");
       const docked = captured("docked");
-      const label = `${seed} ${ordered}`;
+      const label = `${seed} ${ordered}/${spoken}`;
       sample = { ...request, op: "opening_pond_ship_wait" };
-      arriving = { ...seats, op: "opening_pond_ship_dock", world: waited };
+      const actualWait = wasm(sample);
       assert.ok(
-        isDeepStrictEqual(wasm(sample), { ok: true, world: waited }),
+        isDeepStrictEqual(actualWait, { ok: true, world: waited }),
         `waited ${label}`,
       );
       const settled = captured("afterResidents");
@@ -173,6 +212,11 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
         }),
         `roaming and life ${label}`,
       );
+      arriving = {
+        ...seats,
+        op: "opening_pond_ship_dock",
+        world: preserveActorOrder(beforeTravel, world),
+      };
       assert.ok(
         isDeepStrictEqual(wasm(arriving), { ok: true, world: docked }),
         `docked ${label}`,
@@ -194,6 +238,11 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
         turn: 10,
       });
       assert.deepEqual(reply.events, [waited.log.at(-1), docked.log.at(-1)]);
+      assert.deepEqual(
+        reply.events.map(({ seq }) => seq),
+        [world.eventSeq + 1, world.eventSeq + 2],
+      );
+      assert.equal(waited.log.at(-2).generated === true, spoken);
       assert.deepEqual(waited.transports[ship], world.transports[ship]);
       assert.deepEqual(waited.actors.vale, world.actors.vale);
       assert.deepEqual(docked.transports[ship], {
@@ -271,7 +320,15 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
       world.actors.rue.place = ship;
     },
     (world) => {
-      world.log.at(-1).generated = true;
+      world.log.findLast(
+        (entry) => entry.turn === 9 && entry.generated !== true,
+      ).generated = true;
+    },
+    (world) => {
+      world.log.at(-1).locationId = "pond";
+    },
+    (world) => {
+      world.log.at(-1).seq -= 1;
     },
   ]) {
     const world = structuredClone(sample.world);
