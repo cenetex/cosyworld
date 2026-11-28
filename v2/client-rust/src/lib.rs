@@ -2,7 +2,10 @@
 
 mod hand;
 
-pub use hand::{LockedStack, VISIBLE_FRAME, hand_focus, locked_stack};
+pub use hand::{
+    LockedStack, ROOM_BACK, ROOM_FEATURED, ROOM_LOCAL, ROOM_WAY, VISIBLE_FRAME, hand_focus,
+    locked_stack, room_card_order,
+};
 
 #[derive(Debug, Default, Eq, PartialEq)]
 #[repr(u32)]
@@ -82,6 +85,25 @@ mod wasm {
                 return -1;
             };
             super::hand_focus(frames, preferred).map_or(-1, |index| index as i32)
+        })
+    }
+
+    #[expect(unsafe_code, reason = "Browser ABI export name is unique")]
+    #[unsafe(no_mangle)]
+    extern "C" fn room_card_order(card_count: usize, back: bool, featured: bool) -> usize {
+        HAND.with_borrow_mut(|buffer| {
+            let Some((cards, output)) = buffer.split_at_mut_checked(card_count) else {
+                return 0;
+            };
+            let mut length = 0;
+            for index in super::room_card_order(cards, back, featured) {
+                let Some(slot) = output.get_mut(length) else {
+                    return 0;
+                };
+                *slot = index as i32;
+                length += 1;
+            }
+            length
         })
     }
 
