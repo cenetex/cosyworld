@@ -133,8 +133,7 @@ jobs:
       # Not a gate: lists tests that passed only on a retry (`retry: 1`).
       - run: npx vitest run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
 
-  # cargo fmt reads source only, so this job builds nothing and needs no
-  # Cargo cache. Its stable toolchain matches the production Rust gate's.
+  # Formatting checks use stable Rust and skip compilation.
   rustfmt:
     name: Rust formatting
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
@@ -146,8 +145,10 @@ jobs:
           sparse-checkout: |
             v2/orchestrator-rust
             v2/ai-model-rust
-            v2/local
             v2/rules-rust
+            v2/client-rust
+            v2/local
+            v2/world-check-rust
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -158,6 +159,24 @@ jobs:
             echo "::error title=Rust formatting::Run 'cargo fmt' in v2/orchestrator-rust and commit the result (the diff above shows the changes)."
             exit 1
           fi
+          for crate in rules-rust client-rust world-check-rust; do
+            cargo fmt --all --manifest-path "v2/$crate/Cargo.toml" --check
+          done
+
+  world-packs:
+    name: World pack sources
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            v2/world-check-rust
+            v2/content
+            v2/worlds
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked --manifest-path v2/world-check-rust/Cargo.toml
+      - run: cargo run --locked --manifest-path v2/world-check-rust/Cargo.toml -- v2
 
   # The core smokes and every smoke the changed paths choose, packed by
   # measured time into at most four jobs (scripts/fast-smokes.json packing).
@@ -222,7 +241,10 @@ jobs:
     steps:
       - *checkout
       - uses: dtolnay/rust-toolchain@stable
-      # build.rs and the narrative tests run Node.
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      # The narrative tests run Node.
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -243,6 +265,19 @@ jobs:
         run: |
           read -ra filters <<< "$FILTERS"
           bash v2/scripts/check-rust.sh focused "${filters[@]}"
+      - name: Check Rust rules determinism and WASM replay parity
+        run: |
+          cargo clippy --locked --manifest-path v2/rules-rust/Cargo.toml --workspace --all-targets -- -D warnings
+          cargo clippy --locked --manifest-path v2/rules-rust/wasm/Cargo.toml --target wasm32-unknown-unknown -- -D warnings
+          cargo test --locked --manifest-path v2/rules-rust/Cargo.toml --workspace
+          artifact="$(node v2/scripts/build-rust-rules.mjs)"
+          COSYWORLD_RULES_WASM="$artifact" RUST_MIN_STACK=16777216 \
+            cargo test --locked --manifest-path v2/orchestrator-rust/Cargo.toml \
+            --features rules-wasm,local-tooling --bin cosyworld-orchestrator sqlite_rules_wasm_parity -- --nocapture
+      - name: Check local tooling
+        run: |
+          cargo test --locked --manifest-path v2/orchestrator-rust/Cargo.toml \
+            --features rules-wasm,local-tooling --bin cosyworld-orchestrator startup::local_tooling::
 
   rust-smokes:
     name: Rust server smokes
@@ -320,7 +355,18 @@ jobs:
   fast:
     name: All checks
     if: ${{ !cancelled() }}
-    needs: [plan, lint, unit-shard, rustfmt, smoke, rust, rust-lint, rust-smokes]
+    needs:
+      [
+        plan,
+        lint,
+        unit-shard,
+        rustfmt,
+        world-packs,
+        smoke,
+        rust,
+        rust-lint,
+        rust-smokes,
+      ]
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Verify all fast-check jobs passed
@@ -328,7 +374,7 @@ jobs:
           REQUIRED: >-
             ${{ needs.plan.result }} ${{ needs.lint.result }}
             ${{ needs.unit-shard.result }} ${{ needs.rustfmt.result }}
-            ${{ needs.smoke.result }}
+            ${{ needs.world-packs.result }} ${{ needs.smoke.result }}
           RUST: >-
             ${{ needs.rust.result }} ${{ needs.rust-lint.result }}
             ${{ needs.rust-smokes.result }}
