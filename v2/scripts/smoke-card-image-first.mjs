@@ -44,7 +44,6 @@ function pond() {
   let s = enableMotives(createWorld({ opening: true, seed: 17 }));
   // Keep the bard at this fixture's first deed so the ship starts at harbor.
   s.actors["greek-rhapsode"].place = "attic";
-  // Stow the lamp to open the mirror without playing a turn.
   holdChoice(s, "vale", { item: null, revision: s.revision });
   s = action(s, "move", null, "pond");
   // Only stage initial possessions; exercise the real transition and save rules.

@@ -379,6 +379,36 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
         assert.equal(signal.discovered, !dry);
         if (dry) {
           assert.equal(wasm(request), null);
+          const spoken = run({
+            ...seats,
+            op: "speech",
+            room: "pond",
+            world: called.world,
+            lines: [
+              { actorId: "vale", text: "The Lamp has gone dark." },
+              { entityId: "pond", text: "The reeds whisper." },
+            ],
+          });
+          assert.equal(spoken.eventSeq, called.world.eventSeq + 2);
+          for (const world of [called.world, spoken]) {
+            for (const present of [seats.present, []]) {
+              const reload = { ...seats, op: "view", world, present };
+              const expected = pinned(reload);
+              assert.ok(expected.ok, expected.error);
+              assert.deepEqual(expected.exits, ["station"]);
+              assert.ok(
+                !expected.actions.some((action) => action.label === "Board"),
+              );
+              assert.ok(
+                isDeepStrictEqual(wasm(reload), expected),
+                `dry reload ${label} ${world === spoken} ${present.length}`,
+              );
+            }
+            assert.equal(
+              wasm({ ...seats, op: "view", world, claimed: [], present: [] }),
+              null,
+            );
+          }
         } else {
           assert.ok(isDeepStrictEqual(wasm(request), called), label);
           const spoken = run({
