@@ -68,6 +68,8 @@ A journal claim requests `join_state` with the authenticated seat and any passke
 
 With `COSYWORLD_REPLAY_ALL=1` and `COSYWORLD_REQUIRE_FULL_REPLAY=1`, set `COSYWORLD_EPOCH_PROOF` to a new JSON file path. After both parity checks succeed, the `cosyworld-epoch-readiness/v2` export records each hashed world ID, its journal head sequence as decimal text, and SHA-256 digests of its checkpoint JSON and journal rows. It also records the rule and content pins and candidate WASM digest. The export uses only digests and coverage totals and creates a new output file without writes to the SQLite copy.
 
+Set `COSYWORLD_EPOCH_CHECK` to an existing v2 proof with the same all-world and strict replay settings. The checker reruns both parity checks, reconstructs the canonical proof bytes, and compares them to the original export. Use one proof option per run. The check only reads the proof and the SQLite copy.
+
 The journal digest starts with the bytes `cosyworld-sqlite-journal-v1` followed by one zero byte. In ascending positive sequence order it hashes each row's sequence and timestamp as signed 64-bit big-endian integers, then the command's UTF-8 byte length as an unsigned 64-bit big-endian integer and the command bytes. This binds the exact journal records even when two histories replay to the same checkpoint.
 
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.
