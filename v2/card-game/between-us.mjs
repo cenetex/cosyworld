@@ -4,6 +4,7 @@
 // to shape what is said (docs/design/talk-conversation.md).
 import { ageText } from "./knowledge.mjs";
 import { lifeFacts, nameIn } from "./life.mjs";
+import { isLegacyElysiumLine } from "./elysium-models.mjs";
 
 const seqOf = (g) => Number(g.incident.slice("event:".length));
 
@@ -72,6 +73,7 @@ const lastSaid = (world, from, to) =>
         e.generated &&
         e.kind === "dialogue" &&
         !e.silent &&
+        !isLegacyElysiumLine(e) &&
         e.actorId === from &&
         e.turn < world.turn &&
         e.text.length <= 400 &&

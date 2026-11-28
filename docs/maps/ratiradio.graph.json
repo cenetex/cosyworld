@@ -6,7 +6,7 @@
   "entries": [
     {
       "joins": "hub",
-      "at": "station",
+      "at": "behind-station",
       "arrive": "ratiradio-staff-kitchen",
       "via": "station-ratiradio"
     }
@@ -25,6 +25,11 @@
       }
     ],
     "nodes": [
+      {
+        "id": "behind-station",
+        "name": "Behind the Station",
+        "kind": "hub"
+      },
       {
         "id": "ratiradio-broadcast-booth",
         "name": "Broadcast Booth",
@@ -48,14 +53,15 @@
         "name": "Staff Kitchen",
         "kind": "place",
         "district": "d-ratiradio-dispatch-window"
-      },
-      {
-        "id": "station",
-        "name": "Empty station",
-        "kind": "hub"
       }
     ],
     "edges": [
+      {
+        "from": "behind-station",
+        "to": "ratiradio-staff-kitchen",
+        "kind": "crossing",
+        "gate": "crossing:station-ratiradio"
+      },
       {
         "from": "ratiradio-broadcast-booth",
         "to": "ratiradio-listening-room",
@@ -88,21 +94,15 @@
       },
       {
         "from": "ratiradio-staff-kitchen",
-        "to": "ratiradio-dispatch-window",
-        "kind": "route",
-        "gate": "route:ratiradio-staff-kitchen>ratiradio-dispatch-window"
-      },
-      {
-        "from": "ratiradio-staff-kitchen",
-        "to": "station",
+        "to": "behind-station",
         "kind": "crossing",
         "gate": null
       },
       {
-        "from": "station",
-        "to": "ratiradio-staff-kitchen",
-        "kind": "crossing",
-        "gate": "crossing:station-ratiradio"
+        "from": "ratiradio-staff-kitchen",
+        "to": "ratiradio-dispatch-window",
+        "kind": "route",
+        "gate": "route:ratiradio-staff-kitchen>ratiradio-dispatch-window"
       }
     ],
     "retired": []
@@ -260,7 +260,7 @@
       {
         "id": "crossing:station-ratiradio",
         "kind": "crossing",
-        "title": "Empty station to Staff Kitchen",
+        "title": "Behind the Station to Staff Kitchen",
         "cond": {
           "op": "and",
           "of": [
@@ -684,9 +684,7 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "resident:ratiradio-raven",
-          "topic:ratiradio-bring-them-home",
-          "topic:ratiradio-little-one"
+          "resident:ratiradio-raven"
         ],
         "gates": [
           "resident:ratiradio-raven"
@@ -831,19 +829,6 @@
         "place:ratiradio-staff-kitchen",
         "resident:undefined"
       ],
-      "topic:ratiradio-bring-them-home": [
-        "place:ratiradio-listening-room",
-        "resident:ratiradio-rati"
-      ],
-      "topic:ratiradio-little-one": [
-        "flag:raven-awake",
-        "place:ratiradio-listening-room",
-        "resident:ratiradio-raven"
-      ],
-      "topic:ratiradio-rati-home": [
-        "place:ratiradio-listening-room",
-        "resident:ratiradio-rati"
-      ],
       "want:ratiradio-rati": [
         "item:ratiradio-glass",
         "item:ratiradio-raven-figurine",
@@ -867,11 +852,6 @@
       "kind": "flag",
       "class": "latch",
       "words": "rati-awake is set"
-    },
-    "flag(key=raven-awake,value=false)": {
-      "kind": "flag",
-      "class": "latch",
-      "words": "raven-awake is not set"
     },
     "flag(key=raven-awake,value=true)": {
       "kind": "flag",

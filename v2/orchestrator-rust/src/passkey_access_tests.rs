@@ -108,6 +108,7 @@ async fn members_mode_refuses_sign_ups_and_signed_out_play() {
 
     for (method, route) in [
         ("POST", "/card-game/text"),
+        ("POST", "/card-game/memory-summaries"),
         ("GET", "/card-game/shared/worlds"),
         ("GET", "/card-game/local"),
     ] {

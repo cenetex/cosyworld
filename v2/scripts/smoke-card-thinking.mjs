@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave, nameOf } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard, settleHand } from "./card-browser-helpers.mjs";
 import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
 
 const output = new URL("../../output/card-thinking/", import.meta.url);
@@ -93,10 +93,9 @@ try {
       await requests
         .at(-1)
         .route.fulfill({ status: 503, json: { error: "fixture" } });
-    // Words that failed are "…" on the speaker's beat; there is no Retry,
-    // and the next play is available at once.
+    // A failed reply is a status on the speaker's beat. The next play is available.
     await page.waitForFunction(
-      () => document.querySelector("#dialogue-text").textContent.trim() === "…",
+      () => document.querySelector("#dialogue-text").textContent.trim() === "Reply unavailable",
     );
     assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
     const failed = await snapshot();
@@ -148,16 +147,7 @@ try {
     );
     assert(recovered.turn > saved.turn, "the next play ran at once");
     assert.deepEqual((await snapshot()).cast, (await snapshot()).hand);
-    for (
-      let step = 0;
-      step < 80 &&
-      (await page.locator("#hand").getAttribute("data-cooling")) === "true";
-      step++
-    ) {
-      if (await page.locator("#dialogue-advance").isVisible())
-        await page.locator("#dialogue-advance").click();
-      await page.waitForTimeout(50);
-    }
+    await settleHand(page);
     // A Talk asks for words. Its Thinking card holds the panel back; two
     // taps stop waiting, and the next move keeps its own speech policy.
     // The replaced Talk stays out of the new room.
@@ -214,9 +204,7 @@ try {
         },
       })
       .catch(() => {});
-    await page.waitForFunction(
-      () => document.querySelector("#hand").dataset.cooling === "false",
-    );
+    await settleHand(page);
     const superseded = await snapshot();
     assert.equal(requests.length, asked + Number(returnSpeaks));
     assert.deepEqual(superseded.cast, superseded.hand);

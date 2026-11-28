@@ -7,6 +7,9 @@ use std::{io::Cursor, sync::Arc};
 
 pub(super) const ROUTE: &str = "/card-game/authoring/generate/image";
 pub(super) const MODEL: &str = "openai/gpt-image-2.6-flare";
+const VOID_MODEL_REVISION: &str = "openai/gpt-image-2.6-flare-20261104";
+const PORTRAIT_WIDTH: u32 = 1024;
+const PORTRAIT_HEIGHT: u32 = 1536;
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -36,6 +39,96 @@ fn config(state: &AppState) -> Option<ai_gateway::AiConfig> {
     Some(config)
 }
 
+pub(crate) async fn draw_void_portrait(state: &AppState) -> Result<Vec<u8>, &'static str> {
+    draw_model_void_portrait(
+        state,
+        "elysium-void-001",
+        "A silver, humanlike resident of Void 001 with a discernible inhuman face. \
+         Fine silver engraving, deep black fabric and one restrained gold filament in the folds. \
+         Black-paper etching on the figure only, with strong contours and a complete silhouette.",
+    )
+    .await
+}
+
+pub(crate) async fn draw_model_void_portrait(
+    state: &AppState,
+    resident: &str,
+    appearance: &str,
+) -> Result<Vec<u8>, &'static str> {
+    let config = config(state).ok_or("generation_unconfigured")?;
+    let _permit = super::admission::admit(
+        super::scope(state),
+        super::admission::Pool::Image,
+        resident,
+        Instant::now(),
+    )
+    .map_err(|error| error.code)?;
+    let input = Input {
+        kind: "avatar".into(),
+        role: "portrait".into(),
+        description: appearance.into(),
+        instruction: None,
+        reference: None,
+        basis: resident.into(),
+    };
+    run(config, input, None, true)
+        .await
+        .map(|drawn| drawn.bytes)
+        .map_err(|error| error.code)
+}
+
+fn void_portrait_png(bytes: &[u8], mime: &str) -> Result<Vec<u8>, &'static str> {
+    let source = raster(bytes, mime, false)
+        .inspect_err(|_| {
+            tracing::warn!(mime, size = bytes.len(), "Void portrait raster rejected");
+        })?
+        .into_rgba8();
+    let (width, height) = source.dimensions();
+    let (scaled_width, expected_width) = (u64::from(width) * 3, u64::from(height) * 2);
+    // A provider's pixel dimensions may round the requested ratio. Allow 5%.
+    if scaled_width.abs_diff(expected_width) > expected_width / 20 {
+        tracing::warn!(
+            width,
+            height,
+            "Void portrait has an unexpected aspect ratio"
+        );
+        return Err(IMAGE_INVALID);
+    }
+    let transparent = source.pixels().any(|pixel| pixel[3] == 0);
+    let figure = source.pixels().any(|pixel| pixel[3] >= 128);
+    if !transparent || !figure {
+        tracing::warn!(
+            width,
+            height,
+            transparent,
+            figure,
+            "Void portrait has no transparent frame or visible figure"
+        );
+        return Err(IMAGE_INVALID);
+    }
+    let fitted = image::DynamicImage::ImageRgba8(source).resize(
+        PORTRAIT_WIDTH,
+        PORTRAIT_HEIGHT,
+        image::imageops::FilterType::Lanczos3,
+    );
+    if (fitted.width(), fitted.height()) == (PORTRAIT_WIDTH, PORTRAIT_HEIGHT) {
+        return encode_png(fitted);
+    }
+    let fitted = fitted.into_rgba8();
+    let mut canvas = image::RgbaImage::new(PORTRAIT_WIDTH, PORTRAIT_HEIGHT);
+    image::imageops::replace(
+        &mut canvas,
+        &fitted,
+        i64::from((PORTRAIT_WIDTH - fitted.width()) / 2),
+        i64::from((PORTRAIT_HEIGHT - fitted.height()) / 2),
+    );
+    encode_png(image::DynamicImage::ImageRgba8(canvas))
+}
+
+fn accepts_model(resolved: &str, void_portrait: bool) -> bool {
+    resolved == MODEL || (void_portrait && resolved == VOID_MODEL_REVISION)
+}
+
 async fn generate(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -61,7 +154,6 @@ impl Drawn {
     pub(super) fn sha256(&self) -> String {
         digest(&self.bytes)
     }
-    /// The synchronous route's reply.
     pub(super) fn body(&self) -> Value {
         json!({"image":{"base64":BASE64.encode(&self.bytes),"mime":"image/png","sha256":self.sha256(),"size":self.bytes.len()},"basis":self.basis,"model":MODEL,"usage":self.usage})
     }
@@ -97,6 +189,7 @@ pub(super) async fn run(
     config: ai_gateway::AiConfig,
     input: Input,
     reference: Option<Vec<u8>>,
+    void_portrait: bool,
 ) -> Result<Drawn, Failed> {
     let sheet = input.role == "pose-sheet";
     let framing = if sheet {
@@ -110,8 +203,16 @@ pub(super) async fn run(
     let result = ai_gateway::request_image_generation_for_key(
         &config,
         ImageGenerationRequest {
-            feature: "authoring_image",
-            prompt_version: "authoring-image/2",
+            feature: if void_portrait {
+                "elysium_portrait"
+            } else {
+                "authoring_image"
+            },
+            prompt_version: if void_portrait {
+                "elysium-void-001/1"
+            } else {
+                "authoring-image/2"
+            },
             prompt: &prompt,
             reference: reference.as_ref().map(|bytes| ImageGenerationReference {
                 bytes,
@@ -140,20 +241,40 @@ pub(super) async fn run(
         &input.basis,
     )
     .await;
-    let output =
-        match result {
-            Ok(output) if output.model_attribution.resolved_model_id == MODEL => output,
-            Ok(_) => return Err(Failed::new(
+    let output = match result {
+        Ok(output) if accepts_model(&output.model_attribution.resolved_model_id, void_portrait) => {
+            output
+        }
+        Ok(_) => {
+            if void_portrait {
+                tracing::warn!("Void portrait image model attribution rejected");
+            }
+            return Err(Failed::new(
                 StatusCode::BAD_GATEWAY,
                 "The image came from a different model than expected and was discarded. Try again.",
                 "image_model_unexpected",
-            )),
-            Err(error) => return Err(provider_failure(admission::Pool::Image, &error)),
-        };
+            ));
+        }
+        Err(error) => {
+            if void_portrait {
+                tracing::warn!(
+                    code = error.code(),
+                    http_status = error.provider_http_status(),
+                    "Void portrait image request failed"
+                );
+            }
+            return Err(provider_failure(admission::Pool::Image, &error));
+        }
+    };
     let usage = serde_json::to_value(&output.usage).unwrap_or(Value::Null);
-    let image =
-        tokio::task::spawn_blocking(move || png_output(&output.bytes, &output.content_type, sheet))
-            .await;
+    let image = tokio::task::spawn_blocking(move || {
+        if void_portrait {
+            void_portrait_png(&output.bytes, &output.content_type)
+        } else {
+            png_output(&output.bytes, &output.content_type, sheet)
+        }
+    })
+    .await;
     match image {
         Ok(Ok(bytes)) => Ok(Drawn {
             bytes,
@@ -290,12 +411,72 @@ fn raster(bytes: &[u8], mime: &str, sheet: bool) -> Result<image::DynamicImage, 
 }
 
 fn png_output(bytes: &[u8], mime: &str, sheet: bool) -> Result<Vec<u8>, &'static str> {
+    encode_png(raster(bytes, mime, sheet)?)
+}
+
+fn encode_png(image: image::DynamicImage) -> Result<Vec<u8>, &'static str> {
     let mut output = Cursor::new(Vec::new());
-    raster(bytes, mime, sheet)?
+    image
         .write_to(&mut output, image::ImageFormat::Png)
         .map_err(|_| IMAGE_INVALID)?;
     if output.get_ref().len() > MAX_IMAGE {
         return Err(IMAGE_INVALID);
     }
     Ok(output.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgba, RgbaImage};
+
+    fn png(pixels: RgbaImage) -> Vec<u8> {
+        encode_png(image::DynamicImage::ImageRgba8(pixels)).unwrap()
+    }
+
+    #[test]
+    fn only_void_portraits_allow_the_verified_flare_revision() {
+        assert!(accepts_model(MODEL, false));
+        assert!(accepts_model(MODEL, true));
+        assert!(!accepts_model(VOID_MODEL_REVISION, false));
+        assert!(accepts_model(VOID_MODEL_REVISION, true));
+        assert!(!accepts_model("openai/gpt-image-2.6-flare-20261105", true));
+        assert!(!accepts_model("openai/gpt-image-2.5-flare", true));
+    }
+
+    #[test]
+    fn void_portraits_fit_off_ratio_frames_without_cropping() {
+        let source = RgbaImage::from_fn(99, 150, |x, y| {
+            if (30..120).contains(&y) && x < 10 {
+                Rgba([220, 10, 5, 255])
+            } else if (30..120).contains(&y) && x > 88 {
+                Rgba([5, 10, 220, 255])
+            } else {
+                Rgba([0, 0, 0, 0])
+            }
+        });
+        let bytes = void_portrait_png(&png(source), "image/png").unwrap();
+        let portrait = image::load_from_memory(&bytes).unwrap().into_rgba8();
+        assert_eq!(portrait.dimensions(), (1024, 1536));
+        assert_eq!(portrait.get_pixel(0, 768)[3], 0);
+        assert_eq!(portrait.get_pixel(1023, 768)[3], 0);
+        assert_eq!(*portrait.get_pixel(6, 768), Rgba([220, 10, 5, 255]));
+        assert_eq!(*portrait.get_pixel(1017, 768), Rgba([5, 10, 220, 255]));
+    }
+
+    #[test]
+    fn void_portraits_reject_opaque_empty_and_wide_sources() {
+        let mut wide = RgbaImage::new(8, 6);
+        wide.put_pixel(0, 0, Rgba([30, 30, 30, 255]));
+        for invalid in [
+            RgbaImage::from_pixel(2, 3, Rgba([40, 40, 40, 255])),
+            RgbaImage::new(2, 3),
+            wide,
+        ] {
+            assert_eq!(
+                void_portrait_png(&png(invalid), "image/png"),
+                Err(IMAGE_INVALID)
+            );
+        }
+    }
 }

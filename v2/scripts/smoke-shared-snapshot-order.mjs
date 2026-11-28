@@ -3,12 +3,161 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true });
+async function checkClockFocus(width) {
+  let { world } = dispatchShared({
+    op: "create",
+    save: encodeSave(createWorld({ seed: 17 })),
+  });
+  const seats = { actor: "vale", claimed: ["vale", "mara"], present: ["vale", "mara"] };
+  const state = {
+    ...dispatchShared({ op: "view", world, ...seats }),
+    id: "clock-focus",
+    version: "full-card-world/9",
+    claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+    present: [1, 1, 0, 0, 0, 0, 0, 0],
+    now: Date.now(),
+    queue: [],
+    history: [],
+  };
+  const head = { stream: "clock-focus", sequence: 0, hash: "0".repeat(64) };
+  const cursor = `${head.stream}:${head.sequence}:${head.hash}`;
+  const firstClock = Promise.withResolvers();
+  const nextTurn = Promise.withResolvers();
+  const clock = state.now + 60_000;
+  const commands = [];
+  let delivered = false;
+  function playTurn(action, actor) {
+    const played = dispatchShared({ ...seats, actor, op: "play", action, world });
+    assert(played.ok, played.error);
+    world = played.world;
+    Object.assign(state, dispatchShared({ op: "view", ...seats, world }), {
+      now: clock + world.revision + 1,
+    });
+  }
+  const page = await browser.newPage({
+    viewport: { width, height: 900 },
+    reducedMotion: "reduce",
+    hasTouch: width === 390,
+  });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    await page.addInitScript(
+      (seen) => {
+        const key = "cosyworld.reflected-shore.v1.shared.clock-focus.vale.seen";
+        localStorage.setItem(key, JSON.stringify(seen));
+      },
+      [
+        ...Object.keys(world.actors),
+        ...Object.keys(world.items),
+        ...Object.keys(world.locations),
+      ],
+    );
+    await page.route("**/auth/account", (route) =>
+      route.fulfill({
+        json: {
+          authenticated: true,
+          user_id: "smoke-user",
+          account_revision: 0,
+        },
+      }),
+    );
+    await page.route(
+      /\/card-game\/shared\/worlds\/clock-focus(?:\/command)?$/,
+      async (route) => {
+        const request = route.request();
+        const body = request.postDataJSON();
+        const snapshot = () => route.fulfill({ json: { state, sync: { kind: "snapshot", head } } });
+        if (body?.op === "play") {
+          commands.push(body.action);
+          playTurn(body.action, "vale");
+          state.history = [{ play: body.key, room: "station", lines: [] }];
+        }
+        if (
+          request.headers()["x-cosyworld-sync"] === "snapshot" ||
+          body
+        )
+          return snapshot();
+        assert.equal(request.headers()["x-cosyworld-sync"], cursor);
+        if (delivered) {
+          await nextTurn.promise;
+          return snapshot();
+        }
+        await firstClock.promise;
+        delivered = true;
+        return route.fulfill({
+          json: {
+            sync: { kind: "events", head },
+            events: [],
+            now: clock,
+          },
+        });
+      },
+    );
+    await page.goto(`${origin}/?world=clock-focus`);
+    await page.waitForFunction(() => document.body.inert === false);
+    await selectCard(page, "vale", { touch: width === 390 });
+    const wait = readyActionButton(page, "wait");
+    await wait.focus();
+    const original = await wait.elementHandle();
+    const glyph = await original.evaluateHandle((button) => button.firstChild);
+    assert(
+      await original.evaluate((button) => document.activeElement === button),
+    );
+    const nextPoll = page.waitForRequest(
+      (request) =>
+        delivered &&
+        request.method() === "GET" &&
+        request.url().endsWith("/worlds/clock-focus") &&
+        request.headers()["x-cosyworld-sync"] === cursor,
+    );
+    firstClock.resolve();
+    await nextPoll;
+    assert(
+      await original.evaluate((button) => button.isConnected),
+      `${width}px: a clock update keeps the Wait button`,
+    );
+    assert(
+      await original.evaluate((button) => document.activeElement === button),
+      `${width}px: a clock update keeps keyboard focus`,
+    );
+    const mara = dispatchShared({ ...seats, actor: "mara", op: "view", world });
+    playTurn(mara.actions.find((action) => action.kind === "wait"), "mara");
+    nextTurn.resolve();
+    await page.waitForFunction(
+      (revision) => document.querySelector("#hand").dataset.presentedRevision === String(revision),
+      world.revision,
+    );
+    assert(await original.evaluate((button, child) =>
+      button.isConnected && document.activeElement === button && button.firstChild === child, glyph));
+    assert.equal(await wait.getAttribute("aria-label"), "Wait");
+    const current = state.actions.find((action) => action.kind === "wait" && !action.sleep);
+    await Promise.all([
+      page.waitForResponse((response) => response.request().postDataJSON()?.op === "play"),
+      page.keyboard.press("Enter"),
+    ]);
+    assert.deepEqual(commands, [current], `${width}px: Enter plays the focused current action`);
+    await page.waitForFunction((revision) =>
+      document.querySelector("#hand").dataset.presentedRevision === String(revision), world.revision);
+    assert(await original.evaluate((button) => !button.isConnected));
+    await original.evaluate((button) => button.click());
+    assert.equal(commands.length, 1, "The detached action cannot play again");
+    assert.deepEqual(errors, []);
+    console.log(
+      `Shared clock and unrelated turns preserve the focused current action at ${width}px.`,
+    );
+  } finally {
+    firstClock.resolve();
+    nextTurn.resolve();
+    await page.close();
+  }
+}
 // The words a play's outcome shows: the status line, or once that is clear,
 // a refused play's own disabled button.
 const shows = (text) =>
@@ -184,6 +333,7 @@ async function checkPlayRecovery(width, scenario) {
   }
 }
 try {
+  for (const width of [1440, 390]) await checkClockFocus(width);
   for (const width of [1440, 390]) {
     let world = dispatchShared({
       op: "create",

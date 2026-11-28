@@ -4,17 +4,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEFAULT_TIMEOUT_SECS=120
 if [ "${CI:-}" = "true" ]; then
-  # The combined pack and released-history replay suite needs its full run.
-  # Compilation and tests each keep a separate bounded budget. Main's test
-  # phase took about 960s of 1200s; the sea-lane voyages add replay rounds.
+  # Compilation and tests each keep a separate bounded budget.
   DEFAULT_TIMEOUT_SECS=1800
 fi
 TIMEOUT_SECS="${COSYWORLD_CARGO_TIMEOUT_SECS:-$DEFAULT_TIMEOUT_SECS}"
 
-# Known flaky tests. `test` skips them so they cannot block a merge;
-# `quarantine` runs only them in CI's non-blocking job, so they still run and
-# report on every push. Each has an issue and a fix-by date; remove a name
-# here when its fix lands. Never delete or #[ignore] them.
+# Known flaky tests, which `test` and `focused` skip. Each has an issue and a
+# fix-by date; remove a name here when its fix lands.
 QUARANTINED_TESTS=(
 )
 
@@ -102,15 +98,6 @@ run_focused() {
   run_cargo_tests "running focused orchestrator tests ($*)" "$@" ${skips[@]+"${skips[@]}"}
 }
 
-run_quarantined() {
-  # With no names, libtest would run every test instead of none.
-  if [ "${#QUARANTINED_TESTS[@]}" -eq 0 ]; then
-    echo "no quarantined orchestrator tests"
-    return 0
-  fi
-  run_cargo_tests "running quarantined orchestrator tests" "${QUARANTINED_TESTS[@]}"
-}
-
 run_build() {
   (
     cd "$ROOT/orchestrator-rust"
@@ -130,9 +117,6 @@ case "${1:-all}" in
     shift
     run_focused "$@"
     ;;
-  quarantine)
-    run_quarantined
-    ;;
   build)
     run_build
     ;;
@@ -142,7 +126,7 @@ case "${1:-all}" in
     run_build
     ;;
   *)
-    echo "Usage: check-rust.sh [fmt|test|focused FILTER...|quarantine|build|all]" >&2
+    echo "Usage: check-rust.sh [fmt|test|focused FILTER...|build|all]" >&2
     exit 2
     ;;
 esac

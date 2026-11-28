@@ -20,12 +20,14 @@ import {
 } from "../v2/card-game/motives.mjs";
 import {
   GRIEVANCE_DORMANT_TURNS,
+  commitDisclosure,
   knowsFact,
   reserveKnowledge,
 } from "../v2/card-game/knowledge.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { cardPlay } from "../v2/card-game/cards.mjs";
 import { stayingWith } from "../v2/card-game/life.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
 
 const fresh = () => enableMotives(createWorld());
 // A slight taken from the latest committed event.
@@ -200,6 +202,7 @@ describe("shore wants and grievances", () => {
   for (const how of ["witnessed", "heard"])
     it(`repairs with the recipient's current want; one who ${how} it keeps theirs`, () => {
       let s = together(fresh());
+      s.actors.keeper.want = newWant("item", "bell", s.turn);
       s.items.bell.holder = "vale";
       s = act(s, "ring", { item: "bell" });
       const [g] = s.motives.grievances.keeper;
@@ -209,7 +212,6 @@ describe("shore wants and grievances", () => {
       // Pip took the same offence; it watches the gift or hears of it later.
       s.motives.grievances.moth.push({ ...g });
       if (how === "heard") s.actors.moth.place = "pond";
-      // The keeper wants the bell, so the gift answers the incident.
       expect(s.actors.keeper.want).toMatchObject({
         kind: "item",
         target: "bell",
@@ -234,7 +236,8 @@ describe("shore wants and grievances", () => {
           generated: true,
           actorId: "keeper",
         });
-        reserveKnowledge(s, "keeper", "moth", s.log.at(-1));
+        const disclosure = reserveKnowledge(s, "keeper", "moth", s.log.at(-1));
+        commitDisclosure(s, disclosure, "keeper", s.actors.keeper.place);
       }
       expect(s.knowledge.known.moth[repair.id].kind).toBe(how);
       expect(s.motives.grievances.moth[0].repaired).toBe(false);
@@ -455,9 +458,10 @@ describe("shore wants and grievances", () => {
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
-  it("keeps the cast meeting wants with motives", async () => {
+  it("keeps an item-seeking cast meeting wants with motives", async () => {
     for (const initial of [7, 42, 1729]) {
       let s = fresh();
+      s.actors.keeper.want = newWant("item", "bell", s.turn);
       let seed = initial;
       for (let i = 0; i < 240; i++) {
         if (i % 20 === 0) await yieldToRunner();

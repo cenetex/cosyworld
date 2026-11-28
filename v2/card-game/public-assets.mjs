@@ -8,6 +8,7 @@ import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
 import discordFaces from "./assets/discord-faces.json" with { type: "json" };
 import { daylightAssets } from "./daylight.mjs";
+import { stageAmbienceAssets } from "./stage-light.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
 import { sleepPortraitAssets } from "./sleep-portraits.mjs";
@@ -36,6 +37,12 @@ const files = [
   "music-streams.json",
   "shared.mjs",
   "shared-auth.mjs",
+  "elysium-portrait.mjs",
+  "elysium-models.mjs",
+  "elysium-coordinate-models.json",
+  "legacy-elysium-lines.json",
+  "world/elysium-travel.mjs",
+  "world/elysium-coordinates.mjs",
   "authoring-account-tools.mjs",
   "authoring-seed-tools.mjs",
   "authoring-github-source.mjs",
@@ -74,6 +81,8 @@ const files = [
   "unlock-view.mjs",
   "world-names.json",
   "inner-life.mjs",
+  "character-sheet.mjs",
+  "character-sheet.css",
   "toolbar.css",
   "shared-cast.json",
   "human-cast.mjs",
@@ -99,8 +108,6 @@ const files = [
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
-  // The song for the end of Polynices' burial (issue #2290); its cue follows
-  // when the burial is built.
   "mood-art.mjs",
   "mood.mjs",
   "sleep-portraits.mjs",
@@ -140,9 +147,12 @@ const files = [
   "rarity.mjs",
   "rarity-portraits.mjs",
   ...rarityPortraitAssets,
+  "quest-action.mjs",
   "quest-card.mjs",
+  "quest-call.mjs",
   "quest-step.mjs",
   "quest-screen.mjs",
+  "quest-hand.mjs",
   "card-tiers.css",
   "card-label.mjs",
   "card-descriptor.mjs",
@@ -166,6 +176,7 @@ const files = [
   "glimpse-card.mjs",
   "sleep-presentation.mjs",
   "sleep-view.mjs",
+  "read-view.mjs",
   "local-carry.mjs",
   "sleep.css",
   "locked-box.mjs",
@@ -184,14 +195,7 @@ const files = [
     "bank-roots",
     "bank-drowned",
   ].map((name) => `assets/willows/${name}.webp`),
-  // Notebook cards remain available before their items are wired.
-  ...[
-    "notebook-page-1",
-    "notebook-page-2",
-    "notebook-page-3",
-    "notebook-chapter",
-    "notebook-book",
-  ].map((name) => `assets/willows/${name}.png`),
+  "assets/willows/notebook-chapter.png",
   // Argos commissioned art: start
   "assets/greek-drama/house-atreus-palace.webp",
   "assets/greek-drama/house-atreus-tomb.webp",
@@ -257,6 +261,7 @@ const files = [
   // Brace pose art: end
   "assets/shared/characters/vale.png",
   "assets/shared/places/station.png",
+  "assets/shared/places/behind-station.webp",
   "assets/shared/items/lamp.png",
   "assets/shared/characters/mara.png",
   "assets/shared/places/theatre.png",
@@ -313,10 +318,14 @@ const files = [
   "pip-landing.mjs",
   "app.mjs",
   "action-beat-note.mjs",
+  "first-fool-view.mjs",
+  "listener-offer-view.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
   "station-exits.mjs",
   "world.mjs",
+  "pond-lamp-loan.mjs",
+  "pond-signal-view.mjs",
   "world/catalog.mjs",
   "world/create.mjs",
   "world/boxes.mjs",
@@ -335,6 +344,7 @@ const files = [
   "world/found.mjs",
   "world/items.mjs",
   "world/lanes.mjs",
+  "world/talk-knowledge.mjs",
   "world/senses.mjs",
   "world/station.mjs",
   "scene-cast.mjs",
@@ -361,6 +371,8 @@ const files = [
   "stage-light.mjs",
   "stage-light.json",
   "stage-light-view.mjs",
+  "coordinate-view.mjs",
+  "coordinate-view.css",
   "transitions.mjs",
   "weather-shader.mjs",
   "weather.css",
@@ -371,6 +383,8 @@ const files = [
   "motives.mjs",
   "life.mjs",
   "knowledge.mjs",
+  "claims.mjs",
+  "branch-ways.mjs",
   "roaming-routes.mjs",
   "resident-home.mjs",
   "resident-sleep.mjs",
@@ -379,6 +393,8 @@ const files = [
   "want.mjs",
   "glimpse.mjs",
   "talk-quest.mjs",
+  "quest-learn.mjs",
+  "quest-deck.mjs",
   "offer-chance.mjs",
   "memory.mjs",
   "learning.mjs",
@@ -394,7 +410,9 @@ const files = [
   "expression.mjs",
   "emoji-symbols.json",
   "dialogue.mjs",
+  "beat-motion.mjs",
   "speech-pages.mjs",
+  "speech-text.mjs",
   "card-names.mjs",
   "character-speech.mjs",
   "hosted-voices.mjs",
@@ -414,6 +432,7 @@ const files = [
   "item-use.mjs",
   "pack-items.mjs",
   "pack-items-schema.mjs",
+  "book-schema.mjs",
   "legacy-saves.mjs",
   "forest.json",
   "arcana.json",
@@ -475,7 +494,8 @@ const files = [
     "water-jar",
   ].map((id) => `assets/greek-drama/${id}.svg`),
 ];
-for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
+for (const file of [...packMediaFiles, ...stageAmbienceAssets])
+  if (!files.includes(file)) files.push(file);
 for (const { art } of arcana.cards)
   if (art && !files.includes(art)) files.push(art);
 for (const portrait of Object.keys(discordFaces)) {

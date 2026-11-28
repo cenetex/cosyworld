@@ -7,13 +7,19 @@ import {
   SEEK,
   UNKNOWN,
   joinWants,
+  kindOf,
   wantWords,
 } from "../v2/card-game/world/want-words.mjs";
 import { boxDefs, goalsFor } from "../v2/card-game/world/boxes.mjs";
 import { lockWords } from "../v2/card-game/cards.mjs";
 import { questCaption } from "../v2/card-game/quest-card.mjs";
 import { people, places, things } from "../v2/card-game/world/catalog.mjs";
-import { questsOf } from "../v2/card-game/want.mjs";
+import { questFor, toldWant } from "../v2/card-game/talk-quest.mjs";
+import {
+  packDefinitions,
+  packEntity,
+  packPeople,
+} from "../v2/card-game/pack-registry.mjs";
 import { journeyWorlds } from "./helpers/journey.mjs";
 import { questCards } from "./journeys/quest-cards.mjs";
 
@@ -89,6 +95,12 @@ describe("one wording of a want", () => {
       "lay Lamp, Coat in Hut",
     ],
     [{ kind: "place", target: "hut", step: { verb: "rest" } }, "rest at Hut"],
+    [{ kind: "place", target: "hut", step: { verb: "wait" } }, "wait at Hut"],
+    [{ kind: "person", target: "pip", step: { verb: "meet" } }, "meet Pip"],
+    [
+      { kind: "person", target: "pip", step: { verb: "depart" } },
+      "see Pip depart",
+    ],
     [{ kind: "connect", target: null }, "introduce two people"],
   ];
   for (const [want, words] of shapes)
@@ -145,6 +157,18 @@ describe("one wording of a want", () => {
       [
         { kind: "place", target: "hut", step: { verb: "rest" } },
         "rest somewhere you haven't discovered",
+      ],
+      [
+        { kind: "place", target: "hut", step: { verb: "wait" } },
+        "wait somewhere you haven't discovered",
+      ],
+      [
+        { kind: "person", target: "pip", step: { verb: "meet" } },
+        "meet someone",
+      ],
+      [
+        { kind: "person", target: "pip", step: { verb: "depart" } },
+        "see someone you haven't met depart",
       ],
       [
         { kind: "item", target: "lamp", step: { verb: "give", to: "pip" } },
@@ -273,6 +297,7 @@ describe("what a lock waits on, from its conditions", () => {
   const worldOf = ({ met = [], choices = [] } = {}) => ({
     met: (condition) => met.includes(JSON.stringify(condition)),
     choices,
+    kind: cards.kind,
   });
   const given = (condition) => JSON.stringify(condition);
   const goals = (conditions, state) => goalsFrom(worldOf(state), conditions);
@@ -325,7 +350,6 @@ describe("what a lock waits on, from its conditions", () => {
       { kind: "person", target: "pip" },
       { kind: "item", target: "lamp", step: { verb: "bring", at: "hut" } },
     ]);
-    // One met, the other remains.
     expect(goals(both, { met: [given(both[0])] })).toEqual([
       { kind: "item", target: "lamp", step: { verb: "bring", at: "hut" } },
     ]);
@@ -345,31 +369,47 @@ describe("what a lock waits on, from its conditions", () => {
     ]);
   });
 
-  it("follows a flag to the choice that sets it: a give, or a meeting", () => {
-    const choices = [
-      {
-        id: "hand-over",
-        subject: "pip",
-        on: "give",
-        requires: [{ kind: "holding", item: "lamp", role: "actor" }],
-        effects: [{ kind: "set_flag", key: "handed", value: true }],
-      },
-      {
-        id: "greet",
-        subject: "ada",
-        on: "meet",
-        requires: [],
-        effects: [{ kind: "set_flag", key: "greeted", value: true }],
-      },
-    ];
-    expect(goals([flagOn("handed")], { choices })).toEqual([
-      { kind: "item", target: "lamp", step: { verb: "give", to: "pip" } },
-    ]);
-    expect(goals([flagOn("greeted")], { choices })).toEqual([
-      { kind: "person", target: "ada" },
-    ]);
-    // A flag nothing in the pack sets has no want to show.
-    expect(goals([flagOn("mystery")], { choices })).toEqual([]);
+  it("follows a flag to the choice that sets it, as that choice's own play", () => {
+    const lamp = [{ kind: "holding", item: "lamp", role: "actor" }];
+    const play = (on, subject, at, requires = []) => ({
+      id: `${on}-${subject}`,
+      on,
+      subject,
+      at,
+      requires,
+      effects: [{ kind: "set_flag", key: `${on}-${subject}`, value: true }],
+    });
+    for (const [choice, goal] of [
+      [
+        play("give", "pip", "hut", lamp),
+        { kind: "item", target: "lamp", step: { verb: "give", to: "pip" } },
+      ],
+      [play("talk", "pip", "hut"), { kind: "person", target: "pip" }],
+      [play(undefined, "pip", "hut"), { kind: "person", target: "pip" }],
+      [
+        play("meet", "ada", "hut"),
+        { kind: "person", target: "ada", step: { verb: "meet" } },
+      ],
+      [play("meet", "bay", "bay"), { kind: "place", target: "bay" }],
+      [
+        play("wait", "hut", "hut"),
+        { kind: "place", target: "hut", step: { verb: "wait" } },
+      ],
+      [
+        play("wait", "ada", "bay"),
+        { kind: "place", target: "bay", step: { verb: "wait" } },
+      ],
+      [play("hold", "lamp", "hut", lamp), { kind: "item", target: "lamp" }],
+      [
+        play("depart", "ada", "bay"),
+        { kind: "person", target: "ada", step: { verb: "depart" } },
+      ],
+    ])
+      expect(
+        goals([flagOn(choice.id)], { choices: [choice] }),
+        choice.id,
+      ).toEqual([goal]);
+    expect(goals([flagOn("mystery")], { choices: [] })).toEqual([]);
   });
 
   it("follows a choice value to the play that makes it", () => {
@@ -417,7 +457,7 @@ describe("what a lock waits on, from its conditions", () => {
       },
     ];
     expect(goals([flagOn("two")], { choices })).toEqual([
-      { kind: "person", target: "ada" },
+      { kind: "person", target: "ada", step: { verb: "meet" } },
     ]);
     expect(
       goals([flagOn("two")], { choices, met: [given(flagOn("one"))] }),
@@ -526,9 +566,11 @@ describe("a lock in a real world shows only what the traveler knows", () => {
     expect(lockWords(s, def.id, () => true)).toContain("Tablet");
   });
 
-  it("words a quest offered to a fresh traveler without its undiscovered names", () => {
-    const told = journeyWorlds(questCards).accepted;
-    const offers = questsOf(told, "vale").map((want) => ({ id: want.from, want }));
+  it("words a quest a fresh traveler knows without its undiscovered names", () => {
+    const told = journeyWorlds(questCards).told;
+    const offers = Object.keys(told.actors)
+      .filter((id) => toldWant(told, "vale", id))
+      .map((id) => ({ id, want: questFor(told, id, told.actors[id].want) }));
     expect(offers.length).toBeGreaterThan(0);
     for (const offer of offers) {
       const quest = { actor: "vale", ...offer.want };
@@ -539,4 +581,95 @@ describe("a lock in a real world shows only what the traveler knows", () => {
       expect(questCaption(quest, false, null, () => true)).not.toBe(blind);
     }
   });
+});
+
+describe("a lock's want is the play of the choice it traces to", () => {
+  const sets = (condition) => (choice) =>
+    choice.effects.some(
+      (e) =>
+        e.kind === (condition.kind === "choice" ? "choose" : "set_flag") &&
+        e.key === condition.key &&
+        e.value === condition.value,
+    );
+  const choices = packDefinitions.flatMap((pack) => pack.choices || []);
+  const traced = new Map();
+  const trace = (condition) => {
+    if (!condition) return;
+    [...(condition.conditions || []), condition.condition].forEach(trace);
+    if (!["flag", "choice"].includes(condition.kind)) return;
+    for (const choice of choices.filter(sets(condition)))
+      if (!traced.has(choice.id)) {
+        traced.set(choice.id, { choice, condition });
+        (choice.requires || []).forEach(trace);
+      }
+  };
+  for (const def of boxDefs())
+    [
+      def.route?.requires,
+      def.route?.travelerRequires,
+      def.crossing?.requires,
+      def.lane?.opensWith,
+      def.call?.unlockWhen,
+      packEntity(def.id)?.requires,
+      packEntity(def.id)?.appearsWhen,
+    ]
+      .flat()
+      .forEach(trace);
+  for (const person of Object.values(packPeople))
+    for (const { want, when } of person.wants || []) {
+      (when || []).forEach(trace);
+      if (want?.step?.finish)
+        trace({ kind: "flag", key: want.step.finish, value: true });
+    }
+  const OWN = { item: "hold", person: "talk", place: "meet" };
+  const WORDS = {
+    item: { give: /^give .+ to /u, hold: /^hold /u },
+    person: {
+      talk: /^talk with /u,
+      meet: /^meet /u,
+      depart: /^see .+ depart$/u,
+    },
+    place: { meet: /^go to /u, wait: /^wait at /u },
+  };
+
+  it("traces locks and quests to choices of each trigger they wait on", () => {
+    expect([...traced.keys()]).toEqual(
+      expect.arrayContaining([
+        "willows-pace-willows",
+        "forest-clear-drain",
+        "ratiradio-return-things",
+      ]),
+    );
+    expect([...traced.values()].map(({ choice }) => choice.on)).toEqual(
+      expect.arrayContaining(["give", "meet", "talk", "wait"]),
+    );
+  });
+
+  it.each(
+    [...traced.values()].map(({ choice, condition }) => [
+      choice.id,
+      choice,
+      condition,
+    ]),
+  )(
+    "words %s by its trigger and its subject's own kind",
+    (_, choice, condition) => {
+      const [goal] = goalsFrom(
+        { met: (c) => c !== condition, choices: [choice] },
+        [condition],
+      );
+      const verb = goal.step?.verb ?? OWN[goal.kind];
+      expect(verb).toBe(choice.on ?? OWN[kindOf(choice.subject)]);
+      expect(goal.kind).toBe(kindOf(goal.target));
+      expect(
+        { item: things, person: people, place: places }[goal.kind],
+      ).toHaveProperty([goal.target]);
+      expect(choice.on === "give" ? goal.step.to : goal.target).toBe(
+        choice.on === "wait" ? choice.at : choice.subject,
+      );
+      const words = wantWords(goal);
+      expect(words).toMatch(WORDS[goal.kind][verb]);
+      if (goal.kind === "place") expect(words).not.toMatch(/\btalk\b/iu);
+    },
+  );
 });

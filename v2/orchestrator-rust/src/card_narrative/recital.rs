@@ -22,7 +22,10 @@ pub(super) struct Stanza {
 fn authored_recital(actor: &str) -> Option<&'static Value> {
     static PACKS: OnceLock<Value> = OnceLock::new();
     let packs = PACKS.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/packs.json")).expect("card packs")
+        serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card-game/packs.json",
+        ))
+        .expect("card packs")
     });
     packs["packs"]
         .as_array()?
@@ -31,8 +34,7 @@ fn authored_recital(actor: &str) -> Option<&'static Value> {
         .map(|pack| &pack["recital"])
 }
 
-// The poem names authored verse ids and their travellers. Couplet text is
-// lore in content/<pack>/lore and never reaches the prompt.
+// The poem names authored verse ids and their travellers.
 pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
     let Some(poem) = poem else { return true };
     let Some(recital) = authored_recital(actor) else {
@@ -59,6 +61,15 @@ pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
         }
     }
     true
+}
+
+pub(super) fn known_authors(poem: &Poem) -> bool {
+    poem.stanzas
+        .iter()
+        .all(|stanza| match stanza.author_name.as_str() {
+            "an earlier traveler" => stanza.author_id.is_none(),
+            name => super::authored::name(name),
+        })
 }
 
 pub(super) fn prompt_lines(poem: &Poem) -> Vec<String> {

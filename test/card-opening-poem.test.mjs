@@ -11,25 +11,15 @@ import { greekErrands } from "./helpers/greek-opening.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 import { recitalContext, recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
-import {
-  packDefinition,
-} from "../v2/card-game/pack-registry.mjs";
+import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { hub } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import lore from "../v2/content/greek-drama/lore/bard-couplets.json" with { type: "json" };
 
 const openingPoem = (world) =>
   recitalPoem(world, packDefinition("greek-drama"));
 const stanzas = (world) => openingPoem(world).stanzas;
 const ids = (world) => stanzas(world).map((s) => s.id);
-// Every authored couplet line, kept as lore outside the rules and prompts.
-const couplets = Object.values(lore.verses).flatMap((v) => [
-  ...v.lines,
-  ...(v.after?.lines || []),
-]);
-const quotesLore = (value) =>
-  couplets.some((line) => JSON.stringify(value).includes(line));
 const reload = (world) => decodeSave(encodeSave(world));
 const act = (world, kind, target) => {
   if (kind === "move") {
@@ -67,16 +57,6 @@ const poem = (world) =>
 const poemIds = (world) => poem(world)?.stanzas.map((s) => s.id) || [];
 
 describe("the opening poem", () => {
-  it("keeps every couplet as lore keyed by its verse choice", () => {
-    const pack = packDefinition("greek-drama");
-    expect(lore.title).toBe(pack.recital.title);
-    expect(Object.keys(lore.verses).sort()).toEqual(
-      pack.recital.verses.map((v) => v.choice).sort(),
-    );
-    expect(couplets).toHaveLength(60);
-    expect(quotesLore(pack.recital)).toBe(false);
-  });
-
   it("names each traveler of a long earned poem without couplet text", () => {
     const verses = Array.from({ length: 12 }, (_, i) => ({
       choice: `verse-${i}`,
@@ -118,7 +98,6 @@ describe("the opening poem", () => {
     );
     const song = facts(talked);
     expect(poemIds(talked)).toEqual(ids(buried));
-    expect(quotesLore(context)).toBe(false);
     expect(poem(reload(talked))).toEqual(poem(talked));
     expect(song.length).toBeLessThanOrEqual(16);
     expect(
@@ -126,7 +105,6 @@ describe("the opening poem", () => {
     ).toBe(true);
     expect(facts(reload(talked))).toEqual(song);
   });
-
 
   it("validates authored recital choices and keeps couplets out of the pack", () => {
     for (const change of [

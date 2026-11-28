@@ -1,8 +1,6 @@
-//! The voice's fallback chain (owner, 2026-11-04: characters can be any
-//! model, with fallbacks). A part asks its own model once, then each fallback
-//! once, in order, inside its one scene deadline.
+//! The voice's fallback chain inside its scene deadline.
 use super::{bounded, tier_config, VoiceSettings};
-use crate::ai_gateway::{AiConfig, ConcreteModelIdentity, ModelCapability};
+use crate::ai_gateway::{AiConfig, AiGatewayError, ConcreteModelIdentity, ModelCapability};
 use std::time::Duration;
 
 const LIST: &str = "COSYWORLD_CARD_FALLBACK_MODELS";
@@ -80,11 +78,19 @@ pub(super) fn chain(config: &AiConfig, own: AiConfig, fallbacks: &[String]) -> O
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Miss {
     Blocked,
-    /// A provider error (a 5xx among them) or an empty reply.
     Failed,
+    RetryableResponse,
 }
 
 impl Miss {
+    pub(super) fn provider(error: &AiGatewayError, bound_line: bool) -> Self {
+        if bound_line && error.retryable_chat_response() {
+            Self::RetryableResponse
+        } else {
+            Self::Failed
+        }
+    }
+
     pub(super) fn of(reason: &str) -> Self {
         match reason {
             "empty" => Self::Failed,
@@ -93,9 +99,8 @@ impl Miss {
     }
 }
 
-/// Run a chain of `links` models inside the scene deadline. Each model is
-/// asked once, with the time that remains shared over the models still to
-/// try. `request` gets the link, the part's attempt number and its budget.
+/// Share the remaining scene budget across routes. A bound voice can ask
+/// the same model once more after an unusable successful response.
 pub(super) async fn run<T, F, Fut>(
     settings: &VoiceSettings,
     deadline: tokio::time::Instant,
@@ -108,17 +113,21 @@ where
     Fut: std::future::Future<Output = Result<T, Miss>>,
 {
     for link in 0..links {
-        let now = tokio::time::Instant::now();
-        let share = deadline.saturating_duration_since(now) / (links - link) as u32;
-        let budget = share.min(settings.call_timeout);
-        if budget.is_zero() {
+        for retry in 0..=1 {
+            let now = tokio::time::Instant::now();
+            let share = deadline.saturating_duration_since(now) / (links - link) as u32;
+            let budget = share.min(settings.call_timeout);
+            if budget.is_zero() {
+                return Err(());
+            }
+            let attempt = link as u8 + retry;
+            match tokio::time::timeout_at(now + budget, request(link, attempt, budget)).await {
+                Ok(Ok(spoken)) => return Ok(spoken),
+                Ok(Err(Miss::RetryableResponse)) if links == 1 && retry == 0 => continue,
+                Ok(Err(_)) => {}
+                Err(_) => timed_out(link, attempt),
+            }
             break;
-        }
-        let attempt = link as u8;
-        match tokio::time::timeout_at(now + budget, request(link, attempt, budget)).await {
-            Ok(Ok(spoken)) => return Ok(spoken),
-            Ok(Err(_)) => {}
-            Err(_) => timed_out(link, attempt),
         }
     }
     Err(())
@@ -126,8 +135,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::tests::{context, models_for, serve, solo_departure, stem_of, tiered_config};
-    use super::super::{complete_selected, voice_metrics};
+    use super::super::tests::{
+        context, models_for, request, serve, solo_departure, stem_of, tiered_config,
+    };
+    use super::super::{complete_selected, reflection, speak, voice_metrics, Context, Part};
     use super::*;
     use axum::{http::StatusCode, routing::post, Json, Router};
     use serde_json::{json, Value};
@@ -237,6 +248,323 @@ mod tests {
         assert!(silent.is_err());
         assert!(count("unroutable") > Some(before));
         assert!(seen.lock().unwrap().is_empty());
+        server.abort();
+    }
+
+    const GEMINI: &str = "elysium-gemini";
+
+    fn void_scene() -> Context {
+        let mut scene = context();
+        scene.location = "elysium-void-003".into();
+        scene.entities[0].id = GEMINI.into();
+        scene.entities[1].id = scene.location.clone();
+        scene.speakers = vec![GEMINI.into()];
+        scene.scenery = false;
+        scene.focus = None;
+        scene
+    }
+
+    #[tokio::test]
+    async fn gemini_recovers_signed_speech_after_an_empty_reply_but_never_retries_filtering() {
+        use crate::routes::signed_envelope::{content_hash, keys, Envelope, Verdict};
+        use axum::body::to_bytes;
+        use tower::ServiceExt;
+
+        const REVISION: &str = "google/gemini-4-hydrogen-20261112";
+        let model = crate::card_shared::elysium_model(GEMINI).unwrap();
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let log = observed.clone();
+        let provider = post(move |Json(body): Json<Value>| async move {
+            let (resolved, choice) = if body["model"] != model {
+                (
+                    body["model"].clone(),
+                    json!({"message":{"content":"What do you hear in these mirrors?"},"finish_reason":"stop"}),
+                )
+            } else {
+                let mut requests = log.lock().unwrap();
+                requests.push(body);
+                let reply = match requests.len() {
+                    1 => {
+                        json!({"message":{"content":null,"reasoning":"Private thought."},"finish_reason":"length"})
+                    }
+                    2 => {
+                        json!({"message":{"content":"I hear the room breathe."},"finish_reason":"stop"})
+                    }
+                    _ => {
+                        json!({"message":{"content":null,"reasoning":"Private thought."},"finish_reason":"content_filter"})
+                    }
+                };
+                (json!(REVISION), reply)
+            };
+            Json(json!({"model":resolved,"choices":[choice]}))
+        });
+        let (address, server) = serve(Router::new().route("/chat/completions", provider)).await;
+        let app = super::super::router_with_models::<()>(
+            Arc::new(Some(tiered_config(address, &[(model, true)]))),
+            Ok(Default::default()),
+            Ok(VoiceSettings::hosted()),
+        );
+        let desire = json!({"items":[],"avatars":[]});
+        let context: Context = serde_json::from_value(json!({
+            "revision":8,"turn":8,"location":"elysium-void-003","scenery":false,
+            "speakers":["vale",GEMINI],
+            "entities":[
+                {"id":"elysium-void-003","facts":[],"memories":[]},
+                {"id":"vale","facts":[],"memories":[],"desire":desire},
+                {"id":GEMINI,"facts":[],"memories":[],"desire":desire}
+            ],
+            "outcome":{
+                "card":{"kind":"talk","target":GEMINI},
+                "avatars":[
+                    {"id":"vale","location":"elysium-void-003","holding":[]},
+                    {"id":GEMINI,"location":"elysium-void-003","holding":[]}
+                ],
+                "items":[]
+            }
+        }))
+        .unwrap();
+        for expected_speakers in [2, 1] {
+            let response = app.clone().oneshot(request(&context)).await.unwrap();
+            let status = response.status();
+            let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
+            assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+            let value: Value = serde_json::from_slice(&body).unwrap();
+            let entries = value["entries"].as_array().unwrap();
+            assert_eq!(entries.len(), expected_speakers, "{value}");
+            assert!(!value.to_string().contains("Private thought."));
+            if expected_speakers == 2 {
+                let entry = &entries[1];
+                assert_eq!(entry["id"], GEMINI);
+                assert_eq!(entry["model"], REVISION);
+                assert_eq!(entry["text"], "I hear the room breathe.");
+                let envelope: Envelope = serde_json::from_value(entry["signed"].clone()).unwrap();
+                assert_eq!(keys().verify(&envelope), Verdict::Valid);
+                assert_eq!(
+                    envelope.claims.content,
+                    content_hash("I hear the room breathe.")
+                );
+                assert_eq!(envelope.claims.entity, GEMINI);
+            }
+        }
+        let requests = observed.lock().unwrap();
+        assert_eq!(requests.len(), 3);
+        assert!(requests.iter().all(|body| body["model"] == model));
+        assert!(requests
+            .iter()
+            .all(|body| body["reasoning"]["effort"] == "low"));
+        assert_eq!(requests[0]["max_tokens"], 1024);
+        assert_eq!(requests[1]["max_tokens"], 2048);
+        assert_eq!(requests[2]["max_tokens"], 1024);
+        let metrics = voice_metrics::snapshot();
+        for detail in ["reasoning_only", "provider_declined"] {
+            assert!(metrics["provider_response_details"][detail].as_u64() >= Some(1));
+        }
+        let recent = metrics["recent_outcomes"].as_array().unwrap();
+        let trace = |detail: &str| {
+            recent
+                .iter()
+                .find(|call| {
+                    call["entity"] == GEMINI
+                        && call["attempts"][0]["failure"]["response_detail"] == detail
+                })
+                .unwrap()
+        };
+        let recovered = trace("reasoning_only");
+        assert_eq!(recovered["outcome"], "spoken");
+        let attempts = recovered["attempts"].as_array().unwrap();
+        assert_eq!(attempts.len(), 2);
+        assert_eq!(attempts[0]["attempt"], 1);
+        assert_eq!(attempts[0]["outcome"], "invalid_response");
+        assert_eq!(attempts[1]["attempt"], 2);
+        assert_eq!(attempts[1]["outcome"], "spoken");
+        assert_eq!(attempts[1]["finish"], "stop");
+        assert_eq!(
+            trace("provider_declined")["attempts"][0]["outcome"],
+            "rejected"
+        );
+        assert!(!metrics.to_string().contains("Private thought."));
+        assert!(!metrics.to_string().contains("I hear the room breathe."));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn grok_accepts_its_exact_revision_and_keeps_low_reasoning() {
+        const RESIDENT: &str = "elysium-grok";
+        const ROOM: &str = "elysium-void-005";
+        const REVISION: &str = "x-ai/grok-4.7-20260916";
+        const REPLY: &str = "I hear thunder over the ledge.";
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let requests = seen.clone();
+        let provider = post(move |Json(body): Json<Value>| async move {
+            let mut requests = requests.lock().unwrap();
+            requests.push(body);
+            let (model, text) = match requests.len() {
+                1 => ("x-ai/grok-4.6", "Borrowed Name"),
+                2 => (REVISION, "Copper Lark"),
+                3 => (REVISION, REPLY),
+                _ => ("x-ai/grok-4.7-20260917", REPLY),
+            };
+            Json(
+                json!({"model":model,"choices":[{"message":{"content":text},"finish_reason":"stop"}]}),
+            )
+        });
+        let (address, server) = serve(Router::new().route("/chat/completions", provider)).await;
+        let model = crate::card_shared::elysium_model(RESIDENT).unwrap();
+        let config = tiered_config(address, &[(model, true)]);
+        let root = std::env::temp_dir().join(format!("grok-name-{}", crate::random_hex(8)));
+        let mut state = crate::test_support::test_app_state(None);
+        state.ai_config = Arc::new(Some(config.clone()));
+        state.generated_asset_dir = Arc::new(root.clone());
+        let name = crate::card_shared::elysium_name(&state, RESIDENT, ROOM, true).await;
+        assert_eq!(name.as_deref(), Some("Copper Lark"));
+
+        let mut scene = void_scene();
+        scene.location = ROOM.into();
+        scene.entities[0].id = RESIDENT.into();
+        scene.entities[1].id = ROOM.into();
+        scene.speakers = vec![RESIDENT.into()];
+        let settings = VoiceSettings {
+            fallback_models: vec!["test-entity-model".into()],
+            ..VoiceSettings::hosted()
+        };
+        let cast = Default::default();
+        let deadline = tokio::time::Instant::now() + settings.scene_timeout;
+        let line = || {
+            speak(
+                &config,
+                &scene,
+                &cast,
+                &settings,
+                deadline,
+                RESIDENT,
+                Part::Line,
+            )
+        };
+        assert_eq!(line().await.unwrap(), (REPLY.into(), REVISION.into()));
+        assert!(line().await.is_err());
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 4);
+        assert!(seen.iter().all(|request| request["model"] == model));
+        assert!(seen
+            .iter()
+            .all(|request| request["reasoning"]["effort"] == "low"));
+        std::fs::remove_dir_all(root).unwrap();
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn elysium_speech_and_reflections_use_only_the_bound_model() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let log = seen.clone();
+        let provider = post(move |Json(body): Json<Value>| async move {
+            log.lock().unwrap().push(body.clone());
+            let stem = stem_of(&body);
+            let (text, finish) = if stem.ends_with(", to myself:") {
+                ("I felt welcome.", "stop")
+            } else if stem.ends_with(", who I am now:") {
+                ("I am listening for company in the quiet.", "stop")
+            } else if stem == "Last night I dreamed:" {
+                ("I dreamed of waves passing through a quiet hall.", "stop")
+            } else {
+                ("I feel a quiet kinship with these mirrors.", "length")
+            };
+            let message = if body["max_tokens"].as_u64().unwrap() >= 1024 {
+                json!({"content":text})
+            } else {
+                json!({"content":null,"reasoning":"Thinking about the mirrors."})
+            };
+            Json(
+                json!({"model":body["model"],"choices":[{"message":message,"finish_reason":finish}]}),
+            )
+        });
+        let (address, server) = serve(Router::new().route("/chat/completions", provider)).await;
+        let model = crate::card_shared::elysium_model(GEMINI).unwrap();
+        let config = tiered_config(address, &[(model, false), ("openai/reflection", false)]);
+        let settings = VoiceSettings {
+            reflection_model: Some("openai/reflection".into()),
+            fallback_models: vec!["test-entity-model".into()],
+            ..VoiceSettings::hosted()
+        };
+        let models = [(GEMINI.into(), "test-entity-model".into())].into();
+        let mut scene = void_scene();
+        let deadline = tokio::time::Instant::now() + settings.scene_timeout;
+        let line = speak(
+            &config,
+            &scene,
+            &models,
+            &settings,
+            deadline,
+            GEMINI,
+            Part::Line,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            line,
+            (
+                "I feel a quiet kinship with these mirrors.".into(),
+                model.into()
+            )
+        );
+
+        scene.rest = Some("long".into());
+        scene.resting = Some(GEMINI.into());
+        scene.dream = Some("glimpse".into());
+        let memory = reflection::generate(&config, &scene, &models, &settings, deadline, GEMINI)
+            .await
+            .expect("the bound resident's reflection");
+        assert_eq!(memory.models.len(), 3);
+        assert!(memory.models.values().all(|used| used == model));
+        assert!(memory.dream.is_some());
+        let requests = seen.lock().unwrap();
+        assert_eq!(requests.len(), 4);
+        assert!(requests.iter().all(|body| body["model"] == model));
+        assert!(requests.iter().all(|body| body["max_tokens"] == 1024));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn elysium_rejects_model_substitution_and_misses_without_fallback() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let log = seen.clone();
+        let provider = post(move |Json(body): Json<Value>| async move {
+            let mut requests = log.lock().unwrap();
+            requests.push(body);
+            if requests.len() == 1 {
+                return (
+                    StatusCode::OK,
+                    Json(json!({"model":"test-entity-model","choices":[
+                        {"message":{"content":"I hear quiet beyond the mirrors."},"finish_reason":"stop"}
+                    ]})),
+                );
+            }
+            (StatusCode::BAD_GATEWAY, Json(json!({})))
+        });
+        let (address, server) = serve(Router::new().route("/chat/completions", provider)).await;
+        let model = crate::card_shared::elysium_model(GEMINI).unwrap();
+        let settings = VoiceSettings {
+            fallback_models: vec!["test-entity-model".into()],
+            ..VoiceSettings::hosted()
+        };
+        let scene = void_scene();
+        for _ in 0..2 {
+            let config = tiered_config(address, &[(model, false)]);
+            let deadline = tokio::time::Instant::now() + settings.scene_timeout;
+            assert!(speak(
+                &config,
+                &scene,
+                &Default::default(),
+                &settings,
+                deadline,
+                GEMINI,
+                Part::Line,
+            )
+            .await
+            .is_err());
+        }
+        let requests = seen.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert!(requests.iter().all(|body| body["model"] == model));
         server.abort();
     }
 

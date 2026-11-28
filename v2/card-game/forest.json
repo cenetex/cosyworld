@@ -19,10 +19,17 @@
   "places": {
     "station": {
       "name": "Empty station",
-      "text": "The timetable lists years that have yet to happen. A path leads along the shore to the pond.",
+      "text": "The timetable lists years that have yet to happen. One path leads along the shore to the pond. A narrow walk rounds the station.",
       "exits": [
-        "pond"
+        "pond",
+        "behind-station"
       ]
+    },
+    "behind-station": {
+      "name": "Behind the Station",
+      "text": "Rain-dark stones run along the station's back wall. A blue smile marks a rounded door. Beside it, a brass lock catches the light beneath a thin aerial.",
+      "exits": ["station"],
+      "backdrop": "assets/shared/places/behind-station.webp"
     },
     "attic": {
       "sanctuary": true,
@@ -88,7 +95,7 @@
       },
       "home": "station",
       "values": { "lamp": 3, "oil": 8, "bell": 10, "cloth": 6 },
-      "want": { "kind": "item", "target": "bell" },
+      "want": { "kind": "place", "target": "pond", "step": { "verb": "call", "crossing": "pond-greek-harbor" } },
       "valueRules": {
         "cloth": [{ "when": [{ "item": "bell", "field": "ringing", "min": 1 }], "add": 9 }]
       },
@@ -144,6 +151,17 @@
       "name": "Black cloth",
       "startLevel": 11,
       "text": "A square of heavy black cloth."
+    },
+    "keeper-log": {
+      "name": "The keeper’s log",
+      "art": "assets/willows/notebook-book.png",
+      "author": "keeper",
+      "lifecycle": "fixed",
+      "teachesQuest": "pond",
+      "questReadText": "The keeper asks you to make the next call at Black pond and watch the far shore for the ship.",
+      "claims": [
+        { "id": "pond-signal", "text": "The ship takes its signal at Black pond from the Black cloth held in hand and the Lamp burning on the ground.", "about": "pond" }
+      ]
     }
   },
   "initialState": {
@@ -208,6 +226,10 @@
       },
       "cloth": {
         "holder": "moth",
+        "history": []
+      },
+      "keeper-log": {
+        "holder": "station",
         "history": []
       }
     },

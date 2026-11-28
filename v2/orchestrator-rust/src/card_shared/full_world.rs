@@ -59,7 +59,7 @@ impl World {
         }
         let result = engine::reduce(request)?;
         Ok(Self {
-            version: engine::VERSION.into(),
+            version: engine::version().into(),
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
@@ -114,59 +114,7 @@ impl World {
             let target = command["to"]
                 .as_str()
                 .ok_or("Choose a saved rules upgrade.")?;
-            let versions = [
-                engine::HUNDRED_THIRTY_THIRD_VERSION,
-                engine::HUNDRED_THIRTY_FOURTH_VERSION,
-                engine::HUNDRED_THIRTY_FIFTH_VERSION,
-                engine::HUNDRED_THIRTY_SIXTH_VERSION,
-                engine::HUNDRED_THIRTY_SEVENTH_VERSION,
-                engine::HUNDRED_THIRTY_EIGHTH_VERSION,
-                engine::HUNDRED_THIRTY_NINTH_VERSION,
-                engine::HUNDRED_FORTIETH_VERSION,
-                engine::HUNDRED_FORTY_FIRST_VERSION,
-                engine::HUNDRED_FORTY_SECOND_VERSION,
-                engine::HUNDRED_FORTY_THIRD_VERSION,
-                engine::HUNDRED_FORTY_FOURTH_VERSION,
-                engine::HUNDRED_FORTY_FIFTH_VERSION,
-                engine::HUNDRED_FORTY_SIXTH_VERSION,
-                engine::HUNDRED_FORTY_SEVENTH_VERSION,
-                engine::HUNDRED_FORTY_EIGHTH_VERSION,
-                engine::HUNDRED_FORTY_NINTH_VERSION,
-                engine::HUNDRED_FIFTIETH_VERSION,
-                engine::HUNDRED_FIFTY_FIRST_VERSION,
-                engine::HUNDRED_FIFTY_SECOND_VERSION,
-                engine::HUNDRED_FIFTY_THIRD_VERSION,
-                engine::HUNDRED_FIFTY_FOURTH_VERSION,
-                engine::HUNDRED_FIFTY_FIFTH_VERSION,
-                engine::HUNDRED_FIFTY_SIXTH_VERSION,
-                engine::HUNDRED_FIFTY_SEVENTH_VERSION,
-                engine::HUNDRED_FIFTY_EIGHTH_VERSION,
-                engine::HUNDRED_FIFTY_NINTH_VERSION,
-                engine::HUNDRED_SIXTIETH_VERSION,
-                engine::HUNDRED_SIXTY_FIRST_VERSION,
-                engine::HUNDRED_SIXTY_SECOND_VERSION,
-                engine::HUNDRED_SIXTY_THIRD_VERSION,
-                engine::HUNDRED_SIXTY_FOURTH_VERSION,
-                engine::HUNDRED_SIXTY_FIFTH_VERSION,
-                engine::HUNDRED_SIXTY_SIXTH_VERSION,
-                engine::HUNDRED_SIXTY_SEVENTH_VERSION,
-                engine::HUNDRED_SIXTY_EIGHTH_VERSION,
-                engine::HUNDRED_SIXTY_NINTH_VERSION,
-                engine::HUNDRED_SEVENTIETH_VERSION,
-                engine::HUNDRED_SEVENTY_FIRST_VERSION,
-                engine::HUNDRED_SEVENTY_SECOND_VERSION,
-                engine::HUNDRED_SEVENTY_THIRD_VERSION,
-                engine::HUNDRED_SEVENTY_FOURTH_VERSION,
-                engine::HUNDRED_SEVENTY_FIFTH_VERSION,
-                engine::HUNDRED_SEVENTY_SIXTH_VERSION,
-                engine::HUNDRED_SEVENTY_SEVENTH_VERSION,
-                engine::HUNDRED_SEVENTY_EIGHTH_VERSION,
-                engine::HUNDRED_SEVENTY_NINTH_VERSION,
-                engine::HUNDRED_EIGHTIETH_VERSION,
-                engine::HUNDRED_EIGHTY_FIRST_VERSION,
-                engine::HUNDRED_EIGHTY_SECOND_VERSION,
-                engine::VERSION,
-            ];
+            let versions: Vec<_> = engine::versions().collect();
             let allowed = versions
                 .iter()
                 .position(|v| *v == self.version)
@@ -197,61 +145,7 @@ impl World {
             self.pack = pack.map(String::from);
             return Ok(result);
         }
-        if ![
-            engine::VERSION,
-            engine::HUNDRED_THIRTY_THIRD_VERSION,
-            engine::HUNDRED_THIRTY_FOURTH_VERSION,
-            engine::HUNDRED_THIRTY_FIFTH_VERSION,
-            engine::HUNDRED_THIRTY_SIXTH_VERSION,
-            engine::HUNDRED_THIRTY_SEVENTH_VERSION,
-            engine::HUNDRED_THIRTY_EIGHTH_VERSION,
-            engine::HUNDRED_THIRTY_NINTH_VERSION,
-            engine::HUNDRED_FORTIETH_VERSION,
-            engine::HUNDRED_FORTY_FIRST_VERSION,
-            engine::HUNDRED_FORTY_SECOND_VERSION,
-            engine::HUNDRED_FORTY_THIRD_VERSION,
-            engine::HUNDRED_FORTY_FOURTH_VERSION,
-            engine::HUNDRED_FORTY_FIFTH_VERSION,
-            engine::HUNDRED_FORTY_SIXTH_VERSION,
-            engine::HUNDRED_FORTY_SEVENTH_VERSION,
-            engine::HUNDRED_FORTY_EIGHTH_VERSION,
-            engine::HUNDRED_FORTY_NINTH_VERSION,
-            engine::HUNDRED_FIFTIETH_VERSION,
-            engine::HUNDRED_FIFTY_FIRST_VERSION,
-            engine::HUNDRED_FIFTY_SECOND_VERSION,
-            engine::HUNDRED_FIFTY_THIRD_VERSION,
-            engine::HUNDRED_FIFTY_FOURTH_VERSION,
-            engine::HUNDRED_FIFTY_FIFTH_VERSION,
-            engine::HUNDRED_FIFTY_SIXTH_VERSION,
-            engine::HUNDRED_FIFTY_SEVENTH_VERSION,
-            engine::HUNDRED_FIFTY_EIGHTH_VERSION,
-            engine::HUNDRED_FIFTY_NINTH_VERSION,
-            engine::HUNDRED_SIXTIETH_VERSION,
-            engine::HUNDRED_SIXTY_FIRST_VERSION,
-            engine::HUNDRED_SIXTY_SECOND_VERSION,
-            engine::HUNDRED_SIXTY_THIRD_VERSION,
-            engine::HUNDRED_SIXTY_FOURTH_VERSION,
-            engine::HUNDRED_SIXTY_FIFTH_VERSION,
-            engine::HUNDRED_SIXTY_SIXTH_VERSION,
-            engine::HUNDRED_SIXTY_SEVENTH_VERSION,
-            engine::HUNDRED_SIXTY_EIGHTH_VERSION,
-            engine::HUNDRED_SIXTY_NINTH_VERSION,
-            engine::HUNDRED_SEVENTIETH_VERSION,
-            engine::HUNDRED_SEVENTY_FIRST_VERSION,
-            engine::HUNDRED_SEVENTY_SECOND_VERSION,
-            engine::HUNDRED_SEVENTY_THIRD_VERSION,
-            engine::HUNDRED_SEVENTY_FOURTH_VERSION,
-            engine::HUNDRED_SEVENTY_FIFTH_VERSION,
-            engine::HUNDRED_SEVENTY_SIXTH_VERSION,
-            engine::HUNDRED_SEVENTY_SEVENTH_VERSION,
-            engine::HUNDRED_SEVENTY_EIGHTH_VERSION,
-            engine::HUNDRED_SEVENTY_NINTH_VERSION,
-            engine::HUNDRED_EIGHTIETH_VERSION,
-            engine::HUNDRED_EIGHTY_FIRST_VERSION,
-            engine::HUNDRED_EIGHTY_SECOND_VERSION,
-        ]
-        .contains(&self.version.as_str())
-        {
+        if !engine::versions().any(|version| version == self.version) {
             return Err("This world's rules need a saved migration.".into());
         }
         let a = actor_index(command["actor"].as_str().ok_or("Choose an avatar.")?)?;
@@ -305,6 +199,9 @@ impl World {
             "play" => {
                 let mut request = self.request("play", a);
                 request["action"] = command["action"].clone();
+                if let Some(portraits) = command.get("elysiumPortraits") {
+                    request["elysiumPortraits"] = portraits.clone();
+                }
                 let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 (11, result)

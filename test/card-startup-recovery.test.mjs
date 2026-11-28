@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import {
+  beginBrowserReset,
+  clearBrowserAccountData,
+  createAccountStorage,
+  finishBrowserReset,
+} from "../v2/card-game/account-reset-storage.mjs";
+import { PLAYING_KEY } from "../v2/card-game/avatar-world.mjs";
 const mocks = vi.hoisted(() => ({
   local: vi.fn(),
   intro: vi.fn(),
+  logo: vi.fn(),
   app: vi.fn(),
   lock: vi.fn(),
 }));
@@ -14,7 +22,7 @@ vi.mock("../v2/card-game/title-intro.mjs", () => ({
 }));
 vi.mock("../v2/card-game/title-logo.mjs", () => ({
   logoSite: () => true,
-  worldLogo: () => ({}),
+  worldLogo: mocks.logo,
   showToolbarLogo() {},
 }));
 vi.mock("../v2/card-game/page-fade.mjs", () => ({ arrivePage() {} }));
@@ -27,7 +35,7 @@ vi.mock("../v2/card-game/app.mjs", () => {
   mocks.app();
   return {};
 });
-let elements, reload;
+let elements, reload, toolbar;
 beforeEach(() => {
   vi.resetModules();
   elements = new Map(
@@ -43,9 +51,11 @@ beforeEach(() => {
       },
     ]),
   );
+  elements.get("speech-row").parentElement = { hidden: true };
+  toolbar = { hidden: true };
   vi.stubGlobal("document", {
     body: { inert: true },
-    querySelector: () => null,
+    querySelector: (selector) => selector === ".top-actions" ? toolbar : null,
     querySelectorAll: () => [],
     getElementById: (id) => elements.get(id),
   });
@@ -55,12 +65,14 @@ beforeEach(() => {
     pathname: "/",
     search: "?table=test",
     reload,
+    replace: vi.fn(),
   });
   vi.stubGlobal("navigator", { webdriver: true });
   vi.stubGlobal("localStorage", { getItem: () => null });
   mocks.local.mockResolvedValue(false);
   mocks.lock.mockResolvedValue(false);
   mocks.intro.mockResolvedValue();
+  mocks.logo.mockReturnValue({});
 });
 afterEach(() => vi.unstubAllGlobals());
 it.each(["local service", "table import"])(
@@ -74,8 +86,11 @@ it.each(["local service", "table import"])(
       });
     await import("../v2/card-game/entry.mjs");
     expect(document.body.inert).toBe(false);
-    expect(mocks.intro.mock.calls[0][0].signal.aborted).toBe(true);
+    if (stage === "local service") expect(mocks.intro).not.toHaveBeenCalled();
+    else expect(mocks.intro.mock.calls[0][0].signal.aborted).toBe(true);
     expect(elements.get("speech-row").hidden).toBe(false);
+    expect(elements.get("speech-row").parentElement.hidden).toBe(false);
+    expect(toolbar.hidden).toBe(true);
     expect(elements.get("dialogue-text").textContent).toBe("Try again");
     const retry = elements.get("dialogue-advance");
     expect(retry.hidden).toBe(false);
@@ -93,4 +108,40 @@ it("releases a successful boot without cancelling its title", async () => {
   expect(document.body.inert).toBe(false);
   expect(mocks.intro.mock.calls[0][0].signal.aborted).toBe(false);
   expect(elements.get("speech-row").hidden).toBe(true);
+  expect(toolbar.hidden).toBe(false);
+});
+
+it("resumes the last shared world from the current account reset epoch", async () => {
+  const values = new Map();
+  const storage = {
+    get length() {
+      return values.size;
+    },
+    key: (index) => [...values.keys()][index],
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+  };
+  const reset = "reset-1";
+  beginBrowserReset({ id: reset }, storage);
+  await clearBrowserAccountData(reset, storage, { databases: async () => [] });
+  finishBrowserReset(reset, storage);
+  createAccountStorage(storage).setItem(
+    PLAYING_KEY,
+    JSON.stringify({ world: "current-world" }),
+  );
+  storage.setItem(PLAYING_KEY, JSON.stringify({ world: "old-world" }));
+  vi.stubGlobal("localStorage", storage);
+  Object.assign(location, { href: "http://localhost/", search: "" });
+
+  await import("../v2/card-game/entry.mjs");
+
+  expect(location.replace).toHaveBeenCalledExactlyOnceWith(
+    "/?world=current-world",
+  );
+  expect(mocks.app).not.toHaveBeenCalled();
+  expect(mocks.logo).not.toHaveBeenCalled();
+  expect(mocks.intro).not.toHaveBeenCalled();
+  expect(document.body.inert).toBe(true);
+  expect(toolbar.hidden).toBe(true);
 });

@@ -22,6 +22,7 @@ import {
   carried,
   seedRun,
   fillSeatWants,
+  applyTalkDisclosure,
 } from "./world.mjs";
 import {
   humanAvatars,
@@ -41,10 +42,13 @@ import { resetAvatar, settleHomeItems } from "./avatar-reset.mjs";
 import { arrive, hideAvatar } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
 import { beginHistory } from "./world/history.mjs";
+import { settleStrandedWayfinder } from "./world/elysium-travel.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
+import { elysiumTalk, resetImportedElysiumEncounters } from "./elysium-models.mjs";
 
 function validateTransition(world) {
+  settleStrandedWayfinder(world);
   settleHeldItems(world);
   settleLamp(world);
   settleStationExits(world);
@@ -153,6 +157,7 @@ function importClientSave(save) {
   // Upgrades are per passkey, and a local save is its own passkey (#1873).
   for (const actor of Object.values(raw.actors || {})) delete actor?.upgrades;
   const world = decodeSave(JSON.stringify(raw));
+  resetImportedElysiumEncounters(world, people);
   for (const actor of Object.values(world.actors || {}))
     if (actor?.upgrades) {
       actor.upgrades = actor.upgrades.filter((id) => !isArcanum(id));
@@ -272,6 +277,7 @@ export function dispatchShared(request) {
       action,
       request.revision ?? world.revision,
       actor,
+      request.elysiumPortraits,
     );
     if (!result.ok)
       return { ok: false, world: stored(world), error: result.error };
@@ -346,14 +352,20 @@ export function dispatchShared(request) {
         throw new Error(
           "Each line needs a present speaker or the room, and clear text.",
         );
+      const typed = Object.hasOwn(line, "elysiumName");
+      if (typed && line.elysiumName !== null && !elysiumTalk(world, actor, speaker, room, world.turn))
+        throw new Error("An Elysium name needs its committed Talk.");
       addLog(world, scenic ? nameOf(room) : nameOf(speaker), line.text.trim(), {
         generated: true,
         kind: scenic ? "narration" : expressionKind(profiles[speaker]),
         actorId: speaker,
         entityId: scenic ? room : speaker,
         locationId: room,
+        ...(typed && { elysiumName: line.elysiumName }),
       });
-      lines.push(world.log.at(-1));
+      const spoken = world.log.at(-1);
+      if (speaker) applyTalkDisclosure(world, line.disclosed, spoken);
+      lines.push(spoken);
     }
     world.revision += 1;
     validateTransition(world);

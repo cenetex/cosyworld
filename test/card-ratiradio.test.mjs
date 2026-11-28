@@ -10,6 +10,9 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
+import { questFaceKey } from "../v2/card-game/card-entry.mjs";
+import { knowsFact, questFactId } from "../v2/card-game/knowledge.mjs";
+import { tableQuest } from "../v2/card-game/quest-hand.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { lockText } from "./helpers/lock-text.mjs";
 import { acceptBox } from "./helpers/accept-quest.mjs";
@@ -24,18 +27,20 @@ import * as itemRules from "../v2/card-game/pack-items.mjs";
 import { roamingActors } from "../v2/card-game/roaming-routes.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { newWant, questsOf } from "../v2/card-game/want.mjs";
+import { newest } from "../v2/scripts/rules-pins.mjs";
 
 // This acceptance contract runs only when its pack is mounted.
 const it = check.skipIf(!packPeople["ratiradio-rati"]);
 const { reservedItem, settleItemCycle } = itemRules;
 const id = (name) => `ratiradio-${name}`;
-const home = id("listening-room"),
+const entrancePlace = "behind-station",
+  home = id("listening-room"),
   rati = id("rati"),
   raven = id("raven");
 const returns = ["red-beanie", "raven-figurine", "glass"].map(id);
 const flags = (s) => s.packs.ratiradio.flags;
-const fixture = (opening = false) => {
-  const s = createWorld({ opening, seed: 17 });
+const fixture = (opening = false, seed = 17) => {
+  const s = createWorld({ opening, seed });
   // This gate/return fixture represents objects already fetched and deposited.
   // Fresh cross-world placement is covered by card-radio-scatter.test.mjs.
   for (const [id, item] of Object.entries(packDefinition("ratiradio").items))
@@ -73,6 +78,7 @@ const act = (s, kind = "wait", target) => {
 const route = [
   ["take", id("station-key")],
   ["move", "station"],
+  ["move", entrancePlace],
   ["move", id("staff-kitchen")],
   ["drop", id("station-key")],
   ["take", id("red-beanie")],
@@ -91,6 +97,75 @@ const route = [
   ["drop", id("raven-figurine")],
 ];
 const arrive = route.findIndex(([kind, to]) => kind === "move" && to === home);
+
+const beanieTalk = () => {
+  let s = fixture(false, 6);
+  for (const [kind, target] of route.slice(0, arrive + 1)) s = act(s, kind, target);
+  s = act(s, "take", returns[1]);
+  expect(s.actors[rati].want.step.items).toEqual([returns[0]]);
+  return act(s, "talk", rati);
+};
+
+it("learns RATi’s next lay only after talking about that stage", () => {
+  let s = beanieTalk();
+  const beanie = questFactId(rati, s.actors[rati].want);
+  const first = tableQuest(s, "vale", rati).quest;
+  expect(first.factId).toBe(beanie);
+  expect(s.knowledge.facts[beanie].text).toMatch(/Red Beanie/u);
+
+  s = decodeSave(encodeSave(act(s, "drop", returns[0])));
+  const raven = questFactId(rati, s.actors[rati].want);
+  expect(s.actors[rati].want.step.items).toEqual([returns[1]]);
+  expect(raven).not.toBe(beanie);
+  expect(knowsFact(s, "vale", beanie)).toBe(true);
+  expect(knowsFact(s, "vale", raven)).toBe(false);
+  expect(tableQuest(s, "vale", rati).quest).toBeNull();
+  expect(legalActions(s).some((a) => a.kind === "accept" && a.target === rati)).toBe(false);
+
+  s = act(s, "talk", rati);
+  const second = tableQuest(s, "vale", rati).quest;
+  expect(second.factId).toBe(raven);
+  expect(questFaceKey(second)).not.toBe(questFaceKey(first));
+  expect(s.knowledge.facts[raven].text).toMatch(/Raven Figurine/u);
+  expect(s.knowledge.facts[beanie].text).toMatch(/Red Beanie/u);
+});
+
+it("preserves old stage evidence without assigning the collided key to later readers", () => {
+  const heard = beanieTalk();
+  const beanie = questFactId(rati, heard.actors[rati].want);
+  const old = JSON.parse(encodeSave(act(heard, "drop", returns[0])));
+  const legacy = `quest:${rati}:${home}`;
+  const k = old.knowledge, learned = k.known.vale[beanie];
+  k.facts[legacy] = { ...k.facts[beanie], id: legacy };
+  delete k.facts[beanie];
+  k.known.vale[legacy] = learned;
+  delete k.known.vale[beanie];
+  k.known.mara = { [legacy]: { ...learned, eventSeq: old.eventSeq, learnedTurn: old.turn } };
+  old.actors.rue.heard = { [rati]: `place:${home}` };
+
+  const s = decodeSave(JSON.stringify(old));
+  const raven = questFactId(rati, s.actors[rati].want);
+  expect(s.knowledge.known.vale[beanie]).toEqual(learned);
+  expect(knowsFact(s, "mara", beanie)).toBe(false);
+  expect(knowsFact(s, "mara", legacy)).toBe(true);
+  expect(s.knowledge.facts[legacy].text).toMatch(/Red Beanie/u);
+  for (const actor of ["vale", "mara", "rue"])
+    expect(knowsFact(s, actor, raven)).toBe(false);
+  expect(s.actors.rue.told).toContain(rati);
+  expect(decodeSave(encodeSave(s))).toEqual(s);
+});
+
+it("rejects duplicate or ambiguous authored quest stages", () => {
+  for (const collide of [
+    (stages) => { stages[1].id = stages[0].id; },
+    (stages) => { delete stages[1].id; },
+    (stages) => { stages[1].want = stages[0].want; },
+  ]) {
+    const pack = structuredClone(packDefinition("ratiradio"));
+    collide(pack.avatars[rati].wants);
+    expect(() => validatePackDefinition(pack)).toThrow(/distinct ids and terms/u);
+  }
+});
 
 it("walks the full return, introduces both residents at home, then keeps the unlock", () => {
   let s = fixture();
@@ -158,9 +233,9 @@ it("requires all three direct deposits together, with no RATi presence requireme
 
 it("checks the actual shared traveler: the entrance follows the key, not the world", () => {
   let s = dispatchShared({ op: "create", save: encodeSave(fixture()) }).world;
-  s.actors.vale.place = s.actors.mara.place = "station";
-  s.actors.vale.visited.push("station");
-  s.actors.mara.visited.push("station");
+  s.actors.vale.place = s.actors.mara.place = entrancePlace;
+  s.actors.vale.visited.push(entrancePlace);
+  s.actors.mara.visited.push(entrancePlace);
   s.items[id("station-key")].holder = "vale";
   const ask = (actor, op = "view", extra = {}) =>
     dispatchShared({
@@ -242,9 +317,7 @@ it("lets a newly active roamer stand down from a standoff", () => {
 it("replays the full shared journal through the compiled rules identically", () => {
   const read = (file) =>
     readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-  const version = read("v2/scripts/build-card-shared-engine.mjs").match(
-    /engine-v\d+\.js/u,
-  )[0];
+  const version = `engine-v${newest(read("v2/orchestrator-rust/src/card_shared/rules.json"))}.js`;
   const sandbox = {
     cardContent: JSON.parse(
       read("v2/orchestrator-rust/src/card_shared/content.json"),
@@ -399,15 +472,18 @@ const put = (s, name, where, at = "pond") => {
 };
 it("keeps the entrance open while the key lies anywhere inside, shut once it is gone", () => {
   for (const room of station) {
-    const s = put(fixture(), "station-key", room, "station");
+    const s = put(fixture(), "station-key", room, entrancePlace);
     expect(canMove(s, id("staff-kitchen")), `key at ${room}`).toBe(true);
   }
-  for (const away of ["pond", "clearing", "station"]) {
-    const s = put(fixture(), "station-key", away, "station");
+  for (const away of ["pond", "clearing", "station", entrancePlace]) {
+    const s = put(fixture(), "station-key", away, entrancePlace);
     expect(canMove(s, id("staff-kitchen")), `key at ${away}`).toBe(false);
   }
   // Carried by a traveler, it opens for that traveler.
-  expect(canMove(put(fixture(), "station-key", "vale", "station"), id("staff-kitchen"))).toBe(true);
+  expect(canMove(put(fixture(), "station-key", "vale", "station"), id("staff-kitchen"))).toBe(false);
+  expect(canMove(put(fixture(), "station-key", "vale", entrancePlace), id("staff-kitchen"))).toBe(true);
+  // The way out is available even without the key.
+  expect(canMove(put(fixture(), "station-key", "pond", id("staff-kitchen")), entrancePlace)).toBe(true);
 });
 
 it("opens the Dispatch Window for a beanie held in the kitchen or lying beyond it, never lying in the kitchen", () => {
@@ -433,7 +509,8 @@ it("opens the Listening Room for a Thermos lying at the Dispatch Window or beyon
 // passing a closed radio door. A thing carried to another pack is a mystery,
 // not a softlock: it can be carried back.
 it("leaves no placement of the key, beanie and Thermos that shuts a door for good", () => {
-  const spots = ["pond", "station", ...station];
+  const outside = ["pond", "station", entrancePlace];
+  const spots = [...outside, ...station];
   const base = fixture();
   const open = (s, at, to) => {
     s.actors.vale.place = at;
@@ -445,9 +522,8 @@ it("leaves no placement of the key, beanie and Thermos that shuts a door for goo
     s.items[id("station-key")].holder = k;
     s.items[id("red-beanie")].holder = b;
     s.items[id("thermos")].holder = th;
-    const outside = ["pond", "station"];
     const entrance =
-      open(s, "station", id("staff-kitchen")) || outside.includes(k);
+      open(s, entrancePlace, id("staff-kitchen")) || outside.includes(k);
     const window =
       open(s, id("staff-kitchen"), id("dispatch-window")) ||
       [...outside, id("staff-kitchen")].includes(b);

@@ -38,11 +38,9 @@ const untilNight = (s) => {
   while (Math.floor(s.turn / DAYLIGHT_TURNS) % 2 === 0) s = wait(s);
   return s;
 };
-const bond = (s, who) => {
+const trustedCompany = (s, who) => {
   s.actors[who].place = s.actors.vale.place;
   s.actors[who].trust.vale = 2;
-  s.actors.vale.companion = who;
-  s.actors.vale.actedAt = s.turn;
   return s;
 };
 const litNight = (s) => {
@@ -51,8 +49,8 @@ const litNight = (s) => {
   expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true });
   return s;
 };
-const faceDown = (s, slot) => {
-  s.actors.vale.arcana = { proved: [], did: [], spread: [slot] };
+const holding = (s, slot) => {
+  s.actors.vale.arcana = { proved: [], did: [], level: 1, spread: [slot] };
   return s;
 };
 
@@ -61,9 +59,9 @@ afterEach(() => {
 });
 
 describe("cards that say what they check", () => {
-  it("VI: counts only the one invited, not a companion who walks along", () => {
+  it("VI: counts the accepted invitation even with other trusted residents nearby", () => {
     let s = only("arcanum-6");
-    s = bond(s, "moth");
+    s = trustedCompany(s, "moth");
     s.actors.keeper.place = s.actors.vale.place;
     s.actors.keeper.want = {
       kind: "place",
@@ -78,17 +76,18 @@ describe("cards that say what they check", () => {
         a.target === "keeper" &&
         a.destination === "pond",
     );
-    expect(s.actors.vale.companion).toBe("moth");
-    expect(s.actors.moth.place).toBe("pond");
-    expect(proved(s)).toEqual([]);
+    expect(s.log.findLast((e) => e.verb === "accompany")).toMatchObject({ accepted: true, targetId: "keeper" });
+    expect(recordOf(s, "vale").spread[0].face).toBe("reward");
   });
 
-  it("IX: a night walk with a companion along is not alone", () => {
-    let s = only("arcanum-9");
-    s = bond(litNight(s), "keeper");
-    s = act(s, walk("station"));
-    expect(s.actors.keeper.place).toBe("station");
-    expect(proved(s)).toEqual([]);
+  it("IX: a solo night walk counts, but inviting someone along does not", () => {
+    const start = trustedCompany(litNight(only("arcanum-9")), "keeper");
+    const invited = act(start, (a) => a.kind === "accompany" && a.target === "keeper" && a.destination === "station");
+    expect(invited.actors.keeper.place).toBe("station");
+    expect(proved(invited)).toEqual([]);
+    expect(recordOf(invited, "vale").spread[0].face).toBe("locked");
+    const solo = act(start, walk("station"));
+    expect(recordOf(solo, "vale").spread[0].face).toBe("reward");
   });
 
   it("IX and XVIII: a light counts only lit and carried", () => {
@@ -108,6 +107,7 @@ describe("cards that say what they check", () => {
     let s = litNight(only("arcanum-18"));
     s = act(s, walk("station"));
     expect(proved(s)).toEqual([]);
+    expect(recordOf(s, "vale").spread[0].face).toBe("locked");
   });
 });
 
@@ -115,27 +115,39 @@ describe("a card stays done once met", () => {
   it("0: the Fool stays done after the walk home", () => {
     let s = createWorld({ seed: 7 });
     deck.cards = data.cards.filter((card) => card.number === 0);
-    faceDown(s, { card: "arcanum-0", face: "down", base: { visited: 0 } });
+    holding(s, { card: "arcanum-0", face: "up", base: { visited: 0 } });
     for (const item of Object.values(s.items))
       if (item.holder === "vale") item.holder = "pond";
     s.actors.vale.place = "pond";
     s.actors.vale.visited = Object.keys(places).slice(0, 8);
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0].done).toBe(true);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      face: "reward",
+      done: true,
+    });
     s.actors.vale.place = homeOf("vale");
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0].done).toBe(true);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      face: "reward",
+      done: true,
+    });
   });
 
   it("IX: the Hermit stays done after the lamp goes out", () => {
     let s = createWorld({ seed: 7 });
     deck.cards = data.cards.filter((card) => card.number === 9);
-    faceDown(s, { card: "arcanum-9", face: "down", bind: { light: "lamp" } });
+    holding(s, { card: "arcanum-9", face: "up", bind: { light: "lamp" } });
     s = act(litNight(s), walk("station"));
-    expect(recordOf(s, "vale").spread[0].done).toBe(true);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      face: "reward",
+      done: true,
+    });
     s.items.lamp.lit = false;
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0].done).toBe(true);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      face: "reward",
+      done: true,
+    });
   });
 });
 

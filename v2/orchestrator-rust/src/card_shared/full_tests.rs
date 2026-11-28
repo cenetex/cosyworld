@@ -453,7 +453,6 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
                 .unwrap();
             assert_eq!(stanza["authorId"], "vale");
             assert_eq!(stanza["authorName"], "Vale");
-            // Couplet text is lore, not dialogue context.
             assert!(stanza.get("lines").is_none());
             assert!(bard["poem"].get("newLines").is_none());
         }
@@ -1318,13 +1317,28 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
         assert_eq!(w.game["actors"]["rue"]["place"], place);
         assert_eq!(w.game["actors"]["moth"]["place"], place);
         assert_eq!(w.game["items"]["routes"]["holder"], "rue");
+        assert!(w.game["actors"]["rue"]["companion"].is_null());
         if agrees {
             assert_eq!(w.game["invitedPlaces"]["moth"], json!(["train"]));
-            // Moth is now Rue's companion (rules 133).
-            assert_eq!(w.game["actors"]["rue"]["companion"], "moth");
+            let return_alone = w.project(5).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["kind"] == "move" && a["target"] == "station")
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"rue","action":return_alone}),
+                now(),
+            )
+            .unwrap();
+            assert_eq!(w.game["actors"]["rue"]["place"], "station");
+            assert_eq!(w.game["actors"]["moth"]["place"], "train");
         } else {
             assert!(w.game["invitedPlaces"].is_null());
-            assert!(w.game["actors"]["rue"]["companion"].is_null());
         }
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
@@ -1392,7 +1406,7 @@ fn a_refused_save_names_where_the_rules_refused_it() {
         "claimed":["vale"], "present":["vale"]
     });
     let error = super::engine::reduce_pack(
-        super::engine::VERSION,
+        super::engine::version(),
         Some(super::content::current()),
         request,
     )

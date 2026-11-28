@@ -7,7 +7,7 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { applyGeneratedText, narrativeContext } from "../v2/card-game/narrative.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import {
   knowsLane,
@@ -156,12 +156,28 @@ describe("the Signal Jetty lane", () => {
     expect(talk).toBeDefined();
     const result = play(ask(s, "vale").world, talk, s.revision, "vale");
     expect(result.ok, result.error).toBe(true);
-    const disclosure = narrativeContext(result.state, talk).disclosures?.[0];
-    expect(disclosure?.factId).toBe(`lane:greek-piraeus>${JETTY}`);
+    const context = narrativeContext(result.state, talk);
+    const [disclosure] = context.disclosures;
+    expect(disclosure).toMatchObject({
+      factId: `lane:greek-piraeus>${JETTY}`,
+      speaker: "greek-shipmaster",
+      listener: "vale",
+      deferred: true,
+    });
     expect(disclosure.text).toBe(
       "Ships for Signal Jetty leave from Piraeus Quays only with something from there aboard.",
     );
-    const world = result.state;
+    expect(knowsLane(result.state, "vale", "greek-piraeus", JETTY)).toBe(false);
+    const { factId, speaker, listener, eventSeq } = disclosure;
+    const world = applyGeneratedText(result.state, context, {
+      revision: context.revision,
+      model: "fixture",
+      entries: [{
+        id: speaker,
+        text: "If you're leaving Piraeus for Signal Jetty, bring something from the jetty aboard.",
+        disclosed: { factId, speaker, listener, eventSeq },
+      }],
+    });
     expect(knowsLane(world, "vale", "greek-piraeus", JETTY)).toBe(true);
     let s2 = reload(world);
     s2 = act(s2, "vale", "move", "greek-ship");

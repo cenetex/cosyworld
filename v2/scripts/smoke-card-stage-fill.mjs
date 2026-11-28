@@ -19,6 +19,7 @@ await mkdir(output, { recursive: true });
 // Every place an open-door save can stand Vale in, without a journey.
 const seeds = Object.keys(places).flatMap((place) => {
   const world = openDoorStart();
+  for (const crossing of Object.values(world.crossings)) crossing.discovered = true;
   world.actors.vale.place = place;
   if (place === "greek-ship") stowProvisions(world, place);
   try {

@@ -117,24 +117,27 @@ try {
   await play("bell");
   assert.equal((await state()).crossings["pond-clearing"].phase, 1);
   assert.equal((await state()).actors.vale.place, "pond");
-  assert.equal(await page.locator("#speaker").textContent(), "echo");
-  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
   const echoTurn = (await state()).turn;
   const echoRequests = requests.length;
+  const assertEchoCaption = async () => {
+    assert.match(await page.locator("#beat-captions").textContent(), /\bBong\./u);
+    assert.notEqual(await page.locator("#speaker").textContent(), "echo");
+    assert.notEqual(await page.locator("#dialogue-text").textContent(), "bong");
+    const echoes = (await state()).log.filter(
+      (entry) => entry.speaker === "echo" && entry.turn === echoTurn,
+    );
+    assert.equal(echoes.length, 1);
+    assert.equal(echoes[0].kind, "narration");
+    assert.notEqual(echoes[0].generated, true);
+  };
+  await assertEchoCaption();
   assert.equal(await page.locator('[data-card="bell"] .state').count(), 0);
   assert.doesNotMatch(await page.locator("#hand").innerText(), /Ring again/);
   await page.reload();
   await page.locator('[data-card="bell"]').waitFor({ state: "attached" });
   await ready();
   assert.equal(requests.length, echoRequests);
-  assert.equal(
-    (await state()).log.filter(
-      (entry) => entry.generated && entry.turn === echoTurn,
-    ).length,
-    1,
-  );
-  assert.equal(await page.locator("#speaker").textContent(), "echo");
-  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
+  await assertEchoCaption();
   await play("bell");
   // The second ring reveals the clearing; its card takes Vale there.
   assert.equal((await state()).actors.vale.place, "pond");
@@ -149,16 +152,17 @@ try {
   assert.equal(await sprite.count(), 0);
   const before = (await state()).turn;
   await page.locator('[data-card="badger"]').focus();
-  // Press once to open the closed pack, once to select the box; its button opens it.
+  // Alone, its card turns at one press; in a pack, open it, choose it, then Reveal.
   await page.keyboard.press("Enter");
-  await page.locator('.card-frame[data-pack="open"] [data-card="badger"]').waitFor();
-  assert.equal(await page.locator('[data-card="badger"]').getAttribute("data-unrevealed"), "true");
-  await page.locator('[data-card="badger"]').focus();
-  await page.keyboard.press("Enter");
-  assert.equal(await page.locator('[data-card="badger"]').getAttribute("data-unrevealed"), "true");
+  if ((await page.locator('[data-card="badger"]').getAttribute("data-unrevealed")) === "true") {
+    await page.locator('.card-frame[data-pack="open"] [data-card="badger"]').waitFor();
+    await page.locator('[data-card="badger"]').focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator('[data-card="badger"]').getAttribute("data-unrevealed"), "true");
+    await page.locator("#card-actions [data-open-box]").focus();
+    await page.keyboard.press("Enter");
+  }
   assert.equal((await state()).turn, before);
-  await page.locator("#card-actions [data-open-box]").focus();
-  await page.keyboard.press("Enter");
   await page.waitForFunction(
     () =>
       document.querySelector('[data-card="badger"]')?.dataset.unrevealed ===
@@ -195,13 +199,12 @@ try {
   await page.screenshot({ path: "output/badger-check/desktop-awake.png" });
   await openSettings(page);
   await closeSettings(page);
-  // Vale's level waits for her level quest (#1583), so Pip, a level up, would
-  // pick a fight over the lamp as soon as she reaches the pond. Level her with
-  // her experience so the walk there stays peaceful.
+  // Stage Pip at the pond. Vale's level keeps their arrival peaceful.
   await page.evaluate(() => {
     const key = "cosyworld.reflected-shore.v1.badger-check";
     const saved = JSON.parse(localStorage.getItem(key));
     saved.actors.vale.level = 2;
+    saved.actors.moth.place = "pond";
     localStorage.setItem(key, JSON.stringify(saved));
   });
   await page.reload();
@@ -210,7 +213,10 @@ try {
   assert.equal((await state()).actors.vale.place, "pond");
   await play("bell");
   await ready();
-  assert.ok(await endStandoff(page, await state()), "Pip threatens Vale");
+  const threatened = await state();
+  assert.ok(threatened.standoffs.some(({ challenger, defender }) =>
+    challenger === "moth" && defender === "vale"), "Pip threatens Vale");
+  assert.ok(await endStandoff(page, threatened), "Vale can wait out the standoff");
   await ready();
   assert.equal((await state()).standoffs.length, 0);
   assert.equal((await state()).crossings["pond-clearing"].phase, 0);

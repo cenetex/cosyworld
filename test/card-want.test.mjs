@@ -19,6 +19,7 @@ import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { entityActive, packPeople } from "../v2/card-game/pack-registry.mjs";
+import { ELYSIUM_MODEL_IDS, elysiumModelToken, isElysiumModel } from "../v2/card-game/elysium-models.mjs";
 
 const act = (s, kind, fields = {}, actor = "vale") => {
   const a = legalActions(s, actor).find(
@@ -39,7 +40,10 @@ describe("one want per avatar", () => {
       ...newWant("item", "lamp", 0),
       lit: true,
     });
-    expect(s.actors.keeper.want).toEqual(newWant("item", "bell", 0));
+    expect(s.actors.keeper.want).toEqual({
+      ...newWant("place", "pond", 0),
+      step: { verb: "call", crossing: "pond-greek-harbor" },
+    });
     expect(s.actors.vale.xp).toBe(0);
     expect(validateWorld(s)).toBe(s);
   });
@@ -331,7 +335,7 @@ describe("one want per avatar", () => {
     }
   });
 
-  it("keeps a want on every active resident but the content through a long shared run", () => {
+  it("keeps ordinary resident wants and Elysium's token wants through a long shared run", () => {
     const players = humanAvatarIds.slice(0, 4);
     let world = dispatchShared({ op: "create" }).world;
     const ask = (op, actor, extra = {}) =>
@@ -350,9 +354,20 @@ describe("one want per avatar", () => {
           entityActive(world, id) &&
           !world.actors[id].want &&
           !world.actors[id].content &&
+          !isElysiumModel(id) &&
           !(id === "vale" || players.includes(id)),
       );
-    expect(wantless()).toEqual([]);
+    const checkWants = () => {
+      expect(wantless(), `turn ${world.turn}`).toEqual([]);
+      for (const id of ELYSIUM_MODEL_IDS) {
+        const encounter = world.elysiumEncounters?.[id];
+        const want = world.actors[id].want;
+        if (encounter?.scatteredAt && !encounter.returnedAt)
+          expect(want, id).toMatchObject({ kind: "item", target: elysiumModelToken(id) });
+        else expect(want, id).toBeNull();
+      }
+    };
+    checkWants();
     let met = 0;
     for (let t = 0; t < 300; t++) {
       const actor = players[t % players.length];
@@ -367,7 +382,7 @@ describe("one want per avatar", () => {
         if (result.ok) world = result.world;
       } catch {}
       met = world.log.filter((e) => e.verb === "want_met").length || met;
-      if (t % 25 === 24) expect(wantless(), `turn ${world.turn}`).toEqual([]);
+      if (t % 25 === 24) checkWants();
     }
     expect(met).toBeGreaterThan(0);
   }, 60000);

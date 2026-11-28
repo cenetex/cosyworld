@@ -7,6 +7,8 @@ import roster from "./shared-cast.json" with { type: "json" };
 import { worldNameOf } from "./world-name.mjs";
 import { signedEnvelopes } from "./signed-words.mjs";
 import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
+import { profiles } from "./memory.mjs";
+import { isLegacyElysiumLine } from "./elysium-models.mjs";
 
 export const humanAvatars = roster.avatars;
 const $ = (id) => document.getElementById(id);
@@ -242,10 +244,14 @@ export async function connectSharedWorld(id) {
     if (next === state) return state;
     if (next.now < state.now || next.world?.revision < state.world?.revision)
       return state;
+    const fields = Object.keys(next);
+    const clockOnly =
+      fields.length === Object.keys(state).length &&
+      fields.every((key) => key === "now" || next[key] === state[key]);
     lastSynced = Date.now();
     state = next;
     offset = next.now - Date.now();
-    listener(next);
+    listener(next, { clockOnly });
     if (
       playError?.key &&
       (next.queue?.some((entry) => entry.id === playError.key) ||
@@ -271,7 +277,7 @@ export async function connectSharedWorld(id) {
       }
     } catch (error) {
       connectionError = error.message;
-      report(connectionError);
+      report(connectionError, undefined, error.code === "account_reset" || [401, 403].includes(error.status));
     } finally {
       inFlight = false;
     }
@@ -310,7 +316,10 @@ export async function connectSharedWorld(id) {
     async play(action, key = crypto.randomUUID(), revealed = undefined) {
       playError = null;
       try {
-        return await command({ op: "play", key, action, revealed });
+        return await command({
+          op: "play", key, action,
+          revealed: revealed?.filter((id) => Object.hasOwn(profiles, id)),
+        });
       } catch (error) {
         if (error.message === "Your play is already at the table.") {
           // Another tab (or a newer server view) already owns this turn.
@@ -421,8 +430,8 @@ const sharedLineDuration = (line) =>
 // the player who played it. A line arrives whole or is "…", never a failure.
 export const SHARED_SILENT_TEXT = "…";
 function withSilence(scene) {
-  const lines = scene.lines || [];
-  const last = lines.at(-1) ?? {
+  const lines = (scene.lines || []).filter((line) => !isLegacyElysiumLine(line));
+  const last = scene.lines?.at(-1) ?? {
     seq: scene.after,
     turn: scene.turn ?? null,
     locationId: scene.room,
@@ -464,6 +473,16 @@ const roomScenes = (state, room) =>
     .map(withSilence)
     .filter((entry) => entry.lines.length)
     .toSorted((a, b) => a.starts_at - b.starts_at);
+
+export function sharedDealUnread(state, deal, seq, read) {
+  if (state.queue?.some((entry) => entry.actor === state.actor && entry.status === "working"))
+    return true;
+  const last = roomScenes(state, deal.locationId)
+    .filter((scene) => scene.actor === state.actor)
+    .flatMap((scene) => scene.lines)
+    .findLast((line) => line.turn === deal.turn && line.seq > deal.seq);
+  return Boolean(last && (seq < last.seq || seq === last.seq && !read(last)));
+}
 // The "…" lines of this room's saved scenes, for the stage and Conversation.
 export const sharedSilentLines = (state, room) =>
   roomScenes(state, room).flatMap((scene) =>
@@ -577,7 +596,8 @@ export function sharedReadingLine(state, room, saved = null) {
   if (saved?.room === room && saved.actor === state.actor && saved.seed === state.world?.run?.seed &&
       Number.isFinite(saved.seq) && saved.seq >= 0) {
     const kept = lines.find((line) => line.seq === saved.seq) || log.find(
-      (line) => line.seq === saved.seq && line.generated && line.locationId === room,
+      (line) => line.seq === saved.seq && line.generated && line.locationId === room &&
+        !isLegacyElysiumLine(line),
     );
     if (kept) return kept;
     const next = lines.find((line) => line.seq > saved.seq);
@@ -588,7 +608,7 @@ export function sharedReadingLine(state, room, saved = null) {
 
 // Select a saved scene's line; imported local log entries have no such record.
 export function sharedVoiceReference(state, line) {
-  if (!Number.isInteger(line?.seq) || line.silent) return;
+  if (!Number.isInteger(line?.seq) || line.silent || isLegacyElysiumLine(line)) return;
   for (const scene of state?.history || []) {
     const index = scene.lines?.findIndex((entry) => entry.seq === line.seq);
     if (scene.play && index >= 0) return { play: scene.play, line: index };

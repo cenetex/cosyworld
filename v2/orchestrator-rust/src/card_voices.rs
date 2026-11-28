@@ -31,7 +31,9 @@ mod clips;
 #[path = "card_voices/flights.rs"]
 mod flights;
 
-const VOICES: &str = include_str!("../../card-game/voices.json");
+fn voices() -> &'static str {
+    cosyworld_orchestrator::card_assets::text("card-game/voices.json")
+}
 const MAX_TEXT: usize = 1200;
 const MAX_AUDIO: usize = 2 * 1024 * 1024;
 
@@ -174,7 +176,7 @@ async fn speak_with_flights(
     line: &Line,
     flights: &flights::Flights,
 ) -> Result<Vec<u8>, Failure> {
-    let cast: Value = serde_json::from_str(VOICES).map_err(|e| Failure::Store(e.to_string()))?;
+    let cast: Value = serde_json::from_str(voices()).map_err(|e| Failure::Store(e.to_string()))?;
     let world = line.world.clone().unwrap_or_default();
     let (speaker, words) = if world.is_empty() {
         match line.occasion.as_deref() {
@@ -354,19 +356,20 @@ mod tests {
 
     #[test]
     fn only_the_resident_whose_quest_was_met_on_this_play_is_voiced() {
-        let closed = json!({"quest:from:mara":[7,"k"],"quest:from:echo":[6,"k"]});
-        let met = json!({"verb":"want_met","actorId":"vale","turn":7});
-        let game = |log: Value| json!({"actors":{"vale":{"closed":closed}},"log":log});
+        let met = json!({"verb":"want_met","actorId":"vale","ownerId":"mara","turn":7});
+        let echo = json!({"verb":"want_met","actorId":"vale","ownerId":"echo","turn":6});
+        let own = json!({"verb":"want_met","actorId":"vale","ownerId":"vale","turn":7});
+        let game = |log: Value| json!({ "log": log });
         let lines =
             json!([{"actorId":"vale"},{"actorId":"mara"},{"actorId":"echo"},{"actorId":null}]);
         let voiced = |game: &Value, actor: &str, turn: Value| {
             authority::quest_residents(game, actor, &turn, &lines)
         };
         assert_eq!(
-            voiced(&game(json!([met])), "vale", json!(7)),
+            voiced(&game(json!([met, echo, own])), "vale", json!(7)),
             vec!["mara".to_string()]
         );
-        assert!(voiced(&game(json!([])), "vale", json!(7)).is_empty());
+        assert!(voiced(&game(json!([echo, own])), "vale", json!(7)).is_empty());
         assert!(voiced(&game(json!([met])), "vale", Value::Null).is_empty());
         assert!(voiced(&game(json!([met])), "mara", json!(7)).is_empty());
     }
@@ -538,7 +541,7 @@ mod tests {
         let first = speak(&path, &config, "u1", &forged).await.unwrap();
         assert_eq!(
             seen.lock().unwrap()[0],
-            payload(&serde_json::from_str(VOICES).unwrap(), "vale", "Hello.").unwrap()
+            payload(&serde_json::from_str(voices()).unwrap(), "vale", "Hello.").unwrap()
         );
         let second = speak(&path, &config, "u2", &line("Hello.")).await.unwrap();
         assert_eq!(first, second);

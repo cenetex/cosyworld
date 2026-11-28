@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "willows",
   "packId": "cosyworld.willows",
-  "revision": 2,
+  "revision": 3,
   "name": "The Willows",
   "description": "A small island in the flooded Danube. The Swede keeps camp while the river and the willows gather around him.",
   "tone": "Quiet cosmic horror grounded in ordinary camping work, river sounds and damaged gear. The places narrate in the first person and explain each change away until the reasons run out; the willows speak together and only count. The Swede knows early and says little. Signs come from Observing at a place; leaving comes from the kit back at camp.",
@@ -19,7 +19,7 @@
       "persona": "A sand spit above the backwater where the upturned canoe lies, with the flooded Danube racing past beyond the low willows. I am the landing and speak in the first person, as the traveller who keeps noticing things and keeps finding reasons for them. The canoe is fixed scenery; it is mended only while the whole kit is back at the camp. The Greek ship is reached through river mist beside the backwater.",
       "exits": ["willows-camp"],
       "backdrop": "assets/willows/landing.webp",
-      "voice": "I am the landing, and I speak in the first person, in one to three very short sentences. I notice one small change and find an ordinary reason for it. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. \"Wind in the reeds. Only — the reeds are not moving. Wind, then.\" \"An otter. Its eyes were yellow because the sun was low.\" \"The paddle lies nearer the water than I left it. The wind.\" \"The boatman crossed himself. Boatmen do.\"",
+      "voice": "Speak as the landing in the first person, in one to three very short sentences. Notice one small change in the reeds, the light, or the things left by the water, using details from the scene. Explain it calmly at first. As discoveries accumulate, let the same ordinary habits of thought sound less convincing. Eventually leave the detail without an explanation.",
       "backdrops": [
         {
           "backdrop": "assets/willows/landing-boatman.webp",
@@ -59,7 +59,7 @@
       "persona": "A canvas tent beside a low fire, ringed by willows on a sandy rise. An iron stew pot and a wooden spoon sit by the embers; scratched inside the pot lid: There is no bread. I am the camp and speak in the first person, as the traveller who measures, counts and explains. The Swede is the one resident. The kit he needs to leave is whatever the current facts place here; paced distances follow recorded discoveries.",
       "exits": ["willows-landing", "willows-thicket"],
       "backdrop": "assets/willows/camp.webp",
-      "voice": "I am the camp, and I speak in the first person, in one to three very short sentences. I measure, count and explain, and I count in the paces I have walked. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. \"The fire leans away from the willows. A draught off the river.\" \"The island is smaller tonight. The river takes sand. It takes. That is all rivers do.\" \"I paced it at supper. Eleven paces to the nearest willow. Nine now.\" \"Count the willows if it helps. I counted them at supper and there were —\"",
+      "voice": "Speak as the camp in the first person, in one to three very short sentences. Attend to the fire, the sand, and the distance to the nearest willow. When a measurement is known, count in walked paces and use the recorded number. As discoveries accumulate, let a practical explanation give way to a recheck or a halted count. In the last stage leave the discrepancy unresolved.",
       "stage": {
         "focus": {
           "x": 82,
@@ -142,7 +142,7 @@
           ]
         }
       ],
-      "voice": "We are the willows, many together, and we speak as we, us and our, in one to three very short sentences. We rustle, lean, chatter and count: the travellers, the paces, the leaves. We give no reasons. \"Two of them. Two. We lean to count again.\" \"We are nearer than at supper. We did not move. We are nearer.\" \"Our leaves turn silver side up. Two. Still two.\"",
+      "voice": "Speak as the willows together, using we, us and our in one to three very short sentences. Use terse fragments and the rhythm of a count repeated. Draw on the number of travellers, the recorded paces, or the leaves in the current scene. Let leaning, rustling, or a change in distance carry the unease. Give no reasons.",
       "road": ["willows-camp", "willows-bank"]
     },
     "willows-bank": {
@@ -204,7 +204,7 @@
           ]
         }
       ],
-      "voice": "I am the bank, and I speak in the first person, in one to three very short sentences. I listen, and I explain what I hear. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. \"A humming across the water. A steamer, far off. There are no steamers here.\" \"Something turns below the roots. A log. It is a log.\" \"The current turns him over. The marks are —\""
+      "voice": "Speak as the bank in the first person, in one to three very short sentences. Listen for what carries across the water and attend to any recorded disturbance below the roots. At first assign an ordinary source to an unfamiliar sound or shape. As discoveries accumulate, let those explanations falter and finally give way to a bare observation. Keep separate discoveries for separate moments."
     }
   },
   "avatars": {
@@ -306,10 +306,18 @@
     "willows-map": {
       "name": "River Map",
       "startLevel": 15,
-      "text": "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
+      "text": "A creased Danube map with a pencilled note in the margin.",
       "persona": "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
       "holder": "willows-swede",
-      "art": "assets/willows/map.png"
+      "art": "assets/willows/map.png",
+      "author": "willows-swede",
+      "claims": [
+        {
+          "id": "margin",
+          "text": "On this reach of the Danube, the island warns trespassers without the courtesy of a sign.",
+          "about": "willows-landing"
+        }
+      ]
     },
     "willows-rope": {
       "name": "Tent Rope",
@@ -337,10 +345,67 @@
     "willows-pipe": {
       "name": "The Swede's Pipe",
       "startLevel": 19,
-      "text": "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
+      "text": "The Swede's worn briar pipe, with words scratched around the bowl.",
       "persona": "The Swede's well-used briar pipe. Words are scratched around its bowl.",
       "holder": "willows-swede",
-      "art": "assets/willows/pipe.png"
+      "art": "assets/willows/pipe.png",
+      "author": "willows-swede",
+      "claims": [
+        {
+          "id": "their-sound",
+          "text": "The island’s willows keep humming after the wind dies down.",
+          "about": "willows-thicket"
+        }
+      ]
+    },
+    "willows-notebook": {
+      "name": "The River Notebook",
+      "holder": "willows-camp",
+      "art": "assets/willows/notebook-book.png",
+      "sealed": {},
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "willows-willows-paced",
+              "value": true
+            },
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "item_at",
+                "item": "willows-notebook",
+                "place": "willows-camp"
+              }
+            }
+          ]
+        }
+      ],
+      "author": "willows-swede",
+      "claims": [
+        {
+          "id": "far-from-houses",
+          "text": "From the island there is no house in sight, only bent willow tops and the hiss of wind over the flooded Danube.",
+          "about": "willows-landing"
+        },
+        {
+          "id": "willows-move",
+          "text": "From the tent door, the nearest willow takes fewer paces to reach at night than by daylight.",
+          "about": "willows-camp"
+        },
+        {
+          "id": "willows-hum",
+          "text": "From the Crumbling Bank, the willows can be heard humming across the river and felt through the sand.",
+          "about": "willows-bank"
+        }
+      ],
+      "pages": [
+        "assets/willows/notebook-page-1.png",
+        "assets/willows/notebook-page-2.png",
+        "assets/willows/notebook-page-3.png"
+      ]
     }
   },
   "choices": [
@@ -569,10 +634,10 @@
       "id": "willows-swede-departs",
       "subject": "willows-swede",
       "at": "willows-landing",
-      "label": "The Swede takes the canoe",
+      "label": "The Swede leaves the island",
       "on": "depart",
-      "text": "The Swede pushes the mended canoe off the sand and paddles into the main stream without looking back. The willows close over the place where he went.",
-      "summary": "The Swede took the mended canoe and left the island. He is gone, and the canoe with him.",
+      "text": "The Swede leaves the island without looking back. The willows close over the place where he went.",
+      "summary": "The Swede left the island for good.",
       "requires": [],
       "effects": [
         {
@@ -587,23 +652,7 @@
     {
       "url": "https://www.gutenberg.org/ebooks/11438",
       "name": "Algernon Blackwood, The Willows (1907)",
-      "use": "Original English passages, kept as world lore in lore/readings.json for readable books and inscriptions. The exact downloaded source is kept in source-text.txt."
-    }
-  ],
-  "topics": [
-    {
-      "id": "willows-supper",
-      "speaker": "willows-swede",
-      "at": "willows-camp",
-      "text": "The Swede says a hot supper keeps the fear smaller than the river.",
-      "requires": []
-    },
-    {
-      "id": "willows-channels",
-      "speaker": "willows-swede",
-      "at": "willows-camp",
-      "text": "The Swede says the river has cut new channels since the map was drawn.",
-      "requires": []
+      "use": "The River Notebook's claims are distilled from its passages. The exact downloaded source is kept in source-text.txt."
     }
   ],
   "hiding": {

@@ -9,16 +9,6 @@ pub(crate) fn guild_view(guild: &str, residents: &[String]) -> Option<Value> {
     view(&crate::event_store_path_from_env()?, guild, residents)
 }
 
-fn ids(all: &Value, key: &str, at: &str, but: &str) -> Vec<Value> {
-    all.as_object()
-        .into_iter()
-        .flatten()
-        .filter(|(id, entry)| id.as_str() != but && entry[key] == at)
-        .map(|(id, _)| json!(id))
-        .take(MOST)
-        .collect()
-}
-
 fn lines(c: &Connection, world: &str, place: &str) -> Option<Vec<Value>> {
     let mut q = c
         .prepare(
@@ -70,15 +60,25 @@ pub(crate) fn guild_talked(guild: &str) -> Option<Vec<String>> {
 
 fn talked(path: &Path, guild: &str) -> Option<Vec<String>> {
     let (c, world, _) = open(path, guild, "")?;
+    // Include the Listener's published dialogue in journal order.
     let mut q = c
         .prepare(
-            "SELECT json_extract(command,'$.actor'),json_extract(command,'$.action.target') \
-             FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='play' \
-             AND json_extract(command,'$.action.kind')='talk' ORDER BY seq DESC LIMIT 400",
+            "SELECT seq,json_extract(command,'$.actor'),json_extract(command,'$.action.target') \
+             FROM card_full_log WHERE world=?1 AND json_extract(command,'$.op')='play' \
+             AND json_extract(command,'$.action.kind')='talk' \
+             UNION ALL \
+             SELECT logged.seq,NULL,'listener' FROM card_full_log logged \
+             JOIN card_full_scenes saved ON saved.world=logged.world \
+                AND saved.play=json_extract(logged.command,'$.play') \
+             WHERE logged.world=?1 AND json_extract(logged.command,'$.op')='speech' \
+             AND EXISTS (SELECT 1 FROM json_each(saved.content,'$.lines') line \
+                WHERE json_extract(line.value,'$.actorId')='listener' \
+                AND json_extract(line.value,'$.kind')='dialogue') \
+             ORDER BY seq DESC LIMIT 400",
         )
         .ok()?;
     let talks = q
-        .query_map([world], |r| Ok([r.get::<_, Option<String>>(0)?, r.get(1)?]))
+        .query_map([world], |r| Ok([r.get::<_, Option<String>>(1)?, r.get(2)?]))
         .ok()?
         .collect::<Result<Vec<_>, _>>()
         .ok()?;
@@ -94,20 +94,24 @@ fn talked(path: &Path, guild: &str) -> Option<Vec<String>> {
 fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
     let (c, world, state) = open(path, guild, "'game',json_extract(k.state,'$.game')")?;
     let game = &state["game"];
-    let (actors, items) = (&game["actors"], &game["items"]);
     let own = super::narrator::own(game, residents).unwrap_or_default();
     let mut seen = Map::new();
     for id in residents {
-        let Some(place) = actors[id.as_str()]["place"].as_str() else {
+        let Some(place) = game["actors"][id.as_str()]["place"].as_str() else {
             continue;
+        };
+        let live = |key: &str| {
+            let all = own["seen"][id.as_str()][key].as_array().cloned();
+            Value::Array(all.unwrap_or_default().into_iter().take(MOST).collect())
         };
         let view = json!({
             "place": place,
-            "here": ids(actors, "place", place, id),
-            "holds": ids(items, "holder", id, ""),
-            "items": ids(items, "holder", place, ""),
+            "here": live("here"),
+            "holds": live("holds"),
+            "items": live("items"),
             "lines": lines(&c, &world, place)?,
-            "own": own.get(id).cloned().unwrap_or_else(|| json!([])),
+            "own": own["own"].get(id).cloned().unwrap_or_else(|| json!([])),
+            "known": own["known"].get(id).cloned().unwrap_or_else(|| json!([])),
         });
         seen.insert(id.clone(), view);
     }
@@ -116,7 +120,7 @@ fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{full_store, full_world::World, store};
+    use super::super::{content, full_store, full_world::World, store};
     use super::*;
 
     const GUILD: &str = "100000000000000001";
@@ -152,7 +156,8 @@ mod tests {
 
     #[test]
     fn a_resident_sees_its_place_company_things_and_the_last_public_lines() {
-        let (path, w) = saved(&format!("discord-guild:{GUILD}"));
+        let w = World::create(None).unwrap();
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
         let before = std::fs::read(&path).unwrap();
         let all = view(&path, GUILD, &["moth".into(), "nobody".into()]).unwrap();
         let moth = &all["moth"];
@@ -187,25 +192,28 @@ mod tests {
 
     #[test]
     fn the_view_follows_the_latest_saved_state() {
-        let (path, _) = saved(&format!("discord-guild:{GUILD}"));
+        let path = kept(
+            &format!("discord-guild:{GUILD}"),
+            &World::create(None).unwrap(),
+        );
         let c = store::open(&path).unwrap();
         c.execute(
             "UPDATE card_full_checkpoints SET state=json_set(state,\
-             '$.game.items.cloth.holder','vale','$.game.actors.vale.place','greek-courtyard')",
+             '$.game.items.cloth.holder','keeper','$.game.actors.keeper.place','greek-courtyard')",
             [],
         )
         .unwrap();
         drop(c);
-        let all = view(&path, GUILD, &["moth".into(), "vale".into()]).unwrap();
-        assert_eq!(all["vale"]["place"], "greek-courtyard");
-        assert_eq!(all["vale"]["lines"], json!([]));
+        let all = view(&path, GUILD, &["moth".into(), "keeper".into()]).unwrap();
+        assert_eq!(all["keeper"]["place"], "greek-courtyard");
+        assert_eq!(all["keeper"]["lines"], json!([]));
         let holds = |id: &str| {
             all[id]["holds"]
                 .as_array()
                 .unwrap()
                 .contains(&json!("cloth"))
         };
-        assert!(holds("vale") && !holds("moth"), "{all}");
+        assert!(holds("keeper") && !holds("moth"), "{all}");
     }
 
     #[test]
@@ -222,12 +230,17 @@ mod tests {
             .map(String::as_str)
             .collect();
         keys.sort_unstable();
-        assert_eq!(keys, ["here", "holds", "items", "lines", "own", "place"]);
+        assert_eq!(
+            keys,
+            ["here", "holds", "items", "known", "lines", "own", "place"]
+        );
     }
 
     #[test]
     fn a_resident_knows_its_own_want_and_favours_and_no_one_elses() {
         let mut w = World::create(None).unwrap();
+        w.game["actors"]["keeper"]["want"] =
+            json!({"kind":"item","target":"bell","since":0,"refusals":0});
         let pond = w.game["actors"]["moth"]["place"].clone();
         w.game["actors"]["keeper"]["place"] = pond.clone();
         w.game["actors"]["vale"]["place"] = pond;
@@ -249,6 +262,79 @@ mod tests {
         assert!(!all["moth"].to_string().contains("Bell."), "{all}");
         assert!(!all["keeper"].to_string().contains("Lamp."), "{all}");
         assert!(!all.to_string().contains(SECRET));
+    }
+
+    #[test]
+    fn a_resident_sees_no_card_that_still_lies_face_down() {
+        let mut w = World::create(None).unwrap();
+        w.game["packs"]["greek-drama"]["scope"] = json!("full");
+        assert_eq!(w.game["actors"]["greek-adrastus"]["place"], "greek-eleusis");
+        assert_eq!(
+            w.game["items"]["willows-notebook"]["holder"],
+            "willows-camp"
+        );
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
+        let ids: Vec<String> = ["greek-aethra", "willows-swede"].map(String::from).into();
+        let all = view(&path, GUILD, &ids).unwrap();
+        assert_eq!(all["greek-aethra"]["here"], json!([]), "{all}");
+        assert_eq!(all["willows-swede"]["items"], json!([]), "{all}");
+    }
+
+    #[test]
+    fn a_resident_knows_on_the_server_what_it_knows_at_the_card_table() {
+        let mut w = World::create(None).unwrap();
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["packs"]["greek-drama"]["scope"] = json!("full");
+        w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+        w.game["actors"]["vale"]["place"] = json!("greek-gate");
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
+        let c = store::open(&path).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, "world", &mut w, json!({"op":op,"actor":"vale"}), 2).unwrap();
+        }
+        let mut table = Value::Null;
+        for turn in 3..5 {
+            let actions = w.project(0).unwrap()["actions"].clone();
+            let talk = actions
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["target"] == "greek-guard");
+            let play = json!({"op":"play","actor":"vale","action":talk.unwrap()});
+            table = full_store::commit(&c, "world", &mut w, play, turn).unwrap();
+        }
+        let entities = table["context"]["entities"].as_array().unwrap();
+        let guard = entities.iter().find(|e| e["id"] == "greek-guard").unwrap();
+        let known =
+            view(&path, GUILD, &["greek-guard".into()]).unwrap()["greek-guard"]["known"].clone();
+        let catalog: Value = serde_json::from_str(content::current_text()).unwrap();
+        let greek = catalog["files"]["v2/card-game/packs.json"]["packs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|pack| pack["id"] == "greek-drama")
+            .unwrap();
+        let claim = greek["items"]["greek-decree"]["claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|claim| claim["id"] == "no-burial")
+            .unwrap();
+        let decree = format!(
+            "in The Burial Decree, by Creon: {}",
+            claim["text"].as_str().unwrap()
+        );
+        assert!(
+            known
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|fact| fact.as_str().is_some_and(|fact| fact.contains(&decree))),
+            "{known}"
+        );
+        for line in known.as_array().unwrap() {
+            assert!(guard["facts"].as_array().unwrap().contains(line), "{line}");
+        }
     }
 
     #[test]
@@ -320,5 +406,78 @@ mod tests {
         full_store::commit(&c, "world", &mut w, play, 3).unwrap();
         drop(c);
         assert_eq!(talked(&path, GUILD).unwrap(), ["vale", "greek-elder"]);
+    }
+
+    #[test]
+    fn a_real_browser_talk_play_brings_the_listener_to_its_guild() {
+        let mut w = World::create(None).unwrap();
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["actors"]["vale"]["place"] = json!("pond");
+        w.game["actors"]["vale"]["arcana"] = json!({"proved":[], "did":[], "calls":3});
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
+        assert!(talked(&path, GUILD).unwrap().is_empty());
+        let c = store::open(&path).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, "world", &mut w, json!({"op":op,"actor":"vale"}), 2).unwrap();
+        }
+        let actions = w.project(0).unwrap()["actions"].clone();
+        let talk = actions
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "talk" && a["target"] == "listener")
+            .unwrap_or_else(|| panic!("{actions}"));
+        let play = json!({"op":"play","actor":"vale","action":talk,"surface":"browser"});
+        full_store::commit(&c, "world", &mut w, play, 3).unwrap();
+        assert_eq!(talked(&path, GUILD).unwrap(), ["vale", "listener"]);
+        assert!(talked(&path, "100000000000000002").is_none());
+    }
+
+    #[test]
+    fn only_published_listener_dialogue_in_the_guild_counts_as_an_encounter() {
+        let (path, _) = saved(&format!("discord-guild:{GUILD}"));
+        let c = store::open(&path).unwrap();
+        let journal = |world: &str, command: Value| {
+            c.execute(
+                "INSERT INTO card_full_log(world,command,at) VALUES(?,?,1)",
+                [world, &command.to_string()],
+            )
+            .unwrap();
+        };
+        let spoken = |world: &str, play: &str, kind: &str, published: bool| {
+            let line = json!({"actorId":"listener","text":"What did you bring?"});
+            journal(
+                world,
+                json!({"op":"speech","actor":"vale","play":play,"lines":[line]}),
+            );
+            if published {
+                let mut line = line;
+                line["kind"] = json!(kind);
+                c.execute(
+                    "INSERT INTO card_full_scenes(world,room,play,content) VALUES(?,'pond',?,?)",
+                    [world, play, &json!({"lines":[line]}).to_string()],
+                )
+                .unwrap();
+            }
+        };
+        spoken("other", "other-line", "dialogue", true);
+        spoken("world", "silent-line", "dialogue", false);
+        spoken("world", "private-line", "reflection", true);
+        assert!(talked(&path, GUILD).unwrap().is_empty());
+
+        journal(
+            "world",
+            json!({"op":"play","actor":"vale","action":{"kind":"talk","target":"moth"}}),
+        );
+        spoken("world", "public-line", "dialogue", true);
+        assert_eq!(talked(&path, GUILD).unwrap(), ["listener", "vale", "moth"]);
+        journal(
+            "world",
+            json!({"op":"play","actor":"vale","action":{"kind":"talk","target":"keeper"}}),
+        );
+        assert_eq!(
+            talked(&path, GUILD).unwrap(),
+            ["vale", "keeper", "listener", "moth"]
+        );
     }
 }

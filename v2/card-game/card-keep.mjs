@@ -22,7 +22,6 @@ export function sameFace(a, b) {
   return x.isEqualNode(y);
 }
 
-// Whether one node tree can be brought to look like another in place.
 const sameShape = (a, b) =>
   a.nodeName === b.nodeName &&
   a.childNodes.length === b.childNodes.length &&
@@ -32,7 +31,8 @@ function syncAttributes(node, like) {
   for (const { name } of [...node.attributes])
     if (!like.hasAttribute(name)) node.removeAttribute(name);
   for (const { name, value } of like.attributes)
-    if (node.getAttribute(name) !== value) node.setAttribute(name, value);
+    if (name !== "style" && node.getAttribute(name) !== value)
+      node.setAttribute(name, value);
 }
 
 // Brings `node` to look like `like`, which has its shape, keeping its nodes.
@@ -57,6 +57,13 @@ export function morphFrame(was, frame, syncImage) {
     ...[...frame.childNodes].map((part) => (part === card ? kept : part)),
   );
   return was;
+}
+
+// The CSP drops a redrawn style attribute, so a kept card's tier goes by CSSOM.
+export function syncTier(frame, like) {
+  const tier = cardIn(like)?.style.getPropertyValue("--tier-color");
+  if (tier) cardIn(frame).style.setProperty("--tier-color", tier);
+  return frame;
 }
 
 // The new row with each card's old frame kept where it can be. `changed`

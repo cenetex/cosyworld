@@ -15,6 +15,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use cosyworld_orchestrator::card_assets;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::{
@@ -22,6 +23,13 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::OwnedSemaphorePermit;
+#[path = "channel_cast.rs"]
+mod cast_scope;
+#[path = "channel_ways.rs"]
+mod ways;
+use cast_scope::{guild_talked, joined, knows_listener, room_cast, LISTENER};
+#[cfg(test)]
+use cast_scope::{recent, TALKED};
 
 const LIMIT: RateLimit = RateLimit {
     max_hits: 30,
@@ -43,14 +51,13 @@ const ADDRESSED_WAIT: Duration = Duration::from_secs(3);
 const ADDRESSED_CALL: Duration = Duration::from_secs(6);
 const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
 const CANDIDATES: usize = 8;
-const TALKED: usize = 8;
-const FLOOR: usize = 3;
 const PEOPLE: usize = 12;
 const HISTORY: usize = 200;
 const SHARES: &str = "[shares an image]";
 const IMAGE_HOSTS: [&str; 2] = ["cdn.discordapp.com", "media.discordapp.net"];
 const IMAGES_PER_MESSAGE: usize = 2;
 const IMAGES_PER_REQUEST: usize = 4;
+const REPLIES_PER_MESSAGE: usize = 2;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 struct Resident {
@@ -135,7 +142,7 @@ fn authorized(headers: &HeaderMap, expected: Option<&str>) -> bool {
 fn packs() -> &'static Value {
     static PACKS: OnceLock<Value> = OnceLock::new();
     PACKS.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/packs.json"))
+        serde_json::from_str(card_assets::text("card-game/packs.json"))
             .expect("embedded card world packs")
     })
 }
@@ -143,7 +150,7 @@ fn packs() -> &'static Value {
 fn face_avatar(portrait: &str) -> Option<String> {
     static FACES: OnceLock<Value> = OnceLock::new();
     let faces = FACES.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/assets/discord-faces.json"))
+        serde_json::from_str(card_assets::text("card-game/assets/discord-faces.json"))
             .expect("embedded discord face boxes")
     });
     faces.get(portrait)?;
@@ -181,8 +188,7 @@ fn core() -> Vec<Resident> {
 fn forest_data() -> &'static Value {
     static FOREST: OnceLock<Value> = OnceLock::new();
     FOREST.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/forest.json"))
-            .expect("embedded forest")
+        serde_json::from_str(card_assets::text("card-game/forest.json")).expect("embedded forest")
     })
 }
 
@@ -203,14 +209,13 @@ fn atlas(pack_id: &str) -> Atlas {
             let paths = place["exits"].as_array().cloned().unwrap_or_default();
             places.insert(
                 id.clone(),
-                json!({"name": place["name"], "text": place["text"], "paths": paths}),
+                json!({"name": place["name"],
+                    "text": place.get("text").or_else(|| place.get("persona")).unwrap_or(&place["seed"]),
+                    "paths": paths}),
             );
         }
     }
-    let routes = world
-        .and_then(|p| p["routes"].as_array())
-        .into_iter()
-        .flatten();
+    let routes = ways::routes(world);
     for (from, to) in routes.filter_map(|r| Some((r["from"].as_str()?, r["to"].as_str()?))) {
         if let Some(paths) = places.get_mut(from).and_then(|p| p["paths"].as_array_mut()) {
             if !paths.contains(&json!(to)) {
@@ -222,17 +227,16 @@ fn atlas(pack_id: &str) -> Atlas {
         .and_then(|p| p["items"].as_object())
         .into_iter()
         .flatten()
-        .filter_map(|(_, item)| {
-            Some((
-                item["name"].as_str()?.to_string(),
-                item["holder"].as_str()?.to_string(),
-            ))
-        })
+        .filter_map(|(id, item)| Some((id.clone(), item["holder"].as_str()?.to_string())))
         .collect();
-    for (id, thing) in forest["things"].as_object().into_iter().flatten() {
-        let holder = forest["initialState"]["items"][id]["holder"].as_str();
-        if let (Some(name), Some(holder)) = (thing["name"].as_str(), holder) {
-            items.push((name.to_string(), holder.to_string()));
+    for id in forest["things"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(id, _)| id)
+    {
+        if let Some(holder) = forest["initialState"]["items"][id]["holder"].as_str() {
+            items.push((id.clone(), holder.to_string()));
         }
     }
     Atlas { places, items }
@@ -256,28 +260,9 @@ impl Atlas {
     }
 
     fn held(&self, id: &str) -> Vec<String> {
-        self.items
-            .iter()
-            .filter(|(_, holder)| holder == id)
-            .map(|(name, _)| name.clone())
-            .collect()
+        let held = self.items.iter().filter(|(_, holder)| holder == id);
+        held.map(|(item, _)| item.clone()).collect()
     }
-}
-
-fn listed(label: &str, names: &[String]) -> Option<String> {
-    let mut line = String::new();
-    for name in names {
-        let next = if line.is_empty() {
-            name.clone()
-        } else {
-            format!("{line}, {name}")
-        };
-        if label.len() + next.len() + 3 > 240 {
-            break;
-        }
-        line = next;
-    }
-    (!line.is_empty()).then(|| format!("{label}: {line}."))
 }
 
 async fn live(guild: Option<String>, residents: Vec<String>) -> Option<Value> {
@@ -297,65 +282,45 @@ fn mounted(id: &str) -> Option<&'static Value> {
     all.iter().find_map(|p| p["places"].get(id))
 }
 
-fn named(ids: &Value) -> Vec<String> {
-    let ids = ids.as_array().into_iter().flatten();
-    ids.filter_map(|id| profiles()[id.as_str()?]["name"].as_str())
-        .map(str::to_string)
-        .collect()
+fn strings(ids: &Value) -> Vec<String> {
+    let all = ids.as_array().into_iter().flatten();
+    all.filter_map(Value::as_str).map(str::to_string).collect()
 }
 
-fn knowledge(
-    resident: &Resident,
-    pack_id: &str,
-    view: Option<&Value>,
-) -> (Vec<String>, Vec<String>) {
-    let world = atlas(pack_id);
-    let card = pack(pack_id)
-        .and_then(|p| p["avatars"].get(&resident.id))
-        .or_else(|| avatar_card(&resident.id))
-        .or_else(|| forest_data()["people"].get(&resident.id))
-        .or_else(|| traveler(&resident.id))
-        .cloned()
-        .unwrap_or_default();
-    let home = &resident.place;
-    let mut own: Vec<String> = card["text"]
-        .as_str()
-        .map(str::to_string)
-        .into_iter()
-        .collect();
-    own.push(format!("Home: {}.", world.name(home)));
-    for (key, label) in [("likes", "Likes"), ("sore", "Sore")] {
-        if let Some(taste) = card["tastes"][key].as_str() {
-            own.push(format!("{label}: {}.", taste.trim_end_matches('.')));
-        }
-    }
-    own.extend(listed("Paths from home", &world.paths(home)));
-    let at = standing(resident, view);
-    if view.is_some_and(|seen| seen["place"] == at) {
-        own.insert(0, format!("Location now: {}.", name(at)));
-    }
-    let mut place: Vec<String> = world
-        .places
-        .get(at)
-        .or_else(|| mounted(at))
-        .and_then(|p| p["text"].as_str())
-        .map(str::to_string)
-        .into_iter()
-        .collect();
-    match view {
-        Some(seen) => {
-            own.extend(listed("I hold", &named(&seen["holds"])));
-            own.extend(listed("With me here", &named(&seen["here"])));
-            let felt = seen["own"].as_array().into_iter().flatten();
-            own.extend(felt.filter_map(Value::as_str).take(3).map(str::to_string));
-            place.extend(listed("Items here", &named(&seen["items"])));
-        }
-        None => place.extend(listed("Items here", &world.held(home))),
-    }
-    let keep = |facts: Vec<String>| -> Vec<String> {
-        facts.into_iter().filter(|f| bounded(f, 240)).collect()
+fn talk(resident: &Resident, pack_id: &str, view: Option<&Value>) -> (Vec<String>, Value) {
+    let at = standing(resident, view).to_string();
+    let start = atlas(pack_id);
+    let (holds, here, ground) = match view {
+        Some(seen) => (
+            strings(&seen["holds"]),
+            strings(&seen["here"]),
+            strings(&seen["items"]),
+        ),
+        None => (start.held(&resident.id), Vec::new(), start.held(&at)),
     };
-    (keep(own), keep(place))
+    let facts = view
+        .into_iter()
+        .flat_map(|seen| [&seen["own"], &seen["known"]]);
+    let facts = facts
+        .flat_map(strings)
+        .filter(|f| bounded(f, 240))
+        .collect();
+    let avatar = |id: &str, holding: &[String]| json!({"id": id, "location": &at, "holding": holding, "travel": null});
+    let mut avatars = vec![avatar(&resident.id, &holds)];
+    avatars.extend(
+        here.iter()
+            .filter(|id| kind(id, "avatar"))
+            .map(|id| avatar(id, &[])),
+    );
+    let item = |id: &String, holder: &str| json!({"id": id, "holder": holder, "location": &at});
+    let held = holds.iter().map(|id| item(id, &resident.id));
+    let items: Vec<Value> = held.chain(ground.iter().map(|id| item(id, &at))).collect();
+    let card = json!({"kind": "talk", "target": &resident.id, "item": null,
+        "receive": null, "destination": null, "accepted": null});
+    (
+        facts,
+        json!({"card": card, "avatars": avatars, "items": items}),
+    )
 }
 
 fn world(pack_id: &str, cast: &[Resident]) -> Value {
@@ -363,7 +328,10 @@ fn world(pack_id: &str, cast: &[Resident]) -> Value {
     let places: Vec<Value> = world
         .places
         .iter()
-        .map(|(id, place)| json!({"name": place["name"], "text": place["text"], "paths": world.paths(id), "items": world.held(id)}))
+        .map(|(id, place)| {
+            let items: Vec<String> = world.held(id).iter().map(|item| name(item)).collect();
+            json!({"name": place["name"], "text": place["text"], "paths": world.paths(id), "items": items})
+        })
         .collect();
     let homes: Map<String, Value> = cast
         .iter()
@@ -409,6 +377,9 @@ fn traveler(id: &str) -> Option<&'static Value> {
 }
 
 fn resident(id: &str) -> Option<Resident> {
+    if id == LISTENER {
+        return member(id, &forest_data()["people"][id]);
+    }
     if let Some(found) = avatar_card(id).and_then(|avatar| member(id, avatar)) {
         return Some(found);
     }
@@ -424,44 +395,6 @@ fn resident(id: &str) -> Option<Resident> {
         avatar: face_avatar(&portrait),
         portrait: format!("/card-game/{portrait}"),
     })
-}
-
-fn recent(fixed: Vec<Resident>, talked: &[String]) -> Vec<Resident> {
-    let mut residents: Vec<Resident> = talked
-        .iter()
-        .filter_map(|id| resident(id))
-        .take(TALKED)
-        .collect();
-    if residents.len() < FLOOR {
-        for found in fixed {
-            if residents.len() < TALKED && !residents.iter().any(|r| r.id == found.id) {
-                residents.push(found);
-            }
-        }
-    }
-    residents
-}
-
-async fn room_cast(pack_id: &str, guild: Option<String>) -> Option<Vec<Resident>> {
-    let fixed = cast(pack_id)?;
-    let Some(guild) = guild else {
-        return Some(fixed);
-    };
-    let read = move || crate::card_shared::guild_talked(&guild);
-    let talked = tokio::task::spawn_blocking(read).await.ok().flatten();
-    Some(match talked {
-        Some(talked) => recent(fixed, &talked),
-        None => fixed,
-    })
-}
-
-fn joined(mut cast: Vec<Resident>, ids: impl IntoIterator<Item = String>) -> Vec<Resident> {
-    for id in ids {
-        if !cast.iter().any(|r| r.id == id) {
-            cast.extend(resident(&id));
-        }
-    }
-    cast
 }
 
 fn discord_image(url: &str) -> bool {
@@ -540,8 +473,7 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
 fn shared_cast() -> &'static Value {
     static SHARED: OnceLock<Value> = OnceLock::new();
     SHARED.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/shared-cast.json"))
-            .expect("shared cast")
+        serde_json::from_str(card_assets::text("card-game/shared-cast.json")).expect("shared cast")
     })
 }
 
@@ -690,7 +622,7 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
         facts.extend(thread(notes));
     }
     let view = request.view.as_ref();
-    let (own, place) = knowledge(resident, &request.pack, view);
+    let (own, outcome) = talk(resident, &request.pack, view);
     facts.extend(own);
     let at = standing(resident, view);
     for line in view
@@ -723,12 +655,15 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
         "speakers": [&resident.id],
         "entities": [
             {"id": &resident.id, "facts": facts, "desire": null, "memories": memories, "previous": null},
-            {"id": at, "facts": place, "desire": null, "memories": [], "previous": null}
+            {"id": at, "facts": [], "desire": null, "memories": [], "previous": null}
         ],
-        "conversation": conversation
+        "conversation": conversation,
+        "outcome": outcome
     }))
     .ok()?;
-    context.acting_avatar = Some(resident.id.clone());
+    let mut others = context.conversation.iter().rev().map(|line| &line.actor_id);
+    let answered = others.find(|actor| **actor != resident.id).cloned();
+    context.acting_avatar = Some(answered.unwrap_or_else(|| "Someone".into()));
     context.channel = true;
     context.present = present(resident, cast, request);
     context.images = messages[start..]
@@ -802,10 +737,10 @@ fn spend(limits: &mut RateLimiter, now: Instant) -> bool {
         && limits.allow("discord-day".into(), PER_DAY, now)
 }
 
-fn admitted(state: &TextState, headers: &HeaderMap, kind: &str) -> Result<(), Response> {
+fn admission_error(state: &TextState, headers: &HeaderMap, kind: &str) -> Option<Response> {
     let token = std::env::var("COSYWORLD_BOT_TOKEN").ok();
     if !authorized(headers, token.as_deref()) {
-        return Err(error(StatusCode::UNAUTHORIZED, "unauthorized"));
+        return Some(error(StatusCode::UNAUTHORIZED, "unauthorized"));
     }
     let now = Instant::now();
     let allowed = state.limits.lock().is_ok_and(|mut limits| match kind {
@@ -816,10 +751,7 @@ fn admitted(state: &TextState, headers: &HeaderMap, kind: &str) -> Result<(), Re
         }
         _ => limits.allow("discord-cast".into(), LIMIT, now),
     });
-    if !allowed {
-        return Err(error(StatusCode::TOO_MANY_REQUESTS, "busy"));
-    }
-    Ok(())
+    (!allowed).then(|| error(StatusCode::TOO_MANY_REQUESTS, "busy"))
 }
 
 async fn enter(
@@ -861,7 +793,7 @@ pub(super) async fn cast_route(
     headers: HeaderMap,
     query: Result<Query<CastQuery>, QueryRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "cast") {
+    if let Some(refused) = admission_error(&state, &headers, "cast") {
         return refused;
     }
     let Ok(Query(query)) = query else {
@@ -869,7 +801,7 @@ pub(super) async fn cast_route(
     };
     let pack_id = query.pack.unwrap_or_else(|| DEFAULT_PACK.into());
     match room_cast(&pack_id, query.guild).await {
-        Some(residents) => (
+        Some((residents, _)) => (
             [("cache-control", "no-store")],
             Json(json!({"pack": pack_id, "residents": residents})),
         )
@@ -883,7 +815,7 @@ pub(super) async fn lines(
     headers: HeaderMap,
     request: Result<Json<LinesRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "lines") {
+    if let Some(refused) = admission_error(&state, &headers, "lines") {
         return refused;
     }
     let mut request = match request {
@@ -902,9 +834,19 @@ pub(super) async fn lines(
         .cloned();
     let spoke = request.messages.iter().filter_map(|m| m.resident.clone());
     let recalled = request.channel.residents.iter().map(|r| r.id.clone());
-    let residents = joined(residents, named.chain(spoke).chain(recalled));
+    let ids = named.chain(spoke).chain(recalled);
+    let listener_known = ids.clone().any(|id| id == LISTENER)
+        && guild_talked(request.guild.clone())
+            .await
+            .as_deref()
+            .is_some_and(knows_listener);
+    let residents = joined(residents, ids, listener_known);
     if let Err(message) = validate(&request, &residents) {
         return error(StatusCode::BAD_REQUEST, message);
+    }
+    let replies = request.messages.iter().rev();
+    if replies.take_while(|m| m.resident.is_some()).count() >= REPLIES_PER_MESSAGE {
+        return silent("enough");
     }
     let Some(config) = state.ai.as_ref().as_ref() else {
         return silent("not-configured");
@@ -1096,13 +1038,14 @@ pub(super) async fn coordinate(
     headers: HeaderMap,
     request: Result<Json<CoordinateRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "coordinate") {
+    if let Some(refused) = admission_error(&state, &headers, "coordinate") {
         return refused;
     }
     let Ok(Json(mut request)) = request else {
         return error(StatusCode::BAD_REQUEST, "unreadable request");
     };
-    let Some(residents) = room_cast(&request.pack, request.guild.clone()).await else {
+    let Some((residents, listener_known)) = room_cast(&request.pack, request.guild.clone()).await
+    else {
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
     let history = request.state.get("history").and_then(Value::as_array);
@@ -1111,7 +1054,11 @@ pub(super) async fn coordinate(
         .flatten()
         .filter_map(|l| l["resident"].as_str());
     let spoke: Vec<String> = spoke.map(str::to_string).collect();
-    let residents = joined(residents, request.residents.iter().cloned().chain(spoke));
+    let residents = joined(
+        residents,
+        request.residents.iter().cloned().chain(spoke),
+        listener_known,
+    );
     let ids = residents.iter().map(|r| r.id.clone()).collect();
     request.live = live(request.guild.clone(), ids).await;
     let Some(mut view) = arranged(&request, &residents) else {
@@ -1174,7 +1121,7 @@ pub(super) async fn notes(
     headers: HeaderMap,
     request: Result<Json<NotesRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, "coordinate") {
+    if let Some(refused) = admission_error(&state, &headers, "coordinate") {
         return refused;
     }
     let Ok(Json(request)) = request else {
@@ -1184,7 +1131,8 @@ pub(super) async fn notes(
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
     let spoke = request.messages.iter().filter_map(|m| m.resident.clone());
-    let residents = joined(residents, spoke);
+    // Notes only summarize existing Discord history, without loading a game world.
+    let residents = joined(residents, spoke, true);
     let fits = (1..=12).contains(&request.messages.len())
         && request.notes.as_ref().is_none_or(sound)
         && pictures(&request.messages) <= IMAGES_PER_REQUEST
@@ -1415,7 +1363,7 @@ mod tests {
     #[test]
     fn a_character_from_any_pack_may_speak_in_the_room() {
         let ids = ["greek-antigone", "nobody", "keeper", "mara"].map(String::from);
-        let all = joined(cast("lonely-forest").unwrap(), ids);
+        let all = joined(cast("lonely-forest").unwrap(), ids, false);
         assert_eq!(all.len(), 9);
         assert_eq!(all[7].id, "greek-antigone");
         assert_eq!(all[8].name, "Mara");
@@ -1634,19 +1582,19 @@ mod tests {
         assert!(requests.iter().all(|r| r.get("questions").is_none()));
         let voice = &requests[0];
         let turns: Vec<_> = voice["messages"].as_array().unwrap().iter().collect();
-        let said = |at: usize| (turns[at]["role"].as_str(), turns[at]["content"].as_str());
-        let opening = format!("You are RATi, host of the cottage. {SAY_ALOUD}\n\n");
-        assert!(turn_of(voice, "system").starts_with(&opening));
-        assert_eq!(
-            said(1),
-            (Some("user"), Some("Mara: Is anyone in the cottage?"))
+        let roles: Vec<_> = turns.iter().map(|t| t["role"].as_str().unwrap()).collect();
+        assert_eq!(roles, ["system", "user", "assistant", "user"]);
+        let opening = format!("You are RATi, host of the cottage. {SAY_ALOUD}");
+        assert_eq!(turn_of(voice, "system"), opening);
+        let heard = "Jun says, \u{201c}RATi, can I come in?\u{201d}";
+        assert_eq!(turn_of(voice, "user"), heard);
+        let view = turn_of(voice, "assistant");
+        let said = "Mara said: \"Is anyone in the cottage?\" I said: \"The kettle is on.\"";
+        assert!(
+            view.contains(said) && view.contains("I'm talking with Jun."),
+            "{view}"
         );
-        assert_eq!(said(2), (Some("assistant"), Some("The kettle is on.")));
-        assert_eq!(said(3), (Some("user"), Some("Jun: RATi, can I come in?")));
-        assert_eq!(turns.len(), 4);
-        let prompt = prompt_of(voice);
-        assert_eq!(prompt.matches("Reply with").count(), 1);
-        assert!(!prompt.contains(" said:"));
+        assert_eq!(prompt_of(voice).matches("Reply with").count(), 1);
     }
 
     #[tokio::test]
@@ -1657,8 +1605,7 @@ mod tests {
             "pack": "lonely-forest",
             "messages": [
                 {"author": "Jun", "text": "RATi, can I come in?"},
-                {"resident": "rati", "text": own},
-                {"resident": "rati", "text": "The kettle is on."}
+                {"resident": "rati", "text": own}
             ]
         });
         body["continuing"] = json!("rati");
@@ -1669,13 +1616,10 @@ mod tests {
             answer,
             json!({"lines": [{"id": "rati", "name": "RATi", "text": reply}]})
         );
-        let turns: Vec<_> = requests[0]["messages"].as_array().unwrap().iter().collect();
-        let said = |at: usize| (turns[at]["role"].as_str(), turns[at]["content"].as_str());
-        assert_eq!(said(1), (Some("user"), Some("Jun: RATi, can I come in?")));
-        let both = format!("{own}\nThe kettle is on.");
-        assert_eq!(said(2), (Some("assistant"), Some(both.as_str())));
-        assert_eq!(said(3), (Some("user"), Some(FOLLOW_UP)));
-        assert_eq!(turns.len(), 4);
+        assert_eq!(turn_of(&requests[0], "user"), FOLLOW_UP);
+        let view = turn_of(&requests[0], "assistant");
+        let said = format!("Jun said: \"RATi, can I come in?\" I said: \"{own}\"");
+        assert!(view.contains(&said), "{view}");
     }
 
     #[tokio::test]
@@ -1700,30 +1644,23 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["text"], reply);
         let voice = &requests[0];
-        assert_eq!(turn_of(voice, "user"), "Jun: RATi, can I come in?");
-        let view = turn_of(voice, "system");
-        let opening = format!("You are RATi, host of the cottage. {SAY_ALOUD}\n\n");
-        assert!(view.starts_with(&opening), "{view}");
-        assert!(
-            view.contains("Jun and Mara and Skull are here with me."),
-            "{view}"
-        );
+        let view = turn_of(voice, "assistant");
+        for line in [
+            "Jun and Mara and Skull are here with me.",
+            "I have spoken 2 times in a row here.",
+            "I last spoke here 2 minutes ago.",
+            "It was quiet here for 5 minutes before this.",
+            "We have been talking about the corridor.",
+            "So far here: Jun asked about the corridor.",
+        ] {
+            assert!(view.contains(line), "{line}: {view}");
+        }
         assert!(!view.contains("alone"));
-        assert!(view.contains("I have spoken 2 times in a row here."));
-        assert!(view.contains("I last spoke here 2 minutes ago."));
-        assert!(view.contains("It was quiet here for 5 minutes before this."));
-        assert!(
-            view.contains("We have been talking about the corridor."),
-            "{view}"
-        );
-        assert!(
-            view.contains("So far here: Jun asked about the corridor."),
-            "{view}"
-        );
-        assert!(view.contains("Home: Cosy Cottage."), "{view}");
-        assert!(view.contains("Likes: A traveler's own button sewn into a warm scarf."));
-        assert!(view.contains("Sore: Muddy boots on the wool."));
-        assert_eq!(view.matches("Reply with").count(), 1);
+        let card = pack("lonely-forest").unwrap()["avatars"]["rati"]["text"].as_str();
+        let card = card.unwrap_or("Home:");
+        for authored in [card, "Home:", "Likes:", "Sore:", "Paths from home"] {
+            assert!(!prompt_of(voice).contains(authored), "{authored}");
+        }
     }
 
     #[test]
@@ -1752,9 +1689,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_resident_answers_another_resident_who_named_it() {
+    async fn a_resident_answers_another_resident_who_named_it_and_two_replies_are_enough() {
         let reply = "Only the wind.";
-        let body = json!({
+        let mut body = json!({
             "pack": "lonely-forest",
             "addressed": "rati",
             "messages": [
@@ -1762,12 +1699,18 @@ mod tests {
                 {"resident": "skull", "text": "RATi, did you hear that?"}
             ]
         });
-        let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
+        let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body.clone()).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["id"], "rati");
         assert!(requests.iter().all(|r| r.get("questions").is_none()));
-        let heard = "Jun: Is anyone awake?\nSkull: RATi, did you hear that?";
+        let heard = "Skull says, \u{201c}RATi, did you hear that?\u{201d}";
         assert_eq!(turn_of(&requests[0], "user"), heard);
+        assert!(turn_of(&requests[0], "assistant").contains("Jun said: \"Is anyone awake?\""));
+        let line = json!({"resident": "vale", "text": "Only the owls."});
+        body["messages"].as_array_mut().unwrap().push(line);
+        let (_, enough, asked) = post_lines("{}", Some(reply), TOKEN, body).await;
+        assert_eq!(enough, json!({"lines": [], "reason": "enough"}));
+        assert!(asked.is_empty());
     }
 
     const PICTURE: &str = "https://cdn.discordapp.com/attachments/1/2/pond.png?ex=1&is=2&hm=3";
@@ -1835,7 +1778,7 @@ mod tests {
         assert_eq!(
             user["content"],
             json!([
-                {"type": "text", "text": "Mara: Is anyone in the cottage?\nJun: [shares an image]"},
+                {"type": "text", "text": "Jun says, \u{201c}[shares an image]\u{201d}"},
                 {"type": "image_url", "image_url": {"url": PICTURE}}
             ])
         );
@@ -1852,7 +1795,7 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["lines"][0]["text"], reply);
         let voice = &requests[0];
-        let heard = "Mara: Is anyone in the cottage?\nJun: Look at this [shares an image]";
+        let heard = "Jun says, \u{201c}Look at this [shares an image]\u{201d}";
         assert_eq!(turn_of(voice, "user"), heard);
         assert!(!voice.to_string().contains("discordapp"));
         assert!(!body.to_string().contains("discordapp"));
@@ -2082,31 +2025,50 @@ mod tests {
     }
 
     #[test]
-    fn a_server_world_view_gives_the_live_place_company_and_things() {
+    fn a_discord_message_is_a_talk_with_the_resident_in_its_world() {
         let residents = cast("lonely-forest").unwrap();
         let vale = residents.iter().find(|r| r.id == "vale").unwrap();
+        let read = "I read this just now in The Burial Decree, by Creon: No one may bury him.";
+        let heard = "Pip told me this just now at Black pond: The keeper wants the Bell.";
         let seen = json!({"place": "pond", "here": ["moth"], "holds": ["lamp"], "items": ["bell"],
-            "lines": [{"speaker": "Pip", "text": "The pond is still."}]});
-        let (own, place) = knowledge(vale, "lonely-forest", Some(&seen));
-        for fact in ["Home: Mirror attic.", "I hold: Lamp.", "With me here: Pip."] {
-            assert!(own.contains(&fact.to_string()), "{own:?}");
-        }
-        assert_eq!(place.last().unwrap(), "Items here: Bell.");
+            "lines": [{"speaker": "Pip", "text": "The pond is still."}], "known": [read, heard]});
         let mut asked = request(json!([{"author": "Mara", "text": "Hello there."}]));
-        assert_eq!(scene(vale, &residents, &asked).unwrap().location, "attic");
+        let told = |asked: &LinesRequest| {
+            let context = scene(vale, &residents, asked).unwrap();
+            let part = super::super::Part::Line;
+            (
+                context.location.clone(),
+                super::super::transcript(&context, &context.entities[0], part),
+            )
+        };
+        let (home, alone) = told(&asked);
+        assert_eq!(home, "attic");
+        assert!(alone.contains("I'm talking with Mara."), "{alone}");
         asked.view = Some(seen);
-        let context = scene(vale, &residents, &asked).unwrap();
-        assert_eq!(context.location, "pond");
-        assert_eq!(context.entities[1].id, "pond");
-        let heard = &context.entities[0].memories;
-        assert_eq!(heard.last().unwrap().text, "Pip: The pond is still.");
-        let lost = json!({"place": "nowhere", "private": "a thought"});
-        assert_eq!(standing(vale, Some(&lost)), "attic");
-        asked.view = Some(lost);
-        let context = scene(vale, &residents, &asked).unwrap();
-        assert!(!serde_json::to_string(&context)
-            .unwrap()
-            .contains("a thought"));
+        let (at, view) = told(&asked);
+        assert_eq!(at, "pond");
+        for line in [
+            "I'm carrying the Lamp.",
+            "The Bell is on the ground here.",
+            read,
+            heard,
+        ] {
+            assert!(view.contains(line), "{line}: {view}");
+        }
+        assert!(view.contains("Pip and Mara are here with me."), "{view}");
+        let card = forest_data()["people"]["vale"]["text"]
+            .as_str()
+            .unwrap_or("Home:");
+        for authored in [card, "Home:", "Paths from home", "Items here:"] {
+            assert!(!view.contains(authored), "{authored}: {view}");
+        }
+        asked.view = Some(json!({"place": "greek-colonus", "holds": [], "lines": []}));
+        let (colonus, view) = told(&asked);
+        assert_eq!(colonus, "greek-colonus");
+        assert!(
+            view.contains("I'm at Colonus Grove.") && !view.contains("Oedipus"),
+            "{view}"
+        );
     }
 
     #[test]
@@ -2126,64 +2088,6 @@ mod tests {
         assert!(wants.contains("I owe Pip a favour;"), "{wants}");
         asked.view = Some(seen(json!([])));
         assert!(!told(&asked).contains("I want"));
-    }
-
-    #[test]
-    fn a_resident_in_another_packs_place_names_that_place_and_not_home() {
-        let residents = cast("lonely-forest").unwrap();
-        let vale = residents.iter().find(|r| r.id == "vale").unwrap();
-        let seen = json!({"place": "greek-courtyard", "here": ["moth"], "holds": ["lamp"],
-            "items": [], "lines": []});
-        let (own, place) = knowledge(vale, "lonely-forest", Some(&seen));
-        assert_eq!(own[0], "Location now: Theban Courtyard.");
-        assert!(
-            place[0].starts_with("Bread cools beneath a cloth."),
-            "{place:?}"
-        );
-        let mut asked = request(json!([{"author": "Mara", "text": "Where are you now, Vale?"}]));
-        assert!(!knowledge(vale, "lonely-forest", None)
-            .0
-            .iter()
-            .any(|fact| fact.starts_with("Location now")));
-        asked.view = Some(seen);
-        let context = scene(vale, &residents, &asked).unwrap();
-        assert_eq!(context.location, "greek-courtyard");
-        let told =
-            super::super::transcript(&context, &context.entities[0], super::super::Part::Line);
-        let at = told.find("I'm at Theban Courtyard.").expect(&told);
-        assert!(at < told.find("Home: Mirror attic.").expect(&told));
-        assert!(!told.contains("I'm at Mirror attic."), "{told}");
-        assert!(told.contains("I hold: Lamp."), "{told}");
-        assert!(!told.contains("Station Key"), "{told}");
-    }
-
-    #[test]
-    fn residents_know_their_home_paths_and_the_items_there() {
-        let residents = cast("lonely-forest").unwrap();
-        let rati = residents.iter().find(|r| r.id == "rati").unwrap();
-        let (own, place) = knowledge(rati, "lonely-forest", None);
-        assert!(
-            own.contains(&"Paths from home: Rain-Soft Garden.".to_string()),
-            "{own:?}"
-        );
-        assert!(place[1].starts_with("Items here: "), "{place:?}");
-        assert!(place[1].contains("Vale's Black Button"));
-        assert!(own.iter().chain(&place).all(|f| bounded(f, 240)));
-        let vale = residents.iter().find(|r| r.id == "vale").unwrap();
-        assert!(knowledge(vale, "lonely-forest", None)
-            .0
-            .contains(&"Home: Mirror attic.".to_string()));
-        let garden = &world("lonely-forest", &residents)["places"];
-        let garden = garden
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|p| p["name"] == "Rain-Soft Garden")
-            .unwrap();
-        assert_eq!(
-            garden["paths"],
-            json!(["Cosy Cottage", "Old Oak Tree", "Moonlit Trail"])
-        );
     }
 
     #[test]

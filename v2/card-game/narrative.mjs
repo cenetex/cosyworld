@@ -1,5 +1,15 @@
 import { learningFacts } from "./learning.mjs";
+import { listenerDeal } from "./world/arcana.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
+import {
+  elysiumTalk,
+  isElysiumModel,
+  isLegacyElysiumLine,
+  isLegacyElysiumSpeech,
+  legacyElysiumName,
+  validElysiumName,
+} from "./elysium-models.mjs";
+import { coordinateNarrative, coordinateTemperament, isCoordinateResident } from "./world/elysium-coordinates.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { refusalWhy, revealed, wantFact, wantHeard } from "./want-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
@@ -16,6 +26,7 @@ import {
   packDefinitions,
   packFacts,
   packNarration,
+  packPeople,
   packSceneFacts,
   observableStates,
   packOf,
@@ -41,15 +52,18 @@ import {
   REFUSED_VERBS,
   willingToGive,
   canTrade,
+  applyTalkDisclosure,
 } from "./world.mjs";
 import { controlledByHuman, residentAvatar } from "./human-cast.mjs";
 import { knownActors, wantOf } from "./want.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { guardedFrom } from "./resident-guard.mjs";
+import { waySaid } from "./branch-ways.mjs";
 import {
   forgetCovered,
   forgetUnfound,
   groundedInner,
+  knowsPackChoice,
 } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
@@ -205,9 +219,6 @@ function groundedLife(world, id) {
   return { ...life, persona: null };
 }
 
-// A sealed way (rules 95) is open or shut by the rules alone. Everyone in
-// the scene hears which, as the player finds it, so no authored line or sense
-// keeps a gate shut once it opens, or opens one still shut.
 function wayFacts(world, place) {
   const actor = currentActor(world);
   if (world.actors[actor]?.place !== place) return [];
@@ -224,11 +235,12 @@ function wayFacts(world, place) {
   ];
   return [...new Set(ways)]
     .filter((to) => shut.includes(to) || open.includes(to))
-    .map((to) =>
-      shut.includes(to)
+    .map((to) => ({
+      to,
+      line: shut.includes(to)
         ? `The way to ${nameOf(to)} is shut.`
         : `The way to ${nameOf(to)} is open.`,
-    );
+    }));
 }
 
 function visibleItem(world, observer, item, location) {
@@ -292,6 +304,7 @@ function quietAlone(world, cast, state) {
     (entry) =>
       entry.generated &&
       entry.kind === "dialogue" &&
+      !isLegacyElysiumLine(entry) &&
       profiles[entry.actorId]?.kind === "avatar",
   );
   if (last?.actorId !== actor) return false;
@@ -321,6 +334,23 @@ function favourFact(world, id, among = null) {
     ? `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`
     : null;
 }
+export const talkKnowledge = (world, id, telling, retold, limit, scene) =>
+  knowledgeFacts(pastDeedsAside(world, id, telling, retold), id, nameOf, telling, limit, scene);
+export function residentKnowledge(world, id) {
+  const place = world.actors[id].place;
+  const scene = [
+    place,
+    ...Object.keys(world.actors).filter((other) => world.actors[other].place === place),
+    ...Object.keys(world.items).filter((item) => itemPlace(world, item) === place),
+  ];
+  return talkKnowledge(world, id, [], [], Math.max(2, 16 - ownFacts(world, id).length), scene);
+}
+export function residentScene(world, id) {
+  const place = world.actors[id].place;
+  const live = (all, key, at) =>
+    Object.keys(all).filter((other) => other !== id && all[other][key] === at && entityActive(world, other));
+  return { here: live(world.actors, "place", place), holds: live(world.items, "holder", id), items: live(world.items, "holder", place) };
+}
 export function ownFacts(world, id) {
   const place = world.actors[id].place;
   const here = Object.keys(world.actors).filter(
@@ -332,6 +362,8 @@ export function ownFacts(world, id) {
     hasTemperament(id) ? moodNote(world, id) : null,
   ].filter(Boolean);
 }
+const LISTENER_READING = "The Listener gives a short reading and offers a face-down card. Its face stays hidden.";
+
 export function narrativeContext(world, action = null, isCovered = null, remaining = false) {
   const cast = dialogueCast(world, action);
   const original = typeof remaining === "object" ? remaining : null;
@@ -388,7 +420,8 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           entry.witnesses?.includes(currentActor(world))),
     )
     .slice(-8);
-  const events = eventEntries.map((entry) => entry.text);
+  const deal = listenerDeal(world, currentActor(world));
+  const events = eventEntries.map((entry) => entry === deal ? LISTENER_READING : entry.text);
   // A persona that minds noise reads a handled bell as a ring unless told
   // otherwise. Name the silence for those speakers when nothing rang.
   const bellHandled =
@@ -406,10 +439,11 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       ? `The Bell made no sound this turn: it is silent. Nobody rang it.`
       : null;
   const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
-  const ways = wayFacts(world, location);
-  // Authored sounds such as the clock's echo stay in the scene/history, but
-  // the speech API's conversation contains only registered avatar voices:
-  // the recent talk at this place, which each speaker reads as a group chat.
+  const wayLines = wayFacts(world, location);
+  const ways = (id) =>
+    wayLines.filter(({ to }) => waySaid(world, id, to)).map(({ line }) => line);
+  // The server still verifies a saved introduction as proof of learning the name.
+  // Other scripted replies have no place in recent conversation.
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -417,18 +451,21 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           (entry) =>
             entry.generated &&
             entry.kind === "dialogue" &&
+            (!isLegacyElysiumLine(entry) || legacyElysiumName(entry.text)) &&
             profiles[entry.actorId]?.kind === "avatar" &&
             entry.locationId === location &&
             (entry.turn < world.turn || (remaining && entry.turn === world.turn)),
         )
         .slice(-6)
-        .map(({ actorId, text, cast, witnesses }) => ({
+        .map(({ actorId, text, cast, witnesses, elysiumName }) => ({
           actorId,
           text,
+          ...(elysiumName !== undefined && { elysiumName }),
           witnesses: [
             ...new Set([actorId, ...(witnesses || []), ...(cast || [])]),
           ],
         }));
+  const elysiumCoordinate = coordinateNarrative(world, location);
   const context = {
     revision: world.revision,
     turn: world.turn,
@@ -450,16 +487,22 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         : null),
     events,
     conversation,
+    ...(elysiumCoordinate && { elysiumCoordinate }),
+    ...(played?.verb === "talk" && world.elysiumEncounters?.[played.targetId]?.scatteredAt
+      ? { elysiumTokenScattered: true }
+      : {}),
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
       if (kind === "location" && isCovered?.(id))
         return { id, facts: [], desire: null, memories: [], previous: null };
-      // The place and player retain the route's established history. Another
-      // resident knows only their own recorded interactions and memories.
+      const knownChoice = kind === "avatar"
+        ? (pack, choice) => knowsPackChoice(world, id, pack, choice)
+        : undefined;
+      // The place keeps the established account. A traveler needs evidence.
       const continuity =
         !isCovered?.(location) &&
         (kind === "location" || id === currentActor(world))
-          ? packSceneFacts(world, location)
+          ? packSceneFacts(world, location, knownChoice)
           : [];
       // A want reaches the player through Talk: one first-person line for
       // the player and for whoever is in this Talk. Narration only.
@@ -479,6 +522,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       const between = beforeFirstLight
         ? { entries: [], retold: [] }
         : betweenUs(world, id, speakers, nameOf);
+      const temperament = coordinateTemperament(world, id);
       const facts = [
         ...(glimpsed ? [glimpsed] : []),
         ...(want ? [want] : []),
@@ -492,10 +536,11 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         ...(kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : []),
         null,
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
+        ...(temperament ? [temperament] : []),
         ...recitalFacts(world, packDefinitions, id),
         ...(kind === "avatar" ? laneTalkFacts(world, id) : []),
         ...learningFacts(world, id, nameOf),
-        ...[...packFacts(world, id), ...continuity]
+        ...[...packFacts(world, id, knownChoice), ...continuity]
           .filter((fact, index, all) => all.indexOf(fact) === index)
           .slice(-4),
         ...(kind === "location" ? packNarration(world, id) : []),
@@ -540,13 +585,14 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           );
         const player = currentActor(world);
         if (
-          world.actors[player].closed?.[`quest:from:${id}`]?.[0] === world.turn &&
+          id !== player &&
           world.log.some(
             (e) =>
               e.turn === world.turn &&
               !e.generated &&
               e.verb === "want_met" &&
-              e.actorId === player,
+              e.actorId === player &&
+              e.ownerId === id,
           )
         )
           facts.unshift(`${nameOf(player)} did what I asked.`);
@@ -562,7 +608,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         facts.push(
           `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,
         );
-        if (world.actors[id].place === location) facts.push(...ways);
+        if (world.actors[id].place === location) facts.push(...ways(id));
         const movement = changes.find((change) => change.actorId === id);
         if (defeated && id === speakers[0]) facts.unshift(defeated);
         else if (movement && speakers.includes(id))
@@ -639,16 +685,16 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           );
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
-        if (places[id]) facts.push(placeText(world, id));
+        if (places[id] && placeText(world, id))
+          facts.push(placeText(world, id));
         const weather = locationWeather(world, id);
         if (weather) facts.push(`Weather: ${weather.condition}.`);
         const daylight = locationDaylight(world, id);
         if (daylight) facts.push(daylight.description);
 
-        facts.push(
-          `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`,
-        );
-        if (id === location) facts.push(...ways);
+        const paths = exits(world, id, currentActor(world)).filter((to) => waySaid(world, id, to));
+        facts.push(`Paths visible now: ${paths.map(nameOf).join(", ") || "none"}.`);
+        if (id === location) facts.push(...ways(id));
         if (
           (id === "attic" || id === "pond") &&
           exits(world, id).includes(id === "attic" ? "pond" : "attic")
@@ -660,16 +706,11 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       facts.push(
         `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf).join(", ") || "none"}.`,
       );
+      const scene = [location, ...present, ...localItems];
       facts.splice(
         facts.indexOf(null),
         1,
-        ...knowledgeFacts(
-          pastDeedsAside(world, id, told(id), between.retold),
-          id,
-          nameOf,
-          told(id),
-          Math.max(2, 17 - facts.length),
-        ),
+        ...talkKnowledge(world, id, told(id), between.retold, Math.max(2, 17 - facts.length), scene),
       );
       return {
         id,
@@ -679,7 +720,8 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         memories: speechMemories(world.memories[id], {
           expressions: !beforeFirstLight,
         }),
-        previous: beforeFirstLight ? null : world.memories[id].text,
+        previous: beforeFirstLight || isLegacyElysiumSpeech(id, world.memories[id].text)
+          ? null : world.memories[id].text,
         ...(kind === "avatar"
           ? {
               inner_life: groundedLife(world, id),
@@ -759,14 +801,14 @@ function writeEcho(next, context) {
     !next.log.some(
       (entry) =>
         entry.turn === next.turn &&
-        entry.generated &&
-        entry.speaker === echo.speaker,
+        entry.locationId === context.location &&
+        entry.speaker === echo.speaker && entry.text === echo.text,
     )
   )
     addLog(next, echo.speaker, echo.text, {
-      kind: "dialogue",
+      kind: "narration",
+      actorId: null,
       entityId: context.location,
-      generated: true,
       locationId: context.location,
     });
   return true;
@@ -849,19 +891,22 @@ export function applyGeneratedText(
   ].filter((id) => id && !omitted.includes(id))) {
     const movement = changes.find((change) => change.actorId === id);
     const place = movement ? movement.to : context.location;
-    if (
-      incremental &&
-      next.log.some(
-        (entry) =>
-          entry.generated &&
-          entry.turn === next.turn &&
-          entry.entityId === id &&
-          entry.locationId === place,
-      )
-    )
+    const entry = entries.find((line) => line.id === id);
+    const published = incremental && next.log.find(
+      (line) => line.generated && line.turn === next.turn &&
+        line.entityId === id && line.locationId === place,
+    );
+    if (published) {
+      if (published.text === entry.text.trim())
+        applyTalkDisclosure(next, entry.disclosed, published);
       continue;
+    }
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
+    const typed = (isElysiumModel(id) || isCoordinateResident(id)) && Object.hasOwn(entry, "elysiumName");
+    const learned = typed && place === packPeople[id]?.home &&
+      validElysiumName(entry.elysiumName) &&
+      elysiumTalk(next, currentActor(next), id, place, next.turn);
     addLog(next, profiles[id].name, text, {
       kind: avatar ? expressionKind(profiles[id]) : "narration",
       actorId: avatar ? id : null,
@@ -869,8 +914,10 @@ export function applyGeneratedText(
       generated: true,
       locationId: place,
       cast: place === context.location ? [...cast] : castAt(place),
+      ...(typed && { elysiumName: learned ? entry.elysiumName : null }),
       ...(movement ? { arrivalFrom: movement.from } : {}),
     });
+    if (avatar) applyTalkDisclosure(next, entry.disclosed, next.log.at(-1));
   }
   return validateWorld(next);
 }
@@ -916,45 +963,13 @@ export function silentLines(world, ids) {
     });
 }
 
-// Read complete JSON string units while the model is still writing an entry.
-export function partialEntries(source) {
-  const entries = [];
-  const pattern = /\{\s*"id"\s*:\s*("(?:[^"\\]|\\.)*")\s*,\s*"text"\s*:\s*"/gu;
-  for (const match of source.matchAll(pattern)) {
-    let raw = "";
-    for (let i = match.index + match[0].length; i < source.length; i++) {
-      const char = source[i];
-      if (char === '"') break;
-      if (char === "\\") {
-        const length = source[i + 1] === "u" ? 6 : 2;
-        if (i + length > source.length) break;
-        raw += source.slice(i, i + length);
-        i += length - 1;
-      } else raw += char;
-    }
-    try {
-      const id = JSON.parse(match[1]);
-      const text = JSON.parse('"' + raw + '"').replace(/[\uD800-\uDBFF]$/u, "");
-      if (
-        profiles[id] &&
-        text &&
-        text.length <= 400 &&
-        !/[\u0000-\u001f\u007f]/u.test(text)
-      )
-        entries.push({ id, text });
-    } catch {
-      /* A partial escape will be complete in a later chunk. */
-    }
-  }
-  return entries;
-}
+const SCENE_CONTEXT_REJECTED = "scene_context_rejected";
 
 export async function requestNarrative(
   context,
   signal,
   progress = () => {},
   path = "/card-game/text",
-  validatedOnly = false,
 ) {
   const response = await fetch(path, {
     method: "POST",
@@ -966,15 +981,16 @@ export async function requestNarrative(
     signal,
   });
   if (!response.ok) {
-    // A 429 carries its Retry-After: the narrator waits out a short one inside
-    // the dialogue grace, and the next request waits out a long one.
     const wait = Number(response.headers.get("retry-after"));
+    const detail =
+      response.status === 400 ? await response.json().catch(() => null) : null;
     throw Object.assign(
       new Error(`Story service returned ${response.status}.`),
       {
         ...(response.status === 429
           ? { retryAfter: Number.isFinite(wait) && wait > 0 ? wait * 1000 : 0 }
           : {}),
+        ...(detail?.code === SCENE_CONTEXT_REJECTED && { code: detail.code }),
       },
     );
   }
@@ -1015,12 +1031,10 @@ export async function requestNarrative(
           if (text.length > 16 * 1024)
             throw new Error("Story text exceeded its limit.");
           // The service sends a whole validated line followed by a newline.
-          const entries = validatedOnly
-            ? text
-                .split("\n")
-                .slice(0, -1)
-                .map((line) => JSON.parse(line))
-            : partialEntries(text);
+          const entries = text
+            .split("\n")
+            .slice(0, -1)
+            .map((line) => JSON.parse(line));
           progress(
             entries.filter((entry) => context.speakers.includes(entry.id)),
           );
@@ -1063,9 +1077,7 @@ async function boundedRequest(request, context, signal, progress, timeout) {
     attempt.abort();
   }
 }
-// A busy 429 means the server never started the scene. The one request
-// waits its Retry-After plus jitter, at most twice, while the play is still
-// inside THINKING_GRACE_MS (presentation.mjs). Any other failure is "…".
+// A busy 429 waits its Retry-After plus jitter within the visible thinking grace.
 const BUSY_RETRIES = 2;
 const BUSY_GRACE = 5_000;
 const BUSY_JITTER = 400;
@@ -1082,6 +1094,23 @@ function retryPause(signal, delay) {
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) finish();
   });
+}
+
+function currentSceneOnly(context) {
+  return {
+    ...context,
+    action: null,
+    events: context.events.filter((event) => event === LISTENER_READING),
+    conversation: [],
+    disclosures: [],
+    entities: context.entities.map(({ id, desire }) => ({
+      id,
+      desire,
+      facts: [],
+      memories: [],
+      previous: null,
+    })),
+  };
 }
 
 // Keep one active scene request and coalesce quick plays to the newest world.
@@ -1137,12 +1166,13 @@ export function createNarrator({
     const graceEnd = Date.now() + BUSY_GRACE;
     let deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
     let busy = 0;
+    let requestContext = context;
     const published = new Map();
     for (;;) {
       try {
         const response = await boundedRequest(
           request,
-          context,
+          requestContext,
           signal,
           (entries) => {
             if (
@@ -1174,7 +1204,7 @@ export function createNarrator({
         if (early)
           response.entries = response.entries.map((entry) =>
             published.has(entry.id)
-              ? { ...entry, text: published.get(entry.id).text }
+              ? { ...entry, ...published.get(entry.id) }
               : entry,
           );
         const next = applyGeneratedText(getWorld(), context, response, {
@@ -1196,6 +1226,15 @@ export function createNarrator({
           holdUntil = Math.max(holdUntil, Date.now() + error.retryAfter);
         if (signal.aborted || version !== ticket) return;
         preview(null);
+        if (requestContext !== context) throw error;
+        if (
+          error?.code === SCENE_CONTEXT_REJECTED &&
+          getWorld().revision === context.revision &&
+          getWorld().turn === context.turn
+        ) {
+          requestContext = currentSceneOnly(context);
+          continue;
+        }
         const wait =
           (error?.retryAfter || 0) + Math.floor(random() * BUSY_JITTER);
         if (
@@ -1248,7 +1287,7 @@ export function createNarrator({
           await write(context, version, controller.signal, remaining);
         } catch (error) {
           // Words that never came leave the scene's speakers silent: the
-          // table shows "…" and play goes on. Nothing asks again.
+          // table shows "…" and play goes on.
           if (version === ticket) {
             preview(null);
             status("failed", error);

@@ -8,7 +8,7 @@ export const THINKING_GRACE_MS = 5000;
 // Read older words through the reader's revealed cards. Keep the saved beat
 // intact, including the signed line used by the voice service.
 export function revealedBeat(beat, textOf) {
-  const text = beat.line && textOf(beat.line.text);
+  const text = beat.line && textOf(beat.line.text, beat.line);
   return {
     ...beat,
     label: textOf(beat.label),
@@ -68,6 +68,10 @@ export function handFocusId(frames, ids) {
   }
   return frames.find((frame) => !frame.hidden)?.id;
 }
+export function holdDialogueChoice({ queued, live, complete, speaking, next }) {
+  return Boolean(queued || (live && (!complete || speaking || next)));
+}
+
 export function phase({
   reviewing = false,
   revealing = false,
@@ -98,6 +102,10 @@ export function refusalLabel(reason = "") {
 }
 // The label as a sentence for the status line: a question or a trailing
 // ellipsis keeps its own mark.
+export const STALE_REFUSALS = new Set([
+  "The world changed. Choose a current play.",
+  "That play has changed. Check the cards and choose again.",
+]);
 export const refusalSentence = (reason) => {
   const label = refusalLabel(reason);
   return /[?…]$/u.test(label) ? label : `${label}.`;

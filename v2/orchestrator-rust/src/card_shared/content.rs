@@ -13,7 +13,6 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-const CURRENT: &str = include_str!("content.json");
 const MISSING: &str = "This world's pack content needs recovery.";
 
 pub(super) fn hash(text: &str) -> String {
@@ -22,17 +21,22 @@ pub(super) fn hash(text: &str) -> String {
 /// The content revision this binary was built with.
 pub(super) fn current() -> &'static str {
     static HASH: OnceLock<String> = OnceLock::new();
-    HASH.get_or_init(|| hash(CURRENT))
+    HASH.get_or_init(|| hash(current_text()))
 }
 /// The current revision's text.
 pub(super) fn current_text() -> &'static str {
-    CURRENT
+    cosyworld_orchestrator::card_assets::text("card_shared/content.json")
 }
 /// The package version that built the current revision, for people.
 pub(super) const REVISION: &str = env!("CARGO_PKG_VERSION");
 fn loaded() -> &'static Mutex<HashMap<String, Arc<str>>> {
     static LOADED: OnceLock<Mutex<HashMap<String, Arc<str>>>> = OnceLock::new();
-    LOADED.get_or_init(|| Mutex::new(HashMap::from([(current().to_string(), Arc::from(CURRENT))])))
+    LOADED.get_or_init(|| {
+        Mutex::new(HashMap::from([(
+            current().to_string(),
+            Arc::from(current_text()),
+        )]))
+    })
 }
 /// Verified content for `pack`, from this binary or an earlier `preload`.
 pub(super) fn text(pack: &str) -> Result<Arc<str>> {
@@ -47,12 +51,12 @@ pub(super) fn text(pack: &str) -> Result<Arc<str>> {
 pub(super) fn save(c: &Connection) -> Result<()> {
     c.execute(
         "INSERT OR IGNORE INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
-        params![current(), REVISION, CURRENT],
+        params![current(), REVISION, current_text()],
     )
     .map_err(sql_error)?;
     // An existing row must hold the same bytes; rows are never rewritten.
     match stored(c, current())? {
-        Some(text) if text == CURRENT => Ok(()),
+        Some(text) if text == current_text() => Ok(()),
         _ => Err(MISSING.into()),
     }
 }
@@ -95,9 +99,9 @@ mod tests {
 
     #[test]
     fn names_the_current_revision_by_its_exact_bytes() {
-        assert_eq!(current(), hash(CURRENT));
-        assert_eq!(&*text(current()).unwrap(), CURRENT);
-        let content: serde_json::Value = serde_json::from_str(CURRENT).unwrap();
+        assert_eq!(current(), hash(current_text()));
+        assert_eq!(&*text(current()).unwrap(), current_text());
+        let content: serde_json::Value = serde_json::from_str(current_text()).unwrap();
         assert_eq!(content["schema"], 1);
         assert!(content["files"]["v2/card-game/packs.json"].is_object());
     }

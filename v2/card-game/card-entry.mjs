@@ -101,9 +101,12 @@ export function createCardEntries() {
 // what for. Its steps still to go and the turn it was given are progress on
 // the same card, never a new one.
 export const questEntryKey = (quest) =>
-  `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}:${questTerms(quest)}`;
+  quest.reading
+    ? `${quest.actor}:arcanum:reading`
+    : `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}:${questTerms(quest)}`;
 export const questFaceKey = (quest) =>
-  `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}`;
+  quest.factId ? `${quest.actor}:${quest.factId}` :
+    `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}`;
 
 // The one quest in the hand. `show(key, seen)` takes the held quest's key
 // (or null) and whether it is in view, and returns whether it is due to turn:

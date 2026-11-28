@@ -13,12 +13,14 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { isKnownNonProductionPath } from "../../scripts/check-deployment-impact.mjs";
+
 const workflow = readFileSync(
   new URL("../../.github/workflows/deploy.yml", import.meta.url),
   "utf8",
 );
-const ciWorkflow = readFileSync(
-  new URL("../../.github/workflows/ci.yml", import.meta.url),
+const checksWorkflow = readFileSync(
+  new URL("../../.github/workflows/fast-check.yml", import.meta.url),
   "utf8",
 );
 const deployScripts = readFileSync(
@@ -28,10 +30,6 @@ const deployScripts = readFileSync(
 const packageScripts = JSON.parse(
   readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
 ).scripts;
-const flyHealthWorkflow = readFileSync(
-  new URL("../../.github/workflows/fly-health.yml", import.meta.url),
-  "utf8",
-);
 const primaryFlyConfig = readFileSync(
   new URL("../../fly.toml", import.meta.url),
   "utf8",
@@ -105,11 +103,10 @@ const workflowJob = (source, name, nextName) => {
   return source.slice(start, end);
 };
 const job = (name, nextName) => workflowJob(workflow, name, nextName);
-const ciJob = (name, nextName) => workflowJob(ciWorkflow, name, nextName);
 
 describe("deploy workflow", () => {
   it("only invokes package scripts that exist", () => {
-    const invokedScripts = [ciWorkflow, deployScripts].flatMap((source) =>
+    const invokedScripts = [checksWorkflow, deployScripts].flatMap((source) =>
       [...source.matchAll(/\bnpm run ([\w:-]+)/g)].map(([, script]) => script),
     );
     expect(invokedScripts.filter((script) => !packageScripts[script])).toEqual(
@@ -154,7 +151,7 @@ describe("deploy workflow", () => {
   });
 
   it("blocks deployment on the real v2 gates before either Fly job runs", () => {
-    const nodeGate = job("production-node-gate", "production-rust-gate");
+    const nodeGate = job("production-node-gate", "production-unit");
     const rustGate = job("production-rust-gate", "production-rust-lint");
     const rustLint = job("production-rust-lint", "production-gate");
     const gate = job("production-gate", "primary-fly");
@@ -164,28 +161,28 @@ describe("deploy workflow", () => {
       "npx vitest run test/infrastructure/deploy-workflow.test.mjs",
     );
     expect(nodeGate).not.toContain("npm test");
-    expect(rustGate).toContain("node scripts/await-ci-rust.mjs");
-    expect(rustGate).toContain("checks: read");
-    expect(rustGate).toContain("actions: read");
-    // CI saves the Cargo cache; a per-tag save only evicts others.
+    for (const check of ["npm run lint", "npm run check:test-guards", "npm run regen:check"])
+      expect(nodeGate).toContain(check);
+    const unit = job("production-unit", "production-rust-gate");
+    expect(unit).toContain("shard: [1, 2, 3]");
+    expect(unit).toContain("npx vitest run --shard=${{ matrix.shard }}/3");
     expect(rustGate).toContain("uses: actions/cache/restore@v6");
+    expect(rustGate).toContain(
+      "restore-keys: ${{ runner.os }}-cargo-deps-v1-\n",
+    );
     expect(rustGate).not.toContain("uses: actions/cache@v6");
-    expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustGate).toContain("bash v2/scripts/check-rust.sh test");
-    // Lint runs in its own job beside the tests, with the same CI reuse.
+    // Lint runs in its own job beside the tests.
     expect(rustGate).not.toContain("check-rust-lint.sh");
-    expect(rustLint).toContain("node scripts/await-ci-rust.mjs");
-    expect(rustLint).toContain("checks: read");
-    expect(rustLint).toContain("if: steps.ci.outputs.reuse != 'true'");
+    for (const rust of [rustGate, rustLint])
+      expect(rust).not.toMatch(/await-ci-rust|steps\.ci\.|checks: read/);
     expect(rustLint).toContain("bash v2/scripts/check-main-size.sh");
     expect(rustLint).toContain("bash v2/scripts/check-rust-lint.sh");
-    expect(rustLint).toContain(
-      "needs: [dev-deploy, deployment-impact, release-owner]",
-    );
     expect(gate).toContain(
-      "needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]",
+      "needs: [deployment-impact, release-owner, production-node-gate, production-unit, production-rust-gate, production-rust-lint]",
     );
     expect(gate).toContain('test "$NODE_RESULT" = success');
+    expect(gate).toContain('test "$UNIT_RESULT" = success');
     expect(gate).toContain('test "$RUST_RESULT" = success');
     expect(gate).toContain('test "$RUST_LINT_RESULT" = success');
     expect(job("primary-backup", "primary-fly")).toContain(
@@ -205,24 +202,67 @@ describe("deploy workflow", () => {
     expect(workflow).not.toContain("recovery_capture");
   });
 
-  it("deploys the .dev train from one job without the release path", () => {
+  it("checks main beside the .dev build, without holding the rollout", () => {
+    const checks = job("dev-checks", "dev-image");
+    expect(checks).toContain("needs: dev-plan\n    if: needs.dev-plan.outputs.deploy == 'true'");
+    expect(checks).toContain("cancel-in-progress: true");
+    expect(checks).toContain("uses: ./.github/workflows/fast-check.yml");
+    expect(checks).toContain("base: ${{ needs.dev-plan.outputs.checks-base }}");
+    expect(job("dev-plan", "dev-checks")).toContain(
+      "checks-base: ${{ steps.checked.outputs.base || steps.impact.outputs.base }}",
+    );
+    expect(job("dev-plan", "dev-checks")).toContain("node scripts/last-dev-rollout.mjs --checked");
+    expect(job("dev-deploy", "deployment-impact")).toContain("needs: [dev-plan, dev-image]");
+    const called = readFileSync(
+      new URL("../../.github/workflows/fast-check.yml", import.meta.url),
+      "utf8",
+    );
+    expect(called).toMatch(/^on:\n  workflow_call:\n/m);
+    expect(called).not.toContain("pull_request");
+    expect(called).toContain("name: All checks\n    if: ${{ !cancelled() }}");
+  });
+
+  it("runs the .dev plan and rollout on the Fly runners only when DEV_DEPLOY_RUNNER is fly", () => {
+    const fly =
+      "runs-on: ${{ vars.DEV_DEPLOY_RUNNER == 'fly' && fromJSON('[\"self-hosted\",\"fly\",\"cosyworld\"]') || 'ubuntu-latest' }}";
+    for (const [name, next] of [
+      ["dev-plan", "dev-checks"],
+      ["dev-deploy", "deployment-impact"],
+    ]) {
+      const devJob = job(name, next);
+      expect(devJob).toContain(fly);
+      // The Fly runner image has no GitHub CLI, and these jobs call gh.
+      const install = devJob.indexOf("Install the GitHub CLI on a Fly runner");
+      expect(install).toBeGreaterThan(-1);
+      expect(install).toBeLessThan(devJob.indexOf("scripts/"));
+      expect(devJob).toContain("if: runner.environment != 'github-hosted'");
+    }
+    expect(workflow.match(/vars\.DEV_DEPLOY_RUNNER/g)).toHaveLength(2);
+  });
+
+  it("deploys .dev on a main push, outside the release path", () => {
     const fullRelease =
       "(startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))";
     const train =
-      "github.ref == 'refs/heads/main' &&\n      ((github.event_name == 'schedule' && vars.COSYWORLD_DEV_TRAIN != 'off') ||\n       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))";
-    const dev = job("dev-deploy", "deployment-impact");
+      "github.ref == 'refs/heads/main' &&\n      (((github.event_name == 'push' || github.event_name == 'schedule') && vars.COSYWORLD_DEV_TRAIN != 'off') ||\n       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))";
+    // The plan, the image build and the rollout.
+    const dev = job("dev-plan", "deployment-impact");
     const impact = job("deployment-impact", "release-owner");
-    const nodeGate = job("production-node-gate", "production-rust-gate");
+    const nodeGate = job("production-node-gate", "production-unit");
+    const unitGate = job("production-unit", "production-rust-gate");
     const rustGate = job("production-rust-gate", "production-rust-lint");
     const rustLint = job("production-rust-lint", "production-gate");
     const gate = job("production-gate", "primary-fly");
     const primaryBackup = job("primary-backup", "primary-fly");
     const primaryFly = job("primary-fly", "lonelyforest-image");
 
-    // Trains run only dev-deploy; every release job hangs off the impact
-    // job, which runs only for tags and production dispatches.
+    // Every release job hangs off the impact job, which runs only for tags
+    // and production dispatches.
     expect(dev).toContain(`if: >-\n      ${train}`);
-    expect(dev).not.toContain("needs:");
+    expect(dev).toContain(
+      "needs: dev-plan\n    if: needs.dev-plan.outputs.deploy == 'true'",
+    );
+    expect(dev).toContain("needs: [dev-plan, dev-image]");
     expect(impact).toContain(
       "if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')",
     );
@@ -231,23 +271,16 @@ describe("deploy workflow", () => {
     expect(dev).not.toContain("lonelyforest");
     expect(dev).not.toContain("FLY_LONELYFOREST_API_TOKEN");
 
-    // Tags and dispatches keep the Node and Rust gates and the backup. All
-    // three also run after a train's rollout, so a version-bump tag of that
-    // commit reuses the Rust passes. The train never waits for them.
-    for (const rust of [nodeGate, rustGate, rustLint]) {
+    // The gates run only for tags and production dispatches, never after a
+    // train, so no train holds the .dev group for them.
+    for (const rust of [nodeGate, unitGate, rustGate, rustLint]) {
       expect(rust).toContain(
-        "needs: [dev-deploy, deployment-impact, release-owner]",
+        "needs: [deployment-impact, release-owner]\n    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'\n",
       );
-      expect(rust).toContain("!cancelled() &&");
-      expect(rust).toContain(
-        `needs.release-owner.outputs.owns == 'true' &&\n        ${fullRelease}) ||`,
-      );
-      expect(rust).toContain(
-        "(needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true')",
-      );
+      expect(rust).not.toContain("dev-deploy");
     }
     expect(gate).toContain(`if: \${{ always() && ${fullRelease} }}`);
-    expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
+    expect(gate).not.toContain("FULL_RELEASE");
     expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
     expect(primaryBackup).toContain(
       "(github.event_name == 'workflow_dispatch' &&\n        (inputs.target == 'both' || inputs.target == 'primary'))",
@@ -261,25 +294,56 @@ describe("deploy workflow", () => {
     expect(primaryFly).toContain("needs.primary-backup.result == 'success'");
     expect(primaryFly).not.toContain("refs/heads/main");
 
-    // The train compares with what .dev runs, labels the drop, builds the
-    // commit it started on, then rolls out and verifies.
+    // The plan compares with what .dev runs and labels the drop, the build
+    // saves its cache while the rollout runs, then the rollout verifies.
     const order = [
-      "node scripts/last-dev-rollout.mjs",
-      'node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA"',
+      "node scripts/fly-machines-serve-commit.mjs cosyworld --serving || true",
+      'bash scripts/plan-dev-deploy.sh "${base:-$(node scripts/last-dev-rollout.mjs)}"',
+      'node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA"',
       'bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"',
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
-      "bash scripts/serialize-primary-rollout.sh dev",
-      'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
-      "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
-      "node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
       "actions/cache/save@v6",
+      "bash scripts/serialize-primary-rollout.sh dev",
+      'release="$(node scripts/fly-machines-serve-commit.mjs cosyworld --serving)"',
+      'bash scripts/stage-dev-release.sh >> "$GITHUB_OUTPUT"',
+      'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy "$STRATEGY" --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA" --env "COSYWORLD_IMAGE_COMMIT=$IMAGE_COMMIT"',
+      "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
+      '--command "readlink /data/releases/current"',
+      'COSYWORLD_SMOKE_MANIFEST="$RUNNER_TEMP/dev-release/manifest.json" node v2/scripts/smoke-deployed-card-game.mjs',
+      "node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
+      'git show "$PREVIOUS_COMMIT:fly.toml" > fly.previous.toml',
+      'bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE"',
     ];
     for (const [index, text] of order.entries()) {
       expect(dev).toContain(text);
       if (index)
         expect(dev.indexOf(order[index - 1])).toBeLessThan(dev.indexOf(text));
     }
-    expect(dev).toContain("RELEASE_IMAGE: ${{ steps.image.outputs.image }}");
+    expect(dev).toContain("needs.dev-plan.outputs.deploy == 'true' && needs.dev-plan.outputs.image == 'true'");
+    expect(dev).toContain("(needs.dev-image.result == 'success' || needs.dev-plan.outputs.image != 'true')");
+    expect(dev).toContain("FAST: ${{ needs.dev-plan.outputs.image != 'true' }}");
+    expect(dev).toContain("if: steps.serving.outputs.rollout == 'true' && env.FAST == 'true'");
+    expect(dev).toContain("RELEASE_IMAGE: ${{ needs.dev-image.outputs.image || steps.serving.outputs.image }}");
+    expect(dev).toContain("IMAGE_COMMIT: ${{ env.FAST == 'true' && steps.serving.outputs.image_commit || github.sha }}");
+    expect(dev).toContain("if: steps.rollout.outcome == 'success' && env.FAST != 'true'");
+    expect(dev).toContain('[ "$served" = "/data/releases/$GITHUB_SHA" ] ||');
+    expect(dev).toContain('[ "$RELEASES" != off ]');
+    expect(dev).toContain("COSYWORLD_EXPECT_COMMIT: ${{ github.sha }}");
+    expect(dev).toContain("POLLS: ${{ env.FAST == 'true' && '20' || '1' }}");
+    // A newer push cancels an older build, never a rollout. A run that
+    // deploys nothing gets a group of its own and cancels nothing.
+    expect(dev).toContain(
+      "concurrency:\n      group: deploy-${{ github.repository }}-dev-image${{ needs.dev-plan.outputs.deploy != 'true' && format('-{0}', github.run_id) || '' }}\n      cancel-in-progress: true\n",
+    );
+    expect(dev).toContain(
+      "concurrency:\n      group: deploy-${{ github.repository }}-dev\n      cancel-in-progress: false\n",
+    );
+    expect(dev).toContain('compare/${commit}...${GITHUB_SHA}" --jq .status)" ||');
+    expect(dev).toContain('ahead | diverged) echo "rollout=true" >> "$GITHUB_OUTPUT" ;;');
+    expect(dev).toContain("id: rollout\n        if: steps.serving.outputs.rollout == 'true'");
+    expect(dev).toContain(
+      "- name: Roll .dev back to ${{ steps.serving.outputs.commit }}\n        if: failure() && steps.rollout.outcome != 'skipped' && steps.serving.outputs.image != ''",
+    );
     expect(dev).toContain("FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}");
     expect(dev).toContain("actions: read");
     expect(dev).not.toContain("actions: write");
@@ -287,8 +351,25 @@ describe("deploy workflow", () => {
     expect(dev).toContain(
       "rolled-out: ${{ steps.rollout.outcome == 'success' }}",
     );
-    expect(dev).toContain("for attempt in {1..13}");
+    expect(dev).toContain("for attempt in {1..60}");
     expect(dev).toContain("remained degraded after 120 seconds");
+  });
+
+  it("skips a push that changes only paths the impact check ignores", () => {
+    const ignored = workflow.match(/^ {4}paths-ignore: \[(.*)\]$/m)[1];
+    expect(ignored).toBe(
+      '"**.md", "docs/**", "sites/**", "test/**", "v2/docs/**", "v2/tests/**", "v2/mvp.sh"',
+    );
+    for (const file of [
+      "v2/card-game/README.md",
+      "docs/design/books.md",
+      "sites/lonelyforest/index.html",
+      "test/card-rest.test.mjs",
+      "v2/docs/a.txt",
+      "v2/tests/a.mjs",
+      "v2/mvp.sh",
+    ])
+      expect(isKnownNonProductionPath(file), file).toBe(true);
   });
 
   it("keeps every Lonely Forest gate and backup for tags and dispatches", () => {
@@ -307,19 +388,20 @@ describe("deploy workflow", () => {
   });
 
   it("checks version alignment without requiring a bump per change", () => {
-    expect(ciWorkflow).toContain("name: Check version alignment");
-    expect(ciWorkflow).not.toContain("Ensure version bumped");
+    expect(checksWorkflow).toContain("name: Check version alignment");
+    expect(checksWorkflow).not.toContain("Ensure version bumped");
     const check = readFileSync(
       new URL("../../scripts/check-version-bump.mjs", import.meta.url),
       "utf8",
     );
     expect(check).not.toContain("Please bump the version");
-    const deploys = workflow.match(/flyctl deploy --config [^\n]+/g);
-    expect(deploys).toHaveLength(4);
-    // Each rollout names the commit it serves; restore-dev serves .dev's.
-    const restoring = deploys.filter((deploy) => deploy.includes("DEV_SHA"));
+    expect(workflow).not.toMatch(/flyctl deploy --config/);
+    const deploys = workflow.match(/fly-rollout\.sh --config [^\n]+/g);
+    expect(deploys).toHaveLength(5);
+    const restoring = deploys.filter((deploy) => /DEV_SHA|PREVIOUS/.test(deploy));
     expect(restoring).toEqual([
-      'flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
+      'fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT" --env "COSYWORLD_IMAGE_COMMIT=$PREVIOUS_IMAGE_COMMIT"',
+      'fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${built}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}" --env "COSYWORLD_IMAGE_COMMIT=${built}"',
     ]);
     for (const deploy of deploys.filter((d) => !restoring.includes(d))) {
       expect(deploy).toContain('--env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"');
@@ -348,6 +430,7 @@ describe("deploy workflow", () => {
     expect(restore).toContain("compare/${GITHUB_SHA}...${sha}");
     expect(restore).toContain('if [ "$status" = ahead ]; then');
     expect(restore).toContain('git checkout --quiet "$DEV_SHA"');
+    expect(restore).toContain('built="$(timeout 60 flyctl ssh console');
     expect(restore).toContain(
       'GITHUB_SHA="$DEV_SHA" exec node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev',
     );
@@ -368,6 +451,20 @@ describe("deploy workflow", () => {
     expect(hook).not.toContain("v2:rust:test");
     expect(hook).not.toContain("v2:kernel");
     expect(packageScripts.check).toContain("v2:rust:test");
+  });
+
+  it("promotes the image .dev built instead of building it again", () => {
+    const primary = job("primary-image", "primary-backup");
+    expect(primary).toContain("actions: read");
+    expect(primary.indexOf("bash scripts/await-dev-image.sh")).toBeLessThan(
+      primary.indexOf("bash scripts/prepare-fly-image.sh cosyworld fly.toml"),
+    );
+    expect(primary).toContain(
+      'node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA" | grep -qx deploy=false',
+    );
+    expect(primary).toContain(
+      "EQUIVALENT_COMMIT: ${{ steps.dev.outputs.commit }}",
+    );
   });
 
   it("shares a commit image while each app keeps its own registry and rollout gates", () => {
@@ -402,70 +499,26 @@ describe("deploy workflow", () => {
     }
   });
 
-  it("uses matching compact Rust profiles and cache namespaces in CI and deployment", () => {
-    for (const source of [ciWorkflow, workflow]) {
+  it("uses compact Rust profiles and the dependency cache rust-cache.yml saves", () => {
+    for (const source of [checksWorkflow, workflow]) {
       expect(source).toContain('CARGO_PROFILE_DEV_DEBUG: "0"');
       expect(source).toContain('CARGO_PROFILE_TEST_DEBUG: "0"');
-      expect(source).toContain("-cargo-compact-v1-");
-      expect(source).not.toContain("-cargo-orchestrator-");
+      expect(source).toContain("-cargo-deps-v1-");
+      expect(source).not.toMatch(/-cargo-(compact|orchestrator)-/);
     }
   });
 
-  it("runs the long CI smoke suites in parallel from one shared binary", () => {
-    const runtime = ciJob("runtime", "smoke-binary");
-    const binary = ciJob("smoke-binary", "rust-quality");
-    const browser = ciJob("browser", "build");
-    const build = ciJob("build");
-
-    // The binary builds beside the Rust tests, so the smoke suites need not
-    // wait for the tests.
-    expect(binary).toContain("actions/upload-artifact@v7");
-    expect(binary).not.toContain("check-rust.sh test");
-    expect(runtime).toContain("check-rust.sh test");
-    expect(runtime).not.toContain("v2:composition:smoke");
-    expect(runtime).not.toContain("v2:browser:check");
-    expect(browser).toContain("needs: smoke-binary");
-    // The browser matrix comes from the measured shard plan.
-    expect(binary).toContain("node scripts/plan-browser-shards.mjs");
-    expect(browser).toContain(
-      "matrix: ${{ fromJSON(needs.smoke-binary.outputs.browser-shards) }}",
-    );
-    expect(browser).toContain('node "v2/scripts/$check.mjs"');
-    // The classic shell and its fresh-seed browser gate are retired.
-    expect(browser).not.toContain("v2:browser:check");
-    expect(browser).toContain("actions/download-artifact@v8");
-    for (const job of ["node", "runtime", "smoke-binary", "rust-quality"])
-      expect(build).toContain(job);
-    expect(build).toContain('test "$SMOKE_BINARY_RESULT" = success');
+  it("checks on each Rust change that no file the fast path ships is compiled in", () => {
+    const smokes = workflowJob(checksWorkflow, "rust-smokes", "rust-lint");
+    expect(smokes).toContain("if: needs.plan.outputs.rust-tests != ''");
+    expect(smokes).toContain("run: node v2/scripts/check-rust-inputs.mjs --strict");
   });
 
-  it("never cancels a check workflow run", () => {
-    // Check workflows run only by hand. Deploy serializes on its own group
-    // and never cancels (see deploy-coverage.test.mjs); Fly health runs only
-    // on a schedule or by hand.
-    for (const name of ["ci", "image-build", "local-desktop"]) {
-      const source = readFileSync(
-        new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
-        "utf8",
-      );
-      const concurrency = source.match(/\nconcurrency:\n((?: {2}.*\n)+)/)[1];
-      expect(concurrency, name).toContain("${{ github.run_id }}");
-      expect(concurrency, name).toContain("cancel-in-progress: false");
-    }
-  });
-
-  it("runs quarantined flaky Rust tests in a non-blocking job", () => {
-    const quarantine = ciJob("rust-quarantine", "rust-quality");
-    const build = ciJob("build");
+  it("skips each quarantined flaky Rust test, which still exists", () => {
     const checkRust = readFileSync(
       new URL("../../v2/scripts/check-rust.sh", import.meta.url),
       "utf8",
     );
-    expect(quarantine).toContain("continue-on-error: true");
-    expect(quarantine).toContain("bash v2/scripts/check-rust.sh quarantine");
-    expect(quarantine).not.toContain("actions/cache/save");
-    expect(build).not.toContain("rust-quarantine");
-    // The blocking suite skips each quarantined test, which still exists.
     // The list may be empty; every entry names its issue and fix-by date.
     const entries = checkRust
       .match(/^QUARANTINED_TESTS=\(\n([\s\S]*?)^\)$/m)[1]
@@ -483,26 +536,6 @@ describe("deploy workflow", () => {
     for (const name of names) {
       expect(rustMain).toContain(`#[test]\n    fn ${name}()`);
     }
-  });
-
-  it("saves the Cargo cache only from main", () => {
-    const runtime = ciJob("runtime", "smoke-binary");
-    expect(runtime).toContain("actions/cache/restore@v6");
-    expect(runtime).toContain("actions/cache/save@v6");
-    expect(runtime).toContain("github.ref == 'refs/heads/main'");
-    // One entry per UTC day, saved before the tests run.
-    expect(runtime).toContain("-cargo-compact-v1-day-");
-    expect(runtime).toContain("steps.cargo-cache.outputs.cache-hit != 'true'");
-    expect(runtime.indexOf("actions/cache/save@v6")).toBeLessThan(
-      runtime.indexOf("check-rust.sh test"),
-    );
-    // The smoke binary keeps main's cache only while the Rust tests run on
-    // the Fly runners, whose volume keeps their own.
-    const binary = ciJob("smoke-binary", "rust-quality");
-    expect(binary.match(/actions\/cache\/save/g)).toHaveLength(1);
-    expect(binary).toContain(
-      "if: vars.FLY_RUNNERS == 'on' && github.ref == 'refs/heads/main'",
-    );
   });
 
   it("skips docs-only deploys and reuses release compilation work", () => {
@@ -532,8 +565,8 @@ describe("deploy workflow", () => {
   });
 
   it("builds the binary in the Dockerfile unless a main push supplies one", () => {
-    // The default stays the in-image build used by tags, dispatches, the
-    // Fly builder, and the release-image check.
+    // The default stays the in-image build used by tags, dispatches and the
+    // Fly builder.
     const [preamble] = dockerfile.split(/^FROM /m);
     expect(preamble).toContain("ARG ORCHESTRATOR_BINARY=build");
     expect(dockerfile).toContain(
@@ -547,7 +580,7 @@ describe("deploy workflow", () => {
   });
 
   it("keeps the release target between main-push deploys only", () => {
-    const dev = job("dev-deploy", "deployment-impact");
+    const dev = job("dev-image", "dev-deploy");
     expect(dev).toContain("actions/cache/restore@v6");
     expect(dev).toContain("actions/cache/save@v6");
     expect(dev).toContain("path: ${{ runner.temp }}/release-target");
@@ -562,8 +595,7 @@ describe("deploy workflow", () => {
     expect(dev).toContain(
       "key: ${{ steps.release-cache.outputs.cache-primary-key }}",
     );
-    // The save waits until .dev is live.
-    expect(dev.indexOf("Verify primary card game")).toBeLessThan(
+    expect(dev.indexOf("Prepare primary image")).toBeLessThan(
       dev.indexOf("Save release build cache"),
     );
     for (const [name, next] of [
@@ -588,29 +620,6 @@ describe("deploy workflow", () => {
       /if \[ -z "\$prebuilt" \]; then\n\s+cache_args\+=\(--cache-to "type=registry,ref=\$cache,mode=max/,
     );
     expect(build).toContain('"${cache_args[@]}" --provenance=false');
-  });
-
-  it("keeps each workflow's large cache to one save per day from main", () => {
-    const desktop = readFileSync(
-      new URL("../../.github/workflows/local-desktop.yml", import.meta.url),
-      "utf8",
-    );
-    const desktopSave = desktop.slice(desktop.indexOf("actions/cache/save@v6"));
-    expect(desktopSave).toContain("github.ref == 'refs/heads/main'");
-    expect(desktop).toContain(
-      "key: macos-arm64-local-v1-day-${{ steps.release.outputs.day }}",
-    );
-    expect(desktop).not.toContain("macos-arm64-local-v1-${{ hashFiles");
-    expect(desktop).toContain("!.runtime/desktop-target/release/bundle");
-    const runtime = ciJob("runtime", "smoke-binary");
-    // The restore uses today's key, so an exact hit means today is saved.
-    expect(runtime).toContain(
-      "key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}",
-    );
-    expect(runtime).toContain("steps.cargo-cache.outputs.cache-hit != 'true'");
-    expect(runtime.slice(runtime.indexOf("Save Cargo build cache"))).toContain(
-      "key: ${{ steps.cargo-cache.outputs.cache-primary-key }}",
-    );
   });
 
   it("runs Lonely Forest as one process like primary", () => {
@@ -661,15 +670,17 @@ describe("deploy workflow", () => {
     const primaryFly = job("primary-fly", "lonelyforest-image");
     const lonelyForestFly = job("lonelyforest-fly", "deploy-outcome");
     expect(primaryFly).toContain(
-      'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE"',
+      'fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE"',
     );
     expect(primaryJobs).toContain(
       "FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}",
     );
     expect(primaryJobs).not.toContain("FLY_LONELYFOREST_API_TOKEN");
     expect(lonelyForestFly).toContain(
-      'flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false',
+      'fly-rollout.sh --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false',
     );
+    for (const deploy of [primaryFly, lonelyForestFly])
+      expect(deploy).toContain("COSYWORLD_FLY_WAIT_TIMEOUT: 5m");
     expect(lonelyForestJobs).toContain(
       "FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}",
     );
@@ -749,7 +760,9 @@ describe("deploy workflow", () => {
 
   it("reports only for runs that own their commit and closes shipped alerts (#1044)", () => {
     const outcome = job("deploy-outcome", "github-release");
-    expect(outcome).toContain("if: ${{ !cancelled() }}");
+    expect(outcome).toContain(
+      "if: ${{ !cancelled() && needs.dev-plan.outputs.deploy != 'false' }}",
+    );
     expect(outcome).not.toContain("if: always()");
     expect(outcome).toMatch(/permissions:\s+contents: read\s+issues: write/);
     expect(outcome).toContain("gh api --paginate");
@@ -763,12 +776,11 @@ describe("deploy workflow", () => {
     const outcome = job("deploy-outcome", "github-release");
     expect(outcome).toContain("- Trigger: ${TRIGGER}");
     expect(outcome).toContain(
-      "TRIGGER: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && '.dev train' || format('{0} {1}', github.event_name, github.ref) }}",
+      "TRIGGER: ${{ ((github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch') || inputs.target == 'dev') && '.dev train' || format('{0} {1}', github.event_name, github.ref) }}",
     );
     expect(outcome).toContain(
-      "DEV_TRAIN: ${{ github.event_name == 'schedule' || inputs.target == 'dev' }}",
+      "DEV_TRAIN: ${{ (github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch') || inputs.target == 'dev' }}",
     );
-    // Issues opened by main pushes before the train still count as .dev's.
     expect(outcome).toContain(
       String.raw`test("- Trigger: (push refs/heads/main|\\.dev train)\\r?\\n")`,
     );
@@ -782,6 +794,8 @@ describe("deploy workflow", () => {
       outcome.indexOf("Close tracking issues"),
     );
     expect(open).toContain("needs.lonelyforest-fly.result == 'failure'");
+    for (const name of ["dev-plan", "dev-image", "dev-deploy"])
+      expect(open).toContain(`needs.${name}.result == 'failure' ||`);
     expect(open).not.toContain("needs.lonelyforest-fly.result != 'success'");
   });
 
@@ -1044,113 +1058,6 @@ describe("deploy workflow", () => {
     expect(result.stdout).toContain("example-world /data is 42% used");
   });
 
-  it("checks production volume headroom every fifteen minutes", () => {
-    expect(flyHealthWorkflow).toContain('cron: "*/15 * * * *"');
-    expect(flyHealthWorkflow).toContain(
-      "check-fly-volume-space.sh cosyworld /data 70",
-    );
-    expect(flyHealthWorkflow).toContain(
-      "check-fly-volume-space.sh cosyworld-lonelyforest /data 70",
-    );
-    expect(flyHealthWorkflow).toContain(
-      "FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}",
-    );
-    expect(flyHealthWorkflow).toContain(
-      "FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}",
-    );
-  });
-
-  it("alerts on OOM exits for both Fly apps every fifteen minutes", () => {
-    expect(flyHealthWorkflow).toContain('cron: "*/15 * * * *"');
-    for (const app of ["cosyworld", "cosyworld-lonelyforest"]) {
-      expect(flyHealthWorkflow).toContain(
-        `node v2/scripts/check-fly-oom.mjs personal ${app} 30m`,
-      );
-    }
-    expect(flyHealthWorkflow).toContain(
-      "FLY_METRICS_READ_TOKEN: ${{ secrets.FLY_METRICS_READ_TOKEN }}",
-    );
-  });
-
-  it("uses one scheduled workflow and one runner per Fly app", () => {
-    for (const retired of ["oom-alert", "volume-headroom"]) {
-      expect(
-        existsSync(
-          new URL(`../../.github/workflows/${retired}.yml`, import.meta.url),
-        ),
-      ).toBe(false);
-    }
-    expect(flyHealthWorkflow.match(/cron:/g)).toHaveLength(1);
-    expect(flyHealthWorkflow.match(/runs-on: ubuntu-latest/g)).toHaveLength(2);
-    expect(flyHealthWorkflow.match(/uses: actions\/checkout@v7/g)).toHaveLength(
-      2,
-    );
-    expect(flyHealthWorkflow).toContain("contents: read");
-  });
-
-  it.each([
-    ["primary", "lonely-forest", "primary", "cosyworld", "FLY_API_TOKEN"],
-    [
-      "lonely-forest",
-      undefined,
-      "lonelyforest",
-      "cosyworld-lonelyforest",
-      "FLY_LONELYFOREST_API_TOKEN",
-    ],
-  ])(
-    "keeps %s checks independent and failures visible",
-    (name, next, budget, app, secret) => {
-      const healthJob = workflowJob(flyHealthWorkflow, name, next);
-      const steps = healthJob.split(/\n      - name: /).slice(1);
-      const checks = steps.filter((step) => step.startsWith("Check "));
-      expect(checks).toHaveLength(3);
-      expect(healthJob).not.toMatch(/\n\s+continue-on-error:/);
-      expect(healthJob).not.toMatch(/\n\s+needs:/);
-      expect(healthJob).not.toContain("|| true");
-      expect(healthJob).toContain(
-        `node v2/scripts/check-fly-oom.mjs personal ${app} 30m`,
-      );
-      expect(healthJob).toContain(
-        `node v2/scripts/check-storage-budget.mjs ${budget}`,
-      );
-      expect(healthJob).toContain(
-        `scripts/check-fly-volume-space.sh ${app} /data 70`,
-      );
-      expect(healthJob).toContain(`FLY_API_TOKEN: \${{ secrets.${secret} }}`);
-      expect(healthJob).toContain(
-        "FLY_METRICS_READ_TOKEN: ${{ secrets.FLY_METRICS_READ_TOKEN }}",
-      );
-      for (const check of checks) {
-        const dependency = check.includes("volume headroom")
-          ? "flyctl"
-          : "node";
-        expect(check).toContain(
-          `if: \${{ !cancelled() && steps.checkout.outcome == 'success' && steps.${dependency}.outcome == 'success' }}`,
-        );
-        expect(check).toMatch(/timeout-minutes: [1-3]/);
-      }
-      const flyctl = steps.find((step) => step.startsWith("Setup flyctl"));
-      expect(flyctl).toContain(
-        "if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}",
-      );
-      expect(flyctl).not.toContain("steps.node");
-    },
-  );
-
-  it("allows manual checks for either app without interrupting scheduled coverage", () => {
-    expect(flyHealthWorkflow).toContain("workflow_dispatch:");
-    expect(flyHealthWorkflow).toContain("default: all");
-    for (const app of ["cosyworld", "cosyworld-lonelyforest"]) {
-      expect(flyHealthWorkflow).toContain(`- ${app}`);
-      expect(flyHealthWorkflow).toContain(
-        `if: \${{ github.event_name != 'workflow_dispatch' || inputs.app == 'all' || inputs.app == '${app}' }}`,
-      );
-    }
-    expect(flyHealthWorkflow).toContain(
-      "group: fly-health-${{ github.repository }}-${{ github.event_name }}-${{ inputs.app || 'all' }}",
-    );
-  });
-
   it("sets no environment the card-only server no longer reads", () => {
     const retired = [
       "COSYWORLD_PRIMARY_GAME",
@@ -1217,29 +1124,23 @@ describe("deploy workflow", () => {
   it("copies every out-of-crate compile-time input into the release image build", () => {
     const dependencyBuild =
       "RUN cargo chef cook --release --recipe-path /app/recipe.json";
-    const engineVersionCopy =
-      "COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt";
-    const mediaCopy = "COPY v2/media /app/v2/media";
     // Matched without the RUN prefix so the ordering contract survives
     // env prefixes on the build command, such as CARGO_BUILD_JOBS.
     const releaseBuild = "cargo build --release";
+    const build = dockerfile.slice(
+      dockerfile.indexOf(dependencyBuild),
+      dockerfile.indexOf(releaseBuild),
+    );
 
-    expect(dockerignore).toContain("!v2/content-engine-version.txt");
-    expect(dockerignore).toContain("!v2/media/");
-    expect(dockerignore).toContain("!v2/media/**");
-    expect(dockerfile).toContain(engineVersionCopy);
-    expect(dockerfile).toContain(mediaCopy);
-    expect(dockerfile.indexOf(dependencyBuild)).toBeLessThan(
-      dockerfile.indexOf(engineVersionCopy),
+    expect(build).toContain("COPY v2/core-c /app/v2/core-c");
+    for (const dir of ["v2/card-game", "v2/content", "v2/media"])
+      expect(build).not.toContain(`COPY ${dir} `);
+  });
+
+  it("points the server at the assets directory the image ships", () => {
+    expect(dockerfile).toContain(
+      "COPY --link --from=assets /out/text/ /app/assets/",
     );
-    expect(dockerfile.indexOf(engineVersionCopy)).toBeLessThan(
-      dockerfile.indexOf(releaseBuild),
-    );
-    expect(dockerfile.indexOf(dependencyBuild)).toBeLessThan(
-      dockerfile.indexOf(mediaCopy),
-    );
-    expect(dockerfile.indexOf(mediaCopy)).toBeLessThan(
-      dockerfile.indexOf(releaseBuild),
-    );
+    expect(dockerfile).toContain("ENV COSYWORLD_ASSETS_DIR=/app/assets");
   });
 });

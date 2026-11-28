@@ -1,6 +1,13 @@
 import { packDefinitions } from "../card-game/pack-registry.mjs";
 import { holdChoice } from "../card-game/world.mjs";
 import { roomFuelFromTurns } from "../card-game/lamp-room-fuel.mjs";
+import { TEST_SEED_KEY } from "../card-game/pack-landing.mjs";
+
+export const pinSeed = (page, seed) =>
+  page.addInitScript(([key, value]) => localStorage.setItem(key, value), [
+    TEST_SEED_KEY,
+    String(seed),
+  ]);
 
 // The lamp's fuel counts rooms (#2580), so a fixture that sets turns of oil
 // sets both, in place.
@@ -114,7 +121,13 @@ export async function openPack(page, id) {
   );
   if (await stack.count()) {
     await stack.first().click({ position: await visibleSpot(stack.first()) });
-    await page.locator('#hand [data-pack="open"]').first().waitFor();
+    // A resident's lone card turns over at the first tap, and is chosen.
+    await page.waitForFunction((id) => {
+      const card = document.querySelector(`#hand [data-card="${id}"]`);
+      return document.querySelector('#hand [data-pack="open"]') ||
+        (card?.dataset.unrevealed === "false" && !card.dataset.revealing);
+    }, id);
+    if (!(await inPack())) return page.keyboard.press("Escape").then(() => true);
     // The hand rises and the cards rise into the row (460 ms, 350 ms apart).
     await page.waitForTimeout(900);
   }
@@ -398,8 +411,8 @@ export async function revealOpening(page) {
     }
     const down = await page.evaluate(
       () =>
-        document.querySelector('#hand .card[data-unrevealed="true"]')?.dataset
-          .card,
+        document.querySelector('#hand .card[data-card][data-unrevealed="true"]')
+          ?.dataset.card,
     );
     if (!down) break;
     await revealCard(page, down);
@@ -407,7 +420,7 @@ export async function revealOpening(page) {
   await page.waitForFunction(
     () =>
       !document.querySelector("#hand [data-revealing]") &&
-      !document.querySelector('#hand [data-unrevealed="true"]') &&
+      !document.querySelector('#hand [data-unrevealed="true"]:not([data-quest-entry^="locked:"])') &&
       !document.querySelector('#hand [data-pack="open"]'),
   );
 }

@@ -1,6 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { selectSmokes } from "../scripts/select-fast-smokes.mjs";
+import {
+  packSmokes,
+  runSmokes,
+  selectSmokes,
+} from "../scripts/select-fast-smokes.mjs";
 
 const config = JSON.parse(
   readFileSync(new URL("../scripts/fast-smokes.json", import.meta.url), "utf8"),
@@ -17,9 +21,9 @@ describe("fast check smoke selection", () => {
     ]) expect(pick(path)).toContain(smoke);
     const selected = pick("v2/content/ratiradio/card-world.json", "v2/card-game/app.mjs");
     expect(selected.slice(config.core.length)).toEqual([
-      "smoke-card-ratiradio", "smoke-card-combat", smoke,
+      "smoke-card-ratiradio", "smoke-card-combat", "smoke-card-shade-wake", smoke,
+      "smoke-card-speech-queue", "smoke-card-read", "smoke-card-quest-offers",
     ]);
-    expect(config.max).toBe(3);
     const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
     expect(shards.checks[smoke]).toBeGreaterThan(0);
   });
@@ -32,7 +36,7 @@ describe("fast check smoke selection", () => {
     expect(shards.checks[smoke]).toBeGreaterThan(0);
   });
 
-  it("covers save validation without taking higher-priority smoke slots", () => {
+  it("covers save validation", () => {
     for (const file of [
       "v2/card-game/world.mjs",
       "test/card-save-validation.test.mjs",
@@ -87,6 +91,7 @@ describe("fast check smoke selection", () => {
       "v2/scripts/music-reveal-check.mjs",
     ])
       expect(pick(file)).toContain("smoke-card-music");
+    expect(pick("v2/card-game/app.mjs")).toContain("smoke-card-read");
   });
 
   it("checks dream lifetime when the sleep owner changes", () => {
@@ -111,11 +116,11 @@ describe("fast check smoke selection", () => {
       "smoke-card-ratiradio",
       "smoke-card-ship-fade",
       "smoke-card-reduced-fades",
+      "smoke-card-portable-radio",
     ]);
   });
 
-  it("gives a core smoke a path selects no slot of the cap", () => {
-    // beat-stack and actions are core; the rest fill the three slots.
+  it("runs a core smoke a path selects once, and every other selected smoke", () => {
     const smokes = pick(
       "v2/card-game/beats.mjs",
       "v2/card-game/world.mjs",
@@ -124,8 +129,11 @@ describe("fast check smoke selection", () => {
     expect(smokes).toEqual([
       ...config.core,
       "smoke-card-combat",
+      "smoke-card-shade-wake",
       "smoke-card-dialogue-timing",
       "smoke-card-pond-access",
+      "smoke-card-save-validation",
+      "smoke-card-quest-offers",
     ]);
   });
 
@@ -143,13 +151,12 @@ describe("fast check smoke selection", () => {
       "v2/card-game/defeat-view.mjs",
     ])
       expect(pick(file), file).toContain("smoke-card-combat");
-    // Broad changes that match many rules still keep it inside the cap.
     expect(
       pick("v2/card-game/app.mjs", "v2/card-game/world.mjs", "v2/card-game/beats.mjs"),
     ).toContain("smoke-card-combat");
   });
 
-  it("keeps the RatiRadio route in the integration smoke budget", () => {
+  it("runs the RatiRadio route first among broad changes", () => {
     for (const file of [
       "v2/card-game/packs.json",
       "v2/content/ratiradio/card-world.json",
@@ -170,15 +177,69 @@ describe("fast check smoke selection", () => {
     expect(shards.checks[smoke]).toBeGreaterThan(0);
   });
 
-  it("runs a changed smoke first, skips Rust smokes, and caps the count", () => {
+  it("runs a changed smoke first, skips Rust smokes, and drops none", () => {
     const smokes = pick(
       "v2/scripts/smoke-shared-cards.mjs",
       "v2/scripts/smoke-card-weather.mjs",
       "v2/card-game/beats.mjs",
       "v2/card-game/world.mjs",
     );
-    expect(smokes).toHaveLength(config.core.length + config.max);
     expect(smokes[config.core.length]).toBe("smoke-card-weather");
     expect(smokes).not.toContain("smoke-shared-cards");
+    for (const smoke of ["smoke-card-dialogue-timing", "smoke-card-pond-access",
+      "smoke-card-save-validation", "smoke-card-combat"])
+      expect(smokes).toContain(smoke);
+  });
+});
+
+describe("fast check smoke packing", () => {
+  const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
+  const { packing } = config;
+  const every = [...new Set([
+    ...config.core,
+    ...config.rules.flatMap((rule) => rule.smokes),
+  ])].flatMap((smoke) => selectSmokes([`v2/scripts/${smoke}.mjs`], config, shards.checks));
+  const split = (packs) => packs.flatMap((pack) => pack.split(" "));
+
+  it("has a measured time for every smoke it can choose", () => {
+    for (const smoke of new Set(every))
+      expect(packing.seconds[smoke], smoke).toBeGreaterThan(0);
+  });
+
+  it("packs every chosen smoke once into at most the job budget", () => {
+    const smokes = [...new Set(every)];
+    const packs = packSmokes(smokes, config);
+    expect(packs).toHaveLength(packing.jobs);
+    expect(split(packs).sort()).toEqual([...smokes].sort());
+    const times = packs.map((pack) =>
+      pack.split(" ").reduce((sum, smoke) => sum + packing.seconds[smoke], 0));
+    expect(Math.max(...times) - Math.min(...times))
+      .toBeLessThanOrEqual(Math.max(...Object.values(packing.seconds)));
+  });
+
+  it("uses fewer jobs for fewer smokes, longest first", () => {
+    const packs = packSmokes(config.core, config);
+    expect(packs.length).toBeLessThan(packing.jobs);
+    expect(split(packs).sort()).toEqual([...config.core].sort());
+    const [first] = packs[0].split(" ");
+    expect(first).toBe("smoke-card-unveil");
+    expect(packSmokes(["smoke-card-boot"], config)).toEqual(["smoke-card-boot"]);
+  });
+
+  it("runs a pack a lane at a time and reports each failure", async () => {
+    let running = 0, most = 0;
+    const lines = [];
+    const start = async (smoke) => {
+      most = Math.max(most, ++running);
+      await new Promise((done) => setTimeout(done, 5));
+      running--;
+      return { code: smoke.includes("bad") ? 1 : 0, output: smoke, seconds: 1 };
+    };
+    const failed = await runSmokes(["a", "bad-1", "c", "bad-2", "e"], 2, start,
+      (line) => lines.push(line));
+    expect(most).toBe(2);
+    expect(failed.sort()).toEqual(["bad-1", "bad-2"]);
+    expect(lines.filter((line) => line.startsWith("::error"))).toHaveLength(2);
+    expect(lines.filter((line) => line.endsWith("::endgroup::"))).toHaveLength(3);
   });
 });

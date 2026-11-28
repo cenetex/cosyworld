@@ -13,10 +13,56 @@ use super::authored::{authored, Budget, Field, REQUEST_CHARS};
 use super::*;
 use crate::routes::signed_envelope::{content_hash, keys, Claims, Verdict};
 
+pub(super) const SCENE_ERROR: &str = "Use the current scene and its saved memories.";
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum ScreeningFailure {
+    TextSize,
+    MatchingLimit,
+    SavedWords,
+    SceneMetadata,
+    Worker,
+}
+
+impl ScreeningFailure {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::TextSize => "scene_text_size",
+            Self::MatchingLimit => "scene_matching_limit",
+            Self::SavedWords => "scene_saved_words",
+            Self::SceneMetadata => "scene_metadata",
+            Self::Worker => "scene_worker",
+        }
+    }
+
+    pub(super) fn response(self) -> Response {
+        voice_scenes::refused(self.label());
+        if self == Self::Worker {
+            return error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "The story service is restarting.",
+            );
+        }
+        (
+            StatusCode::BAD_REQUEST,
+            [("cache-control", "no-store")],
+            Json(json!({"error": SCENE_ERROR, "code": "scene_context_rejected"})),
+        )
+            .into_response()
+    }
+}
+
+pub(super) async fn screened(context: Context) -> Result<Context, ScreeningFailure> {
+    tokio::task::spawn_blocking(move || trusted(context))
+        .await
+        .map_err(|_| ScreeningFailure::Worker)?
+}
+
 /// Local play has no server-side world id; shared journal rows would carry it.
 const LOCAL_WORLD: &str = "local";
 /// The build family that signs local words.
 pub(super) const ISSUER: &str = "cosyworld-orchestrator/";
+pub(super) const ELYSIUM_LINE_RULES_SUFFIX: &str = "/elysium-v1";
 /// Clock skew allowed between machines that share a key.
 const SKEW_SECS: u64 = 300;
 
@@ -106,12 +152,11 @@ fn check_expression(memory: &Memory, scene: &Scene) -> Check {
     }
 }
 
-/// Keep `value` when `check` keeps it; `None` rejects the whole request.
-fn keep<T>(value: T, check: Check) -> Option<Option<T>> {
+fn keep<T>(value: T, check: Check) -> Result<Option<T>, ScreeningFailure> {
     match check {
-        Check::Keep => Some(Some(value)),
-        Check::Drop => Some(None),
-        Check::Reject => None,
+        Check::Keep => Ok(Some(value)),
+        Check::Drop => Ok(None),
+        Check::Reject => Err(ScreeningFailure::SavedWords),
     }
 }
 
@@ -138,12 +183,9 @@ fn rules_text(context: &Context) -> impl Iterator<Item = &str> {
         }))
 }
 
-/// The scene's rules-built sentences with the unauthored ones left out, or
-/// `None` when the request quotes more text, or needs more matching work,
-/// than an honest scene.
-fn keep_authored(mut context: Context) -> Option<Context> {
+fn keep_authored(mut context: Context) -> Result<Context, ScreeningFailure> {
     if rules_text(&context).map(str::len).sum::<usize>() > REQUEST_CHARS {
-        return None;
+        return Err(ScreeningFailure::TextSize);
     }
     let mut budget = Budget::new();
     let mut dropped = 0;
@@ -192,7 +234,7 @@ fn keep_authored(mut context: Context) -> Option<Context> {
             feature = "card_text",
             "refused a scene that needs more text matching than an honest one"
         );
-        return None;
+        return Err(ScreeningFailure::MatchingLimit);
     }
     if dropped > 0 {
         tracing::warn!(
@@ -201,23 +243,17 @@ fn keep_authored(mut context: Context) -> Option<Context> {
             "left unauthored scene text out of the prompt"
         );
     }
-    Some(context)
+    Ok(context)
 }
 
-/// The scene with every server-written string verified, unverifiable ones
-/// (unknown key, another save) dropped, or `None` when any is unsigned or
-/// tampered. Matching is bounded, but the caller runs this off the async
-/// workers (`spawn_blocking`) after admitting the client.
-pub(super) fn trusted(context: Context) -> Option<Context> {
+pub(super) fn trusted(context: Context) -> Result<Context, ScreeningFailure> {
     for entity in &context.entities {
-        if let Some(poem) = &entity.poem {
-            if !poem
-                .stanzas
-                .iter()
-                .all(|s| super::authored::name(&s.author_name))
-            {
-                return None;
-            }
+        if entity
+            .poem
+            .as_ref()
+            .is_some_and(|poem| !recital::known_authors(poem))
+        {
+            return Err(ScreeningFailure::SceneMetadata);
         }
     }
     let mut context = keep_authored(context)?;
@@ -231,7 +267,10 @@ pub(super) fn trusted(context: Context) -> Option<Context> {
             &line.actor_id,
             &line.text,
         );
-        conversation.extend(keep(line, verdict)?);
+        if let Some(mut line) = keep(line, verdict)? {
+            verify_elysium_name(&mut line, &scene, &context).ok_or(ScreeningFailure::SavedWords)?;
+            conversation.push(line);
+        }
     }
     context.conversation = conversation;
     for entity in &mut context.entities {
@@ -255,7 +294,7 @@ pub(super) fn trusted(context: Context) -> Option<Context> {
             } else if memory.signed.is_none() {
                 memories.push(memory);
             } else {
-                return None;
+                return Err(ScreeningFailure::SavedWords);
             }
         }
         entity.memories = memories;
@@ -287,7 +326,7 @@ pub(super) fn trusted(context: Context) -> Option<Context> {
         }
         // The browser never sends a hope; shared scenes build theirs.
         if entity.hope.is_some() {
-            return None;
+            return Err(ScreeningFailure::SceneMetadata);
         }
         if let Some(life) = entity.inner_life.as_mut() {
             if let Some(persona) = life.persona.take() {
@@ -323,7 +362,40 @@ pub(super) fn trusted(context: Context) -> Option<Context> {
             }
         }
     }
-    Some(context)
+    Ok(context)
+}
+
+fn verify_elysium_name(line: &mut SpokenLine, scene: &Scene, context: &Context) -> Option<()> {
+    let Some(Some(name)) = &line.elysium_name else {
+        return line.elysium_name_signed.is_none().then_some(());
+    };
+    let proof = line.elysium_name_signed.as_ref()?;
+    let words = line.signed.as_ref()?;
+    if !super::elysium::is_resident(&line.actor_id)
+        || !crate::card_shared::valid_elysium_name(name)
+        || !words.claims.rules.ends_with(ELYSIUM_LINE_RULES_SUFFIX)
+        || proof.claims.rules != words.claims.rules
+        || proof.claims.seq != words.claims.seq
+        || proof.claims.turn != words.claims.turn
+    {
+        return None;
+    }
+    let scope_is_current = !crate::card_shared::elysium_coordinate::is_resident(&line.actor_id)
+        || super::elysium::coordinate_proof(context, &line.actor_id).is_some_and(|scope| {
+            words
+                .claims
+                .rules
+                .ends_with(&format!("{scope}{ELYSIUM_LINE_RULES_SUFFIX}"))
+        });
+    match check(Some(proof), scene, "elysium-name", &line.actor_id, name) {
+        Check::Keep if scope_is_current => {}
+        Check::Keep | Check::Drop => {
+            line.elysium_name = Some(None);
+            line.elysium_name_signed = None;
+        }
+        Check::Reject => return None,
+    }
+    Some(())
 }
 
 fn claims(context: &Context, kind: &str, entity: &str, text: &str) -> Claims {
@@ -344,10 +416,42 @@ fn claims(context: &Context, kind: &str, entity: &str, text: &str) -> Claims {
 pub(super) fn sign_lines(value: &mut Value, context: &Context) {
     for entry in value["entries"].as_array_mut().into_iter().flatten() {
         if let (Some(id), Some(text)) = (entry["id"].as_str(), entry["text"].as_str()) {
-            let envelope = keys().sign(claims(context, "line", id, text));
-            entry["signed"] = json!(envelope);
+            let mut words = claims(context, "line", id, text);
+            let mut identity = None;
+            if super::elysium::is_resident(id) {
+                if let Some(scope) = super::elysium::coordinate_proof(context, id) {
+                    words.rules.push_str(&scope);
+                }
+                words.rules.push_str(ELYSIUM_LINE_RULES_SUFFIX);
+                if let Some(name) = entry["elysiumName"].as_str() {
+                    let mut proof = claims(context, "elysium-name", id, name);
+                    proof.rules.clone_from(&words.rules);
+                    identity = Some(keys().sign(proof));
+                }
+            }
+            entry["signed"] = json!(keys().sign(words));
+            if let Some(identity) = identity {
+                entry["elysiumNameSigned"] = json!(identity);
+            }
         }
     }
+}
+
+/// A delivered line can be quoted even if the stream closes before completion.
+pub(super) fn send_signed_delta(
+    sender: &mpsc::UnboundedSender<Event>,
+    context: &Context,
+    text: &str,
+) -> bool {
+    let Ok(entry) = serde_json::from_str::<Value>(text) else {
+        return false;
+    };
+    let mut value = json!({"entries": [entry]});
+    sign_lines(&mut value, context);
+    let text = format!("{}\n", value["entries"][0]);
+    sender
+        .send(Event::default().data(json!({"type":"delta","text":text}).to_string()))
+        .is_ok()
 }
 
 /// Sign each private reflection part (`reflections[].signed.{thought,…}`).

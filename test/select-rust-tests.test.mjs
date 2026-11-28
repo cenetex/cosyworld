@@ -8,8 +8,9 @@ const config = JSON.parse(
 const SRC = "v2/orchestrator-rust/src";
 const modules = select.moduleTree();
 const inputs = select.rustInputs(modules);
+const compiled = select.compiledInputs(modules);
 const pick = (...changed) =>
-  select.selectRustTests(changed, config, { modules, inputs });
+  select.selectRustTests(changed, config, { modules, inputs, compiled });
 const N = "routes::card_game::narrative::";
 
 describe("fast check Rust test selection", () => {
@@ -42,6 +43,23 @@ describe("fast check Rust test selection", () => {
     expect(pick("package.json")).toEqual([]);
   });
 
+  it("skips it when only a file a test reads changed", () => {
+    for (const file of [
+      "test/helpers/long-play.mjs",
+      "v2/card-game/narrative.mjs",
+    ])
+      expect(pick(file), file).toEqual([]);
+  });
+
+  it("runs the readers of a file the crate compiles in", () => {
+    expect(pick("v2/card-game/senses.json")).toEqual([N]);
+    expect(pick("v2/card-game/voices.json")).toEqual([
+      "routes::card_game::local::",
+      "routes::card_voices::",
+    ]);
+    expect(pick("v2/card-game/index.html")).toEqual(["routes::card_game::"]);
+  });
+
   it("runs funeral parity when the source world changes", () => {
     expect(pick("v2/card-game/world.mjs")).toEqual([
       "card_shared::polynices_tests::",
@@ -58,29 +76,59 @@ describe("fast check Rust test selection", () => {
   it("runs consequence replay for rule modules and pinned evidence", () => {
     // The old pinned traces (rules 130-132) retired with the rules 133 bump, so
     // the rule modules the crate names, and the played-world helper it reads.
-    for (const path of [
-      "v2/card-game/world.mjs",
-      "test/helpers/long-play.mjs",
-    ])
-      expect(pick(path)).toContain("card_shared::world_life_tests::");
+    expect(pick("v2/card-game/world.mjs")).toContain(
+      "card_shared::world_life_tests::",
+    );
+    expect(
+      pick("test/helpers/long-play.mjs", "v2/card-game/radio-item.mjs"),
+    ).toContain("card_shared::world_life_tests::");
+  });
+
+  it("runs the readers of a file the server loads from its assets", () => {
+    expect(pick("v2/card-game/forest.json")).toContain(`${N}channel::`);
+    expect(pick("v2/card-game/emoji-symbols.json")).toEqual([
+      `${N}expression::`,
+    ]);
+    expect(pick("v2/card-game/assets/music/radio-catalog.json")).toEqual([
+      "routes::card_game::radio::",
+    ]);
+    for (const file of ["shared-cast", "entity-profiles", "boardyai"])
+      expect(pick(`v2/card-game/${file}.json`), file).toContain(N);
   });
 
   it("runs the narrative and voice tests when their inputs change", () => {
-    expect(pick("v2/card-game/senses.json")).toEqual([N]);
-    expect(pick("test/fixtures/card-voice-replies.json")).toEqual([
-      `${N}instruction::`,
-      `${N}voice_eval::`,
+    const narrator = `${SRC}/card_shared/narrator.js`;
+    expect(pick("v2/card-game/senses.json", narrator)).toEqual([
+      N,
+      "card_shared::narrator::",
     ]);
-    expect(pick("v2/card-game/narrative.mjs")).toEqual([
+    expect(pick("v2/card-game/narrative.mjs", narrator)).toEqual([
       `${N}between::`,
       `${N}waking::`,
+      "card_shared::narrator::",
     ]);
-    expect(pick(`${SRC}/card_narrative/authored-text.json`)).toEqual([N]);
+    expect(pick(`${SRC}/card_narrative/authored-text.json`)).toEqual([
+      `${N}authored::`,
+      `${N}imported::`,
+      `${N}instruction::`,
+    ]);
   });
 
-  it("runs a changed module, a bundle's module, and every table reader", () => {
-    expect(pick(`${SRC}/card_shared/engine-v98.js`)).toEqual(["card_shared::"]);
-    const packs = pick("v2/card-game/packs.json");
+  it("runs a changed module, the module that embeds a bundle, and every table reader", () => {
+    expect(pick(`${SRC}/card_shared/engine-v133.js`)).toEqual([
+      "card_shared::engine::",
+    ]);
+    expect(pick(`${SRC}/card_shared/narrator.js`)).toEqual([
+      "card_shared::narrator::",
+    ]);
+    expect(pick(`${SRC}/card_shared/content.json`)).toEqual([
+      "card_shared::content::",
+      `${N}instruction::`,
+    ]);
+    const packs = pick(
+      "v2/card-game/packs.json",
+      `${SRC}/card_shared/content.json`,
+    );
     expect(packs).toContain("routes::card_game::");
     expect(packs).toContain("card_shared::content::");
     expect(packs).toContain("card_shared::world_life_tests::");
@@ -111,6 +159,12 @@ describe("fast check Rust test selection", () => {
       "signed_envelope",
       "ai_registry",
       "account_auth",
+      "account_avatars",
+      "account_revision",
+      "ai_bench",
+      "ai_gateway",
+      "ai_readiness",
+      "config",
     ];
     expect(pick(...files.map((m) => `${SRC}/${m}.rs`))).toHaveLength(
       config.rust.max,

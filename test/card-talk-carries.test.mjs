@@ -69,7 +69,7 @@ describe("a Talk tells the want the resident ends the round with", () => {
         continue;
       offered++;
       expect(toldWant(n, "vale", "moth")).toBe(true);
-      expect(residentOffer(n)?.source).toBe("moth");
+      expect(residentOffer(n, "vale", "moth")?.source).toBe("moth");
       expect(view(n, "moth")[0].startsWith("I want ")).toBe(true);
     }
     expect(offered).toBeGreaterThan(0);

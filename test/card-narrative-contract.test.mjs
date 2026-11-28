@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { addLog } from "../v2/card-game/world.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
+import { actionCaption } from "../v2/card-game/beats.mjs";
+import { isSceneText } from "../v2/card-game/scene.mjs";
 import {
   hearFirstEcho,
   narrativeContractCases,
@@ -47,19 +49,23 @@ describe("browser dialogue history contract", () => {
     });
   });
 
-  it("keeps the authored echo in the save, without treating it as an avatar", () => {
+  it("keeps the authored echo as a world sound", () => {
     for (const { name, world, context } of narrativeContractCases().filter(
       ({ name }) => name.includes("echo"),
     )) {
-      expect(
-        world.log.find((entry) => entry.speaker === "echo"),
-        name,
-      ).toMatchObject({
-        kind: "dialogue",
+      const echo = world.log.find((entry) => entry.speaker === "echo");
+      expect(echo, name).toMatchObject({
+        kind: "narration",
         text: "bong",
         actorId: null,
         turn: 8,
       });
+      const savedEcho = { ...echo, kind: "dialogue", generated: true };
+      for (const entry of [echo, savedEcho]) {
+        expect(isSceneText(entry)).toBe(false);
+        expect(actionCaption(entry, { viewer: "vale", here: echo.locationId }))
+          .toMatchObject({ kind: "signal_echo", text: "Bong." });
+      }
       expect(
         context.conversation.some((line) => line.text === "bong"),
         name,

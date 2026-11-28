@@ -88,7 +88,7 @@ world = applyGeneratedText(world, context, {
   })),
 });
 world.memories.keeper.innerLife = {
-  persona: "Keeper private sentinel.",
+  persona: "I keep a private sentinel.",
   thoughts: [],
   dreams: [],
 };
@@ -107,10 +107,26 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(
-      (save) =>
-        localStorage.setItem("cosyworld.reflected-shore.v1.learning", save),
+      (save) => {
+        const key = "cosyworld.reflected-shore.v1.learning";
+        if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+      },
       encodeSave(world),
     );
+    let homeSummaries = 0;
+    const home = world.actors.vale.place;
+    const recollection = "I remember coming back here to rest.";
+    await page.route("**/card-game/memory-summaries", (route) => {
+      const { actor, subjects } = route.request().postDataJSON();
+      assert.equal(actor, "vale");
+      assert(!JSON.stringify(subjects).includes("private sentinel"));
+      const memory = subjects.find(({ id }) => id === home);
+      if (memory) {
+        assert(memory.evidence);
+        homeSummaries++;
+      }
+      return route.fulfill({ json: { summaries: memory ? { [home]: recollection } : {} } });
+    });
     await page.route("**/card-game/text", async (route) => {
       const scene = route.request().postDataJSON();
       await route.fulfill({
@@ -159,50 +175,48 @@ try {
     ]);
     for (let attempt = 0; attempt < 2; attempt++) {
       await page.getByRole("button", { name: "Menu", exact: true }).click();
-      // Inner life opens Memory: the present first, the past below (#1579).
-      await page.getByRole("button", { name: "Memory", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "Memory" });
+      await page.getByRole("button", { name: "Character", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Character", exact: true });
       await dialog.waitFor();
-      const inner = dialog.getByRole("region", { name: "Vale's inner life" });
-      await inner.waitFor();
+      const persona = dialog.getByRole("region", { name: "Vale's persona" });
+      const dreams = dialog.getByRole("region", { name: "Vale's dreams" });
+      await persona.waitFor();
+      await dreams.waitFor();
       assert.equal(
         await dialog.evaluate(
           (box) => box.querySelector("#messages > *")?.className,
         ),
-        "inner-life",
+        "character-sheet",
       );
-      // The region's name is visually hidden: what shows opens on "I'm",
-      // then "I dream".
-      const text = await inner.evaluate((section) =>
-        [...section.children]
-          .filter((child) => !child.classList.contains("sr-only"))
-          .map((child) => child.textContent)
-          .join("\n"),
-      );
-      assert(text.startsWith("I'm Vale. The Lamplighter."), text);
-      assert(!text.includes("inner life"));
-      assert(!text.includes("I'm becoming"));
+      const text = await dialog.innerText();
+      await persona.getByRole("heading", { name: "Persona", exact: true }).waitFor();
+      await dreams.getByRole("heading", { name: "Dreams", exact: true }).waitFor();
+      const memories = dialog.getByRole("region", { name: "Vale's memories" });
+      await memories.getByRole("heading", { name: "Memories", exact: true }).waitFor();
+      await memories.getByRole("heading", { name: "Places", exact: true }).waitFor();
+      await memories.getByText(recollection, { exact: true }).waitFor();
+      assert.equal(homeSummaries, 1, "the same character and evidence reuse the summary on reload");
+      assert.doesNotMatch(await memories.innerText(), /The shore feels quiet|private sentinel/u);
+      assert.match(await persona.innerText(), /A traveller/u);
+      assert.match(await persona.innerText(), /learning to listen/u);
+      assert.match(await dreams.innerText(), /little boat/u);
+      assert.equal(await persona.evaluate((el) =>
+        el.previousElementSibling?.classList.contains("sheet-identity")), true);
+      const headings = await dialog.locator("#messages h3").allTextContents();
+      assert(headings.indexOf("Persona") < headings.indexOf("Tarot collection"));
+      assert(headings.indexOf("Carrying") < headings.indexOf("Dreams"));
+      assert(headings.indexOf("Dreams") < headings.indexOf("Memories"));
+      assert(!text.includes("I'm Vale. The Lamplighter."));
       assert(!text.includes("A fair offer may help."));
-      assert(!text.includes("learning to listen"));
-      assert(text.includes("I dream"));
-      assert(text.includes("little boat"));
-      assert(text.trim().endsWith("— Vale"));
-      assert.equal(
-        await dialog.evaluate((box) => {
-          const visible = [...box.querySelectorAll("h2, h3")].filter(
-            (h) => h.closest(".memory-visit") === null,
-          );
-          return visible.filter((h) => h.offsetWidth > 1).length;
-        }),
-        0,
-      );
+      assert(!text.includes("— Vale"));
+      await dialog.getByRole("heading", { name: "Character", exact: true }).waitFor();
       assert.equal(
         await dialog.getByRole("button", { name: "Save conversation" }).count(),
         0,
       );
       // Measured attempts guide the planner; the panel never shows them.
       assert(!text.includes("measured attempt"));
-      assert(!text.includes("Keeper private sentinel"));
+      assert(!(await dialog.innerText()).includes("private sentinel"));
       const box = await dialog.boundingBox();
       assert(box.x >= 0 && box.x + box.width <= width + 1);
       if (!attempt)

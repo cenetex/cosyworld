@@ -7,7 +7,7 @@ import {
   laneTalkFacts,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { applyGeneratedText, narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   knowsLane,
   learnLane,
@@ -174,7 +174,7 @@ describe("knowing a lane is personal", () => {
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);
   });
 
-  it("Myrto tells a lane through Talk, and the Talk puts it on the chart", () => {
+  it("charts a sea lane after Myrto's reply reveals the route", () => {
     let s = setup("greek-harbor");
     s.actors["greek-shipmaster"].place = "greek-harbor";
     s = reload(s);
@@ -202,6 +202,18 @@ describe("knowing a lane is personal", () => {
       true,
     );
     const [from, to] = disclosure.factId.slice(5).split(">");
+    expect(knowsLane(world, "vale", from, to)).toBe(false);
+    expect(knowsFact(world, "vale", disclosure.factId)).toBe(false);
+    const { factId, speaker, listener, eventSeq } = disclosure;
+    world = applyGeneratedText(world, context, {
+      model: "fixture",
+      revision: context.revision,
+      entries: [{
+        id: speaker,
+        text: "You'll need Travel Provisions aboard to sail from this harbor to Piraeus Quays.",
+        disclosed: { factId, speaker, listener, eventSeq },
+      }],
+    });
     expect(knowsLane(world, "vale", from, to)).toBe(true);
     expect(knowsFact(world, "vale", disclosure.factId)).toBe(true);
     expect(reload(world).routeKnowledge.vale).toContainEqual([

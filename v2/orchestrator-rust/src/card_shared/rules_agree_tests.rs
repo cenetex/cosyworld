@@ -16,8 +16,8 @@ fn rules_agree(a: &str, b: &str, requests: &[Value]) {
 #[test]
 fn current_rules_agree_with_themselves() {
     rules_agree(
-        engine::VERSION,
-        engine::VERSION,
+        engine::version(),
+        engine::version(),
         &[
             json!({"op":"create"}),
             json!({"op":"create","seed":7}),

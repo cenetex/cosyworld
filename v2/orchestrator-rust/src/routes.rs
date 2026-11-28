@@ -19,6 +19,7 @@ use super::*;
 
 #[path = "card_authoring_generation.rs"]
 mod card_authoring_generation;
+pub(crate) use card_authoring_generation::{draw_model_void_portrait, draw_void_portrait};
 #[path = "card_game.rs"]
 pub(crate) mod card_game;
 #[path = "card_voices.rs"]
@@ -81,7 +82,10 @@ pub(super) fn card_app_router(state: AppState, shutdown: ShutdownSubscription) -
         .merge(card_voices::router())
         .merge(card_game::router())
         .merge(play_metrics::router())
-        .merge(card_game::text_router(state.ai_config.clone(), true))
+        .merge(
+            card_game::text_router(state.ai_config.clone(), true)
+                .layer(axum::Extension(state.clone())),
+        )
         .route("/health", get(health))
         .route("/health/live", get(health_live))
         .route("/meta", get(super::card_boot::card_meta))

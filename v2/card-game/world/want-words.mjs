@@ -1,5 +1,6 @@
 import { consumable } from "../pack-registry.mjs";
 import { nameOf, people, places } from "./catalog.mjs";
+import { callWords } from "../want-talk.mjs";
 
 export const UNKNOWN = {
   item: "something you haven't found",
@@ -25,10 +26,8 @@ const TABLE = {
   drink: (id) => consumable(id) === "drink",
 };
 
-/**
- * Several wants said together, joined plainly: the first begins the
- * sentence, the rest follow "and". `say(want)` words one, capitalized.
- */
+// Several wants said together: the first begins the sentence, the rest
+// follow "and". `say(want)` words one, capitalized.
 export const joinWants = (wants, say) =>
   wants
     .map((want, i) => {
@@ -65,6 +64,8 @@ export function wantWords(
         : `${verb} ${what}`;
   if (step?.verb === "lay")
     return `lay ${want.lit ? "the lit " : ""}${list(step.items)} ${near("in", want.target)}`;
+  if (step?.verb === "call")
+    return callWords(want, name);
   if (step?.verb === "give")
     return `give ${what} to ${name(step.to, "person")}`;
   if (step?.verb === "trade")
@@ -80,10 +81,12 @@ export function wantWords(
         : near("to", step.at)
     }`;
   if (step?.at) return `${act} ${near("at", step.at)}`;
+  if (step?.verb === "wait") return `wait ${near("at", want.target)}`;
   if (step?.verb === "rest")
     return approach && !cold
       ? `${approach} ${what} and rest there`
       : `rest ${near("at", want.target)}`;
+  if (step?.verb === "depart") return `see ${what} depart`;
   if (step) return act;
   if (cold) return SEEK[want.kind] ?? SEEK.person;
   if (want.kind === "item")
@@ -130,6 +133,10 @@ const COUNT_WORDS = {
   },
   heard: {
     min: (n) => `hear the wants of ${many(n, "more person", "more people")}`,
+  },
+  helped: {
+    min: (n, c) =>
+      `help ${numberWord(n)}${c.more ? " more" : ""} ${n === 1 ? "person complete their goal" : "people complete their goals"}`,
   },
   trusting: {
     min: (n, c) =>

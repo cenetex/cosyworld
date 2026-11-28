@@ -92,6 +92,7 @@ pub(crate) struct Vocabulary {
     words: HashSet<String>,
     fields: HashSet<String>,
     ids: HashSet<String>,
+    crossings: HashSet<String>,
 }
 
 impl Vocabulary {
@@ -99,6 +100,7 @@ impl Vocabulary {
         let mut words = HashSet::new();
         let mut fields = HashSet::new();
         let mut ids = HashSet::new();
+        let mut crossings = HashSet::new();
         for source in sources {
             let bytes = source.as_bytes();
             let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b == b'$';
@@ -201,16 +203,37 @@ impl Vocabulary {
         }
         if let Ok(content) = serde_json::from_str::<Value>(content) {
             walk(&content, "", &mut words, &mut ids);
+            for pack in content["files"]["v2/card-game/packs.json"]["packs"]
+                .as_array()
+                .into_iter()
+                .flatten()
+            {
+                crossings.extend(
+                    pack["crossings"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|crossing| crossing["id"].as_str().filter(|id| token(id)))
+                        .map(String::from),
+                );
+            }
         }
         // Old learning conditions retain exact retired item IDs, never new map keys.
-        let historical: Value = serde_json::from_str(include_str!("authored-text.json"))
-            .expect("authored text catalog");
+        let historical: Value = serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card_narrative/authored-text.json",
+        ))
+        .expect("authored text catalog");
         for entry in historical["retired_names"].as_array().into_iter().flatten() {
             if let Some(id) = entry[0].as_str() {
                 words.insert(id.into());
             }
         }
-        Self { words, fields, ids }
+        Self {
+            words,
+            fields,
+            ids,
+            crossings,
+        }
     }
 
     /// Whether `text` is a word, a number, or words and numbers joined by
@@ -254,7 +277,7 @@ impl Vocabulary {
                         .is_some_and(|id| self.ids.contains(id))
                 });
         let id = self.ids.contains(key) || (token(key) && Self::compound(key, &self.ids));
-        id || offer || (!id_keyed(path) && self.fields.contains(key))
+        id || offer || (!id_keyed(path) && key != "all" && self.fields.contains(key))
     }
 }
 
@@ -357,7 +380,7 @@ impl Strip<'_> {
                     return false;
                 };
                 if key <= previous
-                    || !["at", "finish", "items", "to", "verb", "with"].contains(&key)
+                    || !["at", "crossing", "finish", "items", "to", "verb", "with"].contains(&key)
                 {
                     return false;
                 }
@@ -368,6 +391,13 @@ impl Strip<'_> {
                         return false;
                     }
                 } else if !pair[1].is_string() {
+                    return false;
+                }
+                if key == "crossing"
+                    && !pair[1]
+                        .as_str()
+                        .is_some_and(|id| self.vocabulary.crossings.contains(id))
+                {
                     return false;
                 }
                 verb |= key == "verb";

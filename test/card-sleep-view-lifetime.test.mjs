@@ -208,6 +208,7 @@ function appBoundary(sleepView, world) {
     playQueue: { clear: noop },
     exchange: { cancel: noop },
     reveal: { cancel: noop },
+    speechText: { forget: noop },
     speechSounds: { stop: noop },
     narrator: { invalidate: () => sleepView.words("ready") },
     $: () => ({ close: noop }),
@@ -276,7 +277,22 @@ it("ignores a storage event from a retired account epoch", () => {
   expect(v.active).toBe(true);
 });
 
-it("keeps the dreamer asleep to the eye until the wake ends", () => {
+it("draws a plain wake awake at once", () => {
+  const { v } = view();
+  const world = createWorld();
+  v.observe(world, "vale");
+  world.log.push({
+    seq: 1e6,
+    turn: world.turn,
+    actorId: "vale",
+    verb: "wait",
+    woke: "arrival",
+  });
+  v.observe(world, "vale");
+  expect(v.active).toBe(true);
+  expect(v.sleeper).toBeNull();
+});
+it("keeps the dreamer asleep to the eye only under the dark", () => {
   const { v, start, dream, readDream } = view();
   const woke = start();
   // The rules woke her at once; the wake plays after.
@@ -288,7 +304,6 @@ it("keeps the dreamer asleep to the eye until the wake ends", () => {
   expect(woke.actors.vale.sleeping).toBeUndefined();
   dream();
   readDream();
-  vi.advanceTimersByTime(10_000);
-  expect(v.active).toBe(false);
+  expect(v.active).toBe(true);
   expect(v.sleeper).toBeNull();
 });

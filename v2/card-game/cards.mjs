@@ -23,13 +23,10 @@ import {
   rootHolder,
   exits,
   shutBoxesAt,
+  knownActors,
 } from "./world.mjs";
-import {
-  companionOf,
-  staysLabel,
-  travelerOf,
-  withLabel,
-} from "./world/company.mjs";
+import { controlledByHuman } from "./human-cast.mjs";
+import { staysLabel } from "./world/company.mjs";
 import { staysByRole } from "./resident-guard.mjs";
 
 // The boxes shut at the player's place: the one list the rules keep (rules
@@ -95,6 +92,18 @@ export function availableCards(world) {
     ...new Set(sealed),
   ];
 }
+// A person here whom the rules have not met yet, whatever this browser saw.
+export function unmet(world, id) {
+  const player = currentActor(world);
+  return Boolean(people[id]) && id !== player &&
+    world.actors[id]?.place === world.actors[player]?.place &&
+    entityActive(world, id) && !knownActors(world).includes(id);
+}
+// The people here whom the rules met after `turn`.
+export const metSince = (world, turn) =>
+  availableCards(world).filter((id) => people[id] && id !== currentActor(world) && [
+    world.opening?.met, world.packs?.[packPeople[id]?.packId]?.met,
+  ].some((met) => met?.[id] > turn));
 export function cardType(id) {
   return things[id] ? "item" : people[id] ? "avatar" : "location";
 }
@@ -168,7 +177,9 @@ export function asleepReason(world, selected) {
         id !== currentActor(world) &&
         world.actors[id]?.sleeping?.until !== undefined,
     );
-  return sleeper ? `${nameOf(sleeper)} is asleep` : companyReason(world, selected);
+  return sleeper
+    ? `${nameOf(sleeper)} is asleep`
+    : invitationReason(world, selected);
 }
 // What opens a locked card, in words: each want it waits on, worded by the one
 // wording of a want (quest-card.mjs) and screened by what the traveler has
@@ -192,35 +203,44 @@ export function lockWords(world, id, known = () => false) {
   return text || LOCKED_BOX;
 }
 export const sealedReason = lockWords;
-// Why Accompany is missing for a card and a place (rules 133), as the
-// button's label, in the rules' own fixed words: "Oak stays here" for one that
-// never travels, "Dione is with Rue" for one whose company is taken. The
-// traveler's name is the one name not already on the table (wire to the
-// knowledge check when it lands).
-function companyReason(world, selected) {
+function invitationTarget(world, selected) {
   if (selected.length !== 2) return null;
   const player = currentActor(world);
-  const who = selected.find((id) => people[id] && id !== player);
-  const place = selected.find((id) => places[id]);
+  if (!selected.some((id) => places[id] && id !== world.actors[player].place))
+    return null;
+  return selected.find((id) => people[id] && id !== player) ?? null;
+}
+
+export function invitationPartner(world, selected, next) {
+  return selected.find((id) => invitationTarget(world, [id, next]));
+}
+
+function invitationReason(world, selected) {
+  const who = invitationTarget(world, selected);
   if (
     !who ||
-    !place ||
-    place === world.actors[player].place ||
-    world.actors[who]?.place !== world.actors[player].place
+    world.actors[who]?.place !== world.actors[currentActor(world)].place
   )
     return null;
-  const other = travelerOf(world, who);
-  if (other && other !== player)
-    return withLabel(nameOf(who), nameOf(other));
+  if (controlledByHuman(world, who))
+    return `${nameOf(who)} chooses their own route`;
   return staysByRole(world, who) ? staysLabel(nameOf(who)) : null;
 }
 
 // Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {
-  const cards = [...new Set(selected)];
-  const own = selectionPlay(world, cards);
-  if (own.action || cards.length < 2 || cards.length > 3) return own;
-  if (cards.some((id) => !availableCards(world).includes(id))) return own;
+  return playFromHand(world, [...new Set(selected)], availableCards(world));
+}
+function playFromHand(world, cards, available) {
+  const own = selectionPlay(world, cards, available);
+  if (
+    own.action ||
+    cards.length < 2 ||
+    cards.length > 3 ||
+    invitationTarget(world, cards)
+  )
+    return own;
+  if (cards.some((id) => !available.includes(id))) return own;
   const player = currentActor(world);
   const order = [
     cards.find((id) => people[id] && id !== player),
@@ -228,14 +248,15 @@ export function cardPlay(world, selected) {
     cards.find((id) => places[id]),
   ];
   for (const id of order.filter(Boolean)) {
-    const alone = selectionPlay(world, [id]);
+    const alone = selectionPlay(world, [id], available);
+    if (order[0] && alone.action?.kind === "wait")
+      return selectionPlay(world, [order[0]], available);
     if (alone.action) return alone;
   }
   return own;
 }
-function selectionPlay(world, selected) {
+function selectionPlay(world, selected, available = availableCards(world)) {
   const cards = [...new Set(selected)];
-  const available = availableCards(world);
   const result = (found, hint) => {
     const action = shownPlay(world, found, cards);
     return { action, hint: playText(action) || hint };
@@ -305,7 +326,7 @@ function selectionPlay(world, selected) {
       );
     if (holder !== currentActor(world))
       return single(
-        find("take", id),
+        find("take", id) || find("read", id),
         carryFull(world, id)
           ? TOO_MANY_ITEMS
           : "Pair a carried item with this place to make room.",
@@ -315,10 +336,13 @@ function selectionPlay(world, selected) {
     );
     if (meal) return result(meal);
     return single(
-      use(id),
+      use(id) || find("read", id),
       "Pair with a person to give it, or this place to put it down.",
     );
   }
+  const usePair = actions.find((a) => a.kind === "use" && a.cards.length === 2 &&
+    cards.every((id) => a.cards.includes(id)));
+  if (usePair) return result(usePair);
   const item = cards.find((id) => things[id]);
   const location = cards.find((id) => places[id]);
   const avatar = cards.find((id) => people[id]);
@@ -329,10 +353,10 @@ function selectionPlay(world, selected) {
     const other = cards.find((id) => people[id] && id !== currentActor(world));
     return result(
       find("threaten", undefined, other) || find("intercept", undefined, other),
-      `Select ${nameOf(other)} on their own to talk.`,
+      selectionPlay(world, [other], available).hint,
     );
   }
-  if (item && avatar === currentActor(world)) return cardPlay(world, [item]);
+  if (item && avatar === currentActor(world)) return playFromHand(world, [item], available);
   if (cards.includes("cloth")) {
     const beneath = cards.find((id) => id !== "cloth");
     if (things[beneath] && world.items.cloth.holder === beneath)
@@ -347,16 +371,15 @@ function selectionPlay(world, selected) {
           : // Yourself and a guardable way stands guard (rules 100).
             actions.find((a) => a.guards === location) ||
             find("move", null, location)
-        : // Already with you, a resident comes along on any move.
-          avatar === companionOf(world, player)
-          ? find("move", null, location) || find("course", null, location)
-          : actions.find(
-              (a) =>
-                a.kind === "accompany" &&
-                a.target === avatar &&
-                a.destination === location,
-            ),
-      "Pair a nearby avatar with an open path to ask them to accompany you.",
+        : actions.find(
+            (a) =>
+              a.kind === "accompany" &&
+              a.target === avatar &&
+              a.destination === location,
+          ),
+      asleepReason(world, cards) ||
+        sealedReason(world, location) ||
+        "Choose an open path to invite this resident along.",
     );
   // An item lying here pairs with this place to be used where it lies.
   if (item && location)
@@ -399,14 +422,18 @@ function selectionPlay(world, selected) {
   }
   return result(null, "");
 }
-// A card tapped while a held thing is raised pairs with it only when the
-// pair plays. Otherwise a card that is taken or travelled to alone puts the
-// held thing aside, so the tap leaves its one button.
+export function sharedMeal(world, cards) {
+  return cards.length === 3 && selectionPlay(world, cards).action?.kind === "eat";
+}
+// A card tapped beside a raised held thing pairs with it only when the pair
+// plays; one taken or travelled to alone puts the held thing aside.
 export function settledChoice(world, cards, id) {
   if (cards.length !== 2 || !cards.includes(id)) return cards;
+  if (invitationTarget(world, cards)) return cards;
   if (!things[id] && !places[id]) return cards;
-  if (selectionPlay(world, cards).action) return cards;
-  const alone = cardPlay(world, [id]).action?.kind;
+  const available = availableCards(world);
+  if (selectionPlay(world, cards, available).action) return cards;
+  const alone = playFromHand(world, [id], available).action?.kind;
   return alone === "take" || alone === "move" || alone === "course"
     ? [id]
     : cards;
@@ -414,11 +441,12 @@ export function settledChoice(world, cards, id) {
 // The row shows one play for this selection. The world owns legality.
 export function cardActions(world, selected) {
   const cards = [...new Set(selected)];
-  const primary = cardPlay(world, cards);
+  const available = availableCards(world);
+  const primary = playFromHand(world, cards, available);
   if (
     !cards.length ||
     cards.length > 3 ||
-    cards.some((id) => !availableCards(world).includes(id))
+    cards.some((id) => !available.includes(id))
   )
     return { actions: [], hint: primary.hint };
   const actions = primary.action ? [primary.action] : [];

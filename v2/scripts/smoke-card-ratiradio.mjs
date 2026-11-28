@@ -17,20 +17,22 @@ if (!packPeople["ratiradio-rati"]) {
 }
 const output = fileURLToPath(new URL("../../output/ratiradio/", import.meta.url));
 const id = (name) => `ratiradio-${name}`;
-const home = id("listening-room"), raven = id("raven"), rati = id("rati");
+const dispatch = id("dispatch-window"), home = id("listening-room"), raven = id("raven"), rati = id("rati");
 // The doors are three different locks: the Beanie held, the Thermos set down
 // at the Dispatch Window, and a Talk with RATi while holding the figurine.
 const route = [
   ["take", id("station-key")], ["move", "station"],
+  ["move", "behind-station"],
   ["move", id("staff-kitchen")], ["drop", id("station-key")],
   ["take", id("red-beanie")], ["take", id("thermos")],
-  ["take", id("raven-figurine")], ["move", id("dispatch-window")],
+  ["take", id("raven-figurine")], ["move", dispatch],
   ["drop", id("thermos")], ["move", home],
   ["talk", rati], ["drop", id("red-beanie")],
   ["move", id("broadcast-booth")],
   ["take", id("glass")], ["move", home],
   ["drop", id("glass")], ["drop", id("raven-figurine")],
 ];
+const arrivedAt = (place) => route.findIndex(([kind, target]) => kind === "move" && target === place) + 1;
 let start = createWorld({ opening: true, seed: 17 });
 // Gate/return smoke: objects have already been fetched and left in the rooms.
 // Fresh external placement and its voyage are covered by card-radio-scatter.
@@ -47,7 +49,7 @@ start.locations.attic.anchored = true;
 start.actors.vale.place = "pond";
 start.actors.vale.visited.push("pond");
 for (const item of Object.values(start.items)) if (item.holder === "vale") item.holder = "pond";
-for (const [kind, target] of route.slice(0, 8)) {
+for (const [kind, target] of route.slice(0, arrivedAt(dispatch))) {
   const action = legalActions(start).find((a) => a.kind === kind && (a.item === target || a.target === target));
   assert(action, `${kind} ${target}`);
   const result = play(start, action);
@@ -165,7 +167,7 @@ try {
       assert.equal(await page.locator('#card-actions [data-action="talk"], #card-actions [data-action="give"], #card-actions [data-action="threaten"]').count(), 0);
       await shot("raven-locked");
       report.checks.push("Locked Raven shows the return descriptor without interaction actions");
-      for (const [kind, target] of route.slice(10)) {
+      for (const [kind, target] of route.slice(arrivedAt(home))) {
         await ready();
         await clearSelection(page);
         if (kind === "talk") {

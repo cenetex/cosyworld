@@ -21,7 +21,7 @@ const say = (turn, actorId, text) => ({
 describe("voices speak only a completed quest's resident", () => {
   const world = {
     actors: {
-      vale: { closed: { "quest:from:rati": [5, "k"], "quest:from:keeper": [4, "k"] } },
+      vale: {},
       rati: {},
       keeper: {},
     },
@@ -31,7 +31,7 @@ describe("voices speak only a completed quest's resident", () => {
       play(3, "talk", "vale", "rati"),
       play(4, "drop", "vale"),
       play(5, "give", "vale", "rati"),
-      play(5, "want_met", "vale"),
+      { ...play(5, "want_met", "vale"), ownerId: "rati" },
     ],
   };
   const lines = {

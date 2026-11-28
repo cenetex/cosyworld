@@ -7,6 +7,13 @@ import { currentActor, itemPlace } from "./world.mjs";
 import { entityActive } from "./pack-registry.mjs";
 import { knownActors } from "./want.mjs";
 import { hasTemperament } from "./pack-rules.mjs";
+import { listenerDeal } from "./world/arcana.mjs";
+import { ELYSIUM_MODEL_IDS, isLegacyElysiumSpeech } from "./elysium-models.mjs";
+import { profiles } from "./memory.mjs";
+
+const elysiumSpeakers = new Map(ELYSIUM_MODEL_IDS.flatMap((id) =>
+  profiles[id] ? [[profiles[id].name, id]] : [],
+));
 
 // Residents who arrived at or left the player's place this turn.
 export function sceneChanges(world) {
@@ -44,7 +51,13 @@ export function speechMemories(memory, { expressions = true } = {}) {
     .filter((e) => !recent.some((r) => r.seq === e.seq))
     .slice(-2);
   const said = expressions
-    ? memory.events.filter((e) => e.kind === "expression").slice(-2)
+    ? memory.events.filter((e) => {
+        if (e.kind !== "expression") return false;
+        const separator = e.text.indexOf(": ");
+        return separator < 0 || !isLegacyElysiumSpeech(
+          elysiumSpeakers.get(e.text.slice(0, separator)), e.text.slice(separator + 2),
+        );
+      }).slice(-2)
     : [];
   return [...lasting, ...recent, ...said]
     .sort((a, b) => a.seq - b.seq)
@@ -120,10 +133,12 @@ export function dialogueCast(world, action = null) {
     world.opening?.version === 1 && !world.locations.attic.anchored,
   );
   const known = knownActors(world);
+  const reader = listenerDeal(world, currentActor(world))?.actorId;
+  if (reader) known.push(reader);
   const present = Object.keys(world.actors).filter(
     (id) =>
       known.includes(id) &&
-      entityActive(world, id) &&
+      (id === reader || entityActive(world, id)) &&
       world.actors[id].place === location &&
       (!world.controlledActors?.includes(id) ||
         world.presentActors?.includes(id)),

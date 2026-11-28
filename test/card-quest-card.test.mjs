@@ -10,10 +10,14 @@ import {
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { availableCards } from "../v2/card-game/cards.mjs";
+import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import {
+  discardable,
   isQuestId,
   levelCards,
   questCaption,
+  questHeading,
+  questLabel,
   questCard,
   questBox,
   questCards,
@@ -24,10 +28,17 @@ import {
   questNear,
   questTier,
   questVerb,
+  spreadLocks,
+  tarotArtSeen,
+  tarotArtKey,
+  isTarotArtKey,
 } from "../v2/card-game/quest-card.mjs";
+import { createLockedBoxes } from "../v2/card-game/locked-box.mjs";
+import { pickedQuestAction } from "../v2/card-game/quest-action.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
+import { dealSpread } from "../v2/card-game/world/arcana.mjs";
 
 // An undiscovered card is worded by its kind, never by name.
 const { person: PERSON, place: PLACE } = UNKNOWN;
@@ -441,11 +452,146 @@ describe("the quest card", () => {
       index: 1,
       face: "down",
       target: null,
-      conditions: null,
+      conditions: [{ kind: "count", of: "helped", min: 3 }],
     });
     expect(JSON.stringify(down)).not.toContain("arcanum-2");
-    expect(down.art).toBe("./assets/arcana/tarot-back.png");
-    expect(questCaption(down)).toBe("");
+    expect(down.art).toBe("./assets/arcana/tarot-back-locked.png");
+    expect(questCaption(down)).toBe("Level II: Help three people complete their goals");
+  });
+
+  const dealtFool = () => {
+    const s = createPipWorld(5);
+    s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
+    const talk = legalActions(s, "vale").find((a) => a.kind === "talk" && a.target === "listener");
+    const offered = play(s, talk, s.revision, "vale").state;
+    const accept = legalActions(offered, "vale").find((a) => a.label === "Accept card");
+    return play(offered, accept, offered.revision, "vale").state;
+  };
+
+  it("offers the dealt tarot for turning without naming the card", () => {
+    const s = dealtFool();
+    const fool = () => levelCards(s, "vale")[0];
+    expect(fool()).toMatchObject({ face: "down", target: null, turnable: true, conditions: [],
+      art: "./assets/arcana/tarot-back-locked.png" });
+    expect(questCaption(fool())).toBe("The Listener dealt you a card");
+    expect(questLabel(fool(), false)).toBe("Turn over the face-down card");
+    expect(JSON.stringify(fool())).not.toMatch(/arcanum-0|[Ll]istener/u);
+    expect(discardable(fool())).toBe(false);
+    s.actors.vale.arcana.spread[0].face = "up";
+    expect(discardable(fool())).toBe(true);
+  });
+
+  const turnFool = (s) => {
+    const turn = legalActions(s, "vale").find((a) => a.label === "Turn over");
+    const quest = levelCards(s, "vale")[0];
+    expect(pickedQuestAction(quest, [turn], s.revision, null))
+      .toMatchObject({ action: turn, confirmKey: null, label: "Turn over", tap: "Turn over" });
+    return play(s, turn, s.revision, "vale").state;
+  };
+
+  it("shows the Fool as a reward without a second reveal after the turn-over action", () => {
+    let s = dealtFool();
+    const boxes = createLockedBoxes({ retainAbsent: false });
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    const [down] = levelCards(s, "vale");
+    s = turnFool(s);
+    const [up] = levelCards(s, "vale");
+    expect(up).toMatchObject({ face: "reward", target: "arcanum-0", art: "./assets/arcana/full-size/arcanum-0.png", conditions: [] });
+    expect(up.key).not.toBe(down.key);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    expect(questCaption(up)).toBe("Collect The Fool");
+  });
+
+  it("forgets a completed hidden Fool before the next spread deals it face up", () => {
+    let s = dealtFool();
+    const boxes = createLockedBoxes({ retainAbsent: false });
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    s.actors.vale.arcana.spread[0].done = true;
+    s = turnFool(s);
+    expect(levelCards(s, "vale")[0].face).toBe("reward");
+    const collect = legalActions(s, "vale").find((action) => action.kind === "accept" && action.tarot === 0);
+    s = play(s, collect, s.revision, "vale").state;
+    expect(levelCards(s, "vale")).toEqual([]);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    expect(boxes.boxed("tarot:vale:arcanum-0")).toBe(false);
+    expect(dealSpread(s, "vale")).toBe(true);
+    expect(levelCards(s, "vale").find((card) => card.target === "arcanum-0"))
+      .toMatchObject({ face: "up" });
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+  });
+
+  it("presents a saved reward as Collect without a second quest or Discard", () => {
+    const s = dealtFool();
+    s.actors.vale.arcana.spread[0].face = "reward";
+    s.actors.vale.upgrades = ["arcanum-0"];
+    const [reward] = levelCards(s, "vale");
+    expect(reward.key).toBe("tarot:vale:arcanum-0");
+    expect(reward.conditions).toEqual([]);
+    expect(questCaption(reward)).toBe("Collect The Fool");
+    expect(questHeading(reward)).toBe("Collect");
+    expect(questLabel(reward, false)).toBe("Collect The Fool");
+    expect(discardable(reward)).toBe(false);
+  });
+
+  it("uses only the offered Collect action and keeps a reward when an offer is stale", () => {
+    const reward = { kind: "arcanum", face: "reward", index: 0, key: "tarot:vale:arcanum-0" };
+    const collect = { kind: "accept", actor: "vale", tarot: 0, label: "Collect", text: "Vale collects The Fool.", key: "collect:0:arcanum-0" };
+    const drop = { kind: "drop", actor: "vale", tarot: 0, item: null };
+    const picked = pickedQuestAction(reward, [drop, collect], 7, "6:old-quest");
+    expect(picked).toMatchObject({ action: collect, confirmKey: null, label: "Collect", tap: "Collect" });
+    expect(picked.action).toBe(collect);
+    expect(pickedQuestAction(reward, [drop], 8, null)).toBeNull();
+    expect(pickedQuestAction(reward, [{ ...collect, tarot: 1 }], 8, null)).toBeNull();
+    expect(reward).toEqual({ kind: "arcanum", face: "reward", index: 0, key: "tarot:vale:arcanum-0" });
+    expect(pickedQuestAction(reward, [collect], 8, null).action).toBe(collect);
+  });
+
+  it("unlocks a keyhole tarot into an unseen reward without forgetting revealed art", () => {
+    const s = dealtFool();
+    s.actors.vale.arcana.level = 1;
+    s.actors.vale.arcana.spread[0].face = "locked";
+    const [locked] = levelCards(s, "vale");
+    const seen = new Set([locked.key]);
+    const boxes = createLockedBoxes({ retainAbsent: false });
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    expect(tarotArtSeen(s, locked.key, seen)).toBeNull();
+    s.actors.vale.arcana.spread[0].face = "reward";
+    const [reward] = levelCards(s, "vale");
+    expect(reward.key).toBe(locked.key);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([reward.key]);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    expect(tarotArtSeen(s, reward.key, seen)).toBe(false);
+    expect(tarotArtSeen(s, reward.key, new Set([reward.target]))).toBe(false);
+    expect(isTarotArtKey(tarotArtKey(reward.target))).toBe(true);
+    expect(isTarotArtKey("tarot-art:not-a-card")).toBe(false);
+    seen.add(tarotArtKey(reward.target));
+    expect(tarotArtSeen(s, reward.key, new Set([...seen]))).toBe(true);
+    s.actors.vale.upgrades = [reward.target];
+    expect(tarotArtSeen(s, reward.key, new Set())).toBe(true);
+    s.actors.vale.arcana.spread[0].face = "up";
+    expect(tarotArtSeen(s, reward.key, new Set())).toBe(true);
+  });
+
+  it("keeps later required and bonus known cards as canonical quests", () => {
+    const s = dealtFool();
+    s.actors.vale.upgrades = ["arcanum-0"];
+    s.actors.vale.arcana.spread[0].face = "up";
+    const [required] = levelCards(s, "vale");
+    const caption = questCaption({ ...required, level: null });
+    expect(caption).toBe("Carry nothing, be away from home and visit six new places");
+    expect(questHeading(required)).toBe("Level Up");
+    expect(discardable(required)).toBe(true);
+    s.actors.vale.arcana.spread[0].bonus = true;
+    const [bonus] = levelCards(s, "vale");
+    expect(bonus.bonus).toBe(true);
+    expect(questHeading(bonus)).toBe("Bonus quest");
+    expect(questCaption(bonus)).toBe(caption);
+    expect(questLabel(bonus, false, caption)).toBe(`Bonus quest: ${caption}`);
+    expect(discardable(bonus)).toBe(true);
+    const drop = { kind: "drop", actor: "vale", tarot: bonus.index, item: null };
+    const picked = pickedQuestAction(bonus, [drop], 9, null);
+    expect(picked).toMatchObject({ action: drop, label: "Discard", tap: "Discard" });
+    expect(pickedQuestAction(bonus, [drop], 9, picked.confirmKey).label).toBe("Confirm?");
   });
 
   it("draws a locked tarot with the keyhole back and keeps its words", () => {

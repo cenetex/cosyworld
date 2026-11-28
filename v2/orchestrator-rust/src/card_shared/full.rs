@@ -30,6 +30,10 @@ use std::{
 mod continuation;
 #[path = "full_dedupe.rs"]
 mod dedupe;
+#[path = "full_elysium.rs"]
+mod elysium;
+#[path = "full_elysium_models.rs"]
+pub(super) mod elysium_models;
 #[path = "full_guild.rs"]
 mod guild;
 #[path = "full_opening.rs"]
@@ -51,6 +55,16 @@ pub(super) fn router() -> Router<AppState> {
                 .layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
         .route("/card-game/shared/worlds/{id}", get(view))
+        .route(elysium::ROUTE, get(elysium::portrait))
+        .route(elysium_models::NAME_ROUTE, get(elysium_models::identity))
+        .route(
+            elysium_models::PORTRAIT_ROUTE,
+            get(elysium_models::portrait),
+        )
+        .route(
+            elysium_models::PERSONAL_PORTRAIT_ROUTE,
+            post(elysium_models::personal_portrait).layer(DefaultBodyLimit::max(256)),
+        )
         .route(
             "/card-game/shared/worlds/{id}/command",
             post(command).layer(DefaultBodyLimit::max(8192)),
@@ -228,7 +242,7 @@ fn with_history(seed: u32, hide: &Value) -> Result<World> {
     }
     let result = super::engine::reduce(request)?;
     Ok(World {
-        version: super::engine::VERSION.into(),
+        version: super::engine::version().into(),
         game: result["world"].clone(),
         claimed: [0; 8],
         present: [0; 8],
@@ -726,6 +740,7 @@ pub(super) struct Work {
     pub room: String,
     pub actor: usize,
     pub context: Value,
+    portrait_eligible: bool,
     attempt: i32,
     revision: crate::account_revision::Revision,
 }
@@ -785,7 +800,14 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
                 Ok(prior.clone())
             }
         } else {
-            store::commit_with_reveal(&tx, id, &mut w, action, revealed, time)
+            elysium_models::attach_ready_portraits(
+                &tx,
+                id,
+                &w,
+                &state.generated_asset_dir,
+                &mut action,
+            )
+            .and_then(|()| store::commit_with_reveal(&tx, id, &mut w, action, revealed, time))
         };
         let result = match valid {
             Ok(v) => v,
@@ -799,11 +821,16 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             }
         };
         let destination = w.room(a)?.to_string();
-        let context = if retry {
+        let mut context = if retry {
             continuation::context(&tx, &w, &key, a, &prior)?
         } else {
             json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null})
         };
+        if !retry {
+            elysium_models::record(&tx, id, &mut context, actor_id(a), time)?;
+        }
+        // Restored scenes also use the reveal journal after their recent lines age out.
+        elysium_models::mark_known_introduction(&tx, id, &mut context, actor_id(a))?;
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
             params![destination, time + 60_000, context.to_string(), context.to_string(), key],
@@ -813,12 +840,15 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             user: u.clone(),
             epoch: crate::account_revision::current(&tx, &u).map_err(sql_error)?,
         };
+        let portrait_eligible =
+            elysium::eligible(&w.game) && elysium::returned(&tx, id).unwrap_or(false);
         tx.commit().map_err(sql_error)?;
         return Ok(Some(Work {
             id: key,
             room: destination,
             actor: a,
             context,
+            portrait_eligible,
             attempt,
             revision,
         }));
@@ -843,8 +873,20 @@ async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
     let Ok(Ok(Some(work))) = work else {
         return Ok(false);
     };
+    if work.portrait_eligible {
+        elysium::draw(state.clone());
+    }
+    let actor = actor_id(work.actor);
+    if work.context["elysiumPortraitEarned"] == true {
+        if let Some(resident) = elysium_models::returned_to(&work.context, actor) {
+            elysium_models::draw(state.clone(), resident);
+        }
+    }
     reflect::replace(id, work.actor);
-    let lines = super::full_speech::generate(state, work.actor, &work.context).await;
+    let introduction = elysium_models::scene_talk_target(&work.context, actor)
+        .map(|target| (state.clone(), target, Some(id.to_owned())));
+    let lines =
+        super::full_speech::generate(state, work.actor, &work.context, introduction.as_ref()).await;
     let s = state.clone();
     let wid = id.to_string();
     let after = lines
@@ -994,7 +1036,7 @@ fn finish_work_attempt(
                 scene["lines"] = result["lines"].clone();
                 let quest = crate::routes::shared_quest_residents(
                     &w.game,
-                    &actor_id(work.actor),
+                    actor_id(work.actor),
                     &work.context["turn"],
                     &scene["lines"],
                 );

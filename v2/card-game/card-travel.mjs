@@ -50,3 +50,43 @@ export const closeTiming = (leaving, swapping = false) =>
   leaving && !swapping
     ? { delay: CLOSE_AFTER_MS, duration: CLOSE_MS, enter: ENTER_AFTER_MS }
     : { delay: 0, duration: undefined, enter: 0 };
+
+// A handover keeps its native animation while its frame and holder survive a redraw.
+export function createHandMotions() {
+  const active = new Map();
+  const current = ({ element, holder, parent }) =>
+    element.isConnected && !element.hidden && element.parentElement === parent &&
+    element.dataset.holder === holder;
+  const flying = (entry) => entry.flight && current(entry) &&
+    ["running", "paused"].includes(entry.motion.playState);
+  const remove = (key, entry) => {
+    active.delete(key);
+    if (!["finished", "idle"].includes(entry.motion.playState)) entry.motion.cancel();
+  };
+  return {
+    values: () => [...active.values()].map(({ motion }) => motion),
+    redraw(keepFlights) {
+      for (const [key, entry] of active)
+        if (!keepFlights || !flying(entry)) remove(key, entry);
+    },
+    reconcile() {
+      for (const [key, entry] of active)
+        if (!current(entry)) remove(key, entry);
+    },
+    move(key, element, frames, duration = 220, delay = 0, easing = "ease-out", flight = false) {
+      const previous = active.get(key);
+      if (previous?.element === element && flying(previous)) return previous.motion;
+      if (previous) remove(key, previous);
+      const motion = element.animate(frames, {
+        duration, delay, easing, fill: delay ? "backwards" : "none",
+      });
+      const entry = { motion, element, holder: element.dataset.holder, parent: element.parentElement, flight };
+      active.set(key, entry);
+      const release = () => {
+        if (active.get(key) === entry) active.delete(key);
+      };
+      motion.finished.then(release, release);
+      return motion;
+    },
+  };
+}

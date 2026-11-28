@@ -40,7 +40,7 @@ const state = (page) =>
       ].map((c) => c.dataset.card),
     };
   });
-// Words that fail are a silent "…" line (#2008's note and Retry are gone).
+// Unavailable replies use the dialogue status without a retry control.
 async function noFailureUi(page) {
   assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
   assert.equal(await page.locator("[data-retry-words]").count(), 0);
@@ -140,13 +140,15 @@ async function local(width, questAfterWait = false) {
     assert.equal(await t.page.locator("#speech-hint").innerText(), "Tap to continue",
       "choosing a quest after Wait keeps an explicit way to its actions");
     await t.tap(t.page.locator("#speaker-portrait"));
-    await t.page.locator("#card-actions [data-drop-quest]").waitFor({ state: "visible" });
+    await t.page.locator(".action-beat-heading:not([hidden])").waitFor({ state: "visible" });
+    assert.equal(await t.page.locator("#card-actions button").count(), 0);
     assert.deepEqual(t.page.errors, []);
     await t.page.close();
     return;
   }
   await t.choose("moth");
   await readyActionButton(t.page, "talk").click();
+  await t.page.keyboard.press("Escape");
   await t.choose("pond");
   await t.waits(`local ${width} choose while typing`);
   await t.shot("local-choose-while-typing");
@@ -212,17 +214,16 @@ async function local(width, questAfterWait = false) {
   mode = "hold";
   await readyActionButton(t.page).click();
   await until(t.page, (s) => s.thinking && !s.panel, "Thinking at once", 16);
-  // Words that fail are "…" on the speaker's beat, and a choice comes
-  // forward with no failure note and no Retry.
+  // A failed reply shows a status on the speaker's beat before the next choice.
   mode = "fail";
   await until(t.page, () => held.length, "the pending play requested words");
   await held.shift()();
   await until(
     t.page,
     (s) => s.front === "silent" && !s.thinking && !s.typing,
-    "… after a failure",
+    "unavailable reply after a failure",
   );
-  assert.equal(await t.page.locator("#dialogue-text").innerText(), "…");
+  assert.equal(await t.page.locator("#dialogue-text").innerText(), "Reply unavailable");
   await noFailureUi(t.page);
   await t.choose("pond");
   const failed = await until(t.page, (s) => s.panel, "a choice after failure");
@@ -281,7 +282,9 @@ async function shared(width) {
           JSON.stringify(seen),
         );
         localStorage.setItem("cosyworld.dialogue.sound", "off");
-      }, availableCards(world)),
+      }, [...availableCards(world), ...availableCards(dispatchShared({
+        op: "play", world, ...seat, action: W.legalActions(world, "vale").find((a) => a.kind === "wait"),
+      }).world)]),
       page.route("**/auth/account", (r) =>
         r.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
       ),
@@ -322,9 +325,8 @@ async function shared(width) {
   await t.page.close();
 }
 
-// A reload shows a line already begun in full (D8) and asks again for words
-// it interrupted (D9). A reply over 400 characters fails visibly, after its
-// one retry, rather than holding Thinking.
+// A reload shows a line already begun in full (D8) and never asks again for
+// words it interrupted (#2951). A reply over 400 characters is unavailable.
 async function reloads(width) {
   const world = W.createWorld();
   world.actors.vale.place = world.actors.moth.place = "pond";
@@ -361,24 +363,21 @@ async function reloads(width) {
     await readyActionButton(t.page, "talk").click();
     await until(t.page, () => held.length, "a reply was requested");
   };
-  // D9: a reload while Thinking asks again instead of failing.
   await play();
   const before = asked;
   await t.page.reload();
-  await until(t.page, (s) => s.thinking, "Thinking again after reload");
-  await until(
-    t.page, () => asked > before, "reload requests the interrupted reply",
-  );
+  await until(t.page, (s) => !s.thinking && !s.cooling, "the caption alone after reload");
+  assert.equal(asked, before, "a reload does not ask again");
   await noFailureUi(t.page);
-  await t.shot("reload-thinking");
-  // D8: a reload mid-line shows the line whole.
-  await held.at(-1)();
+  await t.shot("reload-caption");
+  held.length = 0;
+  await play();
+  await held.shift()();
   await t.waits(`reload ${width} typing`);
   await t.page.reload();
   const whole = await until(t.page, (s) => s.front === "speech", "line");
   assert.equal(whole.typing, false, "a line begun before reload shows whole");
   await t.shot("reload-whole-line");
-  // A reply too long to accept is "…" after its one quiet retry.
   length = 504;
   // Reload cleared the choice, so finish reading without expecting a panel.
   await t.readAll(false);
@@ -386,9 +385,7 @@ async function reloads(width) {
   held.length = 0;
   await play();
   await held.shift()();
-  await until(t.page, () => held.length, "a reply was requested");
-  await held.shift()();
-  await until(t.page, (s) => s.front === "silent", "… for a long reply");
+  await until(t.page, (s) => s.front === "silent", "unavailable reply over the character limit");
   await noFailureUi(t.page);
   assert.deepEqual(t.page.errors, []);
   await t.page.close();

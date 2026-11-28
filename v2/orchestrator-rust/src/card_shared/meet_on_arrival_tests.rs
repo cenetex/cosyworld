@@ -60,9 +60,9 @@ fn meets_on_arrival(version: &str) {
     };
     commit(&mut world, json!({"op":"claim","actor":"vale"}));
     commit(&mut world, json!({"op":"enter","actor":"vale"}));
-    if version != engine::VERSION {
+    if version != engine::version() {
         world = full_store::world(&c, &id, now()).unwrap();
-        assert_eq!(world.version, engine::VERSION);
+        assert_eq!(world.version, engine::version());
     }
     assert!(world.game["packs"]["greek-drama"]["met"]
         .get(ELDER)
@@ -89,5 +89,5 @@ fn meets_on_arrival(version: &str) {
 
 #[test]
 fn rules_101_meets_a_resident_on_arrival_and_replays_in_the_c_host() {
-    meets_on_arrival(engine::VERSION);
+    meets_on_arrival(engine::version());
 }

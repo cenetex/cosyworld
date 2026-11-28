@@ -1,0 +1,16 @@
+{
+  "models": [
+    "anthropic/claude-haiku-5.5",
+    "google/gemini-4-hydrogen",
+    "openai/gpt-6-luna",
+    "x-ai/grok-4.7",
+    "deepseek/deepseek-v4.1-flash",
+    "qwen/qwen3.8-flash"
+  ],
+  "settings": {
+    "elysium-void-008": "a chamber at the edge of remembered horizons",
+    "elysium-void-013": "a deep chamber beyond the Observatory’s amber lights",
+    "elysium-void-021": "a remote chamber in the blue folds of Elysium",
+    "elysium-void-019": "a chamber reached by a broken path through the dark"
+  }
+}

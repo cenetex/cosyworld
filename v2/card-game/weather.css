@@ -168,6 +168,103 @@
   width: 100%;
   height: 100%;
 }
+
+/* The stage clips the painting plane. Its first layer sits above the
+   backdrop at -2, behind the shade, weather and cast. */
+.stage[data-ambience]::before {
+  position: absolute;
+  content: "";
+  z-index: -1;
+  pointer-events: none;
+  left: var(--art-left);
+  top: var(--art-top);
+  width: var(--art-w);
+  height: var(--art-h);
+  opacity: 0.42;
+}
+.stage[data-ambience="gold"]::before {
+  --ambient-shift: 0.6% -0.5%;
+  background:
+    radial-gradient(ellipse 8% 3% at 66% 26%, #ffdca73d, transparent),
+    radial-gradient(circle at 61% 29%, #ffe7b4 0.05%, transparent 0.25%),
+    radial-gradient(circle at 55% 32%, #e7b977 0.06%, transparent 0.25%),
+    radial-gradient(circle at 46% 28%, #f4cd96 0.05%, transparent 0.24%),
+    radial-gradient(circle at 50% 20%, #f4cd9680 0.05%, transparent 0.21%);
+}
+.stage[data-ambience="amber"]::before {
+  --ambient-shift: -0.35% -1.2%;
+  --ambient-period: 8s;
+  background:
+    radial-gradient(ellipse 10% 8% at 49% 49%, #e89d5c38, transparent),
+    radial-gradient(circle at 46% 45%, #ffe4a0 0.06%, transparent 0.23%),
+    radial-gradient(circle at 52% 39%, #ffd083 0.05%, transparent 0.25%),
+    radial-gradient(circle at 56% 46%, #edac6caa 0.05%, transparent 0.23%),
+    radial-gradient(circle at 51% 54%, #ffdbad9c 0.05%, transparent 0.24%);
+}
+.stage[data-ambience="mirror"]::before {
+  --ambient-shift: 0.5% -0.25%;
+  --ambient-period: 12s;
+  background:
+    radial-gradient(ellipse 2% 8% at 35% 33%, #bbe8ff46, transparent),
+    radial-gradient(ellipse 2% 9% at 65% 32%, #dcf3ff66, transparent),
+    radial-gradient(ellipse 10% 1.8% at 61% 61%, #acf3ff4a, transparent),
+    radial-gradient(ellipse 8% 1.5% at 40% 62%, #acf3ff35, transparent);
+}
+.stage[data-ambience="loom"]::before {
+  --ambient-shift: 1.2% 0%;
+  --ambient-period: 14s;
+  background:
+    radial-gradient(ellipse 17% 5% at 50% 40%, #dca86046, transparent),
+    radial-gradient(ellipse 15% 8% at 54% 50%, #65d8cf30, transparent),
+    radial-gradient(ellipse 20% 2% at 48% 62%, #7cded02b, transparent);
+}
+.stage[data-ambience="well"]::before {
+  --ambient-shift: 0% -0.45%;
+  --ambient-period: 10s;
+  background:
+    radial-gradient(ellipse 17% 5% at 50% 42%, transparent 75%, #9597ff67 89%, transparent),
+    radial-gradient(ellipse 15% 4% at 50% 48%, #9f9bf446, transparent),
+    radial-gradient(ellipse 1% 22% at 50% 31%, #a7a9f635, transparent);
+}
+.stage[data-ambience="jade"]::before {
+  --ambient-shift: 1.6% -0.9%;
+  --ambient-period: 16s;
+  background:
+    radial-gradient(ellipse 26% 6% at 51% 57%, #93c7ae42, transparent),
+    radial-gradient(ellipse 21% 6% at 36% 61%, #80af9570, transparent),
+    radial-gradient(ellipse 15% 4% at 63% 50%, #85bea04f, transparent);
+}
+@keyframes stage-ambient-drift {
+  to {
+    opacity: 0.78;
+    translate: var(--ambient-shift);
+  }
+}
+.stage[data-ambience="copper"]::before {
+  background-image: var(--ambient-impact, none);
+  background-size: 100% 100%;
+  mask-image: linear-gradient(#000 52%, transparent 79%);
+  opacity: 0;
+}
+@keyframes stage-copper-strike {
+  0%, 48.7%, 58%, 100% { opacity: 0; }
+  49.15%, 49.55% { opacity: 0.83; }
+  50.6% { opacity: 0.27; }
+  53.8% { opacity: 0.12; }
+}
+.stage[data-place-covered="true"][data-ambience]::before,
+.stage[data-ambience]:has(.travel.travelling)::before {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stage[data-ambient-motion="true"]:not([data-ambience="copper"])::before {
+    animation: stage-ambient-drift var(--ambient-period, 11s) ease-in-out infinite alternate;
+  }
+  .stage[data-ambience="copper"][data-ambient-motion="true"][data-ambient-ready="true"]::before {
+    animation: stage-copper-strike 16s linear infinite;
+  }
+}
+
 /* Where the player stays, the light eases with night and weather; travel and
    reduced motion cut. transitions.mjs fades the painting itself. */
 .stage[data-settled="true"] > .backdrop {

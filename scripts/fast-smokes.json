@@ -1,6 +1,82 @@
 {
-  "about": "Browser smokes for the fast check (.github/workflows/fast-check.yml), chosen in scripts/select-fast-smokes.mjs. The core smokes run on every pull request and main push, each in its own parallel job, so a core journey cannot go red unnoticed. A changed smoke script runs next, then the rules below in order, up to max more; a core smoke a rule names runs once and takes no slot. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
-  "max": 3,
+  "about": "Browser smokes for main's checks beside each .dev build (.github/workflows/fast-check.yml), chosen in scripts/select-fast-smokes.mjs from the files changed since the checks last passed. The core smokes run every time. A changed smoke script runs too, then every smoke the rules below select; a core smoke a rule names runs once. Each smoke serves the static card game; smokes in needsRust start the Rust server and are never packed here.",
+  "packing": {
+    "about": "The chosen smokes are packed longest first into as few jobs as keep each lane near targetSeconds, never more than jobs, so a run stays well under the account's 20 concurrent jobs. Each job runs lanes smokes at a time. seconds holds each smoke's measured run time (fast check p50 to 2026-11-24, else the nightly's); an unlisted smoke counts defaultSeconds.",
+    "jobs": 4,
+    "lanes": 2,
+    "targetSeconds": 200,
+    "defaultSeconds": 90,
+    "seconds": {
+      "check-card-awakening": 36,
+      "smoke-authoring-avatar-design": 9,
+      "smoke-authoring-browse-layout": 14,
+      "smoke-authoring-create-store": 1,
+      "smoke-authoring-create-tools": 9,
+      "smoke-authoring-create-transfer": 1,
+      "smoke-authoring-local-store": 4,
+      "smoke-authoring-transient-discard": 15,
+      "smoke-card-actions": 108,
+      "smoke-card-avatar-menu-requests": 2,
+      "smoke-card-beat-stack": 110,
+      "smoke-card-boot": 12,
+      "smoke-card-combat": 81,
+      "smoke-card-content": 14,
+      "smoke-card-devices": 49,
+      "smoke-card-elysium-portrait": 18,
+      "smoke-card-elysium-voyage": 24,
+      "smoke-card-dialogue-presentation": 73,
+      "smoke-card-dialogue-recovery": 48,
+      "smoke-card-dialogue-timing": 133,
+      "smoke-card-exit": 72,
+      "smoke-card-figure-settle": 115,
+      "smoke-card-find-hidden": 9,
+      "smoke-card-hosted-voices": 35,
+      "smoke-card-image-first": 123,
+      "smoke-card-listener": 9,
+      "smoke-card-lock-quests": 254,
+      "smoke-card-locked-box": 127,
+      "smoke-card-movement": 42,
+      "smoke-card-music": 227,
+      "smoke-card-opening-poem": 20,
+      "smoke-card-pack-opening": 112,
+      "smoke-card-page-fade": 5,
+      "smoke-card-pip": 81,
+      "smoke-card-play-counts": 36,
+      "smoke-card-pond-access": 26,
+      "smoke-card-portable-radio": 40,
+      "smoke-card-privacy": 10,
+      "smoke-card-quest-offers@1440": 46,
+      "smoke-card-quest-offers@320": 44,
+      "smoke-card-quest-offers@390": 40,
+      "smoke-card-ratiradio": 108,
+      "smoke-card-read": 10,
+      "smoke-card-reduced-fades": 3,
+      "smoke-card-save-recovery": 28,
+      "smoke-card-save-validation": 9,
+      "smoke-card-seed-maker": 42,
+      "smoke-card-settings": 38,
+      "smoke-card-shade-wake": 27,
+      "smoke-card-shared-updating": 14,
+      "smoke-card-ship-fade": 146,
+      "smoke-card-sleep-dream": 73,
+      "smoke-card-speech-queue": 49,
+      "smoke-card-startup-recovery": 9,
+      "smoke-card-swap": 50,
+      "smoke-card-thebes-provisions": 210,
+      "smoke-card-thinking": 96,
+      "smoke-card-title-intro": 349,
+      "smoke-card-toolbar": 13,
+      "smoke-card-toolbar-logo": 11,
+      "smoke-card-unlock-pack": 79,
+      "smoke-card-unveil": 192,
+      "smoke-card-voice": 74,
+      "smoke-card-weather": 358,
+      "smoke-card-world-menu": 16,
+      "smoke-card-world-slots": 14,
+      "smoke-shared-play-status": 62,
+      "smoke-shared-snapshot-order": 82
+    }
+  },
   "core": [
     "smoke-card-boot",
     "smoke-card-image-first",
@@ -16,6 +92,27 @@
     "smoke-card-narrative-contract"
   ],
   "rules": [
+    {
+      "paths": "^scripts/(select-fast-smokes\\.mjs|fast-smokes\\.json)$",
+      "smokes": [
+        "smoke-card-lock-quests",
+        "smoke-shared-snapshot-order",
+        "smoke-shared-play-status",
+        "smoke-card-quest-offers",
+        "smoke-card-shared-updating",
+        "smoke-card-combat",
+        "smoke-card-pond-access",
+        "smoke-card-save-validation"
+      ]
+    },
+    {
+      "paths": "^v2/card-game/(quest-hand|card-keep)\\.mjs$",
+      "smokes": ["smoke-card-ratiradio", "smoke-card-quest-offers"]
+    },
+    {
+      "paths": "^v2/card-game/(elysium-(portrait|models)|world/elysium-travel)\\.mjs$|^v2/(content|worlds)/elysium/|^v2/scripts/smoke-card-elysium-",
+      "smokes": ["smoke-card-elysium-portrait", "smoke-card-elysium-voyage"]
+    },
     {
       "paths": "^v2/card-game/(world/(boxes|offers|home)|want|want-talk|talk-quest|quest-(card|screen|step)|locked-box|offer-chance|card-level-up|homecoming|resident-home|world-level)\\.mjs$|^v2/scripts/smoke-card-(quest-offers|locked-box|lock-quests)\\.mjs$",
       "smokes": [
@@ -33,6 +130,10 @@
       "smokes": ["smoke-card-save-recovery"]
     },
     {
+      "paths": "^v2/content/greek-drama/",
+      "smokes": ["smoke-card-thebes-provisions"]
+    },
+    {
       "paths": "^v2/(content/ratiradio/|card-game/(packs\\.json|assets/(ratiradio/|music/night-shift-on-ratiradio))|worlds/(card-table\\.json|ratiradio/))",
       "smokes": ["smoke-card-ratiradio"]
     },
@@ -45,6 +146,14 @@
       "smokes": ["smoke-card-sleep-dream"]
     },
     {
+      "paths": "^v2/card-game/(app|cards|sleep-view|world)\\.mjs$",
+      "smokes": ["smoke-card-shade-wake"]
+    },
+    {
+      "paths": "^v2/card-game/(read-view|claims|book-schema)\\.mjs$|^v2/content/willows/",
+      "smokes": ["smoke-card-read"]
+    },
+    {
       "paths": "^v2/card-game/transitions\\.mjs$",
       "smokes": ["smoke-card-ship-fade", "smoke-card-reduced-fades"]
     },
@@ -55,6 +164,10 @@
     {
       "paths": "^v2/card-game/(app|shared|dialogue|scene)\\.mjs$",
       "smokes": ["smoke-card-speech-queue"]
+    },
+    {
+      "paths": "^v2/card-game/app\\.mjs$",
+      "smokes": ["smoke-card-read"]
     },
     {
       "paths": "^v2/card-game/authoring-create-transfer\\.mjs$|^v2/scripts/smoke-authoring-create-transfer\\.mjs$",
@@ -81,8 +194,20 @@
       "smokes": ["smoke-authoring-transient-discard"]
     },
     {
-      "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative)\\.",
+      "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative|speech-(pages|text)|beat-motion)\\.",
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
+    },
+    {
+      "paths": "^v2/card-game/(narrative|presentation)\\.mjs$",
+      "smokes": ["smoke-card-dialogue-recovery", "smoke-card-thinking"]
+    },
+    {
+      "paths": "^v2/card-game/speech-(pages|text)\\.mjs$",
+      "smokes": ["smoke-card-voice"]
+    },
+    {
+      "paths": "^v2/card-game/(world/arcana(-record)?|scene-cast|quest-card|first-fool-view)\\.mjs$|^v2/scripts/smoke-card-listener\\.mjs$",
+      "smokes": ["smoke-card-listener"]
     },
     {
       "paths": "^v2/card-game/card-(exit|ghost|swap|entry|travel)\\.",
@@ -91,6 +216,14 @@
     {
       "paths": "^v2/card-game/(pack-opening|card-reveal|card-sfx|sfx|combat-sfx)\\.mjs$|^v2/scripts/(smoke-card-pack-opening|card-browser-helpers)\\.mjs$",
       "smokes": ["smoke-card-pack-opening", "smoke-card-unveil"]
+    },
+    {
+      "paths": "^v2/card-game/pack-opening\\.mjs$",
+      "smokes": ["smoke-card-unlock-pack"]
+    },
+    {
+      "paths": "^v2/card-game/pack-recital\\.mjs$",
+      "smokes": ["smoke-card-opening-poem"]
     },
     {
       "paths": "^v2/card-game/(card-tiers|cards|rarity|images)\\.|covered",
@@ -175,12 +308,33 @@
     {
       "paths": "^v2/card-game/(app|cards|quest-card|locked-box|pip-landing|beats)\\.mjs$",
       "smokes": ["smoke-card-quest-offers"]
+    },
+    {
+      "paths": "^v2/card-game/(cards|quest-card|resident-sleep)\\.mjs$",
+      "smokes": ["smoke-card-content"]
+    },
+    {
+      "paths": "^v2/card-game/(presentation|narrative)\\.mjs$",
+      "smokes": ["smoke-card-dialogue-presentation"]
+    },
+    {
+      "paths": "^v2/card-game/pack-landing(\\.mjs|s\\.json)$",
+      "smokes": ["smoke-card-pip"]
+    },
+    {
+      "paths": "^v2/card-game/(index\\.html|style\\.css)$",
+      "smokes": ["smoke-card-devices"]
+    },
+    {
+      "paths": "^v2/card-game/card-travel\\.mjs$",
+      "smokes": ["smoke-card-movement"]
     }
   ],
   "rust": {
-    "about": "The fast check's Rust job (scripts/select-rust-tests.mjs). It runs when a change touches the crate, a file the crate's sources name (include_str!, include_bytes!, a file or directory a test reads, a module a test imports through Node), or a path below. Each touched module or input adds the test filter of the modules that own or read it; crate-wide files (main.rs, build.rs, Cargo files, fixtures only main.rs reads) and paths with no rule add default. A parent module's filter covers its children; at most max filters run. ignoreInputs lists named inputs a fast check already covers.",
+    "about": "The fast check's Rust jobs (scripts/select-rust-tests.mjs). They run only when a change touches Rust, the rules or the shared bundles: paths, which holds the crate and its generated bundles, a rule's paths below, or a file the crate compiles in or loads (include_str!, include_bytes!, card_assets). Then each touched module, rule or input adds the test filter of the modules that own or read it. An input is a file the crate's sources name (include_str!, include_bytes!, a card_assets key, a file or directory a test reads, a module a test imports through Node), and a bundle belongs to the module that loads it. Crate-wide files (main.rs, build.rs, Cargo files, fixtures only main.rs reads) and paths with no rule add default. A parent module's filter covers its children; at most max filters run. ignoreInputs lists named inputs a fast check already covers. smokes start the debug server and run beside the tests; smoke-shared-cards waits until it is brought up to date with the waking question (#3001) and the dialogue advance.",
     "paths": "^v2/(orchestrator-rust|ai-model-rust|core-c)/|^v2/scripts/check-rust\\.sh$",
-    "max": 6,
+    "max": 12,
+    "smokes": ["smoke-card-greek-capacity", "smoke-card-narrative-contract"],
     "default": ["card_shared.rs", "card_narrative.rs"],
     "ignoreInputs": [],
     "rules": [

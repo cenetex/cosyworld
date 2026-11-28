@@ -29,11 +29,22 @@ import {
 } from "../v2/card-game/resident-home.mjs";
 import { residentAsleep } from "../v2/card-game/resident-sleep.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import { ELYSIUM_MODEL_IDS } from "../v2/card-game/elysium-models.mjs";
+import { discoverCoordinate } from "../v2/card-game/world/elysium-coordinates.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 import { ajaxCamp } from "./helpers/greek-ajax.mjs";
+
+const COORDINATE_RESIDENTS = [
+  "elysium-coordinate-008",
+  "elysium-coordinate-013",
+  "elysium-coordinate-019",
+  "elysium-coordinate-021",
+];
+const coordinateRooms = COORDINATE_RESIDENTS.map((id) => packPeople[id].home);
+const voidResidents = [...ELYSIUM_MODEL_IDS, ...COORDINATE_RESIDENTS];
 
 // Residents who are not offered Invite (Oak and the Badger because they stay
 // in one place by design; the rest because their place is structural).
@@ -53,6 +64,19 @@ const NO_INVITE = {
   "greek-patroclus":
     "Patroclus starts aboard the Charybdis, where the only plays are the ship's course; the quay invites him once the ship has docked (card-greek-patroclus).",
   "willows-swede": "The Swede stays at camp until the kit is back (stayUntil).",
+  "elysium-resident": "The Silver Resident stays on Void 001 until the keystone is laid there (stayUntil).",
+  ...Object.fromEntries(
+    ELYSIUM_MODEL_IDS.map((id) => [
+      id,
+      "The resident stays in its Void until its portrait is ready.",
+    ]),
+  ),
+  ...Object.fromEntries(
+    COORDINATE_RESIDENTS.map((id) => [
+      id,
+      "The resident keeps to its coordinate room (travels: false).",
+    ]),
+  ),
   boardyai: "Boardy's parlour has no way out; he visits by his own calls.",
   listener: "The Listener never leaves its box; it rolls between its stops alone.",
 };
@@ -63,6 +87,12 @@ const NO_STANDOFF = {
   "greek-rhapsode": "The rhapsode is the pack's recital actor, which the pack schema pins to standoffs: false.",
   "greek-polynices-shade": "The Shade (night apparition).",
   "willows-swede": "The Swede (stayUntil).",
+  ...Object.fromEntries(
+    voidResidents.map((id) => [
+      id,
+      "The Void residents do not join standoffs (standoffs: false).",
+    ]),
+  ),
   boardyai: "Boardy, the shared-world connector.",
   listener: "The Listener only talks (standoffs: false).",
 };
@@ -74,6 +104,22 @@ const scopes = Object.fromEntries(
 );
 
 const restore = [];
+function openCoordinateRoom(s, resident) {
+  const routes = packOf(resident).routes.filter((route) =>
+    coordinateRooms.includes(route.to),
+  );
+  for (const [index, route] of routes.entries()) {
+    for (const { item, place } of route.requires) s.items[item].holder = place;
+    discoverCoordinate(s, {
+      verb: "drop",
+      itemId: route.requires.at(-1).item,
+      seq: s.eventSeq + index + 1,
+      text: "",
+    });
+    if (route.to === s.actors[resident].place) break;
+  }
+}
+
 function beside(id, open = true) {
   const s = createWorld({ seed: 7, packScopes: scopes });
   if (open)
@@ -81,6 +127,7 @@ function beside(id, open = true) {
   const pack = packPeople[id]?.packId;
   if (pack && s.packs[pack].met) s.packs[pack].met[id] = 0;
   if (id === "listener") s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
+  if (COORDINATE_RESIDENTS.includes(id)) openCoordinateRoom(s, id);
   s.actors.vale.place = s.actors[id].place;
   return s;
 }
@@ -124,6 +171,8 @@ describe("who can be invited along and threatened", () => {
   it("keeps the allow-list honest: nobody on it is offered Invite", () => {
     for (const id of Object.keys(NO_INVITE))
       expect(offered(id, "accompany"), id).toBe(false);
+    for (const id of COORDINATE_RESIDENTS)
+      expect(offered(id, "talk"), id).toBe(true);
   });
 
   it("offers Threaten beside everyone except the allow-list", () => {
@@ -131,6 +180,8 @@ describe("who can be invited along and threatened", () => {
       (id) => !(id in NO_STANDOFF) && !paused(id) && !offered(id, "threaten"),
     );
     expect(missing).toEqual([]);
+    for (const id of voidResidents)
+      expect(offered(id, "threaten"), id).toBe(false);
     // Oak stays in one place but still stands his ground.
     expect(offered("oak", "threaten")).toBe(true);
   });

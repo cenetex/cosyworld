@@ -73,7 +73,7 @@ export function revealCard(button, options = {}) {
   // A quest card has no card id; its quest key names its turn.
   const id = button.dataset.card ?? button.dataset.questKey;
   finishCardReveal(id);
-  const plan = revealPlan(button.dataset.tier, {
+  const plan = revealPlan(options.tier ?? button.dataset.tier, {
     reduced: options.reduced ?? reduceMotion(),
     scares: options.scares ?? scaresEnabled(),
   });
@@ -82,7 +82,7 @@ export function revealCard(button, options = {}) {
   const lid = document.createElement("img");
   lid.className = "reveal-lid";
   lid.alt = "";
-  lid.src = back?.src || "";
+  lid.src = options.lid ?? back?.src ?? "";
   const layers = [lid];
   button.dataset.revealing = plan.tier;
   button.append(lid);

@@ -1,7 +1,7 @@
 import { entityActive, neverBack, packOf, transports } from "../pack-registry.mjs";
 import { packDiscovered, runHash } from "../pack-rules.mjs";
 import { usedUp } from "../item-use.mjs";
-import { arcanaLevel, owesGiving, recordOf } from "./arcana-record.mjs";
+import { arcanaLevel, LISTENER, owesGiving, recordOf, selling } from "./arcana-record.mjs";
 import { rootHolder } from "./items.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
@@ -17,13 +17,10 @@ import {
 } from "../want.mjs";
 import { questFor, toldWant } from "../talk-quest.mjs";
 import { revealed } from "../want-talk.mjs";
-import { offerFrom } from "../offer-chance.mjs";
 import { boxWant, shutBoxesAt } from "./boxes.mjs";
 import { nameOf, people, places, things } from "./catalog.mjs";
-import { travelerOf } from "./company.mjs";
 
 export const OFFER_KINDS = ["box", "resident", "home", "listener", "place"];
-const LISTENER = "listener";
 export const offerId = (kind, source) =>
   kind === "place" ? `${PLACE_FROM}${source}` : `quest:${kind === "resident" ? "from" : kind}:${source}`;
 export const isOfferId = (id) => typeof id === "string" && id.startsWith("quest:");
@@ -40,17 +37,6 @@ const boxQuest = (s, { kind, target, step, lit }) => ({
   ...(lit === undefined ? {} : { lit }),
 });
 
-function withAnother(s, actor, kind, source, want) {
-  const traveler = travelerOf(s, source);
-  return Boolean(
-    kind === "resident" &&
-      traveler &&
-      traveler !== actor &&
-      want.kind === "person" &&
-      want.target === source,
-  );
-}
-
 const isPlayer = (s, actor) =>
   actor === currentActor(s) || controlledByHuman(s, actor);
 
@@ -62,8 +48,7 @@ const stands = (s, actor, kind, source, want) => {
       !lostOf(s, want) &&
       !closedBy(a, id, want) &&
       !closedAny(a, want) &&
-      !heldOf(a).some((held) => sameQuest(held, want)) &&
-      !withAnother(s, actor, kind, source, want),
+      !heldOf(a).some((held) => sameQuest(held, want)),
   );
 };
 const ownDoor = (box, actor) =>
@@ -81,7 +66,7 @@ export function boxOffer(s, source, actor = currentActor(s)) {
 
 export const placeMet = (s, place) =>
   s.placeMet && Object.hasOwn(s.placeMet, place) ? s.placeMet[place] : [];
-export function placeWant(s, place) {
+export function looseThings(s) {
   const wanted = new Set(
     Object.entries(s.actors)
       .filter(([id]) => !humanAvatar(id))
@@ -89,26 +74,32 @@ export function placeWant(s, place) {
   );
   const aboard = new Set(Object.values(transports).map((t) => t.place));
   const loose = (at) => !s.items[at] && !s.actors[at] && !aboard.has(at);
-  const missing = Object.keys(s.items)
-    .filter(
-      (id) =>
-        things[id]?.holder === place &&
-        !things[id].locked &&
-        !things[id].sealed &&
-        !placeMet(s, place).includes(id) &&
-        entityActive(s, id) &&
-        !neverBack(s, id) &&
-        !usedUp(s, id) &&
-        !wanted.has(id) &&
-        loose(s.items[id].holder) &&
-        s.items[id].holder !== place,
+  const out = {};
+  for (const id of Object.keys(s.items).sort()) {
+    const place = things[id]?.holder;
+    if (
+      Object.hasOwn(places, place) &&
+      s.items[id].holder !== place &&
+      loose(s.items[id].holder) &&
+      !things[id].locked &&
+      !things[id].sealed &&
+      !wanted.has(id) &&
+      !placeMet(s, place).includes(id) &&
+      entityActive(s, id) &&
+      !neverBack(s, id) &&
+      !usedUp(s, id)
     )
-    .sort();
-  return missing.length
+      (out[place] ??= []).push(id);
+  }
+  return out;
+}
+export function placeWant(s, place) {
+  const item = s.placeCard?.[place] ?? looseThings(s)[place]?.[0];
+  return item
     ? {
         ...newWant("place", place, s.turn),
         story: true,
-        step: { verb: "lay", items: [missing[0]] },
+        step: { verb: "lay", items: [item] },
       }
     : null;
 }
@@ -172,7 +163,7 @@ export function questOffers(s, actor = currentActor(s)) {
     }
   }
   if (
-    (recordOf(s, actor).sale || owesGiving(s, actor)) &&
+    (selling(s, actor) || owesGiving(s, actor)) &&
     s.actors[LISTENER]?.place === here &&
     entityActive(s, LISTENER) &&
     !Object.values(s.items).some((item) => item.holder === actor)
@@ -186,9 +177,8 @@ export function questOffers(s, actor = currentActor(s)) {
   return out;
 }
 
-export function residentOffer(s, actor = currentActor(s)) {
-  const a = s.actors[actor],
-    them = offerFrom(s, actor);
+export function residentOffer(s, actor, them) {
+  const a = s.actors[actor];
   if (
     !a ||
     !them ||
@@ -205,6 +195,29 @@ export function residentOffer(s, actor = currentActor(s)) {
   if (!stands(s, actor, "resident", them, want)) return null;
   return { id, kind: "resident", source: them, want, full: slotsUsed(a) >= MAX_HELD };
 }
+// A resident's quest lies locked until a Talk tells it, then stands (below).
+export function lockedOffer(s, actor, them) {
+  const a = s.actors[actor],
+    want = s.actors[them]?.want;
+  if (
+    !a ||
+    !isPlayer(s, actor) ||
+    !people[them] ||
+    them === actor ||
+    s.actors[them].place !== a.place ||
+    !entityActive(s, them) ||
+    !revealed(s, them, want) ||
+    toldWant(s, actor, them)
+  )
+    return null;
+  const quest = questFor(s, them, want);
+  return quest && stands(s, actor, "resident", them, quest) ? { kind: "resident", source: them } : null;
+}
+export const residentOffers = (s, actor = currentActor(s)) =>
+  Object.keys(s.actors)
+    .sort()
+    .map((them) => residentOffer(s, actor, them))
+    .filter(Boolean);
 
 function fetchPool(s, actor) {
   const level = arcanaLevel(s, actor);

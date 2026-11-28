@@ -18,6 +18,9 @@ function fixture() {
   return s;
 }
 const ways = (s, actor = "vale") => exits(s, "station", actor);
+const rear = "behind-station";
+const roads = ["pond", rear];
+const boardy = "boardyai-parlour";
 const open = (s, item) => {
   s.items[item].holder = "station";
   settleStationExits(s);
@@ -29,7 +32,7 @@ it("preserves admission through saves, uses a stable simultaneous tie, and migra
     s.items[item].holder = "station";
   settleStationExits(s);
   const expected = ways(s), order = [...s.stationExitOrder];
-  expect(expected).toHaveLength(3);
+  expect(expected).toEqual([...roads, "train"]);
   expect(decodeSave(encodeSave(s)).stationExitOrder).toEqual(order);
   const old = structuredClone(s);
   delete old.stationExitOrder;
@@ -37,7 +40,17 @@ it("preserves admission through saves, uses a stable simultaneous tie, and migra
   expect(first.stationExitOrder).toEqual(decodeSave(JSON.stringify(old)).stationExitOrder);
   expect(ways(first)).toEqual(expected);
   for (const key of ["items", "actors", "packs"]) expect(first[key]).toEqual(s[key]);
-  for (const bad of [null, ["train", "train"], ["pond"], ["greek-palace"]]) {
+  old.stationExitOrder = [boardy, "train", "ratiradio-staff-kitchen", "pavilion"];
+  expect(decodeSave(JSON.stringify(old)).stationExitOrder).toEqual(order);
+  const cook = "ratiradio-rati";
+  old.routeKnowledge[cook] = [["ratiradio-staff-kitchen", "station"], ["station", boardy]];
+  expect(decodeSave(JSON.stringify(old)).routeKnowledge[cook]).toEqual(
+    expect.arrayContaining([
+      ["ratiradio-staff-kitchen", rear], [rear, "station"],
+      ["station", rear], [rear, boardy],
+    ]),
+  );
+  for (const bad of [null, ["train", "train"], ["pond"], [rear], ["greek-palace"]]) {
     const invalid = structuredClone(s);
     invalid.stationExitOrder = bad;
     expect(() => decodeSave(JSON.stringify(invalid))).toThrow();
@@ -46,18 +59,18 @@ it("preserves admission through saves, uses a stable simultaneous tie, and migra
 
 it("settles a real closing play without displacing another admitted exit", () => {
   let s = fixture();
-  for (const item of ["routes", "boardyai-calling-card", "board"]) open(s, item);
-  // Taking the board into Vale's hand keeps it near Station; leaving closes it.
+  for (const item of ["routes", "board"]) open(s, item);
+  // Taking the route map keeps it near Station until Vale leaves.
   const take = legalActions(s).find((a) => a.kind === "take" && a.item === "routes");
   expect(take).toBeDefined();
   const taken = play(s, take);
   expect(taken.ok, taken.error).toBe(true);
   s = taken.state;
-  expect(ways(s)).toEqual(["pond", "train", "boardyai-parlour"]);
+  expect(ways(s)).toEqual([...roads, "train"]);
   const move = legalActions(s).find((a) => a.kind === "move" && a.target === "pond");
   const moved = play(s, move);
   expect(moved.ok, moved.error).toBe(true);
-  expect(ways(moved.state)).toEqual(["pond", "boardyai-parlour", "pavilion"]);
+  expect(ways(moved.state)).toEqual([...roads, "pavilion"]);
 });
 
 it("shared views do not consume slots or reorder first-open history", () => {
@@ -72,30 +85,19 @@ it("shared views do not consume slots or reorder first-open history", () => {
   expect(JSON.stringify(s)).toBe(before);
 });
 
-it("queues Radio only for its present key carrier and follows the key", () => {
+it("opens the rear Radio door for its key carrier and follows the key", () => {
   let s = fixture();
   const door = "ratiradio-staff-kitchen", key = "ratiradio-station-key";
   s.items[key].holder = "mara";
-  s.actors.mara.place = "pond";
   open(s, "routes");
-  open(s, "boardyai-calling-card");
   expect(s.stationExitOrder).not.toContain(door);
-  expect(ways(s, "vale")).not.toContain(door);
-  s.actors.mara.place = "station";
-  const resident = structuredClone(s);
-  seatActors(resident, ["vale", "mara"], ["vale"]);
-  settleStationExits(resident);
-  expect(resident.stationExitOrder).toContain(door);
-  settleStationExits(s);
-  s.playerActorId = "mara";
-  expect(placeText(s, "station")).not.toMatch(/staff entrance opens|brass lock/);
-  expect(placeText({ ...s, playerActorId: "vale" }, "station")).not.toMatch(/staff entrance opens|brass lock/);
-  expect(s.stationExitOrder).toEqual(["train", "boardyai-parlour", door]);
   expect(ways(s, "mara")).not.toContain(door);
-  s.items["boardyai-calling-card"].holder = "attic";
-  settleStationExits(s);
-  expect(ways(s, "vale")).not.toContain(door);
-  expect(ways(s, "mara")).toContain(door);
+  expect(placeText(s, "station")).not.toMatch(/staff entrance opens|brass lock/);
+  s.actors.vale.place = s.actors.mara.place = rear;
+  const rearWays = (world, actor = "vale") => exits(world, rear, actor);
+  expect(rearWays(s)).not.toContain(door);
+  expect(rearWays(s, "mara")).toContain(door);
+  expect(placeText(s, rear)).toMatch(/brass lock/);
   const move = legalActions(s, "mara").find((a) => a.kind === "move" && a.target === door);
   const crossed = play(s, move, s.revision, "mara");
   expect(crossed.ok, crossed.error).toBe(true);
@@ -103,22 +105,23 @@ it("queues Radio only for its present key carrier and follows the key", () => {
   // The entrance keeps no flag: it follows the key. Mara took it inside, so
   // it lies in the station and Vale may follow; put away, it shuts again.
   expect(s.packs.ratiradio.flags["station-open"]).toBeUndefined();
-  settleStationExits(s);
-  expect(ways(s, "vale")).toContain(door);
+  expect(rearWays(s)).toContain(door);
+  expect(exits(s, door, "mara")).toContain(rear);
+  expect(s.stationExitOrder).not.toContain(door);
   s.items[key].holder = "pond";
-  settleStationExits(s);
-  expect(ways(s, "vale")).not.toContain(door);
+  expect(rearWays(s)).not.toContain(door);
   s.items[key].holder = "vale";
-  settleStationExits(s);
-  expect(ways(s, "vale")).toContain(door);
+  expect(rearWays(s)).toContain(door);
   expect(decodeSave(encodeSave(s)).packs.ratiradio.flags["station-open"]).toBeUndefined();
 });
 
 it("matches compiled shared rules across presence, marker travel and reopening", async () => {
   const compiled = currentSharedEngine();
   let world = fixture();
+  world.actors.vale.place = rear;
   world.actors.mara.place = "pond";
-  world.items.routes.holder = world.items["boardyai-calling-card"].holder = "station";
+  world.items.routes.holder = "station";
+  world.items["boardyai-calling-card"].holder = rear;
   world.items.board.holder = "mara";
   world.stationExitOrder = [];
   const step = (op, present, actor = "vale", action) => {
@@ -129,16 +132,19 @@ it("matches compiled shared rules across presence, marker travel and reopening",
   };
   step("presence", ["vale"]);
   expect(world.stationExitOrder).toEqual(["train"]);
+  const viewAt = (present, actor = "vale") =>
+    dispatchShared({ op: "view", world, actor, claimed: ["vale", "mara"], present });
+  expect(viewAt(["vale"]).exits).not.toContain(boardy);
   const before = JSON.stringify(world);
-  dispatchShared({ op: "view", world, actor: "vale", claimed: ["vale", "mara"], present: ["vale", "mara"] });
+  expect(viewAt(["vale", "mara"]).exits).toContain(boardy);
   expect(JSON.stringify(world)).toBe(before);
   step("presence", ["vale", "mara"]);
-  expect(world.stationExitOrder).toEqual(["train", "boardyai-parlour"]);
-  const view = dispatchShared({ op: "view", world, actor: "mara", claimed: ["vale", "mara"], present: ["vale", "mara"] });
+  expect(world.stationExitOrder).toEqual(["train"]);
+  const view = viewAt(["vale", "mara"], "mara");
   step("play", ["vale", "mara"], "mara", view.actions.find((a) => a.kind === "move" && a.target === "station"));
-  expect(world.stationExitOrder).toEqual(["train", "boardyai-parlour", "pavilion"]);
+  expect(world.stationExitOrder).toEqual(["train", "pavilion"]);
   step("presence", ["vale"]);
   expect(world.stationExitOrder).toEqual(["train", "pavilion"]);
   step("presence", ["vale", "mara"]);
-  expect(world.stationExitOrder).toEqual(["train", "pavilion", "boardyai-parlour"]);
+  expect(world.stationExitOrder).toEqual(["train", "pavilion"]);
 });

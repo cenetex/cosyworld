@@ -1,8 +1,5 @@
 #![deny(unsafe_code)]
 
-/// Public card-game files, embedded at build time. build.rs generates this
-/// module from v2/card-game/public-assets.mjs, so it is never committed.
-pub mod card_assets {
-    include!(concat!(env!("OUT_DIR"), "/card_assets.rs"));
-}
+#[path = "card_files.rs"]
+pub mod card_assets;
 pub mod card_policy;

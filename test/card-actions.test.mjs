@@ -243,12 +243,13 @@ describe("named card actions", () => {
     const world = meeting();
     world.items.oil.holder = "vale";
     world.items.cloth.holder = "lamp";
+    world.items["elysium-wayfinder"].holder = "station";
     const cards = availableCards(world).filter((id) => !isArcanum(id));
     expect(cards.slice(0, 5)).toEqual(["vale", "lamp", "cloth", "oil", "moth"]);
     expect(
       cards.slice(cards.indexOf("station"), cards.indexOf("pond")),
-    ).toEqual(["station", "bell"]);
-    expect(cards.slice(-1)).toEqual(["pond"]);
+    ).toEqual(["station", "elysium-wayfinder", "bell", "keeper-log"]);
+    expect(cards.slice(-2)).toEqual(["pond", "behind-station"]);
     world.items.lamp.holder = "moth";
     const moved = availableCards(world);
     expect(

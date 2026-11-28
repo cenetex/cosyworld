@@ -108,8 +108,7 @@ try {
     };
     const state = () =>
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
-    // Words that fail are a silent "…" line: there is no failure note, no
-    // Retry and no failed state, and play goes on at once.
+    // Unavailable dialogue keeps the next play ready.
     const noFailureUi = async () => {
       assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
       assert.equal(await page.locator("[data-retry-words]").count(), 0);
@@ -118,12 +117,12 @@ try {
         /didn.t arrive|Retry dialogue|\bRetry\b/u,
       );
     };
-    // The front beat is the speaker's "…" alone: never a line and a failure.
+    // The front beat shows the missing reply as a single status.
     const silentBeat = async () => {
       await page.waitForFunction(
         () =>
           document.querySelector("#speech-row")?.dataset.beat === "silent" &&
-          document.querySelector("#dialogue-text").textContent.trim() === "…",
+          document.querySelector("#dialogue-text").textContent.trim() === "Reply unavailable",
         null,
         { timeout: 6000 },
       );
@@ -145,7 +144,7 @@ try {
     assert.equal(requests.length, 1, "one request, no second try");
     assert.equal(await page.locator(".dialogue").isVisible(), true);
     assert.equal(await page.locator("#story-status").isVisible(), false);
-    // The "…" is the speaker's own beat, named like any line.
+    // The status appears on the beat of the expected speaker.
     assert.notEqual((await page.locator("#speaker").innerText()).trim(), "");
     const captionBounds = await page.locator("#beat-captions").boundingBox();
     assert(
@@ -158,11 +157,14 @@ try {
     const before = await state();
     await page.waitForTimeout(1500);
     assert.equal(requests.length, 1);
-    // The next play is available at once. Invalid content is "…" too, and
+    // The next play is available at once. Invalid content also shows a status, and
     // nothing is saved for it.
     mode = "invalid";
-    const pond = person;
-    await pond.click();
+    const choose = async () => {
+      if ((await person.getAttribute("aria-pressed")) !== "true")
+        await person.click();
+    };
+    await choose();
     await page.locator("#card-actions .card-primary").click();
     assert.equal((await state()).turn, before.turn + 1, "the next play runs");
     await silentBeat();
@@ -203,7 +205,7 @@ try {
     await noFailureUi();
     // Slow words release the hand rather than holding it.
     mode = "hang";
-    await pond.click();
+    await choose();
     await page.locator("#card-actions .card-primary").click();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
@@ -227,7 +229,7 @@ try {
       (await state()).log.some((e) => e.turn === hung && e.generated),
       false,
     );
-    await pond.click();
+    await choose();
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).turn, hung + 1);
@@ -244,15 +246,17 @@ try {
     // Slow words keep the Thinking card but not the hand: after a short
     // grace the next choice is offered, and the late line still types in.
     mode = "slow";
-    await pond.click();
+    await choose();
     await page.locator("#card-actions .card-primary").click();
     const slow = await state();
     const started = Date.now();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
-    if (!(await page.locator("#card-actions .card-primary").isVisible()))
-      await pond.click();
+    if (!(await page.locator("#card-actions .card-primary").isVisible())) {
+      await page.keyboard.press("Escape");
+      await choose();
+    }
     await page
       .locator("#card-actions .card-primary")
       .waitFor({ state: "visible", timeout: 7000 });
@@ -307,7 +311,7 @@ try {
     await page.keyboard.press("Escape");
     assert.deepEqual(errors, []);
     console.log(
-      `Silent "…" on failure, next play at once, late line and reload passed at ${width}px.`,
+      `Unavailable reply status, next play, late line and reload passed at ${width}px.`,
     );
     await page.close();
   }

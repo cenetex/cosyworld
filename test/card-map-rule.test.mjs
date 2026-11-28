@@ -88,6 +88,22 @@ const TOWNS = {
     "forest-oak",
     "forest-trail",
   ],
+  elysium: [
+    "elysium-void-001",
+    "elysium-void-002",
+    "elysium-void-003",
+    "elysium-void-004",
+    "elysium-void-005",
+    "elysium-void-006",
+    "elysium-void-007",
+    "elysium-void-008",
+    "elysium-void-013",
+    "elysium-void-019",
+    "elysium-void-021",
+    "elysium-keystone-ledge",
+    "elysium-gold-spiral",
+    "elysium-observatory",
+  ].filter((id) => packPlaces[id]),
 };
 
 // Every place has at most three links (owner decision, 2026-11-01): exits,

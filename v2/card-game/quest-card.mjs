@@ -1,11 +1,13 @@
-// The player's one quest, drawn as a quest card in the hand: its target's
-// art with the rules' own words for the want as the caption. Nothing here is
-// authored or decides anything; the rules own the want (want.mjs).
-import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
-import { conditionsMet, consumable } from "./pack-registry.mjs";
+// Quest cards and earned tarot rewards read their presentation from the rules.
+import { CONNECT_TARGET, layMet, questsOf, wantKey } from "./want.mjs";
+import { conditionsMet, consumable, spentByChoice } from "./pack-registry.mjs";
+import { questFor } from "./talk-quest.mjs";
+import { revealed } from "./want-talk.mjs";
+import { ownerWant } from "./quest-call.mjs";
 import { UNKNOWN, conditionWords, kindOf, wantWords } from "./world/want-words.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
-import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
+import { arcanaLevel, arcanumTerms, isArcanum, spreadOf } from "./world/arcana.mjs";
+import { firstFoolSlot } from "./world/arcana-record.mjs";
 import { homeOf } from "./world/home.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
@@ -22,24 +24,20 @@ import {
   residentOffer,
   rootHolder,
 } from "./world.mjs";
+import { placeWant } from "./world/offers.mjs";
+import { legacyQuestFactId, questFactId } from "./knowledge.mjs";
 
 export const QUEST_CARD = "quest";
 const HOLLOW = "greek-polynices-hollow";
 const stages = ["fallen", "anointed", "veiled", "grave"];
 function burial(world, want) {
   if (want.target !== HOLLOW || want.step?.verb !== "lay") return {};
-  const flags = world.packs["greek-drama"].flags;
-  const stage = flags["greek-burial-performed"]
-    ? 3
-    : flags["greek-polynices-veiled"]
-      ? 2
-      : flags["greek-polynices-anointed"]
-        ? 1
-        : 0;
+  const remaining = layMet(world, want)
+    ? []
+    : want.step.items.filter((id) => !spentByChoice(world, id));
   return {
-    art: `assets/greek-drama/polynices-${stages[stage]}.webp`,
-    riteVerb: ["Anoint", "Veil", "Bury", "Buried"][stage],
-    remaining: want.step.items.slice(stage),
+    art: `assets/greek-drama/polynices-${stages[want.step.items.length - remaining.length]}.webp`,
+    remaining,
   };
 }
 
@@ -62,11 +60,11 @@ const questShape = (world, actor, want, key, index) => ({
   kind: want.kind,
   target: want.target === CONNECT_TARGET ? null : want.target,
   xp: world.actors[actor].xp,
-  // A level quest: the level it leads to and the steps still to go.
   level: want.quest?.level ?? null,
   left: want.quest?.left ?? 0,
   step: want.step ?? null,
   ...(want.lit === undefined ? {} : { lit: want.lit }),
+  ...(want.from ? { from: want.from } : {}),
   // A home quest (want.mjs) says "home"; no other bring does.
   ...(want.story ? { story: true } : {}),
   ...burial(world, want),
@@ -78,15 +76,31 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
-export function offerCard(world, actor = currentActor(world), box = null) {
+export function ownerCard(world, viewer, owner) {
+  const place = places[owner] && placeWant(world, owner),
+    want = place || ownerWant(world, owner),
+    card = want && (place || revealed(world, owner, want, viewer)) && questFor(world, owner, want);
+  const factId = !place && want ? questFactId(owner, want) : null;
+  const staged = factId && factId !== legacyQuestFactId(owner, want.target);
+  return card
+    ? {
+        ...questShape(world, viewer, card, `offer:${viewer}:${owner}:${card.kind}:${card.target}`, -1),
+        offer: owner,
+        ...(staged ? { factId } : {}),
+        ...(!place && !world.actors[owner].want ? { completed: world.actors[owner].completedQuest } : {}),
+        ...(place ? { lies: rootHolder(world, card.step.items[0]) } : {}),
+      }
+    : null;
+}
+export function offerCard(world, actor = currentActor(world), box = null, resident = null) {
   const place = Boolean(box) && box === world.actors[actor]?.place;
   const asked = place
     ? placeOffer(world, actor)
     : box
       ? boxOffer(world, box, actor)
-      : residentOffer(world, actor);
+      : residentOffer(world, actor, resident);
   if (!asked) return null;
-  const mark = place ? "place" : box ? "box" : world.actors[actor].offered.turn;
+  const mark = place ? "place" : box ? "box" : `${asked.want.kind}:${asked.want.target}`;
   return {
     ...questShape(world, actor, asked.want, `offer:${actor}:${asked.source}:${mark}`, -1),
     offer: asked.source,
@@ -95,42 +109,43 @@ export function offerCard(world, actor = currentActor(world), box = null) {
     ...(place ? { place: true } : {}),
   };
 }
-export function offerLapse() {
-  let seen = null,
-    lapsed = null;
-  return {
-    sync(offer, open) {
-      if (!offer) return false;
-      if (offer.key !== seen) {
-        seen = offer.key;
-        return true;
-      }
-      if (!open) lapsed = offer.key;
-      return false;
-    },
-    standing: (offer) => (offer && offer.key !== lapsed ? offer : null),
-  };
-}
 const SPOKEN = {
   name: inSentence,
   kind: kindOf,
   drink: (id) => consumable(id) === "drink",
 };
+const lies = ({ lies, actor }, known) =>
+  lies === actor
+    ? "which you carry"
+    : places[lies]
+      ? `which lies ${known(lies) ? `at ${theName(lies)}` : UNKNOWN.place}`
+      : `which ${known(lies) ? nameOf(lies) : "someone"} carries`;
 export function offerWords(quest, known = () => true) {
   const who = nameOf(quest.offer),
+    from = quest.readFrom ?? quest.heardFrom,
+    source = from ? `${who} via ${nameOf(from)}` : who,
     said = quest.goal ?? quest;
+  if (quest.completed) return `${nameOf(quest.completed.by)} called the ship for ${who}`;
+  if (quest.lies) {
+    const [item] = quest.step.items,
+      place = theName(quest.offer);
+    return `${place[0].toUpperCase()}${place.slice(1)} asks for ${known(item) ? theName(item) : UNKNOWN.item} back, ${lies(quest, known)}`;
+  }
   if (
     said.kind === "item" &&
     said.step?.verb === "give" &&
     (said === quest || said.step.to === quest.offer)
   )
-    return `${who} asks for ${known(said.target) ? theName(said.target) : UNKNOWN.item}`;
-  const words = questCaption(quest, false, null, known);
-  return `${who} asks you to ${words[0].toLowerCase()}${words.slice(1)}`;
+    return `${source} asks for ${known(said.target) ? theName(said.target) : UNKNOWN.item}`;
+  return `${source}: ${questCaption(quest, false, null, known)}`;
 }
 export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
-export const levelCards = (world, actor = currentActor(world)) =>
-  spreadOf(world, actor).map(({ index, card, face }, _, all) => ({
+export const discardable = (quest) => quest?.kind === "arcanum" && ["up", "locked"].includes(quest.face);
+export const tarotBack = (face) =>
+  ["down", "locked", "offered"].includes(face) ? TAROT_LOCKED_BACK : TAROT_BACK;
+export function levelCards(world, actor = currentActor(world)) {
+  const first = firstFoolSlot(world, actor);
+  return spreadOf(world, actor).map(({ index, card, face, bonus, turnable }, _, all) => ({
     key:
       face === "down"
         ? `tarot:${actor}:down:${all.slice(0, index).filter((slot) => slot.face === "down").length}`
@@ -139,15 +154,35 @@ export const levelCards = (world, actor = currentActor(world)) =>
     actor,
     kind: "arcanum",
     face,
+    ...(first?.card === card ? { reading: true } : {}),
+    ...(turnable ? { turnable: true } : {}),
+    ...(bonus ? { bonus: true } : {}),
     target: face === "down" ? null : card,
     level: Math.min(21, arcanaLevel(world, actor) + 1),
     left: 1,
     step: null,
-    art: face === "down" ? TAROT_BACK : face === "locked" ? TAROT_LOCKED_BACK : arcanumArt(card),
-    conditions: face === "down" ? null : arcanumTerms(world, actor, index),
+    art: ["up", "reward"].includes(face) ? arcanumArt(card) : tarotBack(face),
+    conditions: face === "reward" ? [] : arcanumTerms(world, actor, index),
     home: homeOf(actor, world) ?? null,
   }));
-// The held quest, the one the folded card shows, or null.
+}
+export const tarotArtKey = (id) => `tarot-art:${id}`;
+export const isTarotArtKey = (key) =>
+  typeof key === "string" && key.startsWith("tarot-art:") && isArcanum(key.slice(10));
+export function tarotArtSeen(world, key, seen) {
+  const card = levelCards(world).find((quest) => quest.key === key);
+  if (!card || !["up", "reward"].includes(card.face)) return null;
+  return seen.has(tarotArtKey(card.target)) ||
+    Boolean(world.actors[card.actor]?.upgrades?.includes(card.target));
+}
+export function spreadLocks(world, actor = currentActor(world)) {
+  const reading = firstFoolSlot(world, actor)?.card;
+  const ids = (down) =>
+    spreadOf(world, actor)
+      .filter(({ card, face }) => card !== reading && (!down || ["down", "locked"].includes(face)))
+      .map(({ card }) => `tarot:${actor}:${card}`);
+  return [ids(false), ids(true)];
+}
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
 
@@ -160,9 +195,12 @@ export function questCaption(
   verb = null,
   known = () => true,
 ) {
+  if (quest.face === "offered") return quest.caption;
+  if (quest.turnable) return "The Listener dealt you a card";
+  if (quest.face === "reward") return `Collect ${nameOf(quest.target)}`;
   const shown = (id) => !(covered && id === quest.target) && known(id);
   const want = quest.goal ??
-    (quest.riteVerb && !quest.remaining?.length
+    (quest.remaining && !quest.remaining.length
     ? { kind: "place", target: quest.target }
     : {
         kind: quest.kind,
@@ -171,11 +209,12 @@ export function questCaption(
         ...(quest.lit === undefined ? {} : { lit: quest.lit }),
         ...(quest.story ? { story: true } : {}),
       });
-  if (quest.kind === "arcanum" && quest.face === "down") return "";
   const words =
     quest.kind === "arcanum"
       ? (conditionWords(quest.conditions, known, { home: quest.home, cards: SPOKEN }) ?? "…")
-      : wantWords(want, shown, {
+      : want.step?.verb === "call"
+        ? `Hold ${shown("cloth") ? inSentence("cloth") : "something"} at ${shown(want.target) ? inSentence(want.target) : "an unknown place"}; keep ${shown("lamp") ? theName("lamp") : "a light"} burning on the ground`
+        : wantWords(want, shown, {
           cards: SPOKEN,
           // The accessible goal names the same verb as the place card, including
           // places whose name is known but which this avatar has not visited yet.
@@ -183,7 +222,21 @@ export function questCaption(
             verb === "Discover" ? "discover" : verb === "Go to" ? "go to" : null,
         });
   const caption = words[0].toUpperCase() + words.slice(1);
-  return quest.level ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
+  return quest.level && !quest.bonus ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
+}
+
+export const questHeading = (quest) =>
+  quest.face === "offered" ? quest.heading : quest.face === "reward" ? "Collect" : quest.bonus ? "Bonus quest" : quest.level ? "Level Up" : null;
+
+export function questLabel(quest, near, caption, known = () => true) {
+  if (quest.face === "offered") return quest.ready ? `${quest.heading} from the Listener` : "View the Listener's card offer";
+  if (quest.turnable) return "Turn over the face-down card";
+  if (quest.face === "down") return "A face-down card";
+  if (quest.face === "reward") return questCaption(quest);
+  if (quest.offer) return offerWords(quest, known);
+  if (quest.bonus) return `Bonus quest: ${caption}`;
+  const title = quest.level ? `Level Up ${romanLevel(quest.level)}: ${caption}` : caption;
+  return `Quest: ${title}${near ? ", near" : ""}`;
 }
 
 // Places between here and there along the routes this avatar can use now.
@@ -238,6 +291,7 @@ export function questNear(world, quest) {
 // shows the way there, and the rest once the player stands there (#2255); an
 // unvisited or covered place is discovered.
 const STEP_LABELS = {
+  call: "Call ship",
   find: "Find",
   give: "Give",
   bring: "Bring",
@@ -246,7 +300,9 @@ const STEP_LABELS = {
   attack: "Strike",
 };
 export function questVerb(world, quest, covered = false) {
-  if (quest.step?.verb === "lay") return quest.riteVerb ?? "Lay";
+  if (quest.completed) return "Called";
+  if (quest.step?.verb === "lay")
+    return quest.goal ? questVerb(world, { ...quest.goal, actor: quest.actor }, covered) : "Lay";
   if (quest.step?.verb === "eat")
     return consumable(quest.target) === "drink" ? "Drink" : "Eat";
   if (STEP_LABELS[quest.step?.verb]) return STEP_LABELS[quest.step.verb];

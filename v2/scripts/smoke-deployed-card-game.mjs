@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { publicAssets } from "../card-game/public-assets.mjs";
+import { newest } from "./rules-pins.mjs";
 
 const ASSET_CHECK_CONCURRENCY = 8;
 const targets = process.argv.slice(2);
+const known =
+  process.env.COSYWORLD_SMOKE_MANIFEST &&
+  JSON.parse(readFileSync(process.env.COSYWORLD_SMOKE_MANIFEST, "utf8")).files;
 assert(targets.length, "Pass at least one deployed card-game URL.");
 const { version } = JSON.parse(
   await readFile(new URL("../../package.json", import.meta.url)),
@@ -16,7 +21,6 @@ for (const target of targets) {
   assert.equal(metadataResponse.status, 200, `${base.origin}: metadata status`);
   const meta = await metadataResponse.json();
   assert.equal(meta.version, version, `${base.origin}: metadata release`);
-  // Between releases main keeps the release version; the commit names the build.
   if (meta.commit && process.env.GITHUB_SHA) {
     assert(
       process.env.GITHUB_SHA.startsWith(meta.commit),
@@ -31,13 +35,13 @@ for (const target of targets) {
   assert.equal(meta.card_game.source_root, "v2/card-game/");
   assert.equal(meta.card_game.entry_url, "/");
   assert.deepEqual(meta.card_game.play_modes, ["local", "shared"]);
-  const engine = await readFile(
-    new URL("../orchestrator-rust/src/card_shared/engine.rs", import.meta.url),
+  const rules = await readFile(
+    new URL("../orchestrator-rust/src/card_shared/rules.json", import.meta.url),
     "utf8",
   );
   assert.equal(
     meta.card_game.shared_rules_version,
-    engine.match(/const VERSION: &str = "([^"]+)"/)[1],
+    `full-card-world/${newest(rules)}`,
   );
   assert.deepEqual(meta.card_game.catalogs, {
     forest: "/card-game/forest.json",
@@ -58,8 +62,13 @@ for (const target of targets) {
       file === "index.html" ? "/" : `/card-game/${file}`,
       base,
     );
-    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-    assert.equal(response.status, 200, `${url}: status`);
+    const local = new URL(`../card-game/${source || file}`, import.meta.url);
+    const etag = known && !existsSync(local) && `"${known[`card-game/${file}`].sha256}"`;
+    const response = await fetch(url, {
+      headers: etag ? { "if-none-match": etag } : {},
+      signal: AbortSignal.timeout(30_000),
+    });
+    assert.equal(response.status, etag ? 304 : 200, `${url}: status`);
     assert.equal(
       response.headers.get("x-cosyworld-card-version"),
       version,
@@ -69,9 +78,8 @@ for (const target of targets) {
       response.headers.get("content-type")?.startsWith(contentType),
       `${url}: content type`,
     );
-    const expected = (
-      await readFile(new URL(`../card-game/${source || file}`, import.meta.url))
-    ).subarray(offset);
+    if (etag) return;
+    const expected = (await readFile(local)).subarray(offset);
     let actual = Buffer.from(await response.arrayBuffer());
     if (file === "index.html")
       actual = Buffer.from(

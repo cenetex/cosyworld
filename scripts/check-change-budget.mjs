@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Keep each branch small: fail when hand-written changes against the merge
-// base exceed the budget in scripts/change-budget.json. The pre-push hook and
-// CI both run this. Assets, lockfiles, and generated outputs never count.
+// base exceed the budget in scripts/change-budget.json.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";

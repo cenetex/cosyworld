@@ -1,5 +1,6 @@
 // The player uncovers cards before their names reach a speech request.
 import {
+  choiceText,
   entityActive,
   observableStates,
   packThings,
@@ -14,6 +15,36 @@ import {
 import { questsOf } from "./want.mjs";
 import { found } from "./world/found.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
+
+export function knowsPackChoice(world, actor, pack, choice) {
+  const turn = world.packs[pack.id].receipts[choice.id];
+  const known = world.knowledge?.known?.[actor] || {};
+  const wordsMatch = (entry, text) =>
+    entry.turn === turn && entry.locationId === choice.at &&
+    text === choiceText(choice, entry.actorId);
+
+  // A commit can be witnessed directly or retained as a personal fact after
+  // the original line leaves the log. Older events may carry only their words.
+  if ((world.log || []).some((entry) => {
+    if (entry.generated || entry.turn !== turn) return false;
+    const commit = (entry.packId === pack.id && entry.choiceId === choice.id) ||
+      (entry.kind === "action" && entry.verb === (choice.on || "choose") &&
+        wordsMatch(entry, entry.text));
+    return commit && (entry.actorId === actor ||
+      (entry.witnesses ?? entry.cast)?.includes(actor) ||
+      Object.hasOwn(known, `event:${entry.seq}`));
+  })) return true;
+
+  return Object.keys(known).some((id) => {
+    const fact = world.knowledge.facts[id];
+    const source = fact?.source;
+    return (source?.kind === "event" && wordsMatch(source, fact.text)) ||
+      (source?.kind === "topic" && source.topic?.packId === pack.id &&
+        source.topic.choiceId === choice.id) ||
+      (source?.kind === "claim" && source.claim === choice.id &&
+        pack.items?.[source.book]?.records?.includes(choice.id));
+  });
+}
 
 // A covered thing reaches the speaker as something sensed but unnamed. The
 // table's own word "covered" stays out of speech (#1665).
@@ -42,12 +73,12 @@ function blurrer(unknown, shown = [], short = new Map()) {
     `\\b(?:(?:the|an?) )??(${names.join("|")})\\b`,
     "gi",
   );
-  return (text) =>
+  return (text, clue) =>
     text?.replace(pattern, (word, name, at, whole) => {
-      const full = unknown.get(name.toLowerCase());
-      if (full) return full;
-      const bare = word === name && opensSentence(whole, at);
-      return (!bare && short.get(name)) || word;
+      const hidden = unknown.get(name.toLowerCase()) ||
+        ((word !== name || !opensSentence(whole, at)) && short.get(name));
+      const revealed = hidden && clue && new RegExp(`\\b${escape(name)}\\b`, "iu").test(clue);
+      return hidden && !revealed ? hidden : word;
     }) ?? text;
 }
 
@@ -172,15 +203,20 @@ export function coveredTextReader(world, isCovered) {
     world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
   );
   const blur = blurrer(names, shown, short);
-  return (text) => {
-    const caption = blur(text);
+  const known = world.knowledge?.known?.[currentActor(world)];
+  return (text, line) => {
+    const factId = line?.disclosedFactId;
+    const clue = line?.generated && line.kind === "dialogue" && line.text === text &&
+      factId && known && Object.hasOwn(known, factId)
+      ? world.knowledge.facts[factId]?.text : null;
+    const caption = blur(text, clue);
     return caption && /^[A-Z]/.test(text)
       ? caption[0].toUpperCase() + caption.slice(1)
       : caption;
   };
 }
-export const coveredText = (world, text, isCovered) =>
-  coveredTextReader(world, isCovered)(text);
+export const coveredText = (world, text, isCovered, line) =>
+  coveredTextReader(world, isCovered)(text, line);
 
 export function forgetCovered(world, context, isCovered) {
   const actor = currentActor(world);
@@ -216,7 +252,7 @@ export function forgetCovered(world, context, isCovered) {
         (fact) =>
           speakers.includes(fact.speaker) &&
           keepEntity(fact.listener) &&
-          keptLine(fact),
+          (fact.deferred || keptLine(fact)),
       ),
     }),
     entities: context.entities

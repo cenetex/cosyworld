@@ -1,5 +1,6 @@
 import "./helpers/no-dwell.mjs";
 import { describe, expect, it } from "vitest";
+import { firstFoolNote } from "../v2/card-game/first-fool-view.mjs";
 import { gone, usedUp } from "../v2/card-game/item-use.mjs";
 import {
   avoidsStandoffs,
@@ -9,6 +10,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { packDiscovered } from "../v2/card-game/pack-rules.mjs";
 import { heldOf, newWant, questsOf } from "../v2/card-game/want.mjs";
+import { listenerOffer, spreadOf } from "../v2/card-game/world/arcana.mjs";
 import { settleStops } from "../v2/card-game/world/stops.mjs";
 import {
   createWorld,
@@ -39,6 +41,7 @@ function act(world, test) {
   return result.state;
 }
 const wait = (world) => act(world, (a) => a.kind === "wait" && !a.sleep);
+const accept = (world) => act(world, (a) => a.tarot === "offer");
 const beside = (world) => {
   world.actors.vale.place = world.actors[ID].place;
   return world;
@@ -68,6 +71,9 @@ describe("the Listener", () => {
     expect(world.actors[ID].place).toBe(world.actors.vale.place);
     expect(world.opening.met[ID]).toBeDefined();
     world = act(world, (a) => a.kind === "talk" && a.target === ID);
+    expect(listenerOffer(world, "vale")).toMatchObject({ kind: "fool", ready: true });
+    expect(spreadOf(world, "vale")).toEqual([]);
+    world = accept(world);
     expect(world.actors.vale.arcana.spread?.[0]).toMatchObject({ face: "down" });
   });
 
@@ -115,6 +121,53 @@ describe("the Listener", () => {
     expect(world.actors[ID].place).toBe("pond");
     world = wait(world);
     expect(world.actors[ID].place).toBe("pond");
+  });
+
+  it("keeps an offer for a traveler who walks away and returns", () => {
+    let world = beside(call(createWorld({ seed: 5 })));
+    world = act(world, (a) => a.kind === "talk" && a.target === ID);
+    world = reload(act(world, (a) => a.kind === "move" && a.target === "station"));
+    expect(listenerOffer(world, "vale")).toBeNull();
+    expect(legalActions(world, "vale").some((a) => a.tarot === "offer")).toBe(false);
+    expect(world.actors.vale.arcana.offer).toBe("pond");
+    expect(firstFoolNote(world, () => true)).toBe("The Listener has your card at Black pond.");
+    world = act(world, (a) => a.kind === "move" && a.target === "pond");
+    expect(listenerOffer(world, "vale")).toEqual({
+      actorId: ID, locationId: "pond", kind: "fool", ready: true,
+    });
+    expect(firstFoolNote(world, () => true)).toBe("The Listener has a card for you.");
+    expect(spreadOf(accept(world), "vale")).toMatchObject([{ face: "down", turnable: true }]);
+  });
+
+  it("holds the stop for a present recipient and carries their offer if they leave the table", () => {
+    const world = call(createWorld({ seed: 5 }), { calls: 0, offer: "pond" });
+    delete world.actors.vale.arcana.calls;
+    world.actors.vale.place = "station";
+    world.actors.mara.place = "willows-landing";
+    world.actors.mara.arcana = { proved: [], did: [], calls: 3 };
+    world.controlledActors = ["mara", "vale"];
+    world.presentActors = ["mara", "vale"];
+    settle(world, { "willows-landing": 0 });
+    expect(world.actors[ID].place).toBe("pond");
+    world.presentActors = ["mara"];
+    settle(world, { "willows-landing": 0 });
+    expect(world.actors[ID].place).toBe("willows-landing");
+    expect(world.actors.vale.arcana.offer).toBe("willows-landing");
+    expect(listenerOffer(world, "mara")).toBeNull();
+    world.presentActors.push("vale");
+    world.actors.vale.place = "willows-landing";
+    expect(listenerOffer(world, "vale")).toMatchObject({ kind: "fool", ready: true });
+  });
+
+  it("takes a pending card along if its stop closes", () => {
+    let world = call(createWorld({ seed: 7, packScopes: { "greek-drama": "full" } }));
+    world.actors.vale.place = world.actors[ID].place = "greek-harbor";
+    world = act(world, (a) => a.kind === "talk" && a.target === ID);
+    const switched = play(world, { kind: "pack", pack: "sea", enable: false });
+    expect(switched.ok, switched.error).toBe(true);
+    expect(listenerOffer(reload(switched.state), "vale")).toMatchObject({
+      locationId: "pond", kind: "fool", ready: true,
+    });
   });
 
   it("has no want, and Talk with it gives no quest", () => {
@@ -167,16 +220,33 @@ describe("the Listener", () => {
     expect(validateWorld(reload(world))).toBeTruthy();
   });
 
-  it("deals a spread for the price and leaves once nobody calls it", () => {
+  it("offers a paid spread separately from the price and leaves once nobody calls it", () => {
     let world = beside(call(createWorld({ seed: 5 }), { sale: true }));
     world.items.bell.holder = "vale";
+    expect(listenerOffer(world, "vale")).toMatchObject({ kind: "spread", ready: false });
+    expect(legalActions(world, "vale").some((a) => a.tarot === "offer")).toBe(false);
     world = act(
       world,
       (a) => a.kind === "give" && a.item === "bell" && a.target === ID,
     );
+    expect(neverBack(world, "bell")).toBe(true);
+    expect(spreadOf(world, "vale")).toEqual([]);
+    const restored = reload(world);
+    expect(restored.log.findLast((entry) => entry.verb === "give")?.listenerEvent)
+      .toEqual({ kind: "offer", offer: "spread" });
+    expect(listenerOffer(restored, "vale")).toMatchObject({ kind: "spread", ready: true });
+    // Older saves could retain payment without a saved offer location.
+    delete world.actors.vale.arcana.offer;
+    world = reload(world);
+    const ready = legalActions(world, "vale").find((a) => a.tarot === "offer");
+    expect(ready).toMatchObject({ kind: "accept", target: ID, label: "Accept spread" });
+    world = accept(world);
+    expect(world.log.at(-1).listenerEvent).toEqual({ kind: "handover", offer: "spread" });
     const record = world.actors.vale.arcana;
     expect(record.sale).toBeUndefined();
+    expect(record.paid).toBeUndefined();
     expect(record.spread.length).toBeGreaterThan(0);
+    expect(play(world, ready, world.revision, "vale").ok).toBe(false);
     delete record.calls;
     world = wait(world);
     expect(entityActive(world, ID)).toBe(false);
@@ -219,6 +289,7 @@ describe("the Listener", () => {
         a.kind === "give" && a.item === "willows-pipe" && a.target === ID,
     );
     expect(neverBack(world, "willows-pipe")).toBe(true);
+    world = accept(world);
     expect(world.actors.vale.arcana.spread.length).toBeGreaterThan(0);
     world = wait(world);
     expect(validateWorld(reload(world))).toBeTruthy();

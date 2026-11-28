@@ -4,7 +4,10 @@ import { endStandoff } from "./helpers/standoff.mjs";
 import { rest } from "./fixtures/card-rest.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, it, expect, vi, afterEach } from "vitest";
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 import {
   createWorld as baseCreateWorld,
   addLog,
@@ -481,6 +484,73 @@ describe("entity memories and model text", () => {
       retryAfter: 10_000,
     });
     vi.unstubAllGlobals();
+  });
+
+  it("recovers a screened Talk from the same committed scene", async () => {
+    const firstTalk = act(act(createWorld(), "take", "lamp"), "talk", null, "keeper");
+    const firstScene = narrativeContext(firstTalk);
+    const earlier = applyGeneratedText(firstTalk, firstScene, response(firstScene));
+    let world = act(earlier, "talk", null, "keeper");
+    const before = structuredClone(world);
+    const status = vi.fn();
+    const requests = [];
+    vi.stubGlobal("fetch", vi.fn(async (path, { body }) => {
+      expect(path).toBe("/card-game/text");
+      const context = JSON.parse(body);
+      requests.push(context);
+      if (requests.length === 1) {
+        return new Response(JSON.stringify({ code: "scene_context_rejected" }), { status: 400 });
+      }
+      return new Response(JSON.stringify(response(context)));
+    }));
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply: (next) => (world = next),
+      status,
+    });
+    narrator.changed();
+    await flush();
+    expect(requests).toHaveLength(2);
+    const [original, retry] = requests;
+    expect(original.outcome.card).toMatchObject({ kind: "talk", target: "keeper" });
+    expect(original.conversation.length).toBeGreaterThan(0);
+    expect(retry).toEqual({
+      ...original,
+      action: null,
+      events: [],
+      conversation: [],
+      disclosures: [],
+      entities: original.entities.map(({ id, desire }) => ({
+        id, desire, facts: [], memories: [], previous: null,
+      })),
+    });
+    expect(status).toHaveBeenLastCalledWith("ready");
+    expect(world.turn).toBe(before.turn);
+    expect(world.revision).toBe(before.revision);
+    expect(world.log).toEqual(expect.arrayContaining(before.log));
+    expect(world.log).toContainEqual(expect.objectContaining({
+      kind: "dialogue", actorId: "keeper", turn: world.turn,
+    }));
+  });
+
+  it.each([
+    [401, { code: "scene_context_rejected" }, 1],
+    [400, { error: "Invalid request." }, 1],
+    [400, { code: "scene_context_rejected" }, 2],
+  ])("limits recovery for a status %i response with %j", async (httpStatus, body, attempts) => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify(body), { status: httpStatus }));
+    vi.stubGlobal("fetch", fetch);
+    const world = act(createWorld(), "wait");
+    const status = vi.fn();
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply: vi.fn(),
+      status,
+    });
+    narrator.changed();
+    await flush();
+    expect(fetch).toHaveBeenCalledTimes(attempts);
+    expect(status).toHaveBeenLastCalledWith("failed", expect.any(Error));
   });
 
   it("retries a busy 429 after its Retry-After and speaks", async () => {
@@ -1158,10 +1228,18 @@ describe("speech grounding in resolved card plays", () => {
   });
 
   it("gives an opening state and includes actors outside the dialogue scene", () => {
-    const outcome = turnOutcome(createWorld());
+    const world = createWorld();
+    world.items["elysium-wayfinder"].holder = "behind-station";
+    const outcome = turnOutcome(world);
     expect(outcome.card.kind).toBe("arrive");
     expect(outcome.avatars).toHaveLength(3);
-    expect(outcome.items.map((item) => item.id).sort()).toEqual(["bell", "cloth", "lamp", "oil"]);
+    expect(outcome.items.map((item) => item.id).sort()).toEqual([
+      "bell",
+      "cloth",
+      "keeper-log",
+      "lamp",
+      "oil",
+    ]);
     expect(avatar(outcome, "moth")).toMatchObject({
       location: "pond",
       travel: null,

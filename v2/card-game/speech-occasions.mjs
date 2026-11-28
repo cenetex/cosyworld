@@ -81,7 +81,8 @@ export function speechOccasions(world, cast) {
   const actor = currentActor(world);
   const played = playedEntry(world);
   const verb = played?.verb;
-  if (verb === "claim") return { occasion: null, speakers: [], scenery: false };
+  if (verb === "claim" || verb === "accept")
+    return { occasion: null, speakers: [], scenery: false };
   const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
   const near = (id) =>
     Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
@@ -117,13 +118,13 @@ export function speechOccasions(world, cast) {
     met: [actor, target].filter((id) =>
       thisTurn.some((e) => e.verb === "want_met" && e.actorId === id),
     ),
-    giver: thisTurn.some((e) => e.verb === "want_met" && e.actorId === actor)
-      ? cast.audience.filter(
-          (id) =>
-            near(id) &&
-            world.actors[actor].closed?.[`quest:from:${id}`]?.[0] === world.turn,
-        )
-      : [],
+    giver: cast.audience.filter(
+      (id) =>
+        near(id) &&
+        thisTurn.some(
+          (e) => e.verb === "want_met" && e.actorId === actor && e.ownerId === id,
+        ),
+    ),
     place: [],
   };
   const echo =

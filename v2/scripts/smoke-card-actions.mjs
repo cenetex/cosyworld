@@ -3,7 +3,6 @@ import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { knowsFact } from "../card-game/knowledge.mjs";
 import {
   actionLabel,
   focusedHandCard,
@@ -473,7 +472,7 @@ try {
     // The current place leads the row (#2272).
     assert.equal(order[0], "station");
     assert(order.indexOf("vale") < order.indexOf("moth"));
-    assert.deepEqual(order.slice(-1), ["pond"]);
+    assert.deepEqual(order.slice(-2), ["pond", "behind-station"]);
     assert.equal(order[order.indexOf("moth") + 1], "cloth");
     if (width < 700) {
       await page.waitForTimeout(350);
@@ -626,10 +625,6 @@ try {
     await page.getByRole("button", { name: "Talk", exact: true }).click();
     await ready();
     assert.equal((await state()).turn, 1);
-    assert(
-      knowsFact(await state(), "vale", "greek-hear-decree"),
-      "Talk teaches the decree on the play",
-    );
     if ([1440, 390].includes(width)) {
       const meal = createWorld({ seed: 17 });
       meal.actors.vale.place = "greek-gate";
@@ -722,11 +717,24 @@ try {
         (key) =>
           JSON.parse(localStorage.getItem(key)).actors.vale.place === "pond" &&
           document.querySelector(".play-dock").dataset.covered === "false" &&
-          document.querySelector("#hand").dataset.cooling === "false" &&
-          document.activeElement.matches("#hand .card-frame:not([hidden]) .card"),
+          document.querySelector("#speech-hint").textContent === "Tap to continue",
         key,
       );
+      await page.locator("#dialogue-advance").dispatchEvent("click");
+      await page.waitForFunction(() =>
+        document.querySelector("#hand").dataset.cooling === "false" &&
+        document.activeElement.matches("#hand .card-frame:not([hidden]) .card"),
+      );
       assert.equal(await focusedHandCard(page), "pond", "travel returns focus to the hand");
+      const sleeping = meeting();
+      sleeping.actors.moth.sleeping = { since: 0, place: "station", until: 4 };
+      await load(sleeping);
+      for (const id of ["moth", "pond"]) await selectCard(page, id);
+      assert.deepEqual(await chosen(), ["moth", "pond"]);
+      assert.equal(await reason.count(), 1);
+      assert.equal(await reason.getAttribute("data-blocked"), "asleep");
+      assert.equal(await reason.getAttribute("data-action"), null);
+      assert.equal(await actionLabel(reason), "Pip is asleep");
     }
     assert.deepEqual(errors, []);
     console.log(

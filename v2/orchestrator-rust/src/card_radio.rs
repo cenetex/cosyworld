@@ -62,8 +62,8 @@ impl Catalog {
 pub(super) async fn now_playing() -> impl IntoResponse {
     static CATALOG: OnceLock<Catalog> = OnceLock::new();
     let catalog = CATALOG.get_or_init(|| {
-        Catalog::parse(include_str!(
-            "../../card-game/assets/music/radio-catalog.json"
+        Catalog::parse(cosyworld_orchestrator::card_assets::text(
+            "card-game/assets/music/radio-catalog.json",
         ))
     });
     let now = SystemTime::now()

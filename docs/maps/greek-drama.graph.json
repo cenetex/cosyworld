@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 31,
+  "revision": 34,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -3087,7 +3087,6 @@
       {
         "id": "act:greek-return-water-jar",
         "kind": "act",
-        "title": "Return the water jar",
         "cond": {
           "op": "and",
           "of": [
@@ -3122,7 +3121,6 @@
       {
         "id": "act:greek-hear-decree",
         "kind": "act",
-        "title": "Hear the burial order",
         "cond": {
           "op": "and",
           "of": []
@@ -3146,7 +3144,6 @@
       {
         "id": "act:greek-gather-witness",
         "kind": "act",
-        "title": "Ask for a public witness",
         "cond": {
           "op": "and",
           "of": [
@@ -3184,7 +3181,6 @@
       {
         "id": "act:greek-helen-egypt",
         "kind": "act",
-        "title": "Follow Helen's Egyptian account",
         "cond": {
           "op": "and",
           "of": [
@@ -3225,7 +3221,6 @@
       {
         "id": "act:greek-helen-troy",
         "kind": "act",
-        "title": "Follow Helen's Trojan account",
         "cond": {
           "op": "and",
           "of": [
@@ -3266,7 +3261,6 @@
       {
         "id": "act:greek-hear-helen-egypt",
         "kind": "act",
-        "title": "Hear Helen's testimony",
         "cond": {
           "op": "and",
           "of": [
@@ -3313,7 +3307,6 @@
       {
         "id": "act:greek-helen-egypt-passage",
         "kind": "act",
-        "title": "Provision a return passage",
         "cond": {
           "op": "and",
           "of": [
@@ -3397,7 +3390,6 @@
       {
         "id": "act:greek-helen-egypt-shelter",
         "kind": "act",
-        "title": "Support a stay under protection",
         "cond": {
           "op": "and",
           "of": [
@@ -3467,7 +3459,6 @@
       {
         "id": "act:greek-hear-helen-troy",
         "kind": "act",
-        "title": "Hear Helen's testimony",
         "cond": {
           "op": "and",
           "of": [
@@ -3514,7 +3505,6 @@
       {
         "id": "act:greek-helen-troy-passage",
         "kind": "act",
-        "title": "Provision a return passage",
         "cond": {
           "op": "and",
           "of": [
@@ -3598,7 +3588,6 @@
       {
         "id": "act:greek-helen-troy-shelter",
         "kind": "act",
-        "title": "Support a stay under protection",
         "cond": {
           "op": "and",
           "of": [
@@ -3668,7 +3657,6 @@
       {
         "id": "act:greek-atreid-aeschylus",
         "kind": "act",
-        "title": "Follow the tomb account · Aeschylus",
         "cond": {
           "op": "and",
           "of": [
@@ -3709,7 +3697,6 @@
       {
         "id": "act:greek-hear-electra-aeschylus",
         "kind": "act",
-        "title": "Hear the household's testimony",
         "cond": {
           "op": "and",
           "of": [
@@ -3756,7 +3743,6 @@
       {
         "id": "act:greek-atreid-aeschylus-hearing",
         "kind": "act",
-        "title": "Commit the testimony to a hearing",
         "cond": {
           "op": "and",
           "of": [
@@ -3827,7 +3813,6 @@
       {
         "id": "act:greek-atreid-aeschylus-refusal",
         "kind": "act",
-        "title": "Refuse the revenge commitment",
         "cond": {
           "op": "and",
           "of": [
@@ -3897,7 +3882,6 @@
       {
         "id": "act:greek-atreid-sophocles",
         "kind": "act",
-        "title": "Follow the palace account · Sophocles",
         "cond": {
           "op": "and",
           "of": [
@@ -3938,7 +3922,6 @@
       {
         "id": "act:greek-hear-electra-sophocles",
         "kind": "act",
-        "title": "Hear the household's testimony",
         "cond": {
           "op": "and",
           "of": [
@@ -3985,7 +3968,6 @@
       {
         "id": "act:greek-atreid-sophocles-hearing",
         "kind": "act",
-        "title": "Commit the testimony to a hearing",
         "cond": {
           "op": "and",
           "of": [
@@ -4056,7 +4038,6 @@
       {
         "id": "act:greek-atreid-sophocles-refusal",
         "kind": "act",
-        "title": "Refuse the revenge commitment",
         "cond": {
           "op": "and",
           "of": [
@@ -4126,7 +4107,6 @@
       {
         "id": "act:greek-atreid-euripides",
         "kind": "act",
-        "title": "Follow the farmhouse account · Euripides",
         "cond": {
           "op": "and",
           "of": [
@@ -4167,7 +4147,6 @@
       {
         "id": "act:greek-hear-electra-euripides",
         "kind": "act",
-        "title": "Hear the household's testimony",
         "cond": {
           "op": "and",
           "of": [
@@ -4214,7 +4193,6 @@
       {
         "id": "act:greek-atreid-euripides-hearing",
         "kind": "act",
-        "title": "Commit the testimony to a hearing",
         "cond": {
           "op": "and",
           "of": [
@@ -4285,7 +4263,6 @@
       {
         "id": "act:greek-atreid-euripides-refusal",
         "kind": "act",
-        "title": "Refuse the revenge commitment",
         "cond": {
           "op": "and",
           "of": [
@@ -4355,7 +4332,6 @@
       {
         "id": "act:greek-ajax-invitation",
         "kind": "act",
-        "title": "Accept the Trojan camp’s invitation",
         "cond": {
           "op": "and",
           "of": [
@@ -4388,7 +4364,6 @@
       {
         "id": "act:greek-ajax-learn-shield-teucer",
         "kind": "act",
-        "title": "Hear Teucer name the shield’s keeper",
         "cond": {
           "op": "and",
           "of": [
@@ -4439,7 +4414,6 @@
       {
         "id": "act:greek-ajax-learn-shield-odysseus",
         "kind": "act",
-        "title": "Hear Odysseus name the shield’s keeper",
         "cond": {
           "op": "and",
           "of": [
@@ -4490,7 +4464,6 @@
       {
         "id": "act:greek-ajax-learn-shield-tecmessa",
         "kind": "act",
-        "title": "Hear Tecmessa speak for Eurysaces",
         "cond": {
           "op": "and",
           "of": [
@@ -4544,7 +4517,6 @@
       {
         "id": "act:greek-ajax-deliver-shield",
         "kind": "act",
-        "title": "Set the shield with Tecmessa for Eurysaces",
         "cond": {
           "op": "and",
           "of": [
@@ -4612,7 +4584,6 @@
       {
         "id": "act:greek-ajax-hear-plea",
         "kind": "act",
-        "title": "Hear Teucer’s burial plea",
         "cond": {
           "op": "and",
           "of": [
@@ -4676,7 +4647,6 @@
       {
         "id": "act:greek-ajax-deliver-plea",
         "kind": "act",
-        "title": "Read Teucer’s plea with Odysseus",
         "cond": {
           "op": "and",
           "of": [
@@ -4755,7 +4725,6 @@
       {
         "id": "act:greek-ajax-choose-public",
         "kind": "act",
-        "title": "Seek a public burial with Odysseus’s support",
         "cond": {
           "op": "and",
           "of": [
@@ -4841,7 +4810,6 @@
       {
         "id": "act:greek-ajax-choose-household",
         "kind": "act",
-        "title": "Keep the rite with Ajax’s household",
         "cond": {
           "op": "and",
           "of": [
@@ -4927,7 +4895,6 @@
       {
         "id": "act:greek-ajax-choose-appeal",
         "kind": "act",
-        "title": "Keep a vigil while the burial appeal is heard",
         "cond": {
           "op": "and",
           "of": [
@@ -5013,7 +4980,6 @@
       {
         "id": "act:greek-ajax-witness-appeal",
         "kind": "act",
-        "title": "Hear the witnessed appeal with Teucer and Odysseus",
         "cond": {
           "op": "and",
           "of": [
@@ -5092,7 +5058,6 @@
       {
         "id": "act:greek-ajax-prepare-grave",
         "kind": "act",
-        "title": "Prepare Ajax’s grave with the camp tools",
         "cond": {
           "op": "and",
           "of": [
@@ -5170,7 +5135,6 @@
       {
         "id": "act:greek-ajax-lay-cloth",
         "kind": "act",
-        "title": "Lay the camp’s cloth at Ajax’s grave",
         "cond": {
           "op": "and",
           "of": [
@@ -5246,7 +5210,6 @@
       {
         "id": "act:greek-ajax-bury-public",
         "kind": "act",
-        "title": "Complete Ajax’s public burial",
         "cond": {
           "op": "and",
           "of": [
@@ -5355,7 +5318,6 @@
       {
         "id": "act:greek-ajax-record-public",
         "kind": "act",
-        "title": "Ask Teucer to sign the burial account",
         "cond": {
           "op": "and",
           "of": [
@@ -5458,7 +5420,6 @@
       {
         "id": "act:greek-ajax-return-public",
         "kind": "act",
-        "title": "Read Teucer’s signed account to Dione",
         "cond": {
           "op": "and",
           "of": [
@@ -5575,7 +5536,6 @@
       {
         "id": "act:greek-ajax-bury-household",
         "kind": "act",
-        "title": "Complete Ajax’s household burial",
         "cond": {
           "op": "and",
           "of": [
@@ -5684,7 +5644,6 @@
       {
         "id": "act:greek-ajax-record-household",
         "kind": "act",
-        "title": "Ask Teucer to sign the burial account",
         "cond": {
           "op": "and",
           "of": [
@@ -5787,7 +5746,6 @@
       {
         "id": "act:greek-ajax-return-household",
         "kind": "act",
-        "title": "Read Teucer’s signed account to Dione",
         "cond": {
           "op": "and",
           "of": [
@@ -5904,7 +5862,6 @@
       {
         "id": "act:greek-ajax-bury-appeal",
         "kind": "act",
-        "title": "Complete Ajax’s witnessed-appeal burial",
         "cond": {
           "op": "and",
           "of": [
@@ -6020,7 +5977,6 @@
       {
         "id": "act:greek-ajax-record-appeal",
         "kind": "act",
-        "title": "Ask Teucer to sign the burial account",
         "cond": {
           "op": "and",
           "of": [
@@ -6123,7 +6079,6 @@
       {
         "id": "act:greek-ajax-return-appeal",
         "kind": "act",
-        "title": "Read Teucer’s signed account to Dione",
         "cond": {
           "op": "and",
           "of": [
@@ -6240,7 +6195,6 @@
       {
         "id": "act:greek-anoint-polynices",
         "kind": "act",
-        "title": "Hand Antigone the oil",
         "cond": {
           "op": "and",
           "of": [
@@ -6300,7 +6254,6 @@
       {
         "id": "act:greek-shroud-polynices",
         "kind": "act",
-        "title": "Hand Antigone the cloth",
         "cond": {
           "op": "and",
           "of": [
@@ -6361,7 +6314,6 @@
       {
         "id": "act:greek-bury-polynices",
         "kind": "act",
-        "title": "Hand Antigone the shovel",
         "cond": {
           "op": "and",
           "of": [
@@ -6417,7 +6369,6 @@
       {
         "id": "act:greek-hear-polynices",
         "kind": "act",
-        "title": "Hear Polynices’ Shade",
         "cond": {
           "op": "and",
           "of": []
@@ -6445,7 +6396,6 @@
       {
         "id": "act:greek-meet-patroclus",
         "kind": "act",
-        "title": "Meet Patroclus",
         "cond": {
           "op": "and",
           "of": [
@@ -6507,7 +6457,6 @@
       {
         "id": "act:greek-open-door-hear-mothers",
         "kind": "act",
-        "title": "Hear the mothers’ request",
         "cond": {
           "op": "and",
           "of": []
@@ -6537,7 +6486,6 @@
       {
         "id": "act:greek-open-door-hear-adrastus",
         "kind": "act",
-        "title": "Ask Adrastus about the war",
         "cond": {
           "op": "and",
           "of": [
@@ -6584,7 +6532,6 @@
       {
         "id": "act:greek-open-door-register-plea",
         "kind": "act",
-        "title": "Lay the mothers’ petition before Theseus",
         "cond": {
           "op": "and",
           "of": [
@@ -6635,7 +6582,6 @@
       {
         "id": "act:greek-open-door-hear-truce-report",
         "kind": "act",
-        "title": "Receive the herald’s truce report",
         "cond": {
           "op": "and",
           "of": [
@@ -6688,7 +6634,6 @@
       {
         "id": "act:greek-open-door-hear-quay",
         "kind": "act",
-        "title": "Ask what the returning households need",
         "cond": {
           "op": "and",
           "of": []
@@ -6718,7 +6663,6 @@
       {
         "id": "act:greek-open-door-set-provisions",
         "kind": "act",
-        "title": "Set the basket beside the resting place",
         "cond": {
           "op": "and",
           "of": [
@@ -6761,7 +6705,6 @@
       {
         "id": "act:greek-open-door-lay-cloths",
         "kind": "act",
-        "title": "Lay out the clean burial cloths",
         "cond": {
           "op": "and",
           "of": [
@@ -6816,7 +6759,6 @@
       {
         "id": "act:greek-open-door-lay-ashes",
         "kind": "act",
-        "title": "Place the urn in the mothers’ care",
         "cond": {
           "op": "and",
           "of": [
@@ -6876,7 +6818,6 @@
       {
         "id": "act:greek-open-door-hear-pyre",
         "kind": "act",
-        "title": "Hear what happened beside the pyre",
         "cond": {
           "op": "and",
           "of": [
@@ -6937,7 +6878,6 @@
       {
         "id": "act:greek-open-door-family-berth",
         "kind": "act",
-        "title": "Reserve the berth for the listed households",
         "cond": {
           "op": "and",
           "of": [
@@ -7016,7 +6956,6 @@
       {
         "id": "act:greek-open-door-colonus-enter",
         "kind": "act",
-        "title": "Hear the earlier tale of Oedipus",
         "cond": {
           "op": "and",
           "of": []
@@ -7046,7 +6985,6 @@
       {
         "id": "act:greek-open-door-colonus-water",
         "kind": "act",
-        "title": "Set water and honey by the grove",
         "cond": {
           "op": "and",
           "of": [
@@ -7089,7 +7027,6 @@
       {
         "id": "act:greek-open-door-colonus-daughters",
         "kind": "act",
-        "title": "Hear the daughters’ return and the son’s plea",
         "cond": {
           "op": "and",
           "of": [
@@ -7134,7 +7071,6 @@
       {
         "id": "act:greek-open-door-colonus-farewell",
         "kind": "act",
-        "title": "Hear the kept promise at the end",
         "cond": {
           "op": "and",
           "of": [
@@ -7181,7 +7117,6 @@
       {
         "id": "act:greek-open-door-colonus-custom",
         "kind": "act",
-        "title": "Record a welcome for the next exile",
         "cond": {
           "op": "and",
           "of": [
@@ -7230,7 +7165,6 @@
       {
         "id": "act:greek-open-door-marathon-enter",
         "kind": "act",
-        "title": "Hear the tale of Heracles’s children",
         "cond": {
           "op": "and",
           "of": []
@@ -7253,7 +7187,6 @@
       {
         "id": "act:greek-open-door-marathon-blanket",
         "kind": "act",
-        "title": "Lay the blanket inside the shelter",
         "cond": {
           "op": "and",
           "of": [
@@ -7290,7 +7223,6 @@
       {
         "id": "act:greek-open-door-marathon-daughter",
         "kind": "act",
-        "title": "Hear the daughter’s own answer",
         "cond": {
           "op": "and",
           "of": [
@@ -7329,7 +7261,6 @@
       {
         "id": "act:greek-open-door-marathon-battle",
         "kind": "act",
-        "title": "Hear the battle and the captive’s arrival",
         "cond": {
           "op": "and",
           "of": [
@@ -7370,7 +7301,6 @@
       {
         "id": "act:greek-open-door-marathon-captive",
         "kind": "act",
-        "title": "Hear the claim against the captive",
         "cond": {
           "op": "and",
           "of": [
@@ -7414,7 +7344,6 @@
       {
         "id": "act:greek-open-door-return-dione",
         "kind": "act",
-        "title": "Tell Dione what welcome has cost",
         "cond": {
           "op": "and",
           "of": [
@@ -7504,7 +7433,6 @@
       {
         "id": "act:greek-homecoming-report-agora-truce",
         "kind": "act",
-        "title": "Tell Dione about the burial truce",
         "cond": {
           "op": "and",
           "of": [
@@ -7564,7 +7492,6 @@
       {
         "id": "act:greek-homecoming-report-eleusis-pledge",
         "kind": "act",
-        "title": "Tell Dione about the burial pledge",
         "cond": {
           "op": "and",
           "of": [
@@ -7630,7 +7557,6 @@
       {
         "id": "act:greek-homecoming-report-piraeus-family",
         "kind": "act",
-        "title": "Tell Dione about the reserved berth",
         "cond": {
           "op": "and",
           "of": [
@@ -7717,7 +7643,6 @@
       {
         "id": "act:greek-homecoming-report-colonus-custom",
         "kind": "act",
-        "title": "Tell Dione about the grove’s welcome",
         "cond": {
           "op": "and",
           "of": [
@@ -7773,7 +7698,6 @@
       {
         "id": "act:greek-homecoming-report-marathon-alcmene",
         "kind": "act",
-        "title": "Tell Dione the Marathon source ending",
         "cond": {
           "op": "and",
           "of": [
@@ -7823,7 +7747,6 @@
       {
         "id": "act:greek-homecoming-agree-journey",
         "kind": "act",
-        "title": "Agree to walk with Myrine to the quay",
         "cond": {
           "op": "and",
           "of": [
@@ -7893,7 +7816,6 @@
       {
         "id": "act:greek-homecoming-receive-family",
         "kind": "act",
-        "title": "Witness Myrine receive her household’s care",
         "cond": {
           "op": "and",
           "of": [
@@ -10495,50 +10417,6 @@
         "flag:greek-ajax-open",
         "place:greek-greek-camp",
         "resident:greek-ajax-teucer"
-      ],
-      "topic:greek-hear-decree": [
-        "place:greek-gate",
-        "resident:greek-guard"
-      ],
-      "topic:greek-open-door-colonus-daughters": [
-        "place:greek-colonus",
-        "resident:greek-colonus-keeper"
-      ],
-      "topic:greek-open-door-colonus-enter": [
-        "place:greek-colonus",
-        "resident:greek-colonus-keeper"
-      ],
-      "topic:greek-open-door-colonus-farewell": [
-        "place:greek-colonus",
-        "resident:greek-colonus-keeper"
-      ],
-      "topic:greek-open-door-hear-adrastus": [
-        "place:greek-eleusis",
-        "resident:greek-adrastus"
-      ],
-      "topic:greek-open-door-hear-mothers": [
-        "place:greek-eleusis",
-        "resident:greek-aethra"
-      ],
-      "topic:greek-open-door-hear-pyre": [
-        "place:greek-eleusis",
-        "resident:greek-aethra"
-      ],
-      "topic:greek-open-door-marathon-battle": [
-        "place:greek-marathon",
-        "resident:greek-marathon-keeper"
-      ],
-      "topic:greek-open-door-marathon-captive": [
-        "place:greek-marathon",
-        "resident:greek-marathon-keeper"
-      ],
-      "topic:greek-open-door-marathon-daughter": [
-        "place:greek-marathon",
-        "resident:greek-marathon-keeper"
-      ],
-      "topic:greek-open-door-marathon-enter": [
-        "place:greek-marathon",
-        "resident:greek-marathon-keeper"
       ],
       "want:greek-adrastus": [
         "resident:greek-adrastus"

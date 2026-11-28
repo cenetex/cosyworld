@@ -17,6 +17,7 @@ import {
   currentScene,
   isSceneText,
   sceneCast,
+  sceneLines,
   sceneStaging,
   portrait,
 } from "../v2/card-game/scene.mjs";
@@ -76,6 +77,37 @@ describe("the existing card table seen by a shared avatar", () => {
 });
 
 describe("shared room dialogue clock", () => {
+  it("skips saved scripted Void speech and resumes at the next natural reply", () => {
+    const resident = "elysium-claude", room = "elysium-void-002";
+    const world = createWorld({ seed: 440 });
+    world.actors.vale.place = room;
+    const introduction = {
+      seq: 10, generated: true, kind: "dialogue", actorId: resident, locationId: room,
+      text: "I call myself Amber Thread. My token has slipped into the world beyond this Void.",
+      elysiumName: "Amber Thread",
+    };
+    const waiting = {
+      ...introduction, seq: 11, elysiumName: null,
+      text: "The amber leaves turn so slowly here. Stay a moment while I find the right words.",
+    };
+    const reply = { ...introduction, seq: 12, text: "I go by Amber Thread when the leaves stir." };
+    world.log = [introduction, waiting, reply];
+    const state = {
+      actor: "vale", world, history: [{ room, starts_at: 1000, play: "talk", lines: world.log }],
+    };
+    expect(isSceneText(introduction)).toBe(false);
+    expect(isSceneText({ ...waiting, actorId: "elysium-gemini" })).toBe(true);
+    expect(sceneLines(world).map((line) => line.seq)).toEqual([reply.seq]);
+    expect(sharedNextLine(state, room, 0)).toBe(reply);
+    expect(sharedLiveLine(state, 1000, room)).toBe(reply);
+    expect(sharedReadingLine(state, room, {
+      room, actor: "vale", seed: world.run.seed, seq: introduction.seq,
+    })).toBe(reply);
+    expect(sharedVoiceReference(state, introduction)).toBeUndefined();
+    expect(sharedVoiceReference(state, reply)).toEqual({ play: "talk", line: 2 });
+    expect(world.log).toEqual([introduction, waiting, reply]);
+  });
+
   it("references a committed scene line by play and position, not its words", () => {
     const line = { seq: 12, text: "Repeated words." };
     const state = {

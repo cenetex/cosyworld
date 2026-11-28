@@ -151,6 +151,13 @@ describe("where the pack lies in the hand", () => {
 });
 
 describe("the pack's state machine", () => {
+  it("offers Reveal all only over three cards; fewer turn by a tap on the stack", () => {
+    const { pack } = make();
+    const t = table(["p-here", "a-fox", "i-gem"]);
+    pack.sync(t.cards, { unturned: t.unturned, kindOf });
+    expect(pack.state).toBe("closed");
+    expect(pack.prompt(t.unturned)).toBe(null);
+  });
   it("runs closed, open, running, turned, done", () => {
     const { pack, timers } = make();
     const t = table(["p-here", "a-fox", "i-gem", "i-pin"]);

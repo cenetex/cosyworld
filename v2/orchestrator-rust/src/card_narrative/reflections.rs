@@ -1,9 +1,18 @@
-//! Private reflections (thought, persona, dream) after a spoken scene.
-//!
-//! The browser asks for them once its line is shown, so they never delay or
-//! fail the line (#2016). They have their own capacity and one request per
-//! client, and a client's next admitted scene drops its unfinished one.
+//! Private reflections and memory summaries run in the background.
+//! A client's next admitted scene cancels its unfinished reflection.
 use super::*;
+
+#[path = "memory_summaries.rs"]
+mod memory_summaries;
+
+pub(super) fn router() -> Router<TextState> {
+    Router::new()
+        .route("/card-game/reflections", post(generate))
+        .route(
+            "/card-game/memory-summaries",
+            post(memory_summaries::generate),
+        )
+}
 
 pub(super) struct Queue {
     /// The client whose admitted scene replaces its queued reflections.
@@ -67,7 +76,7 @@ pub(super) async fn generate(
     }) {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     }
-    let Some(context) = super::screened(context).await else {
+    let Ok(context) = super::screened(context).await else {
         return StatusCode::BAD_REQUEST.into_response();
     };
     let (Some(config), Ok(models)) = (state.ai.as_ref(), state.character_models.as_ref()) else {

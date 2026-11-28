@@ -1,6 +1,4 @@
-// Collect the authored text a browser scene may quote, per field kind. The
-// story service accepts a scene's rules-built sentences only when they are
-// made of these pieces (card_narrative/authored.rs).
+// Collect each scene field's authored pieces for card_narrative/authored.rs.
 // Each kind takes the strings and template literals of the code that builds
 // that field (its roots below, and every function, constant and JSON file
 // they reach), so a fact template cannot dress up an event and the reverse.
@@ -9,7 +7,8 @@
 // `--check` fails when the output is stale.
 import { build } from "esbuild";
 import * as acorn from "acorn";
-import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { laneEdges, laneOfEdge } from "../card-game/pack-transport.mjs";
@@ -21,28 +20,33 @@ const output = new URL(
   import.meta.url,
 );
 const NARRATIVE = "v2/card-game/narrative.mjs";
+const INNER_LIFE = "v2/card-game/inner-life.mjs";
 // Prompt wording, not scene text.
 const EXCLUDED_SOURCES = new Set(["v2/card-game/speech.json"]);
 // Modules that write rules sentences without calling addLog: an action's
 // `text` becomes its log entry.
 const LOG = { calls: ["addLog", "note"], property: "text" };
-const KINDS = ["action", "events", "facts", "memories", "disclosures"];
+const KINDS = ["action", "events", "facts", "memories", "disclosures", "subjects"];
+const SCENE_KINDS = KINDS.slice(0, -1);
+const SCENE_MASK = (1 << SCENE_KINDS.length) - 1;
 // Roots: [module, top-level name, property path inside it or null].
 const ROOTS = {
   action: [[NARRATIVE, "narrativeContext", "action"]],
-  events: [],
+  events: [[NARRATIVE, "LISTENER_READING", null]],
   facts: [[NARRATIVE, "narrativeContext", "entities"]],
   memories: [["v2/card-game/scene-cast.mjs", "speechMemories", null]],
   // A disclosed fact is a witnessed log entry, a pack topic or a lane.
   disclosures: [["v2/card-game/knowledge.mjs", "*", null]],
+  subjects: [[INNER_LIFE, "subjectMemories", null]],
 };
 // Fields built from the log: an action is a log entry, and an event memory,
 // a witnessed fact and a disclosure quote one.
-const FROM_LOG = new Set(KINDS);
+const FROM_LOG = new Set(SCENE_KINDS);
 
 const { metafile } = await build({
   absWorkingDir: root,
-  entryPoints: [NARRATIVE],
+  entryPoints: [NARRATIVE, INNER_LIFE],
+  outdir: "out",
   bundle: true,
   write: false,
   metafile: true,
@@ -435,7 +439,7 @@ function propertyUnit(input, name, property) {
 // The log: every function that adds a log entry or builds an action's text.
 const logRoots = [];
 for (const [input, module] of modules) {
-  if (module.json || input === NARRATIVE) continue;
+  if (module.json || input === NARRATIVE || input === INNER_LIFE) continue;
   for (const [name, node] of module.decls) {
     let writes = false;
     walk(node, (n, parent) => {
@@ -456,17 +460,17 @@ const logUnits = closure(logRoots);
 
 const catalog = { literals: new Map(), templates: new Map() };
 KINDS.forEach((kind, bit) => {
-  const keys = closure(
-    ROOTS[kind].flatMap(([input, name, property]) =>
-      property
-        ? [propertyUnit(input, name, property)]
-        : name === "*"
-          ? [...modules.get(input).decls.keys()].map(
-              (decl) => `${input}#${decl}`,
-            )
-          : [`${input}#${name}`],
-    ),
+  const roots = ROOTS[kind].flatMap(([input, name, property]) =>
+    property
+      ? [propertyUnit(input, name, property)]
+      : name === "*"
+        ? [...modules.get(input).decls.keys()].map(
+            (decl) => `${input}#${decl}`,
+          )
+        : [`${input}#${name}`],
   );
+  // Subject observations supply their own wording and use catalog names.
+  const keys = kind === "subjects" ? new Set(roots) : closure(roots);
   if (FROM_LOG.has(kind)) for (const key of logUnits) keys.add(key);
   for (const key of keys) {
     const { literals, templates } = units.get(key);
@@ -475,7 +479,8 @@ KINDS.forEach((kind, bit) => {
         text,
         (catalog.literals.get(text) ?? 0) | (1 << bit),
       );
-    for (const [parts, slots] of templates) {
+    for (const [parts, shape] of templates) {
+      const slots = kind === "subjects" ? "n".repeat(shape.length) : shape;
       const id = JSON.stringify([parts, slots]);
       const [, mask = 0] = catalog.templates.get(id) ?? [];
       catalog.templates.set(id, [parts, mask | (1 << bit), slots]);
@@ -488,16 +493,64 @@ KINDS.forEach((kind, bit) => {
 for (const edge of laneEdges())
   catalog.literals.set(
     laneFact(...laneOfEdge(edge)).text,
-    (1 << KINDS.length) - 1,
+    SCENE_MASK,
   );
 
-// Earlier rules wrote this sentence into saves that players still import.
-const earlierDrop = ["", " drops the quest."];
-catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
-  earlierDrop,
-  (1 << KINDS.length) - 1,
-  "n",
-]);
+const retiredLogTemplates = [
+  [["", " drops the quest."], "n"],
+  [["", " gives ", " a face-down card."], "nn"],
+  [[" ", " stays behind."], "n"],
+  [["", " comes with ", ". ", " stays behind."], "nnn"],
+  [["", " comes with ", "."], "nn"],
+  [["", " goes on alone after the long rest."], "n"],
+  [["", " no longer trusts ", " enough to travel on."], "nn"],
+  [["", " waits no longer and goes on alone."], "n"],
+];
+for (const [parts, slots] of retiredLogTemplates)
+  catalog.templates.set(JSON.stringify([parts, slots]), [parts, SCENE_MASK, slots]);
+
+const listener208 = JSON.parse(
+  await readFile(new URL("./listener-208-text.json", import.meta.url), "utf8"),
+);
+for (const [text, mask] of listener208.literals)
+  catalog.literals.set(text, (catalog.literals.get(text) ?? 0) | mask);
+for (const [parts, mask, slots] of listener208.templates) {
+  const key = JSON.stringify([parts, slots]);
+  catalog.templates.set(key, [
+    parts, (catalog.templates.get(key)?.[1] ?? 0) | mask, slots,
+  ]);
+}
+for (const [card, conditions, slots] of listener208.conditionLists)
+  for (const lead of [", still to do: ", ": "]) {
+    const parts = [...conditions];
+    parts[0] = `The Listener turns over ${card}${lead}${parts[0]}`;
+    parts[parts.length - 1] += ".";
+    if (slots)
+      catalog.templates.set(JSON.stringify([parts, slots]), [parts, 31, slots]);
+    else catalog.literals.set(parts[0], 31);
+  }
+
+const contentDir = new URL("../content/", import.meta.url);
+const retiredSentences = [];
+for (const pack of (await readdir(contentDir, { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort()) {
+  const file = new URL(`${pack}/retired-sentences.json`, contentDir);
+  if (existsSync(file))
+    retiredSentences.push(
+      ...JSON.parse(await readFile(file, "utf8")).sentences,
+    );
+}
+for (const sentence of retiredSentences) {
+  const parts = sentence.split(/\{[A-Za-z]+\}/u);
+  if (parts.length > 1)
+    catalog.templates.set(
+      JSON.stringify([parts, "n".repeat(parts.length - 1)]),
+      [parts, SCENE_MASK, "n".repeat(parts.length - 1)],
+    );
+  else catalog.literals.set(sentence, SCENE_MASK);
+}
 
 // Removed item names still occur in honest event knowledge. This finite map
 // comes from the immutable rules-137 catalog at 521c76cb39df10c2e552a9e2d88dc4a8d02d6fe9;

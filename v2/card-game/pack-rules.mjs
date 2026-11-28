@@ -1,4 +1,5 @@
 import { heldItem } from "./held-item.mjs";
+import { ELYSIUM_ENTRY, ELYSIUM_PACK } from "./elysium-models.mjs";
 import { talkedDirectly } from "./conversation.mjs";
 import {
   currentActor,
@@ -46,7 +47,6 @@ import {
   shipAtSea,
 } from "./pack-transport.mjs";
 
-// Day and night each last this many turns on the saved world clock.
 export const DAYLIGHT_TURNS = 24;
 
 const fill = (template, values) =>
@@ -301,7 +301,6 @@ const windowOpen = (s, c) =>
   (c.signal.opens === null
     ? crossingState(s, c.id)?.phase === c.signal.steps.length
     : s.turn < (crossingState(s, c.id)?.until ?? 0));
-// A retired crossing stays open only in saves that had already found it.
 export const crossingOpen = (s, c, senses, actor = senses?.player ?? null) =>
   (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) &&
   entityActive(s, c.from) &&
@@ -336,6 +335,8 @@ export const crossingExits = (s, place, actor, senses) =>
 
 /** A pack is known once the player has found a way into it. */
 export const packDiscovered = (s, packId) =>
+  (packId === ELYSIUM_PACK && humanAvatarIds.some((id) =>
+    s.actors[id]?.visited?.includes(ELYSIUM_ENTRY))) ||
   crossings.some(
     (c) =>
       c.packId === packId &&
@@ -346,6 +347,7 @@ export function markCrossed(s, from, to) {
   const c = crossingBetween(from, to, s);
   if (
     c &&
+    !c.retired &&
     !(c.transport && (c.signal || c.unlockWhen)) &&
     crossingState(s, c.id)
   )
@@ -443,20 +445,19 @@ export function noteAct(s, a, place, holder, round, senses, log) {
 }
 // A physical arrangement can reveal a vessel without a synthetic action.
 // Any resident or player may make it; completed access survives later moves.
-export function settleCrossingUnlocks(s, senses) {
+export function settleCrossingUnlocks(s, senses, called = () => {}) {
   for (const c of crossings) {
-    if (!c.unlockWhen || s.crossings[c.id].discovered) continue;
-    if (
-      !Object.keys(s.actors).some(
-        (actor) =>
-          entityActive(s, actor) &&
-          c.unlockWhen.every((r) =>
-            conditionMet(s, r, senses, c.packId, actor),
-          ),
-      )
-    )
-      continue;
-    s.crossings[c.id].discovered = true;
+    if (!c.unlockWhen) continue;
+    const actor = Object.keys(s.actors).find((id) =>
+      entityActive(s, id) &&
+      c.unlockWhen.every((r) => conditionMet(s, r, senses, c.packId, id)),
+    );
+    if (!actor) continue;
+    called(c, actor);
+    const state = s.crossings[c.id];
+    if (state.discovered) continue;
+    state.discovered = true;
+    if (c.unlockMethod) state.method = c.unlockMethod;
     summonTransport(s, c.transport, c.from);
   }
 }
@@ -607,8 +608,10 @@ export function validPackState(s, senses) {
   for (const c of crossings) {
     const state = s.crossings[c.id];
     if (!c.signal) {
-      if (!exactKeys(state, ["discovered"])) return false;
-      if (typeof state.discovered !== "boolean") return false;
+      const method = state?.method;
+      if (!exactKeys(state, method === undefined ? ["discovered"] : ["discovered", "method"]) ||
+          typeof state.discovered !== "boolean" ||
+          (method !== undefined && (!state.discovered || method !== c.unlockMethod))) return false;
       continue;
     }
     if (

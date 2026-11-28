@@ -1,6 +1,6 @@
 [package]
 name = "cosyworld-orchestrator"
-version = "1.2.161"
+version = "1.2.166"
 edition = "2021"
 publish = false
 
@@ -46,6 +46,10 @@ tower = { version = "0.5", features = ["util"] }
 # and pushes busy test hosts past the per-request interpreter deadline.
 # Optimizing only this C dependency keeps the deadline and the rules unchanged.
 [profile.dev.package.rquickjs-sys]
+opt-level = 3
+
+# Startup hashes every file in an assets directory against its manifest.
+[profile.dev.package.sha2]
 opt-level = 3
 
 # Line tables keep file:line in panics and backtraces while dropping the rest

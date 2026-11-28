@@ -43,7 +43,11 @@ describe("want data", () => {
     ).toEqual({
       vale: undefined,
       moth: { kind: "item", target: "lamp", lit: true },
-      keeper: { kind: "item", target: "bell" },
+      keeper: {
+        kind: "place",
+        target: "pond",
+        step: { verb: "call", crossing: "pond-greek-harbor" },
+      },
     });
     expect(
       Object.fromEntries(

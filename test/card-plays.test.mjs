@@ -23,12 +23,15 @@ function cards(s, ...ids) {
 describe("playing the world through cards", () => {
   it("offers reachable items, local avatars, exits and the current place", () => {
     let s = createWorld();
+    s.items["elysium-wayfinder"].holder = "behind-station";
     expect(availableCards(s).filter((id) => !isArcanum(id))).toEqual([
       "vale",
       "station",
       "lamp",
       "bell",
+      "keeper-log",
       "pond",
+      "behind-station",
     ]);
     s = cards(s, "lamp");
     expect(availableCards(s)).toContain("moth");

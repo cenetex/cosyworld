@@ -6,9 +6,213 @@
 //! reach it, so a chat-tuned model answers a person, the view stays out of
 //! the reply, and the words are stable across attempts.
 use super::{
-    answered, custody, kind, name, names, waking, witnessed, Context, Entity, Part, Section,
-    SpokenLine,
+    answered, custody, kind, name, names, waking, witnessed, Context, Entity, Envelope, Part,
+    Reflection, Section,
 };
+
+use super::{elysium, knowledge, speak, AiConfig, Introduction, SceneClosed, VoiceSettings};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::BTreeMap;
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(super) struct SpokenLine {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) witnesses: Option<Vec<String>>,
+    pub(super) actor_id: String,
+    pub(super) text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) signed: Option<Envelope>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_name"
+    )]
+    pub(super) elysium_name: Option<Option<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) elysium_name_signed: Option<Envelope>,
+}
+
+fn present_name<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error> {
+    Option::deserialize(deserializer).map(Some)
+}
+
+#[derive(Serialize)]
+pub(super) struct Entry {
+    pub(super) id: String,
+    pub(super) text: String,
+    pub(super) model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) disclosed: Option<super::knowledge::Receipt>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) reflection: Option<Reflection>,
+    #[serde(rename = "elysiumName", skip_serializing_if = "Option::is_none")]
+    pub(super) elysium_name: Option<Option<String>>,
+}
+
+impl Entry {
+    pub(super) fn spoken(id: &str, text: String, model: String) -> Self {
+        Self {
+            id: id.to_owned(),
+            text,
+            model,
+            disclosed: None,
+            reflection: None,
+            elysium_name: elysium::is_resident(id).then_some(None),
+        }
+    }
+}
+
+pub(super) async fn prepare_resident<'a>(
+    context: &Context,
+    introduction: Option<&'a Introduction>,
+    deadline: tokio::time::Instant,
+) -> Option<(&'a str, Option<String>)> {
+    let (state, target, world) = introduction?;
+    let name = tokio::time::timeout_at(
+        deadline,
+        elysium::prepare_name(state, context, target, world.as_deref()),
+    )
+    .await
+    .ok()
+    .flatten();
+    Some((target, name))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn exchange(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
+    (actor, target): (&str, &str),
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, Entry>,
+    introduction: Option<&Introduction>,
+) -> Result<(), SceneClosed> {
+    let reserve = reply_reserve(settings.scene_timeout);
+    let opener_deadline = deadline - reserve;
+    let opener_ids = [actor.to_string()];
+    let opener = voice_lines(
+        config,
+        context,
+        character_models,
+        settings,
+        opener_deadline,
+        &opener_ids,
+        on_delta,
+        lines,
+        None,
+    );
+    let (said, resident) = tokio::join!(
+        opener,
+        prepare_resident(
+            context,
+            introduction.filter(|(_, id, _)| id == target),
+            opener_deadline
+        )
+    );
+    said?;
+    let Some(heard) = lines
+        .get(actor)
+        .and_then(|line| with_line(context, actor, &line.text))
+        .or_else(|| {
+            copy_context(context).map(|mut next| {
+                next.no_fresh_opener = true;
+                next
+            })
+        })
+    else {
+        return Ok(());
+    };
+    voice_lines(
+        config,
+        &heard,
+        character_models,
+        settings,
+        deadline,
+        &[target.to_string()],
+        on_delta,
+        lines,
+        resident,
+    )
+    .await
+}
+
+/// Keep validated lines up to the scene deadline. Dropping the stream cancels
+/// the pending requests.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn voice_lines(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
+    ids: &[String],
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, Entry>,
+    resident: Option<(&str, Option<String>)>,
+) -> Result<(), SceneClosed> {
+    let prepared = resident.as_ref().and_then(|(target, name)| {
+        let mut next = copy_context(context)?;
+        elysium::add_talk_facts(&mut next, target, name.as_deref());
+        Some(next)
+    });
+    let context = prepared.as_ref().unwrap_or(context);
+    // Each job owns its id: a borrowed one makes the scene future too
+    // general for `tokio::spawn`.
+    #[allow(clippy::unnecessary_to_owned)]
+    let jobs = ids.to_vec().into_iter().map(|id| async move {
+        let voice = speak(
+            config,
+            context,
+            character_models,
+            settings,
+            deadline,
+            &id,
+            Part::Line,
+        );
+        let (text, model) = tokio::time::timeout_at(deadline, voice).await.ok()?.ok()?;
+        let mut entry = Entry::spoken(&id, text, model);
+        // Once accepted, a line still publishes if its optional evidence check times out.
+        knowledge::confirm(config, context, &mut entry, deadline).await;
+        Some(entry)
+    });
+    let mut results = futures_util::StreamExt::buffer_unordered(
+        futures_util::stream::iter(jobs),
+        settings.parallel.max(1),
+    );
+    while let Some(result) = futures_util::StreamExt::next(&mut results).await {
+        let Some(mut entry) = result else {
+            continue;
+        };
+        if let Some((_, name)) = resident.as_ref().filter(|(target, _)| {
+            *target == entry.id && elysium::needs_introduction(context, target)
+        }) {
+            entry.elysium_name = Some(name.clone());
+        }
+        publish_line(context, on_delta, lines, entry)?;
+    }
+    Ok(())
+}
+
+fn publish_line(
+    context: &Context,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, Entry>,
+    line: Entry,
+) -> Result<(), SceneClosed> {
+    if context.speakers.contains(&line.id)
+        && on_delta.is_some_and(|emit| !emit(&serde_json::json!(line).to_string()))
+    {
+        return Err(SceneClosed);
+    }
+    lines.insert(line.id.clone(), line);
+    Ok(())
+}
 
 pub(super) const CHAT_LINES: usize = 6;
 /// And at most about this many characters (about 100 tokens), so a
@@ -27,7 +231,7 @@ pub(super) fn applies(context: &Context, entity: &Entity, part: Part) -> bool {
 pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a SpokenLine> {
     // Exchange contexts contain prior-turn speech only; fresh line chaining
     // belongs to Talk. Keep old promises in chat(), not as this play's result.
-    if custody::exchange(context, &entity.id) {
+    if context.no_fresh_opener || custody::exchange(context, &entity.id) {
         return None;
     }
     answered(context, entity).or_else(|| {
@@ -40,7 +244,6 @@ pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a Spo
     })
 }
 
-/// Who is with me, as I see it: "Pip is here with me." or "I'm alone here."
 pub(super) fn presence(context: &Context, id: &str) -> String {
     let mut here: Vec<String> = context
         .outcome
@@ -51,10 +254,10 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
         .collect();
     if context.outcome.is_none() {
         here.extend(super::listener(context, id));
-        for other in &context.present {
-            if other != id && !here.contains(other) {
-                here.push(other.clone());
-            }
+    }
+    for other in &context.present {
+        if other != id && !here.contains(other) {
+            here.push(other.clone());
         }
     }
     match here.len() {
@@ -65,6 +268,7 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
 }
 
 pub(super) const THINK: &str = "What do you think to yourself? One short sentence.";
+pub(super) const FACE: &str = "What do you say?";
 pub(super) const NOTICE: &str = "In one short sentence, what do you notice here?";
 
 fn facing(context: &Context, entity: &Entity) -> Option<String> {
@@ -90,8 +294,7 @@ fn actor_here(context: &Context, entity: &Entity) -> Option<String> {
     (entity.id != actor && !hidden && here).then(|| actor.to_string())
 }
 
-/// A speaking voice after a play, with no line to answer and nobody to
-/// face. A Discord channel has no play and keeps its own turns.
+/// A speaking voice after a play, with no line to answer and nobody to face.
 fn lone(context: &Context, entity: &Entity) -> bool {
     context.outcome.is_some()
         && heard(context, entity).is_none()
@@ -123,11 +326,13 @@ fn alone(context: &Context, entity: &Entity) -> String {
     }
 }
 
-/// The user turn: what I just heard, verbatim, as `Pip says, "…"`. When
-/// nobody has spoken (the first words of a Talk) it is the person I'm
-/// talking with, there ("Pip is here."). A lone speaking voice is asked its
-/// question; a gesture or emoji voice alone keeps silence.
+/// The user turn: what I just heard, as `Pip says, "…"`; else who I face, and a
+/// speaking voice is asked what it says ("Pip is here." drew "He is.", 2026-11-25);
+/// a lone voice's question; or silence for a gesture or emoji voice alone.
 pub(super) fn user(context: &Context, entity: &Entity) -> String {
+    if adding(context, entity) {
+        return FOLLOW_UP.into();
+    }
     match heard(context, entity) {
         Some(line) => format!(
             "{} says, \u{201c}{}\u{201d}",
@@ -137,9 +342,20 @@ pub(super) fn user(context: &Context, entity: &Entity) -> String {
         None if lone(context, entity) => alone(context, entity),
         None => facing(context, entity).map_or_else(
             || crate::ai_gateway::SILENCE.into(),
-            |l| format!("{} is here.", name(&l)),
+            |l| match super::system_voice(entity, Part::Line) {
+                shaped if shaped.starts_with(crate::ai_gateway::SHAPE) => {
+                    format!("You face {}.", name(&l))
+                }
+                _ => format!("You face {}. {FACE}", name(&l)),
+            },
         ),
     }
+}
+
+/// On Discord, when the speaker's own line is the newest, it adds to it.
+fn adding(context: &Context, entity: &Entity) -> bool {
+    let last = context.conversation.last();
+    context.channel && last.is_some_and(|l| l.actor_id == entity.id)
 }
 
 /// A remembered line, "Name: words", as "Pip said: "words"" or, for my
@@ -157,10 +373,8 @@ pub(super) fn said(text: &str, own: &str) -> String {
 /// characters; the answered line is the user message, so it is not
 /// repeated here. Reflection remembers the whole talk.
 pub(super) fn chat(context: &Context, entity: &Entity, part: Part) -> Vec<String> {
-    if part == Part::Line && in_turns(context, entity) {
-        return Vec::new();
-    }
-    let skip = heard(context, entity).filter(|_| part == Part::Line);
+    let answer = part == Part::Line && !adding(context, entity);
+    let skip = heard(context, entity).filter(|_| answer);
     let own = name(&entity.id);
     let mut lines: Vec<String> = context
         .conversation
@@ -228,7 +442,12 @@ pub(super) fn frame(
     let fresh: Vec<_> = mentions
         .into_iter()
         .filter(|fact| !known.iter().any(|(_, text)| text.contains(fact.as_str())))
-        .map(|fact| (Section::Directions, fact))
+        .map(|fact| {
+            (
+                Section::Facts,
+                format!("Something I know and can bring up if it fits the conversation: {fact}"),
+            )
+        })
         .collect();
     let known: Vec<_> = known.into_iter().chain(fresh).collect();
     let between = between.iter().map(|l| (Section::Conversation, l.clone()));
@@ -254,6 +473,7 @@ pub(super) const SCAFFOLD: &[&str] = &[
     "my next words are fresh",
     "helped reach my goal",
     "measured attempt",
+    "introduce yourself to the traveler in your own words",
 ];
 
 /// Whether a lowercased reply reads back a prompt label, in any case.
@@ -292,58 +512,24 @@ fn system(entity: &Entity) -> String {
     }
 }
 
-/// My own view as my turn, then what I just heard.
-fn in_turns(context: &Context, entity: &Entity) -> bool {
-    context.channel && super::system_voice(entity, Part::Line).starts_with("You are ")
-}
-
-fn channel_turns(context: &Context, entity: &Entity, view: &str) -> super::Prompt {
-    let mut turns: Vec<(bool, String)> = Vec::new();
-    for line in &context.conversation {
-        let own = line.actor_id == entity.id;
-        let text = match own {
-            true => line.text.clone(),
-            false => format!("{}: {}", name(&line.actor_id), line.text),
-        };
-        match turns.last_mut() {
-            Some((last, said)) if *last == own => {
-                said.push('\n');
-                said.push_str(&text);
-            }
-            _ => turns.push((own, text)),
-        }
-    }
-    let user = match turns.last() {
-        Some((true, _)) => FOLLOW_UP.to_string(),
-        _ => turns.pop().map_or_else(String::new, |(_, said)| said),
-    };
-    if turns.first().is_some_and(|(own, _)| *own) {
-        turns.insert(0, (false, crate::ai_gateway::SILENCE.into()));
-    }
-    let earlier: Vec<String> = turns.into_iter().map(|(_, said)| said).collect();
-    super::Prompt {
-        system: format!("{}\n\n{}", system(entity), super::prose(view)),
-        lead: crate::ai_gateway::earlier_turns(&earlier),
-        assistant: String::new(),
-        user,
-    }
-}
-
 pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
     let assistant = [
         super::own_view(entity, Part::Line),
         super::transcript(context, entity, Part::Line),
     ]
     .join("\n\n");
-    if in_turns(context, entity) {
-        return channel_turns(context, entity, &assistant);
-    }
     let lone = lone(context, entity);
+    let mut system = if lone {
+        super::system_voice(entity, Part::Line)
+    } else {
+        system(entity)
+    };
+    if context.elysium_introducer.as_deref() == Some(entity.id.as_str()) {
+        system.push(' ');
+        system.push_str(elysium::SELF_INTRODUCTION);
+    }
     super::Prompt {
-        system: match lone {
-            true => super::system_voice(entity, Part::Line),
-            false => system(entity),
-        },
+        system,
         lead: match lone {
             true => place(context, &assistant),
             false => String::new(),
@@ -357,9 +543,20 @@ pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
 /// Talk target answers it. Everyone voiced this turn heard it. The line was
 /// generated and validated on this server this turn, after the browser's
 /// lines were verified (`untrusted::trusted`), so it needs no envelope.
-pub(super) fn with_line(context: &Context, actor: &str, text: &str) -> Option<Context> {
+pub(super) fn copy_context(context: &Context) -> Option<Context> {
     let mut next: Context = serde_json::from_value(serde_json::to_value(context).ok()?).ok()?;
     next.acting_avatar = context.acting_avatar.clone();
+    next.present.clone_from(&context.present);
+    next.images.clone_from(&context.images);
+    next.channel = context.channel;
+    next.no_fresh_opener = context.no_fresh_opener;
+    next.elysium_introducer
+        .clone_from(&context.elysium_introducer);
+    Some(next)
+}
+
+pub(super) fn with_line(context: &Context, actor: &str, text: &str) -> Option<Context> {
+    let mut next = copy_context(context)?;
     let mut witnesses = context.speakers.clone();
     if !witnesses.iter().any(|id| id == actor) {
         witnesses.push(actor.to_string());
@@ -369,6 +566,7 @@ pub(super) fn with_line(context: &Context, actor: &str, text: &str) -> Option<Co
         actor_id: actor.to_string(),
         text: text.to_string(),
         signed: None,
+        ..Default::default()
     });
     Some(next)
 }
@@ -383,6 +581,14 @@ pub(super) fn reply_reserve(scene: std::time::Duration) -> std::time::Duration {
 /// The Talk target who answers the actor's line this turn, when both speak.
 pub(super) fn reply_target(context: &Context, voiced: &[String]) -> Option<(String, String)> {
     let actor = context.acting_avatar.as_deref().unwrap_or("vale");
+    reply_target_for(context, voiced, actor)
+}
+
+pub(super) fn reply_target_for(
+    context: &Context,
+    voiced: &[String],
+    actor: &str,
+) -> Option<(String, String)> {
     let card = &context.outcome.as_ref()?.card;
     let target = card.target.as_deref()?;
     (card.kind == "talk"
@@ -433,6 +639,7 @@ mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into()]),
             actor_id: "moth".into(),
             text: "You can borrow my lamp.".into(),
+            ..Default::default()
         }];
         for verb in ["ask", "give", "trade"] {
             let card = &mut c.outcome.as_mut().unwrap().card;
@@ -443,7 +650,7 @@ mod tests {
                 c.outcome.as_mut().unwrap().card.accepted = Some(accepted);
                 assert!(valid(&c));
                 let prompt = messages(&c, super::super::entity(&c, "vale"));
-                assert_eq!(prompt.user, "Pip is here.");
+                assert_eq!(prompt.user, "You face Pip. What do you say?");
                 assert!(prompt
                     .assistant
                     .contains("Pip said: \"You can borrow my lamp.\""));
@@ -468,9 +675,21 @@ mod tests {
             card.receive = (verb == "trade").then(|| "bell".into());
             card.accepted = Some(accepted);
             let prompt = messages(&c, super::super::entity(&c, "moth"));
-            assert_eq!(prompt.user, "Vale is here.", "{verb} {accepted}");
+            assert_eq!(
+                prompt.user, "You face Vale. What do you say?",
+                "{verb} {accepted}"
+            );
             assert_eq!(prompt.lead, "");
             assert!(prompt.system.ends_with(SAY_ALOUD), "{}", prompt.system);
+        }
+        for (id, shape) in [("skull", "body language"), ("whiskerwind", "symbols only")] {
+            let text = serde_json::to_string(&c)
+                .unwrap()
+                .replace("\"moth\"", &format!("{id:?}"));
+            let gesture: Context = serde_json::from_str(&text).unwrap();
+            let prompt = messages(&gesture, super::super::entity(&gesture, id));
+            assert!(prompt.system.contains(shape), "{}", prompt.system);
+            assert_eq!(prompt.user, "You face Vale.", "{id}");
         }
         c.speakers = vec!["vale".into()];
         c.outcome.as_mut().unwrap().card.kind = "wait".into();
@@ -562,7 +781,7 @@ mod tests {
     /// With no line from the actor this turn, the target does not answer
     /// one from an earlier turn.
     #[tokio::test]
-    async fn no_actor_line_means_no_reply() {
+    async fn a_resident_responds_without_an_opener_from_this_turn() {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let (address, server) = serve(slow_provider(seen.clone(), |stem| match stem {
             "Vale:" => 5_000,
@@ -575,6 +794,7 @@ mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into()]),
             actor_id: "vale".into(),
             text: "An old question from yesterday.".into(),
+            ..Default::default()
         }];
         let ids = vec!["vale".to_string(), "moth".into()];
         let started = tokio::time::Instant::now();
@@ -588,9 +808,13 @@ mod tests {
             None,
         )
         .await;
-        assert!(result.is_err());
+        let result = result.unwrap();
+        assert_eq!(result["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(result["entries"][0]["id"], "moth");
         assert!(started.elapsed() < Duration::from_millis(900));
-        assert!(pip_requests(&seen).is_empty());
+        let pip = pip_requests(&seen);
+        assert_eq!(pip.len(), 1);
+        assert!(!super::super::tests::turn_of(&pip[0], "user").contains("yesterday"));
         server.abort();
     }
 
@@ -653,12 +877,14 @@ mod tests {
                 witnesses: all.clone(),
                 actor_id: "keeper".into(),
                 text: "The night boats for the far shore are late again.".into(),
+                ..Default::default()
             },
             SpokenLine {
                 signed: None,
                 witnesses: all,
                 actor_id: "vale".into(),
                 text: "Which boats for the far shore leave from the east quay, Pip?".into(),
+                ..Default::default()
             },
         ];
         let pip = &c.entities[3];

@@ -4,40 +4,6 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const VERSION_FILES = new Set([
-  'package.json',
-  'package-lock.json',
-  'v2/orchestrator-rust/Cargo.toml',
-  'v2/orchestrator-rust/Cargo.lock'
-]);
-
-export function normalizeVersionFile(file, source) {
-  if (file === 'package.json' || file === 'package-lock.json') {
-    const value = JSON.parse(source);
-    if (typeof value.version === 'string') value.version = '<release-version>';
-    if (typeof value.packages?.['']?.version === 'string') {
-      value.packages[''].version = '<release-version>';
-    }
-    return JSON.stringify(value);
-  }
-
-  if (file === 'v2/orchestrator-rust/Cargo.toml') {
-    return source.replace(
-      /^(\[package\][^[]*?^version = )"[^"]+"/ms,
-      '$1"<release-version>"'
-    );
-  }
-
-  if (file === 'v2/orchestrator-rust/Cargo.lock') {
-    return source.replace(
-      /(name = "cosyworld-orchestrator"\nversion = )"[^"]+"/,
-      '$1"<release-version>"'
-    );
-  }
-
-  return source;
-}
-
 export function isKnownNonProductionPath(file) {
   return (
     file.endsWith('.md') ||
@@ -50,33 +16,12 @@ export function isKnownNonProductionPath(file) {
   );
 }
 
-export function hasDeploymentImpact(files, readAt) {
-  for (const file of files) {
-    if (VERSION_FILES.has(file)) {
-      const before = readAt('base', file);
-      const after = readAt('head', file);
-      if (
-        before !== null &&
-        after !== null &&
-        normalizeVersionFile(file, before) === normalizeVersionFile(file, after)
-      ) {
-        continue;
-      }
-      return {
-        deploy: true,
-        reason: `${file} changed beyond its release version`
-      };
-    }
-
-    if (!isKnownNonProductionPath(file)) {
-      return { deploy: true, reason: `${file} can affect production` };
-    }
-  }
-
-  return {
-    deploy: false,
-    reason: 'only docs, tests, tooling, or release versions changed'
-  };
+// A version bump counts, so .dev builds the image a release tag promotes.
+export function hasDeploymentImpact(files) {
+  const file = files.find((name) => !isKnownNonProductionPath(name));
+  return file
+    ? { deploy: true, reason: `${file} can affect production` }
+    : { deploy: false, reason: 'only docs, tests, or tooling changed' };
 }
 
 function git(args, { allowFailure = false } = {}) {
@@ -104,14 +49,10 @@ function main() {
     return;
   }
 
-  const files = git(['diff', '--name-only', base, head])
+  const files = git(['diff', '--name-only', '--no-renames', base, head])
     .split('\n')
     .filter(Boolean);
-  const readAt = (side, file) =>
-    git(['show', `${side === 'base' ? base : head}:${file}`], {
-      allowFailure: true
-    });
-  const result = hasDeploymentImpact(files, readAt);
+  const result = hasDeploymentImpact(files);
   console.error(`[deployment-impact] ${result.reason}`);
   console.log(`deploy=${result.deploy}`);
   console.log(`reason=${result.reason}`);

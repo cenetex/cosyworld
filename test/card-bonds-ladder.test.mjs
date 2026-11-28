@@ -109,6 +109,8 @@ describe("want.minTrust", () => {
       [4, false],
     ]) {
       const p = structuredClone(packDefinition("greek-drama"));
+      delete p.items["greek-household-token"].teachesQuest;
+      delete p.items["greek-household-token"].questReadText;
       delete p.avatars[R].wants;
       p.avatars[R].want = { kind: "place", target: "greek-sanctuary", minTrust };
       const check = () => validatePackDefinition(p);

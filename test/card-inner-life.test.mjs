@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createWorld } from "../v2/card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave, legalActions, play } from "../v2/card-game/world.mjs";
 import { learningFacts } from "../v2/card-game/learning.mjs";
-import { inCharacter, innerLifeChain } from "../v2/card-game/inner-life.mjs";
+import { inCharacter, innerLifeChain, subjectMemories } from "../v2/card-game/inner-life.mjs";
 
 function reflective() {
   const world = createWorld();
@@ -26,7 +26,7 @@ function reflective() {
 }
 
 describe("inner life panel", () => {
-  it("shows I'm, I'm becoming and I dream, closed by the name", () => {
+  it("keeps the authored identity, evolving persona and dreams distinct", () => {
     const chain = innerLifeChain(reflective(), "vale");
     expect(chain.im).toBe("I'm Vale. The Lamplighter.");
     // One current intention: the newest grounded thought.
@@ -35,7 +35,9 @@ describe("inner life panel", () => {
     ]);
     expect(chain.dreams).toEqual(["A vast void. I wake. An echo."]);
     expect(chain.name).toBe("Vale");
-    expect(Object.keys(chain)).toEqual(["name", "im", "becoming", "dreams"]);
+    expect(chain.description).toContain("A traveller");
+    expect(chain.persona).toBe("I turn the unlit lamp in my hand and study the empty mirror.");
+    expect(chain.memories.some((m) => m.kind === "location")).toBe(true);
   });
 
   it("keeps measured attempts out of the panel", () => {
@@ -51,7 +53,7 @@ describe("inner life panel", () => {
     expect(inCharacter("It seems Vale is looking for a path.")).toBe(false);
     expect(inCharacter("  ")).toBe(false);
     const chain = innerLifeChain(createWorld(), "vale");
-    expect(chain).toMatchObject({ becoming: [], dreams: [] });
+    expect(chain).toMatchObject({ becoming: [], dreams: [], persona: "" });
     expect(chain.im).toBe("I'm Vale. The Lamplighter.");
   });
 
@@ -74,6 +76,59 @@ describe("inner life panel", () => {
       "I am becoming a lamplighter who listens.",
     ]);
     expect(chain.dreams).toEqual(["I dream of the Bell under water."]);
+  });
+
+  it("summarizes witnessed items, places and people without repeating the transcript", () => {
+    const world = reflective();
+    const entry = { seq: 10, turn: 3, kind: "action", verb: "give", actorId: "moth",
+      targetId: "vale", itemId: "cloth", accepted: true, locationId: "station",
+      cast: ["vale", "moth"], items: [{ id: "cloth", holder: "vale" }],
+      speaker: "World", text: "A raw journal sentence that must not appear." };
+    world.log = [entry, { ...entry, seq: 11, turn: 4, generated: true,
+      text: "A private generated aside." }, { ...entry, seq: 12, turn: 5,
+      actorId: "mara", targetId: "keeper", cast: ["mara", "keeper"], itemId: "oil",
+      items: [{ id: "oil", holder: "keeper" }] }];
+    world.memories.vale.events = [{ seq: 10, turn: 3, kind: "event", text: `World: ${entry.text}` }];
+    world.memories.vale.landmarks = [...world.memories.vale.events];
+    const found = subjectMemories(world, "vale");
+    const by = (id) => found.find((m) => m.id === id);
+    const gift = "Received Black cloth from Pip at Empty station.";
+    expect(by("cloth").summary).toContain(gift);
+    expect(by("moth").summary).toContain(gift);
+    expect(by("station").kind).toBe("location");
+    expect(found.filter((m) => m.id === "cloth")).toHaveLength(1);
+    expect(JSON.stringify(found)).not.toMatch(/raw journal|generated aside/u);
+    expect(by("oil")).toBeUndefined();
+    expect(subjectMemories(world, "vale", (id) => id !== "cloth").some((m) =>
+      m.id === "cloth" || m.summary.includes("Black cloth"))).toBe(false);
+    world.memories.vale.events = [{ seq: 10, turn: 3, kind: "event", text: "World: A new incarnation." }];
+    world.memories.vale.landmarks = [];
+    expect(subjectMemories(world, "vale").some((m) => m.summary.includes("Received Black cloth"))).toBe(false);
+  });
+
+  it("retains saved personal sightings and experiences after the log expires", () => {
+    const world = createWorld();
+    world.actors.vale.visited = ["station", "pond"];
+    world.memories.vale.seen = { moth: { place: "pond", turn: 4, seq: 5 } };
+    world.life.actors.vale.experiences = [{ kind: "gift", other: "moth", item: "cloth", place: "pond", turn: 4 }];
+    world.log = [];
+    world.actors.moth.place = "attic";
+    world.items.cloth.holder = "keeper";
+    const memories = subjectMemories(world, "vale");
+    expect(memories.find((m) => m.id === "moth").summary).toContain("Last seen at Black pond.");
+    expect(memories.find((m) => m.id === "cloth").summary).toContain("Received Black cloth from Pip at Black pond.");
+    expect(memories.find((m) => m.id === "pond").summary).toContain("I have been here.");
+    expect(JSON.stringify(memories)).not.toContain("Last seen at Mirror attic");
+    expect(subjectMemories(world, "mara").some((m) => m.summary.includes("Received Black cloth"))).toBe(false);
+  });
+
+  it("projects the same summaries after saving a legal play, without changing state", () => {
+    const world = createWorld();
+    const action = legalActions(world).find((a) => a.kind === "wait");
+    const result = play(world, action).state;
+    const before = encodeSave(result);
+    expect(subjectMemories(decodeSave(before), "vale")).toEqual(subjectMemories(result, "vale"));
+    expect(encodeSave(result)).toBe(before);
   });
 
   it("names a cast member without a title plainly", () => {

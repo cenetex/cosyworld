@@ -4,11 +4,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { sharedContentInput } from "./shared-content-input.mjs";
 import { releasedBundleRefusal } from "./released-bundles.mjs";
+import { newest, pin, pinned } from "./rules-pins.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const output = new URL(
-  "../orchestrator-rust/src/card_shared/engine-v183.js",
-  import.meta.url,
-);
+const rules = new URL("../orchestrator-rust/src/card_shared/", import.meta.url);
+const pins = await readFile(new URL("rules.json", rules), "utf8");
+const output = new URL(`engine-v${newest(pins)}.js`, rules);
 const result = await build({
   absWorkingDir: root,
   entryPoints: ["v2/card-game/shared-world-entry.mjs"],
@@ -25,7 +25,10 @@ const result = await build({
 });
 const text = result.outputFiles[0].text;
 if (process.argv.includes("--check")) {
-  if ((await readFile(output, "utf8")) !== text)
+  if (
+    (await readFile(output, "utf8")) !== text ||
+    !(await pinned(output, text))
+  )
     throw new Error(
       "Rebuild the shared card rules with node v2/scripts/build-card-shared-engine.mjs.",
     );
@@ -37,4 +40,5 @@ if (process.argv.includes("--check")) {
       : await releasedBundleRefusal(output, text, root);
   if (refusal) throw new Error(refusal);
   await writeFile(output, text);
+  if (process.env.COSYWORLD_MINT_PROBE !== "1") await pin(output, text);
 }

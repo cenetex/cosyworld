@@ -1,11 +1,14 @@
 import { expect, it } from "vitest";
 import {
   phase,
+  holdDialogueChoice,
+  STALE_REFUSALS,
   refusalLabel,
   refusalSentence,
   THINKING_GRACE_MS,
 } from "../v2/card-game/presentation.mjs";
 import { WORLD_UPDATE } from "../v2/card-game/shared-auth.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 
 const choosing = { raised: true, chosen: true };
 
@@ -34,6 +37,18 @@ it("decides what the dialogue box shows", () => {
     [{ ...choosing, reviewing: true }, "choosing"],
   ])
     expect(phase(state), JSON.stringify(state)).toBe(expected);
+});
+
+it("holds a chosen action until a live line is explicitly continued", () => {
+  const read = { queued: false, live: true, complete: true, speaking: false, next: false };
+  expect(holdDialogueChoice(read)).toBe(false);
+  for (const change of [{ complete: false }, { speaking: true }, { next: true }]) {
+    const queued = holdDialogueChoice({ ...read, ...change });
+    expect(queued).toBe(true);
+    expect(holdDialogueChoice({ ...read, queued })).toBe(true);
+    expect(phase({ ...choosing, revealing: queued })).toBe("revealing");
+  }
+  expect(holdDialogueChoice({ ...read, live: false, complete: false })).toBe(false);
 });
 
 it("has no failed phase: words that fail are a silent line", () => {
@@ -67,4 +82,11 @@ it("ends a refusal's status sentence with one mark", () => {
   );
   expect(refusalSentence("Wait… then try again.")).toBe("Wait…");
   expect(refusalSentence("Not now!")).toBe("Not now.");
+});
+
+it("knows the rules' answers to a stale play, which never reach the screen", () => {
+  const s = createWorld();
+  const [first] = legalActions(s);
+  expect(STALE_REFUSALS.has(play(s, first, s.revision + 1).error)).toBe(true);
+  expect(STALE_REFUSALS.has(play(s, { ...first, key: "gone" }, s.revision).error)).toBe(true);
 });

@@ -54,11 +54,14 @@ const rootOf = (world, item) => {
   return holder;
 };
 const article = (name) => (/^(the|a|an) /iu.test(name) ? name : `the ${name}`);
+export const callWords = (want, name) =>
+  `call the ship: hold ${name("cloth")} at ${name(want.target)} while ${name("lamp")} burns on the ground there`;
 
 // The want already met is not a current want, so it stays unsaid.
 function met(world, id, want) {
   // An introduction is met only by a Talk, so it is always still to come.
   if (want.kind === "connect") return false;
+  if (want.step?.verb === "call") return false;
   const here = world.actors[id].place;
   // Holding a food it wants to eat is not eating it (rules 102).
   if (want.kind === "item")
@@ -108,6 +111,8 @@ export function revealed(world, id, want, listener) {
 }
 
 export function wantFact(world, id, nameOf, listener) {
+  const done = world.actors?.[id]?.completedQuest;
+  if (done && !world.actors[id].want) return `${nameOf(done.by)} called the ship for me.`;
   const want = wantOf(world, id);
   if (want?.kind === "connect" && world.actors?.[id])
     return "I want to introduce you to someone.";
@@ -129,6 +134,7 @@ export function wantFact(world, id, nameOf, listener) {
       : "";
   if (said.step?.verb === "lay")
     return `I want ${said.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.${help}`;
+  if (said.step?.verb === "call") return `I want you to ${callWords(said, nameOf)}.${help}`;
   return (
     (said.kind === "item"
       ? said.step?.verb === "eat"

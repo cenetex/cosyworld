@@ -76,7 +76,7 @@ describe("a thing given up for good", () => {
     expect(loaded.gone).toEqual(["bell"]);
   });
 
-  it("marks the play that loses a thing for good, and proves XIII", () => {
+  it("marks the play that loses a thing for good, then Collect proves XIII", () => {
     let world = sewing();
     const xiii = data.cards.find((card) => card.number === 13);
     world.actors.vale.arcana = {
@@ -86,6 +86,11 @@ describe("a thing given up for good", () => {
     };
     const before = new Set(world.usedUp);
     world = act(world, "give", { item: BUTTON, target: "rati" });
+    expect(recordOf(world, "vale")).toMatchObject({
+      proved: [],
+      spread: [{ card: xiii.id, face: "reward", done: true }],
+    });
+    world = act(world, "accept", { tarot: 0 });
     expect(neverBack(world, BUTTON)).toBe(true);
     expect(goneSince(world, before)).toEqual([BUTTON]);
     const entry = world.log.findLast(

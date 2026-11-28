@@ -126,9 +126,8 @@ export function worldSeats(state) {
 // slot are the deck. Signed out there are no slots: the player plays Vale
 // in this browser, and that local save is its own passkey, never a slot
 // (#1892, #1846). A world nobody is in any more has closed on the server and
-// is not listed (full_retire.rs). An avatar this passkey has not found yet
-// (`unlocked`, from the world list) is `locked`: a card back, in no deck
-// (#1936). Once nobody is left to find, a new world hides nobody.
+// is not listed (full_retire.rs). An avatar in no slot and not in the world
+// list's `unlocked` is `locked`, a card back in no deck (#1936).
 export function worldSlots({
   shared,
   rows = [],
@@ -186,7 +185,7 @@ export function worldSlots({
     for (const seat of slots[0].seats)
       if (seat.kind === "you") seat.online = true;
   const placed = new Set(slots.map((slot) => slot.mine));
-  const found = (a) => !unlocked || unlocked.includes(a.id);
+  const found = (a) => !unlocked || unlocked.includes(a.id) || placed.has(a.id);
   const cast = byInitial(humanAvatars);
   const deck = cast.filter((a) => !placed.has(a.id) && found(a));
   const locked = cast.filter((a) => !found(a));
@@ -236,7 +235,7 @@ export function installAvatarMenu({
   status.setAttribute("role", "status");
   menu.prepend(box, status);
   let rows = [],
-    unlocked = null,
+    unlocked = session ? [] : null,
     shared = Boolean(session),
     invite = null,
     // The card's avatar: a tapped seat { id, slot }, or one "+" offers

@@ -9,6 +9,8 @@ import { profiles } from "./memory.mjs";
 
 const STORE = "cosyworld-card-signed-words";
 const LIMIT = 800;
+const nameKind = "elysium-name";
+const nameVersion = (claims) => typeof claims?.rules === "string" && claims.rules.endsWith("/elysium-v1");
 const key = (kind, id, text) => `${kind}\u0000${id}\u0000${text}`;
 let cache = null;
 
@@ -40,12 +42,23 @@ function put(map, k, envelope) {
   while (map.size > LIMIT) map.delete(map.keys().next().value);
 }
 
+function matchingNameEnvelope(envelope, spoken, id) {
+  const claims = envelope?.claims;
+  return envelope?.sig && nameVersion(claims) && nameVersion(spoken) &&
+    claims.kind === nameKind && claims.entity === id && spoken.entity === id &&
+    spoken.kind === "line" && claims.world === "local" && spoken.world === "local" &&
+    claims.rules === spoken.rules && claims.turn === spoken.turn && claims.seq === spoken.seq;
+}
+
 // Keep the envelopes from a scene or reflection reply.
 export function rememberSigned(response, storage = localStorage) {
   const map = load(storage);
   for (const entry of response?.entries || []) {
     if (!entry?.signed || typeof entry.text !== "string") continue;
     put(map, key("line", entry.id, entry.text), entry.signed);
+    if (typeof entry.elysiumName === "string" &&
+      matchingNameEnvelope(entry.elysiumNameSigned, entry.signed.claims, entry.id))
+      put(map, key(nameKind, entry.id, entry.elysiumName), entry.elysiumNameSigned);
   }
   for (const entry of response?.reflections || [])
     for (const kind of ["thought", "persona", "dream"]) {
@@ -55,6 +68,17 @@ export function rememberSigned(response, storage = localStorage) {
     }
   save(storage);
   return response;
+}
+
+export function hasSignedLocalIntroduction(line, revision, storage = localStorage) {
+  const map = load(storage);
+  const envelope = map.get(key("line", line.actorId, line.text));
+  const claims = envelope?.claims;
+  if (!envelope?.sig || claims?.kind !== "line" || claims.entity !== line.actorId ||
+    claims.world !== "local" || claims.turn !== line.turn || claims.seq !== revision) return false;
+  if (!Object.hasOwn(line, "elysiumName")) return !nameVersion(claims);
+  return Boolean(typeof line.elysiumName === "string" &&
+    matchingNameEnvelope(map.get(key(nameKind, line.actorId, line.elysiumName)), claims, line.actorId));
 }
 
 // The request body: the scene with each remembered word's envelope, and
@@ -74,7 +98,12 @@ export function withSignatures(context, storage = localStorage) {
   };
   const conversation = (context.conversation || []).flatMap((line) => {
     const signed = find("line", line.actorId, line.text);
-    return signed ? [{ ...line, signed }] : [];
+    if (!signed) return [];
+    if (!Object.hasOwn(line, "elysiumName")) return [{ ...line, signed }];
+    const name = typeof line.elysiumName === "string" && find(nameKind, line.actorId, line.elysiumName);
+    if (matchingNameEnvelope(name, signed.claims, line.actorId))
+      return [{ ...line, signed, elysiumNameSigned: name }];
+    return [{ ...line, signed, elysiumName: null }];
   });
   const entities = context.entities.map((entity) => {
     const next = { ...entity };
@@ -132,7 +161,7 @@ export const signedRequest =
 // Every kept envelope, once each: a save shared into a new world sends them
 // so the server keeps the words they cover (#2067).
 export function signedEnvelopes(storage = localStorage) {
-  const all = [...load(storage).values()];
+  const all = [...load(storage).values()].filter((envelope) => envelope.claims?.kind !== nameKind);
   return [...new Map(all.map((e) => [e.sig, e])).values()];
 }
 

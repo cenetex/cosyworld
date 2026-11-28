@@ -7,7 +7,6 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   narrativeContext,
-  partialEntries,
   requestNarrative,
   createNarrator,
 } from "../v2/card-game/narrative.mjs";
@@ -29,22 +28,7 @@ afterEach(() => {
 });
 
 describe("live story text", () => {
-  it("shows complete characters and escapes as JSON arrives", () => {
-    const text =
-      '{"entries":[{"id":"vale","text":"Café \\"hello\\" \\uD83C\\uDF19"},{"id":"station","text":"Dust moves."}]}';
-    for (let i = 0; i < text.length; i++) {
-      const entries = partialEntries(text.slice(0, i));
-      for (const entry of entries)
-        expect(entry.text).not.toMatch(/[\uD800-\uDBFF]$/u);
-    }
-    expect(partialEntries(text)).toEqual([
-      { id: "vale", text: 'Café "hello" 🌙' },
-      { id: "station", text: "Dust moves." },
-    ]);
-    expect(partialEntries('{"id":"unknown","text":"hello')).toEqual([]);
-  });
-
-  it("delivers speech before completion across every network byte boundary", async () => {
+  it("delivers only complete signed frames across network byte boundaries", async () => {
     const context = narrativeContext(createWorld()),
       progress = vi.fn();
     let source;
@@ -61,15 +45,20 @@ describe("live story text", () => {
     );
     vi.stubGlobal("fetch", fetch);
     const result = requestNarrative(context, undefined, progress);
-    const draft = event({
-      type: "delta",
-      text: '{"entries":[{"id":"vale","text":"Café 🌙"},{"id":"station","text":"Dust',
-    });
+    const line = {
+      id: "vale",
+      model: "fixture",
+      signed: { claims: { kind: "line", entity: "vale" }, sig: "fixture" },
+      text: 'Café "hello" 🌙',
+    };
+    const draft = event({ type: "delta", text: JSON.stringify(line) });
     for (const byte of draft) source.enqueue(Uint8Array.of(byte));
     await tick();
-    expect(progress).toHaveBeenLastCalledWith([
-      { id: "vale", text: "Café 🌙" },
-    ]);
+    expect(progress).toHaveBeenLastCalledWith([]);
+    const delimited = event({ type: "delta", text: "\n" });
+    for (const byte of delimited) source.enqueue(Uint8Array.of(byte));
+    await tick();
+    expect(progress).toHaveBeenLastCalledWith([line]);
     expect(fetch.mock.calls[0][1].headers.Accept).toBe("text/event-stream");
     const full = complete(context);
     for (const byte of event(full)) source.enqueue(Uint8Array.of(byte));

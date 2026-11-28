@@ -1,3 +1,5 @@
+import { accountStorage as storage } from "./account-reset-storage.mjs";
+import { PLAYING_KEY } from "./avatar-world.mjs";
 import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
 import { arrivePage } from "./page-fade.mjs";
@@ -5,42 +7,30 @@ import { membersLock, request } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
 import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { pipEntry } from "./pip-landing.mjs";
-// A new world opens with the Lonely Forest title over the booting table; the
-// same logo stands in the toolbar for as long as that world is played.
-let storage = null;
-try {
-  storage = localStorage;
-} catch {}
 const page = {
   href: location.href,
   local: !!document.querySelector('meta[name="cosy-local-app"]'),
 };
-// The Pip card's page is the game's own: its tab is named so from the first paint.
-if (pipEntry(page.href)) document.title = "Lonely Forest";
-const authoring =/^\/make\/?$/u.test(location.pathname);
-const introWanted =
-  !authoring &&
-  titleIntroWanted({
-    ...page,
-    storage,
-    webdriver: navigator.webdriver,
-  });
+const authoring = /^\/make\/?$/u.test(location.pathname);
 const startup = new AbortController();
+let redirecting = false;
 try {
-  if (!authoring && logoSite(page)) {
-    // A bare address with no save is a new world: it never repeats the last logo.
-    const logo = worldLogo({ href: page.href, storage, fresh: introWanted });
-    showToolbarLogo(logo);
-    if (introWanted) playTitleIntro({ storage, logo, signal: startup.signal });
+  const hasSiteLogo = !authoring && logoSite(page);
+  if (!hasSiteLogo) {
+    const wordmark = document.querySelector(".brand strong");
+    if (wordmark) wordmark.textContent = "COSYWORLD";
   }
-  // A page another world or seat led to opens on its black and lifts it.
-  arrivePage();
   const local = await setupLocalService();
   // Capture identity before either surface starts work, including the maker.
-  // Static/local tables do not have an account service.
-  const account = !local && await request("/auth/account").catch(() => null);
+  // A missing account route is permanent for this page. Other errors can retry.
+  const account =
+    !local &&
+    (await request("/auth/account").catch((error) =>
+      error.status === 404 ? null : undefined,
+    ));
   // A members-only test server shows its sign-in lock instead of the table.
-  const locked = !authoring && !local && (await membersLock(account));
+  const locked =
+    !authoring && !local && account !== null && (await membersLock(account));
   const params = new URLSearchParams(location.search);
   // The old "Your worlds" address (`?shared=1`) is ☰ now (#1877).
   if (!authoring && (params.has("shared") || (local && params.has("world")))) {
@@ -53,14 +43,32 @@ try {
   let resume = null;
   try {
     if (!authoring && !local && !params.size && !pipEntry(location.href))
-      resume = JSON.parse(localStorage.getItem("cosyworld.playing") || "null");
+      resume = JSON.parse(storage.getItem(PLAYING_KEY) || "null");
   } catch {}
   if (locked) {
     // The lock stays until a known passkey signs in and the page reloads.
-  } else if (authoring) await import("./authoring-entry.mjs");
-  else if (resume?.world)
+    arrivePage();
+  } else if (resume?.world) {
     location.replace(`/?world=${encodeURIComponent(resume.world)}`);
-  else await import("./app.mjs");
+    redirecting = true;
+  } else {
+    if (hasSiteLogo) {
+      const intro = titleIntroWanted({
+        ...page,
+        storage,
+        webdriver: navigator.webdriver,
+      });
+      const logo = worldLogo({ href: page.href, storage, fresh: intro });
+      showToolbarLogo(logo);
+      if (intro) playTitleIntro({ storage, logo, signal: startup.signal });
+    }
+    // Keep a navigation's arrival fade for the document that opens the table.
+    arrivePage();
+    if (authoring) await import("./authoring-entry.mjs");
+    else await import("./app.mjs");
+    const toolbar = document.querySelector(".top-actions");
+    if (toolbar) toolbar.hidden = false;
+  }
 } catch (error) {
   // A failed module cannot safely be evaluated again in this document.
   // Retry reloads the page, preserving its URL and saved world.
@@ -75,6 +83,7 @@ try {
       "The table could not open.";
     document.getElementById("dialogue-text").textContent = "Try again";
     row.hidden = retry.hidden = false;
+    if (row.parentElement) row.parentElement.hidden = false;
     retry.disabled = false;
     retry.setAttribute("aria-label", "Try again");
     retry.addEventListener(
@@ -90,6 +99,6 @@ try {
   }
 } finally {
   // The Pip box keeps the table inert until it is opened (title-intro.mjs).
-  document.body.inert = Boolean(document.querySelector('.title-intro[data-held="true"]'));
+  document.body.inert = redirecting || Boolean(document.querySelector('.title-intro[data-held="true"]'));
 }
-showBuildInfo();
+if (!redirecting) showBuildInfo();

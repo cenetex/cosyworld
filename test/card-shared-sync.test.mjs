@@ -64,7 +64,12 @@ describe("shared event sync", () => {
     expect(next.world.revision).toBe(2);
     expect(next.history.map((scene) => scene.play)).toEqual(["new", "old"]);
     request.mockResolvedValueOnce(delta([], position(b), 3));
-    expect((await sync()).now).toBe(3);
+    const tick = await sync();
+    expect(tick.now).toBe(3);
+    expect(tick.world).toBe(next.world);
+    expect(tick.history).toBe(next.history);
+    expect(tick.queue).toBe(next.queue);
+    expect(next.now).toBe(2);
     expect(request.mock.calls[2][1]["x-cosyworld-sync"]).toBe(
       cursor(position(b)),
     );

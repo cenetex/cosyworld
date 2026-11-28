@@ -1,4 +1,4 @@
-import { newMemories, profiles, upgradeSightings } from "./memory.mjs";
+import { newMemories, profiles, upgradeSightings, upgradeSubjectMemories } from "./memory.mjs";
 import {
   packDefinitions,
   conditionsMet,
@@ -11,6 +11,9 @@ import { sectionAllows } from "./pack-sections.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { installItemCycle } from "./pack-items.mjs";
+import { savedClaim } from "./claims.mjs";
+import { installQuestFacts } from "./quest-learn.mjs";
+import { settleStrandedWayfinder } from "./world/elysium-travel.mjs";
 
 // The save schema. The rules 133 bump retired every earlier save and shared
 // world ("we can reset"): a save of another schema is not lifted, it starts
@@ -74,7 +77,6 @@ export function carryLocalProgress(world, old) {
 export function upgradeSave(s, { installPacks, laneText = () => null }) {
   if (!s || s.schema !== SAVE_SCHEMA)
     throw new Error("This save needs a fresh start.");
-  // Packs saved at an earlier revision follow their reworked story below.
   const reworked = new Set(
     packDefinitions
       .filter((p) => {
@@ -88,11 +90,17 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
       .map((p) => p.id),
   );
   upgradeSightings(s);
-  for (const a of Object.values(s.actors || {}))
+  for (const a of Object.values(s.actors || {})) {
     if (a?.offered && !Object.hasOwn(a.offered, "from")) delete a.offered;
+    // Old agreements preserve the trip already taken, not permission for future legs.
+    delete a?.companion;
+    delete a?.actedAt;
+  }
   installPacks(s);
   reconcileContent(s);
+  upgradeSubjectMemories(s);
   reconcilePackProgress(s, reworked);
+  if (reworked.has("elysium")) settleStrandedWayfinder(s);
   // A told lane keeps its id; its words follow the lane's current conditions.
   // A lane the ship no longer sails is forgotten (Greek revision 16).
   for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
@@ -101,9 +109,11 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     if (text) fact.text = text;
     else if (reworked.size) forgetFact(s.knowledge, id);
   }
-  reconcileTopics(s, reworked);
+  reconcileTopics(s);
+  reconcileClaims(s);
   for (const pack of packDefinitions)
     if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
+  installQuestFacts(s);
   return s;
 }
 
@@ -123,6 +133,8 @@ export function reconcileContent(s) {
     for (const c of pack.crossings)
       if (c.retired && s.crossings?.[c.id])
         s.crossings[c.id].discovered = false;
+  const pondCrossing = s.crossings?.["pond-greek-harbor"];
+  if (pondCrossing?.method === "station-lantern") delete pondCrossing.method;
   const authored = structuredClone(forest.initialState.items);
   for (const pack of packDefinitions)
     for (const [id, item] of Object.entries(pack.items || {}))
@@ -174,8 +186,7 @@ export function reconcileContent(s) {
 
 // A story step the content no longer leads to leaves a save from an earlier
 // pack revision; a save at the current revision is checked as it stands.
-// Receipts
-// replay in order, as validation reads them; a step whose prerequisites
+// Receipts replay in order, as validation reads them; a step whose prerequisites
 // are no longer met leaves with its log line and recital, and the pack's
 // flags and choices are counted again from the steps that stay. Whoever and
 // whatever those flags held back goes home, and anyone standing in a place
@@ -289,10 +300,9 @@ export function reconcilePackProgress(s, reworked) {
   }
 }
 
-// A told topic of a reworked pack follows its current words and choice. One
-// the content retired, or gave another teller or place, is forgotten
-// (#1747 reworded Oak's night watch; Greek revision 15 retired a report).
-export function reconcileTopics(s, reworked) {
+// A told topic follows its current words and choice at any pack revision.
+// One the content retired, or gave another teller or place, is forgotten.
+export function reconcileTopics(s) {
   const k = s?.knowledge;
   if (!k?.facts || typeof k.facts !== "object") return;
   const topics = new Map(
@@ -302,7 +312,7 @@ export function reconcileTopics(s, reworked) {
   );
   for (const [id, fact] of Object.entries(k.facts)) {
     const told = fact?.source?.kind === "topic" && fact.source.topic;
-    if (!told || !reworked.has(told.packId)) continue;
+    if (!told) continue;
     const topic = topics.get(`${told.packId}:${told.id}`);
     if (
       topic?.id === id &&
@@ -314,6 +324,21 @@ export function reconcileTopics(s, reworked) {
       continue;
     }
     forgetFact(k, id);
+  }
+}
+// A read claim follows its book at any pack revision, or is forgotten.
+export function reconcileClaims(s) {
+  for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
+    if (fact?.source?.kind !== "claim") continue;
+    const claim = savedClaim(s, id, fact);
+    if (!claim) forgetFact(s.knowledge, id);
+    else {
+      fact.text = claim.text;
+      Object.assign(fact.source, { author: claim.author, about: claim.about });
+      for (const known of Object.values(s.knowledge.known || {}))
+        if (known?.[id]?.status !== undefined && known[id].status !== claim.settles)
+          delete known[id].status;
+    }
   }
 }
 function forgetFact(k, id) {

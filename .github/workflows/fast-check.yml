@@ -1,28 +1,18 @@
-name: Fast check
+name: Checks
 
-# Runs on every pull request and every push to main, in about five minutes.
-# A change to Rust inputs adds the focused Rust tests and the clippy ceiling
-# (rust, rust-lint). The full suite (ci.yml) runs only by hand before a
-# production release; the full Rust gate runs on the train and tags (deploy.yml).
+# The .dev train calls this beside its build (deploy.yml dev-checks). It checks
+# main from the commit its checks last passed on; it never gates .dev. A change
+# to Rust inputs adds the focused Rust tests and the clippy ceiling.
 on:
-  pull_request:
-  push:
-    branches: [main]
-
-# Cancel a superseded pull request run; never cancel a main run.
-concurrency:
-  group: fast-check-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  workflow_call:
+    inputs:
+      base:
+        description: Commit main's checks last passed on; empty checks only the newest commit
+        type: string
+        default: ""
 
 permissions:
   contents: read
-
-# Every checkout is blobless with full history, which took a median 15 s
-# against 33 s for the default depth-1 checkout of the same tree (see ci.yml).
-# On 2026-11-03 GitHub served this repository's ~1 GB of files at 1-2 MB/s,
-# and checkouts ran past the 8-minute job limit. So each checkout borrows the
-# files' Git objects from an Actions cache that main's unit job refreshes
-# daily and whenever the card art changes, and fetches only files changed since.
 
 # Every job reads its runner label from the FAST_CHECK_RUNNER repository
 # variable, so switching to the Fly runner (#1565) needs no workflow edit.
@@ -39,19 +29,6 @@ jobs:
       smokes: ${{ steps.smokes.outputs.smokes }}
       rust-tests: ${{ steps.rust.outputs.tests }}
     steps:
-      - &restore-git-objects
-        name: Restore cached Git objects
-        id: git-objects
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ runner.temp }}/git-objects
-          key: git-objects-v1-${{ github.sha }}
-          restore-keys: git-objects-v1-
-      - &borrow-git-objects
-        name: Borrow cached Git objects
-        run: |
-          mkdir -p "$RUNNER_TEMP/git-objects"
-          echo "GIT_ALTERNATE_OBJECT_DIRECTORIES=$RUNNER_TEMP/git-objects" >> "$GITHUB_ENV"
       - &checkout
         uses: actions/checkout@v7
         with:
@@ -69,41 +46,34 @@ jobs:
           node-version: "24"
       - name: List changed files
         env:
-          EVENT: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          BEFORE: ${{ github.event.before }}
+          BASE: ${{ inputs.base }}
         run: |
-          if [ "$EVENT" = pull_request ]; then
-            range="$PR_BASE...$PR_HEAD"
-          elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            range="$BEFORE..$GITHUB_SHA"
-          else
-            range="$GITHUB_SHA~1..$GITHUB_SHA"
-          fi
-          git diff --name-only "$range" > "$RUNNER_TEMP/changed.txt"
+          base="$BASE"
+          git cat-file -e "$base^{commit}" 2>/dev/null || base="$GITHUB_SHA~1"
+          git diff --name-only "$base" "$GITHUB_SHA" > "$RUNNER_TEMP/changed.txt"
           cat "$RUNNER_TEMP/changed.txt"
+      # The budget, ratchet and ceilings measure the newest merge alone.
+      - name: Read the merged pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" > "$RUNNER_TEMP/pulls.json" || echo "[]" > "$RUNNER_TEMP/pulls.json"
+          echo "PR_LABELS=$(jq -c '[.[0].labels[]?.name]' "$RUNNER_TEMP/pulls.json")" >> "$GITHUB_ENV"
       - name: Check change budget
-        if: github.event_name == 'pull_request'
-        env:
-          COSYWORLD_PR_BODY: ${{ github.event.pull_request.body }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: node scripts/check-change-budget.mjs --base "$PR_BASE" --head "$PR_HEAD"
+        run: |
+          COSYWORLD_PR_BODY="$(jq -r '.[0].body // ""' "$RUNNER_TEMP/pulls.json")" \
+            node scripts/check-change-budget.mjs --base "$GITHUB_SHA~1" --head "$GITHUB_SHA"
       - name: Check comment ratchet
-        if: github.event_name == 'pull_request'
-        env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-        run: npm run check:comments -- --base "$PR_BASE"
+        run: npm run check:comments -- --base "$GITHUB_SHA~1"
+      - name: Check large-file line ceilings
+        run: npm run check:lines -- --base "$GITHUB_SHA~1"
       - name: Check version alignment
         run: npm run check:version
       # New card-table UI needs the owner's approval in ui-inventory.json.
       - name: Check UI inventory
         run: npm run check:ui
       - name: Check shared rules engine policy (warning only)
-        if: github.event_name == 'pull_request'
-        env:
-          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: node v2/scripts/engine-gate.mjs "$RUNNER_TEMP/changed.txt"
       - name: Choose browser smokes
         id: smokes
@@ -126,12 +96,8 @@ jobs:
   lint:
     name: Lint and guides
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    # A cache miss fetches the whole tree from Git, which took up to 11
-    # minutes on 2026-11-03; with the cache the job takes about 5.
     timeout-minutes: 15
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
       - uses: actions/setup-node@v7
         with:
@@ -141,55 +107,23 @@ jobs:
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run lint
       - run: npm run check:test-guards
-      # Every generated output rebuilds from its sources; a stale one fails
-      # here with the command that fixes it (`npm run regen`). It runs once
-      # here, not in each unit shard.
+      - run: node --test v2/discord-gateway/test/*.test.mjs
+      # A stale generated output fails here with the fix (`npm run regen`).
       - run: npm run regen:check
 
-  # The suite runs as four vitest shards (`--shard=i/4`, about 330 files
-  # split by path hash), because one runner took 6-9 minutes. Each shard
-  # prints its tests that passed only on a retry. The `unit` job below keeps
-  # the old name and gates `fast`.
+  # Three vitest shards balanced by test/durations.json, three workers each.
   unit-shard:
-    name: JavaScript unit tests (${{ matrix.shard }}/4)
+    name: JavaScript unit tests (${{ matrix.shard }}/3)
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    # A cache miss fetches the whole tree from Git, which took up to 11
-    # minutes on 2026-11-03; with the cache the job takes about 5.
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3]
     env:
       CI: true
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
-      # Packs the checkout's files into one pack for later checkouts. The key
-      # changes daily and with the card art, so most main pushes save nothing.
-      # A run that found no cache at all saves one too, even on a pull request.
-      - name: Pack Git objects for later checkouts
-        id: pack-git-objects
-        if: matrix.shard == 1 && (github.event_name == 'push' || steps.git-objects.outputs.cache-matched-key == '')
-        env:
-          MATCHED: ${{ steps.git-objects.outputs.cache-matched-key }}
-        run: |
-          key="git-objects-v1-$(date -u +%Y%m%d)-$(git rev-parse HEAD:v2/card-game/assets)"
-          if [ "$key" != "$MATCHED" ]; then
-            fresh="$RUNNER_TEMP/git-objects-fresh"
-            mkdir -p "$fresh/pack"
-            git ls-tree -r --object-only HEAD | git pack-objects -q --window=0 "$fresh/pack/pack"
-            rm -rf "$RUNNER_TEMP/git-objects"
-            mv "$fresh" "$RUNNER_TEMP/git-objects"
-            echo "key=$key" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Save Git objects for later checkouts
-        if: steps.pack-git-objects.outputs.key
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ runner.temp }}/git-objects
-          key: ${{ steps.pack-git-objects.outputs.key }}
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -197,25 +131,10 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
       # Not a gate: lists tests that passed only on a retry (`retry: 1`).
-      - run: npx vitest run --shard=${{ matrix.shard }}/4 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
-
-  # One stable name for the four shards. A failed, cancelled or skipped
-  # shard makes the needs result something other than success.
-  unit:
-    name: JavaScript unit tests
-    if: ${{ always() }}
-    needs: unit-shard
-    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 5
-    steps:
-      - name: Verify every unit test shard passed
-        env:
-          RESULT: ${{ needs.unit-shard.result }}
-        run: test "$RESULT" = success
+      - run: npx vitest run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
 
   # cargo fmt reads source only, so this job builds nothing and needs no
-  # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
-  # so its formatting matches the .dev train's Rust gate.
+  # Cargo cache. Its stable toolchain matches the production Rust gate's.
   rustfmt:
     name: Rust formatting
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
@@ -238,24 +157,20 @@ jobs:
             exit 1
           fi
 
-  # One job per smoke: the core list in scripts/fast-smokes.json on every run,
-  # then up to three chosen by changed paths. The fast job counts them all.
+  # The core smokes and every smoke the changed paths choose, packed by
+  # measured time into at most four jobs (scripts/fast-smokes.json packing).
   smoke:
-    name: Browser smoke (${{ matrix.smoke }})
+    name: Browser smokes (${{ matrix.smokes }})
     needs: plan
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    # A cache miss fetches the whole tree from Git, which took up to 11
-    # minutes on 2026-11-03; with the cache the job takes about 5.
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        smoke: ${{ fromJSON(needs.plan.outputs.smokes) }}
+        smokes: ${{ fromJSON(needs.plan.outputs.smokes) }}
     env:
       CI: true
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
       - uses: actions/setup-node@v7
         with:
@@ -274,51 +189,43 @@ jobs:
       - name: Install Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
-      - name: Run ${{ matrix.smoke }}
+      - name: Run browser smokes
         env:
-          SMOKE: ${{ matrix.smoke }}
-        run: |
-          case "$SMOKE" in
-            *@*) COSYWORLD_SMOKE_WIDTHS="${SMOKE#*@}" node "v2/scripts/${SMOKE%@*}.mjs" ;;
-            *) node "v2/scripts/$SMOKE.mjs" ;;
-          esac
+          SMOKES: ${{ matrix.smokes }}
+        run: node scripts/select-fast-smokes.mjs --run "$SMOKES"
       - name: Upload browser evidence
-        if: failure() || matrix.smoke == 'smoke-card-title-intro' || matrix.smoke == 'smoke-card-ratiradio' || matrix.smoke == 'smoke-card-lock-quests' || matrix.smoke == 'smoke-card-resident-sleep' || matrix.smoke == 'smoke-card-generation-profile'
+        if: failure() || contains(matrix.smokes, 'smoke-card-title-intro') || contains(matrix.smokes, 'smoke-card-ratiradio') || contains(matrix.smokes, 'smoke-card-lock-quests')
         uses: actions/upload-artifact@v7
         with:
-          name: fast-check-${{ matrix.smoke }}
+          name: fast-check-smokes-${{ strategy.job-index }}
           path: output/
           if-no-files-found: ignore
           retention-days: 7
 
-  # Runs only when the change touches the crate or a file it reads, and only
-  # the tests of the modules involved (scripts/select-rust-tests.mjs and the
-  # rust section of scripts/fast-smokes.json). It restores the Cargo cache
-  # that ci.yml saves and never saves one, so the repository's 10 GB of
-  # caches holds no extra Cargo copy. The full gate stays on the train.
+  # Runs only when Rust, the rules or the shared bundles change, and only the
+  # tests of the modules involved (scripts/select-rust-tests.mjs and the rust
+  # section of scripts/fast-smokes.json). It starts from the dependency cache
+  # rust-cache.yml saves on main. The full gate runs on tags (deploy.yml).
   rust:
-    name: Rust tests (${{ needs.plan.outputs.rust-tests }})
+    name: Rust tests
     needs: plan
     if: needs.plan.outputs.rust-tests != ''
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     env:
       CI: true
-      RUST_TEST_THREADS: "2"
-      # Match ci.yml so the restored cache's fingerprints still apply.
+      RUST_TEST_THREADS: "4"
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
-      # build.rs hashes the card game's public files, art included.
       - *checkout
       - uses: dtolnay/rust-toolchain@stable
       # build.rs and the narrative tests run Node.
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - name: Restore Cargo build cache
+      - &restore-cargo
+        name: Restore Cargo dependency cache
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -326,16 +233,65 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-day-restore-only
-          restore-keys: |
-            ${{ runner.os }}-cargo-compact-v1-day-
-            ${{ runner.os }}-cargo-compact-v1-
+          key: ${{ runner.os }}-cargo-deps-v1-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-cargo-deps-v1-
       - name: Run focused Rust tests
         env:
           FILTERS: ${{ needs.plan.outputs.rust-tests }}
         run: |
           read -ra filters <<< "$FILTERS"
           bash v2/scripts/check-rust.sh focused "${filters[@]}"
+
+  rust-smokes:
+    name: Rust server smokes
+    needs: plan
+    if: needs.plan.outputs.rust-tests != ''
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 25
+    env:
+      CI: true
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - *checkout
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - *restore-cargo
+      - name: Build the server and check no card-game, content or rules file is compiled in
+        run: node v2/scripts/check-rust-inputs.mjs --strict
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
+      - uses: ./.github/actions/chromium-deps
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+      - name: Run the smokes that start the server
+        run: |
+          run() {
+            if node "v2/scripts/$1.mjs" > "$RUNNER_TEMP/$1.log" 2>&1; then
+              echo "::group::$1 passed"; cat "$RUNNER_TEMP/$1.log"; echo "::endgroup::"
+            else
+              echo "::error title=Rust server smoke failed::$1"; cat "$RUNNER_TEMP/$1.log"; touch "$RUNNER_TEMP/failed"
+            fi
+          }
+          for smoke in $(node -p "require('./scripts/fast-smokes.json').rust.smokes.join(' ')"); do run "$smoke" & done
+          wait
+          test ! -e "$RUNNER_TEMP/failed"
+      - name: Upload browser evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fast-check-rust-smokes
+          path: output/
+          if-no-files-found: ignore
+          retention-days: 7
 
   rust-lint:
     name: Rust clippy ceiling
@@ -346,8 +302,6 @@ jobs:
     env:
       CI: true
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -360,20 +314,22 @@ jobs:
           bash v2/scripts/check-main-size.sh
           bash v2/scripts/check-rust-lint.sh
 
-  # One stable context for branch protection. A Rust job counts when it runs.
+  # A Rust job counts when it runs. Cancelled checks skip this rather than fail.
   fast:
-    name: fast
-    if: ${{ always() }}
-    needs: [plan, lint, unit, rustfmt, smoke, rust, rust-lint]
+    name: All checks
+    if: ${{ !cancelled() }}
+    needs: [plan, lint, unit-shard, rustfmt, smoke, rust, rust-lint, rust-smokes]
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Verify all fast-check jobs passed
         env:
           REQUIRED: >-
             ${{ needs.plan.result }} ${{ needs.lint.result }}
-            ${{ needs.unit.result }} ${{ needs.rustfmt.result }}
+            ${{ needs.unit-shard.result }} ${{ needs.rustfmt.result }}
             ${{ needs.smoke.result }}
-          RUST: ${{ needs.rust.result }} ${{ needs.rust-lint.result }}
+          RUST: >-
+            ${{ needs.rust.result }} ${{ needs.rust-lint.result }}
+            ${{ needs.rust-smokes.result }}
         run: |
           for result in $REQUIRED; do test "$result" = success; done
           for result in $RUST; do

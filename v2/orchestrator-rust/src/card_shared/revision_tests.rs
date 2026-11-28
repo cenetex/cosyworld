@@ -130,6 +130,7 @@ fn late_shared_provider_result_cannot_cross_the_revision_fence() {
     c.execute("INSERT INTO account_revisions VALUES('ann',1)", [])
         .unwrap();
     let work = Work {
+        portrait_eligible: false,
         id: "job".into(),
         room: "room".into(),
         actor: 0,

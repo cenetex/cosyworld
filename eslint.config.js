@@ -1,9 +1,8 @@
-// Flat config for ESLint v9
-// Keep it lightweight and non-blocking by default.
-
 export default [
   {
     ignores: [
+      'v2/orchestrator-rust/src/card_shared/engine-v*.js',
+      'v2/orchestrator-rust/src/card_shared/narrator.js',
       'dist/**',
       'node_modules/**',
       'images/**',

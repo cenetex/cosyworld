@@ -141,7 +141,7 @@ export function createServer({
       res.end();
       return;
     }
-    if (pathname === "/card-game/text" && req.method === "POST") {
+    if (["/card-game/text", "/card-game/memory-summaries"].includes(pathname) && req.method === "POST") {
       // Use the same Rust service as production. Keep provider keys there.
       const origin = process.env.COSYWORLD_CARD_TEXT_ORIGIN;
       if (!origin) {

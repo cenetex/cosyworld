@@ -135,6 +135,9 @@ export const nightness = (hour) =>
 // A place's authored stage light (stage-light.json); places without an entry
 // are open to the sky and take the full grade.
 export const placeLight = (id) => authored.places[id] || {};
+export const stageAmbienceAssets = Object.values(authored.places)
+  .map(({ ambience }) => ambience?.impact)
+  .filter(Boolean);
 export const LIGHT_TINTS = {
   lamp: [1.3, 1.02, 0.66],
   fire: [1.35, 0.95, 0.58],

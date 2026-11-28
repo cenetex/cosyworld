@@ -5,12 +5,14 @@ import { createServer } from "../card-game/serve.mjs";
 import { createLandingWorld } from "../card-game/pack-landing.mjs";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { SAVE_BASE, PLAYING_KEY } from "../card-game/avatar-world.mjs";
+import { openPack, pinSeed } from "./card-browser-helpers.mjs";
 
 async function walkToGivenLamp(browser, base) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: "reduce" });
   page.setDefaultTimeout(20000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await pinSeed(page, SEED);
   await page.route("**/card-game/text", (route) => route.fulfill({ status: 503, body: "Unavailable" }));
   const { choose, buttonReads, press, button } = helpers(page);
   await page.goto(`${base}/pip?c=PIP-TEST-0001`);
@@ -22,7 +24,7 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(await page.evaluate(() => document.body.inert), false);
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.card), "moth");
   await page.locator('#card-actions [data-action="talk"]').click();
-  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.heard?.moth === "item:lamp", key, { timeout: 4000 });
+  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).knowledge?.known?.vale?.["quest:moth:lamp"], key, { timeout: 4000 });
   assert.equal(await page.locator('#hand .want-frame').count(), 0, "the prelude lays no offer card");
   await page.locator('.title-intro[data-phase="ack"]').waitFor({ timeout: 8000 });
   // The land acknowledgement and the logo, then the opening itself: no second box.
@@ -35,9 +37,10 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(secondBox, false, "a scanner is not asked to open a second box");
   await page.locator('#hand [data-card="vale"]').waitFor();
   const carried = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
+  assert.equal(carried.run.seed, SEED);
   assert.equal(carried.actors.vale.place, "attic");
   assert.equal(carried.actors.vale.want ?? null, null);
-  assert.deepEqual(carried.actors.vale.heard, { moth: "item:lamp" });
+  assert.equal(carried.knowledge.known.vale["quest:moth:lamp"].teller, "moth");
   // The opening: each face-down card chosen shows its own Reveal.
   for (const id of ["attic", "lamp"]) {
     await choose(id);
@@ -47,7 +50,13 @@ async function walkToGivenLamp(browser, base) {
   }
   const travel = async (place, name) => {
     await page.keyboard.press("Escape");
+    await openPack(page, place);
     await choose(place);
+    if ((await page.locator(`#hand [data-card="${place}"]`).getAttribute("data-unrevealed")) === "true") {
+      await buttonReads(/new card unlocked/iu);
+      await button.first().click();
+      await page.waitForFunction((id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false", place);
+    }
     await buttonReads(new RegExp(`(goes|carries the Lamp) to ${name}`, "iu"));
     await press(() => page.waitForFunction((name) => document.getElementById("place-title")?.textContent === name, name, { timeout: 2500 }));
   };
@@ -59,12 +68,10 @@ async function walkToGivenLamp(browser, base) {
   }
   assert.equal(decodeSave(await page.evaluate((key) => localStorage.getItem(key), key)).items.lamp.lit, false);
   await travel("pond", "Black pond");
-  assert.equal(await page.locator('#hand .want-frame').count(), 0, "no offer before Pip is asked again");
   await choose("moth");
-  await page.locator('#card-actions [data-action="talk"]').waitFor();
-  await press(() => page.locator('#card-actions [data-action="accept"]').waitFor({ timeout: 8000 }));
-  assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
-  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 2500 }));
+  await page.locator('#hand [data-quest-id="offer:moth"] > .want-card[data-unrevealed="false"]').click();
+  await page.waitForFunction(() => document.querySelector(".action-beat-text")?.textContent === "Pip asks for the Lamp", null, { timeout: 8000 });
+  assert.equal(await button.count(), 0, "Pip's card has no Accept");
   await page.keyboard.press("Escape");
   await choose("vale");
   await choose("lamp");
@@ -75,11 +82,12 @@ async function walkToGivenLamp(browser, base) {
   const saved = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
   assert.equal(saved.items.lamp.holder, "moth");
   assert.notEqual(saved.actors.vale.want?.from, "quest:from:moth");
+  assert(saved.log.some((e) => e.verb === "want_met" && e.actorId === "vale" && e.ownerId === "moth"));
   assert.equal(saved.actors.vale.xp, 0);
   assert.equal(saved.actors.vale.under, undefined);
   assert.equal(saved.actors.vale.place, "pond");
   assert.deepEqual(errors, []);
-  console.log("Pip first quest: box, Talk, fade, opening, Accept at the pond and Give passed.");
+  console.log("Pip first quest: box, Talk, fade, opening, Pip's card at the pond and Give passed.");
   await page.close();
 }
 // Choosing and pressing, waiting on what the screen shows. A press soon after
@@ -112,6 +120,7 @@ const browser = await chromium.launch({ headless: true });
 const output = new URL("../../output/card-pip/", import.meta.url);
 await mkdir(output, { recursive: true });
 const key = `${SAVE_BASE}.entry.pip`;
+const SEED = 17;
 const save = encodeSave(createLandingWorld(null, 17));
 try {
   for (const path of ["/pip", "/pip/"])
@@ -122,6 +131,7 @@ try {
     page.setDefaultTimeout(15000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    await pinSeed(page, SEED);
     await page.route("**/card-game/text", (route) => route.fulfill({ status: 503, body: "Unavailable" }));
     await page.addInitScript(({ baseKey, playing, save }) => {
       if (!localStorage.getItem(baseKey)) {
@@ -161,7 +171,7 @@ try {
     assert(pip.width > 80 && pip.x >= 0 && pip.x + pip.width <= width);
     await page.screenshot({ path: new URL(`pip-${width}.png`, output).pathname });
     await talk.click();
-    await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.heard?.moth === "item:lamp", key, { timeout: 4000 });
+    await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).knowledge?.known?.vale?.["quest:moth:lamp"], key, { timeout: 4000 });
     assert.equal(await page.locator('#hand .want-frame').count(), 0);
     // Closed during the fade: the page returns to the fade, not to Pip.
     await page.reload();
@@ -170,7 +180,7 @@ try {
     await page.locator(".title-intro").waitFor({ state: "detached" });
     const journey = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     assert.equal(journey.actors.vale.place, "attic");
-    assert.deepEqual(journey.actors.vale.heard, { moth: "item:lamp" });
+    assert.equal(journey.knowledge.known.vale["quest:moth:lamp"].teller, "moth");
     assert.equal(journey.actors.vale.want ?? null, null);
     await page.reload();
     await page.locator('#hand [data-card="vale"]').waitFor();
@@ -184,6 +194,7 @@ try {
     await page.close();
   }
   const other = await browser.newPage();
+  await pinSeed(other, SEED);
   await other.goto(`${base}/pip`);
   await other.locator('.title-intro[data-phase="card"] .card').click();
   await other.locator(".title-intro").waitFor({ state: "detached" });

@@ -3,7 +3,11 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
+import {
+  pinSeed,
+  readyActionButton,
+  selectCard,
+} from "./card-browser-helpers.mjs";
 
 // Cards leaving the hand fall as inert ghosts from where they lay while the
 // hand redraws at once (card-exit.mjs). A reload, another tab's world and a
@@ -31,6 +35,7 @@ try {
     page.setDefaultTimeout(20000);
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
+    await pinSeed(page, 17);
     const key = `cosyworld.reflected-shore.v1.exit-${width}`;
     await page.addInitScript(
       ({ key, save }) => {
@@ -102,6 +107,7 @@ try {
         () => !document.querySelector(".card-exits > *, .travel.travelling"),
       );
     const travel = async (place) => {
+      await page.keyboard.press("Escape");
       await selectCard(page, place);
       // A lone way on is chosen at one tap, so the hand may still be rising.
       await page.evaluate(() =>

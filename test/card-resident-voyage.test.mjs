@@ -15,7 +15,7 @@ const SHIP = "greek-ship",
   BARD = "greek-rhapsode",
   HARBOR = "greek-harbor",
   PIRAEUS = "greek-piraeus";
-const players = ["vale", "mara"];
+const players = ["vale", "mara", "ada"];
 
 // After the plea: the ship empty at the harbor with the Bard just aboard and
 // bound for Piraeus, Mara waiting at Piraeus.

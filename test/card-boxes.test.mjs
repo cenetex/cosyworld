@@ -376,6 +376,7 @@ describe("credit for opening a box", () => {
       const steps = [
         ["take", id("station-key")],
         ["move", "station"],
+        ["move", "behind-station"],
         ["move", id("staff-kitchen")],
         ["drop", id("station-key")],
         ["take", id("red-beanie"), id("dispatch-window")],

@@ -109,22 +109,6 @@
       }
     }
   ],
-  "topics": [
-    {
-      "id": "badger-no-bells",
-      "speaker": "badger",
-      "at": "clearing",
-      "text": "Badger says one more bell will spoil his nap for good.",
-      "requires": []
-    },
-    {
-      "id": "badger-cold-moss",
-      "speaker": "badger",
-      "at": "clearing",
-      "text": "Badger says the moss goes cold when the clock stops steaming.",
-      "requires": []
-    }
-  ],
   "hiding": {
     "pool": [
       { "id": "clearing", "depth": "door" }

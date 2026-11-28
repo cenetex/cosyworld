@@ -21,11 +21,15 @@ const HERE = "arcanum-0";
 const WAITED = "arcanum-1";
 
 function act(s, kind, who = "vale") {
-  const action = legalActions(s, who).find((a) => a.kind === kind);
+  const action = legalActions(s, who).find((a) =>
+    typeof kind === "function" ? kind(a) : a.kind === kind,
+  );
   const result = play(s, action, s.revision, who);
   expect(result.ok).toBe(true);
   return result.state;
 }
+const collect = (s, who = "vale") =>
+  act(s, (a) => a.kind === "accept" && a.tarot !== undefined, who);
 
 function shared(s, other) {
   s.sharedVersion = 1;
@@ -68,15 +72,19 @@ afterEach(() => {
 });
 
 describe("settling after a play", () => {
-  it("unlocks a held card when a play makes it true, and it leaves its slot", () => {
+  it("keeps a met card as a reward until Collect proves it and frees its slot", () => {
     let s = holding(createWorld({ seed: 3 }), "vale", HERE);
     s = act(s, "move");
     expect(s.actors.vale.place).toBe(far);
+    expect(recordOf(s, "vale").spread).toEqual([
+      { card: HERE, face: "reward", done: true },
+    ]);
+    expect(recordOf(s, "vale").proved).toEqual([]);
+    s = collect(s);
     expect(s.actors.vale.arcana).toEqual({
       proved: [HERE],
       did: [],
       level: 0,
-      done: [HERE],
     });
     expect(s.actors.vale.upgrades).toEqual([HERE]);
     s = act(s, "move");
@@ -88,24 +96,24 @@ describe("settling after a play", () => {
     expect(recordOf(s, "vale").proved).toEqual([]);
     s.log = [];
     s = act(s, "wait");
+    s = collect(s);
     expect(s.actors.vale.arcana).toEqual({
       proved: [WAITED],
       did: ["waited"],
       level: 0,
-      done: [WAITED],
     });
   });
-  it("marks a face-down card done and keeps it face down", () => {
+  it("marks a completed quest as a reward without claiming its proof", () => {
     const s = createWorld({ seed: 3 });
     s.actors.vale.arcana = {
       proved: [],
       did: [],
-      spread: [{ card: WAITED, face: "down" }],
+      spread: [up(WAITED)],
     };
     s.log.push({ seq: 1, verb: "wait", actorId: "vale" });
     settleArcana(s, "vale");
     expect(s.actors.vale.arcana.spread).toEqual([
-      { card: WAITED, face: "down", done: true },
+      { card: WAITED, face: "reward", done: true },
     ]);
     expect(recordOf(s, "vale").proved).toEqual([]);
   });
@@ -140,7 +148,9 @@ describe("settling after a play", () => {
         cast: ["vale"],
         ...entry,
       });
-      return recordOf(settleArcana(s, "vale"), "vale").proved.length === 1;
+      return (
+        recordOf(settleArcana(s, "vale"), "vale").spread[0].face === "reward"
+      );
     };
     expect(proved({}, {})).toBe(true);
     expect(proved({}, { verb: "move" })).toBe(false);
@@ -155,16 +165,17 @@ describe("settling after a play", () => {
     let s = shared(createWorld({ seed: 3 }), other);
     holding(holding(s, "vale", HERE), other, HERE);
     s = act(s, "move");
+    s = collect(s);
     expect(recordOf(s, "vale").proved).toEqual([HERE]);
     expect(recordOf(s, other).proved).toEqual([]);
     const mine = structuredClone(s.actors.vale.arcana);
     s.actors[other].place = far;
     settleArcana(s, null, s.log.at(-1).seq);
+    s = collect(s, other);
     expect(s.actors[other].arcana).toEqual({
       proved: [HERE],
       did: [],
       level: 0,
-      done: [HERE],
     });
     expect(s.actors.vale.arcana).toEqual(mine);
   });
@@ -181,6 +192,7 @@ describe("settling after a play", () => {
   });
   it("is gone when the avatar is reset", () => {
     let s = act(holding(createWorld({ seed: 3 }), "vale", HERE), "move");
+    s = collect(s);
     shared(s, other);
     expect(s.actors.vale.arcana.proved).toEqual([HERE]);
     resetAvatar(s, "vale");
@@ -232,7 +244,9 @@ describe("settling after a play", () => {
     s.presentActors.push(other);
     s.controlledActors.push(other);
     s.log = [];
-    expect(recordOf(settleArcana(s, other), other).proved).toEqual([WAITED]);
+    expect(
+      recordOf(collect(settleArcana(s, other), other), other).proved,
+    ).toEqual([WAITED]);
     expect(asleep(["vale"]).actors[other].arcana.did).toEqual([]);
   });
 });
@@ -251,9 +265,10 @@ describe("the saved record", () => {
       done: [],
       spread: [],
       sale: false,
+      paid: false,
     });
     expect(fresh.actors.vale.arcana).toBeUndefined();
-    const s = act(holding(fresh, "vale", HERE), "move");
+    const s = collect(act(holding(fresh, "vale", HERE), "move"));
     const back = decodeSave(encodeSave(s));
     expect(back.actors.vale.arcana).toEqual(s.actors.vale.arcana);
     expect(back.actors.vale.arcana.proved).toEqual([HERE]);

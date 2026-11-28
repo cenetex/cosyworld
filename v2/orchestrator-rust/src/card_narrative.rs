@@ -1,5 +1,6 @@
 use crate::ai_gateway::ModelCapability;
 use crate::ai_gateway::{request_voice_completion, AiConfig, ChatCompletionRequest};
+use crate::card_shared::{elysium_model_mismatch, tune_elysium_voice};
 use crate::rate_limit::{RateLimit, RateLimiter};
 use crate::routes::signed_envelope::Envelope;
 use axum::{
@@ -7,8 +8,9 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{sse::Event, IntoResponse, Response, Sse},
     routing::post,
-    Json, Router,
+    Extension, Json, Router,
 };
+use cosyworld_orchestrator::card_assets;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -33,10 +35,13 @@ mod between;
 mod channel;
 #[path = "card_narrative/conversation.rs"]
 mod conversation;
+use conversation::SpokenLine;
 #[path = "card_narrative/custody.rs"]
 mod custody;
 #[path = "card_narrative/dream.rs"]
 mod dream;
+#[path = "card_narrative/elysium.rs"]
+mod elysium;
 #[path = "card_narrative/expression.rs"]
 mod expression;
 #[path = "card_narrative/fallback.rs"]
@@ -75,6 +80,7 @@ mod speech;
 mod system_one;
 #[path = "card_narrative/untrusted.rs"]
 mod untrusted;
+use untrusted::screened;
 #[cfg(test)]
 #[path = "card_narrative/voice_eval.rs"]
 mod voice_eval;
@@ -185,14 +191,14 @@ fn base_profiles() -> &'static Value {
     static PROFILES: OnceLock<Value> = OnceLock::new();
     PROFILES.get_or_init(|| {
         let mut profiles: Value =
-            serde_json::from_str(include_str!("../../card-game/entity-profiles.json"))
+            serde_json::from_str(card_assets::text("card-game/entity-profiles.json"))
                 .expect("embedded entity profiles");
         // World packs mounted on the table add their places and residents. The
         // browser reads the same compiled file, so ids and personas agree.
-        let packs: Value = serde_json::from_str(include_str!("../../card-game/packs.json"))
+        let packs: Value = serde_json::from_str(card_assets::text("card-game/packs.json"))
             .expect("embedded card world packs");
         let map = profiles.as_object_mut().expect("profiles");
-        let boardy: Value = serde_json::from_str(include_str!("../../card-game/boardyai.json"))
+        let boardy: Value = serde_json::from_str(card_assets::text("card-game/boardyai.json"))
             .expect("BoardyAI guest");
         for pack in packs["packs"]
             .as_array()
@@ -213,8 +219,11 @@ fn base_profiles() -> &'static Value {
                         json!({"kind": kind, "name": entity["name"], "pack": pack["id"]});
                     // An avatar is only its seed sentence; card text is for the table.
                     if kind != "avatar" {
-                        profile["persona"] =
-                            entity.get("persona").unwrap_or(&entity["text"]).clone();
+                        profile["persona"] = entity
+                            .get("persona")
+                            .or_else(|| entity.get("seed"))
+                            .unwrap_or(&entity["text"])
+                            .clone();
                     }
                     if kind == "item" {
                         profile["text"] = entity["text"].clone();
@@ -231,7 +240,7 @@ fn base_profiles() -> &'static Value {
                 }
             }
         }
-        let cast: Value = serde_json::from_str(include_str!("../../card-game/shared-cast.json"))
+        let cast: Value = serde_json::from_str(card_assets::text("card-game/shared-cast.json"))
             .expect("shared cast");
         for human in cast["avatars"].as_array().expect("human avatars") {
             if human["id"] == "vale" {
@@ -255,9 +264,8 @@ fn base_profiles() -> &'static Value {
                 }
             }
         }
-        // Each place's first-person sense line and each avatar's pronouns,
-        // for the speaker's own view (P3). The rules never read this file.
-        let senses: Value = serde_json::from_str(include_str!("../../card-game/senses.json"))
+        // Sense lines and pronouns for the speaker's own view (P3); rules never read them.
+        let senses: Value = serde_json::from_str(card_assets::text("card-game/senses.json"))
             .expect("embedded senses");
         for (key, field) in [("places", "sense"), ("pronouns", "pronouns")] {
             for (id, value) in senses[key].as_object().expect("sense entries") {
@@ -357,7 +365,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
 ) -> Router<S> {
     Router::new()
         .route("/card-game/text", post(generate))
-        .route("/card-game/reflections", post(reflections::generate))
+        .merge(reflections::router())
         .route(
             "/.well-known/cosyworld-signing-keys.json",
             axum::routing::get(crate::routes::signed_envelope::well_known),
@@ -408,6 +416,8 @@ struct Entity {
     facts: Vec<String>,
     #[serde(default)]
     poem: Option<recital::Poem>,
+    #[serde(default, rename = "lore", skip_serializing)]
+    _lore: serde::de::IgnoredAny,
     desire: Option<Desire>,
     memories: Vec<Memory>,
     previous: Option<String>,
@@ -469,17 +479,6 @@ struct Reflection {
     models: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     evidence: Vec<u64>,
-}
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-struct SpokenLine {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    witnesses: Option<Vec<String>>,
-    actor_id: String,
-    text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    signed: Option<Envelope>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -551,8 +550,7 @@ struct Context {
     /// "long" when the resting avatar wakes from a long rest at a sanctuary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rest: Option<String>,
-    /// What that long rest dreamed by the rules (rules 133): "glimpse".
-    /// Only then is a dream due.
+    /// "glimpse" when a long rest produces a dream.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     dream: Option<String>,
     #[serde(default)]
@@ -562,21 +560,31 @@ struct Context {
     events: Vec<String>,
     #[serde(default)]
     conversation: Vec<SpokenLine>,
+    #[serde(
+        default,
+        rename = "elysiumIntroduced",
+        skip_serializing_if = "Option::is_none"
+    )]
+    elysium_introduced: Option<String>,
+    #[serde(rename = "elysiumCoordinate", skip_serializing_if = "Option::is_none")]
+    elysium_coordinate: Option<crate::card_shared::elysium_coordinate::Coordinate>,
+    #[serde(
+        default,
+        rename = "elysiumTokenScattered",
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    elysium_token_scattered: bool,
     #[serde(default)]
     outcome: Option<TurnOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     disclosures: Vec<knowledge::Disclosure>,
-    /// A new game's first line: the player's avatar wakes knowing only what
-    /// its player has uncovered (waking.rs).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     waking: bool,
-    /// The speaker's own card or place, while its player has not uncovered it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     covered: Vec<String>,
     /// Cards the player has yet to reveal, including those outside the scene.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     concealed: Vec<String>,
-    /// Why this play speaks (the narrator's speech occasion), for metrics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     occasion: Option<String>,
     #[serde(skip)]
@@ -585,16 +593,10 @@ struct Context {
     images: Vec<String>,
     #[serde(skip)]
     channel: bool,
-}
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Entry {
-    id: String,
-    text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    model: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    reflection: Option<Reflection>,
+    #[serde(skip)]
+    no_fresh_opener: bool,
+    #[serde(skip)]
+    elysium_introducer: Option<String>,
 }
 fn valid(context: &Context) -> bool {
     let ids: BTreeSet<_> = context.entities.iter().map(|e| e.id.as_str()).collect();
@@ -609,9 +611,9 @@ fn valid(context: &Context) -> bool {
         && (1..=8).contains(&context.entities.len())
         && ids.len() == context.entities.len()
         && context.covered.iter().all(|id| ids.contains(id.as_str()))
-        && context.concealed.len() <= 512
-        && context.concealed.iter().all(|id| profiles().get(id).is_some())
+        && knowledge::valid_concealed(&context.concealed)
         && context.outcome.as_ref().is_none_or(valid_outcome)
+        && elysium::valid_coordinates(context)
         && observations::valid(context)
         && knowledge::valid(context)
         && context
@@ -630,7 +632,6 @@ fn valid(context: &Context) -> bool {
                     .is_none_or(|ids| ids.len() <= 64 && ids.iter().all(|id| kind(id, "avatar")))
         })
         && context.speakers.len() <= 3
-        // A turn with no speakers still voices its place caption or item.
         && (!context.speakers.is_empty() || context.scenery || context.focus.is_some())
         && context.speakers.iter().collect::<BTreeSet<_>>().len() == context.speakers.len()
         && context
@@ -649,21 +650,22 @@ fn valid(context: &Context) -> bool {
             .rest
             .as_deref()
             .is_none_or(|rest| rest == "long" && context.resting.is_some())
-        && context.dream.as_deref().is_none_or(|dream| {
-            DREAMS.contains(&dream) && context.rest.as_deref() == Some("long")
-        })
+        && context
+            .dream
+            .as_deref()
+            .is_none_or(|dream| DREAMS.contains(&dream) && context.rest.as_deref() == Some("long"))
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && between::valid(context, e)
-                && e.perception.as_ref().is_none_or(|p| {
-                    kind(&e.id, "avatar") && perception::valid(context, p)
-                })
-                && e.recall.as_ref().is_none_or(|r| {
-                    kind(&e.id, "avatar") && recall::valid(context, &e.id, r)
-                })
+                && e.perception
+                    .as_ref()
+                    .is_none_or(|p| kind(&e.id, "avatar") && perception::valid(context, p))
+                && e.recall
+                    .as_ref()
+                    .is_none_or(|r| kind(&e.id, "avatar") && recall::valid(context, &e.id, r))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
                 && e.hope.as_ref().is_none_or(|hope| {
                     kind(&e.id, "avatar") && bounded(&hope.wish, 240) && bounded(&hope.next, 240)
@@ -720,6 +722,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "give"
             | "trade"
             | "eat"
+            | "read"
             | "light"
             | "snuff"
             | "ring"
@@ -858,7 +861,7 @@ pub(crate) fn catalog_stale() -> bool {
     *STALE.get_or_init(|| {
         let stale = !authored::catalog_current(|path| {
             let file = path.strip_prefix("v2/card-game/")?;
-            cosyworld_orchestrator::card_assets::get(file).map(|(_, bytes)| bytes.to_vec())
+            card_assets::get(file).map(|(_, bytes)| bytes.to_vec())
         });
         if stale {
             tracing::error!(
@@ -872,18 +875,11 @@ pub(crate) fn catalog_stale() -> bool {
     })
 }
 
-/// The scene with its untrusted text checked (`untrusted::trusted`), off the
-/// async workers. Matching is bounded per request (`authored::Budget`).
-async fn screened(context: Context) -> Option<Context> {
-    tokio::task::spawn_blocking(move || untrusted::trusted(context))
-        .await
-        .ok()
-        .flatten()
-}
 async fn generate(
     State(state): State<TextState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
+    app: Option<Extension<crate::AppState>>,
     context: Result<Json<Context>, JsonRejection>,
 ) -> Response {
     // Every refusal is counted by cause (`voice_scenes::refused`): the
@@ -910,15 +906,8 @@ async fn generate(
             "Open the card game on this site.",
         );
     }
-    let refused = |reason| {
-        refuse(
-            reason,
-            StatusCode::BAD_REQUEST,
-            "Use the current scene and its saved memories.",
-        )
-    };
     if !valid(&context) {
-        return refused("invalid");
+        return refuse("invalid", StatusCode::BAD_REQUEST, untrusted::SCENE_ERROR);
     }
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
@@ -946,8 +935,9 @@ async fn generate(
             );
         }
     }
-    let Some(context) = screened(context).await else {
-        return refused("envelope");
+    let mut context = match screened(context).await {
+        Ok(context) => context,
+        Err(reason) => return reason.response(),
     };
     let Some(config) = state.ai.as_ref().as_ref() else {
         return refuse(
@@ -977,6 +967,11 @@ async fn generate(
     // Only an admitted scene replaces this client's queued reflections: a
     // refused request must not cancel work, and other clients keep theirs.
     state.background.cancel.send_replace(Some(client));
+    let introduction = app.and_then(|Extension(state)| {
+        let (actor, target) = elysium::personal_talk(&context, &voiced(&context))?;
+        context.acting_avatar = Some(actor);
+        Some((state, target, None))
+    });
     if headers
         .get("accept")
         .is_some_and(|value| value == "text/event-stream")
@@ -989,22 +984,10 @@ async fn generate(
             let _permit = _permit;
             let _client_slot = _client_slot;
             let deltas = sender.clone();
-            let emit = |text: &str| {
-                // Continuations must be able to quote a published line even
-                // when this stream closes before its final response.
-                let Ok(entry) = serde_json::from_str::<Value>(text) else {
-                    return false;
-                };
-                let mut value = json!({"entries": [entry]});
-                untrusted::sign_lines(&mut value, &context);
-                let text = format!("{}\n", value["entries"][0]);
-                deltas
-                    .send(Event::default().data(json!({"type":"delta","text":text}).to_string()))
-                    .is_ok()
-            };
+            let emit = |text: &str| untrusted::send_signed_delta(&deltas, &context, text);
             tokio::select! {
                 _ = sender.closed() => {},
-                result = complete(&config, &context, &character_models, &settings, Some(&emit)) => {
+                result = table_lines(&config, &context, &character_models, &settings, Some(&emit), introduction.as_ref()) => {
                     let event = match result {
                         Ok(mut value) => {
                             untrusted::sign_lines(&mut value, &context);
@@ -1026,7 +1009,16 @@ async fn generate(
         )
             .into_response();
     }
-    match complete(config, &context, character_models, settings, None).await {
+    match table_lines(
+        config,
+        &context,
+        character_models,
+        settings,
+        None,
+        introduction.as_ref(),
+    )
+    .await
+    {
         Ok(mut value) => {
             untrusted::sign_lines(&mut value, &context);
             ([("cache-control", "no-store")], Json(value)).into_response()
@@ -1046,15 +1038,16 @@ async fn generate(
 /// still waiting when the scene deadline passes, stays silent and is listed
 /// under `omitted`; the others are published. The scene fails only when none
 /// of its speakers (or, with no speakers, none of its voices) has words.
-async fn complete(
+async fn table_lines(
     config: &AiConfig,
     context: &Context,
     character_models: &BTreeMap<String, String>,
     settings: &VoiceSettings,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    introduction: Option<&Introduction>,
 ) -> Result<Value, Box<Response>> {
     let voiced = voiced(context);
-    let scene = complete_selected(
+    let scene = complete_with_introduction(
         config,
         context,
         character_models,
@@ -1062,9 +1055,23 @@ async fn complete(
         &voiced,
         false,
         on_delta,
+        introduction,
     );
     voice_scenes::run("table", context, &voiced, on_delta.is_some(), scene).await
 }
+
+#[cfg(test)]
+async fn complete(
+    config: &AiConfig,
+    context: &Context,
+    models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+) -> Result<Value, Box<Response>> {
+    table_lines(config, context, models, settings, on_delta, None).await
+}
+
+pub(crate) type Introduction = (crate::AppState, String, Option<String>);
 
 async fn complete_selected(
     config: &AiConfig,
@@ -1074,6 +1081,30 @@ async fn complete_selected(
     voiced: &[String],
     reflections: bool,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+) -> Result<Value, Box<Response>> {
+    complete_with_introduction(
+        config,
+        context,
+        character_models,
+        settings,
+        voiced,
+        reflections,
+        on_delta,
+        None,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn complete_with_introduction(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    voiced: &[String],
+    reflections: bool,
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    introduction: Option<&Introduction>,
 ) -> Result<Value, Box<Response>> {
     for model in settings.reflection_model.iter().chain(settings.fallbacks()) {
         if let Err(failure) =
@@ -1088,13 +1119,17 @@ async fn complete_selected(
         }
     }
     let deadline = tokio::time::Instant::now() + settings.scene_timeout;
-    let mut lines: BTreeMap<String, (String, String)> = BTreeMap::new();
-    // A Talk is two turns of one conversation: the target answers the
-    // actor's line from this turn, so it speaks after the actor. Everyone
-    // else speaks alongside them until the scene's deadline.
+    let mut lines = BTreeMap::new();
+    // A Talk gives the target the current opener while other voices run alongside.
     match conversation::reply_target(context, voiced) {
         None => {
-            voice_lines(
+            let resident = conversation::prepare_resident(
+                context,
+                introduction,
+                deadline - conversation::reply_reserve(settings.scene_timeout),
+            )
+            .await;
+            conversation::voice_lines(
                 config,
                 context,
                 character_models,
@@ -1103,6 +1138,7 @@ async fn complete_selected(
                 voiced,
                 on_delta,
                 &mut lines,
+                resident,
             )
             .await?
         }
@@ -1114,7 +1150,7 @@ async fn complete_selected(
                 .collect();
             let mut talk = BTreeMap::new();
             let (left, right) = tokio::join!(
-                voice_lines(
+                conversation::voice_lines(
                     config,
                     context,
                     character_models,
@@ -1123,8 +1159,9 @@ async fn complete_selected(
                     &others,
                     on_delta,
                     &mut lines,
+                    None,
                 ),
-                exchange(
+                conversation::exchange(
                     config,
                     context,
                     character_models,
@@ -1133,6 +1170,7 @@ async fn complete_selected(
                     (&actor, &target),
                     on_delta,
                     &mut talk,
+                    introduction,
                 ),
             );
             left?;
@@ -1168,16 +1206,11 @@ async fn complete_selected(
     }
     let mut entries = Vec::new();
     for id in voiced {
-        let Some((text, model)) = lines.remove(id) else {
+        let Some(mut line) = lines.remove(id) else {
             continue;
         };
-        let reflection = private.remove(id);
-        entries.push(Entry {
-            id: id.clone(),
-            text,
-            model: Some(model),
-            reflection,
-        });
+        line.reflection = private.remove(id);
+        entries.push(line);
     }
     // Someone the scene needed has to have words, or nothing is published.
     let needed: &[String] = if context.speakers.is_empty() {
@@ -1198,7 +1231,7 @@ async fn complete_selected(
         .filter(|e| !entries.iter().any(|entry| entry.id == e.id))
         .map(|e| e.id.clone())
         .collect();
-    let models: BTreeSet<_> = entries.iter().filter_map(|e| e.model.as_deref()).collect();
+    let models: BTreeSet<_> = entries.iter().map(|e| e.model.as_str()).collect();
     let model = if models.len() == 1 {
         models
             .into_iter()
@@ -1209,110 +1242,6 @@ async fn complete_selected(
         "card-voices-v1".to_string()
     };
     Ok(json!({"revision":context.revision,"entries":entries,"omitted":omitted,"model":model}))
-}
-
-/// A Talk's two turns. The actor speaks within the first 55% of the scene,
-/// so the target always keeps the rest to answer it; with no line from the
-/// actor this turn there is nothing to answer, and an earlier turn's line is
-/// not this conversation.
-#[allow(clippy::too_many_arguments)]
-async fn exchange(
-    config: &AiConfig,
-    context: &Context,
-    character_models: &BTreeMap<String, String>,
-    settings: &VoiceSettings,
-    deadline: tokio::time::Instant,
-    (actor, target): (&str, &str),
-    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-    lines: &mut BTreeMap<String, (String, String)>,
-) -> Result<(), SceneClosed> {
-    let reserve = conversation::reply_reserve(settings.scene_timeout);
-    voice_lines(
-        config,
-        context,
-        character_models,
-        settings,
-        deadline - reserve,
-        &[actor.to_string()],
-        on_delta,
-        lines,
-    )
-    .await?;
-    let Some(heard) = lines
-        .get(actor)
-        .and_then(|(text, _)| conversation::with_line(context, actor, text))
-    else {
-        return Ok(());
-    };
-    voice_lines(
-        config,
-        &heard,
-        character_models,
-        settings,
-        deadline,
-        &[target.to_string()],
-        on_delta,
-        lines,
-    )
-    .await
-}
-
-/// Voice `ids` side by side until the scene deadline, adding each validated
-/// line to `lines`. Past the deadline, what has been validated is kept and
-/// the rest stay silent; dropping the stream cancels their requests.
-#[allow(clippy::too_many_arguments)]
-async fn voice_lines(
-    config: &AiConfig,
-    context: &Context,
-    character_models: &BTreeMap<String, String>,
-    settings: &VoiceSettings,
-    deadline: tokio::time::Instant,
-    ids: &[String],
-    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-    lines: &mut BTreeMap<String, (String, String)>,
-) -> Result<(), SceneClosed> {
-    // Each job owns its id: a borrowed one makes the scene future too
-    // general for `tokio::spawn`.
-    #[allow(clippy::unnecessary_to_owned)]
-    let jobs = ids.to_vec().into_iter().map(|id| async move {
-        let result = speak(
-            config,
-            context,
-            character_models,
-            settings,
-            deadline,
-            &id,
-            Part::Line,
-        )
-        .await;
-        (id, result)
-    });
-    let mut results = futures_util::StreamExt::buffer_unordered(
-        futures_util::stream::iter(jobs),
-        settings.parallel.max(1),
-    );
-    let collected = tokio::time::timeout_at(deadline, async {
-        while let Some((id, result)) = futures_util::StreamExt::next(&mut results).await {
-            let Ok((text, model)) = result else {
-                continue;
-            };
-            if context.speakers.contains(&id) {
-                if let Some(emit) = on_delta {
-                    if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
-                        return Err(SceneClosed);
-                    }
-                }
-            }
-            lines.insert(id, (text, model));
-        }
-        Ok(())
-    })
-    .await;
-    drop(results);
-    match collected {
-        Ok(Err(closed)) => Err(closed),
-        _ => Ok(()),
-    }
 }
 
 /// The viewer left mid-scene, so no further line can be streamed.
@@ -1335,7 +1264,13 @@ fn shared_scene(
 ) -> Result<(Context, VoiceSettings), String> {
     let mut context: Context = serde_json::from_value(scene.clone())
         .map_err(|_| "The saved scene needs another moment.")?;
+    context.speakers = ids
+        .iter()
+        .filter(|id| kind(id, "avatar"))
+        .cloned()
+        .collect();
     if ids.is_empty()
+        || !elysium::valid_coordinates(&context)
         || (!context.scenery && ids.contains(&context.location))
         || ids
             .iter()
@@ -1349,11 +1284,6 @@ fn shared_scene(
         return Err("The saved scene needs its requested voices.".into());
     }
     context.acting_avatar = Some(actor.to_string());
-    context.speakers = ids
-        .iter()
-        .filter(|id| kind(id, "avatar"))
-        .cloned()
-        .collect();
     let mut settings = voice_settings()
         .as_ref()
         .map_err(|_| "The story service needs its voice settings.")?
@@ -1363,19 +1293,40 @@ fn shared_scene(
 }
 
 /// Generate only the voices chosen by the authenticated shared scene.
-pub(crate) async fn shared_lines(
+pub(crate) async fn shared_lines_with_introduction(
+    config: &AiConfig,
+    scene: &Value,
+    actor: &str,
+    ids: &[String],
+    models: &BTreeMap<String, String>,
+    introduction: Option<&Introduction>,
+) -> Result<Value, String> {
+    let (context, settings) = shared_scene(scene, actor, ids)?;
+    // Reflections follow in their own journal op (reflections::shared).
+    let scene = complete_with_introduction(
+        config,
+        &context,
+        models,
+        &settings,
+        ids,
+        false,
+        None,
+        introduction,
+    );
+    voice_scenes::run("shared", &context, ids, false, scene)
+        .await
+        .map_err(|_| "The play is saved. Its words need another moment.".into())
+}
+
+#[cfg(test)]
+async fn shared_lines(
     config: &AiConfig,
     scene: &Value,
     actor: &str,
     ids: &[String],
     models: &BTreeMap<String, String>,
 ) -> Result<Value, String> {
-    let (context, settings) = shared_scene(scene, actor, ids)?;
-    // Reflections follow in their own journal op (reflections::shared).
-    let scene = complete_selected(config, &context, models, &settings, ids, false, None);
-    voice_scenes::run("shared", &context, ids, false, scene)
-        .await
-        .map_err(|_| "The play is saved. Its words need another moment.".into())
+    shared_lines_with_introduction(config, scene, actor, ids, models, None).await
 }
 
 /// What one call asks an entity to say or keep privately.
@@ -1625,12 +1576,17 @@ fn idiolect(entity: &Entity, part: Part) -> String {
             .as_str()
             .map(str::to_owned)
             .unwrap_or_else(|| {
-                format!(
-                    "I am {}.\n{}\n{}",
-                    name(&entity.id),
-                    profile["persona"].as_str().unwrap_or_default(),
-                    profile["voice"].as_str().unwrap_or_default()
-                )
+                let own = format!("I am {}.", name(&entity.id));
+                [
+                    Some(own.as_str()),
+                    profile["persona"].as_str(),
+                    profile["voice"].as_str(),
+                ]
+                .into_iter()
+                .flatten()
+                .filter(|line| !line.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n")
             })
     };
     if let Some(persona) = entity
@@ -1670,8 +1626,7 @@ fn system_voice(entity: &Entity, part: Part) -> String {
     }
 }
 
-/// The scene's entities and any names this speaker learned from an item or
-/// heard in conversation. A reply that names anyone else is rejected.
+/// Names in the scene or learned by this speaker; a reply naming anyone else is rejected.
 fn known(context: &Context, entity: &Entity) -> BTreeSet<String> {
     let mut ids: BTreeSet<String> = context.entities.iter().map(|e| e.id.clone()).collect();
     ids.insert(context.location.clone());
@@ -1738,7 +1693,6 @@ fn known(context: &Context, entity: &Entity) -> BTreeSet<String> {
             .filter(|line| witnessed(entity, line))
             .map(|line| &line.text),
     )
-    .chain(custody::held_item_text(context, &entity.id).iter())
     .map(String::as_str)
     .collect::<Vec<_>>()
     .join(" ");
@@ -1927,10 +1881,9 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             .filter(|f| part != Part::Line || !conversation::strategy(f))
             .filter_map(|f| person::fact(f, id, outcome.is_some())),
     ));
-    lines.extend(tagged(Section::Facts, custody::held_item_text(context, id)));
     // A fact the rules reserved for this Talk, among the things I know.
     let mentions = if part == Part::Line {
-        knowledge::directions(context, id)
+        knowledge::background(context, id)
     } else {
         Vec::new()
     };
@@ -1963,7 +1916,6 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             // in the present tense ("Vale gives the Lamp to Pip").
             _ if part == Part::Line => continue,
             "expression" => (Section::Earlier, conversation::said(text, &own)),
-            // This moment's events are already said above.
             _ if lines.iter().any(|(_, line)| *line == event) => continue,
             _ => (Section::Memories, format!("I remember: {event}")),
         });
@@ -2138,8 +2090,7 @@ fn leaving(context: &Context, id: &str) -> bool {
     })
 }
 
-/// Select a configured tier through the same registry and policy as every
-/// world-content request.
+/// Select a configured tier through the world-content model registry.
 fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
     let mut config = config.clone();
     if let Some(model) = model {
@@ -2155,8 +2106,7 @@ fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
     config
 }
 
-/// Generate a validated part on its selected model, then on each fallback
-/// model in turn while the earlier ones fail (`fallback::run`).
+/// Generate a validated part with the speaker's configured model and fallback policy.
 async fn speak(
     config: &AiConfig,
     context: &Context,
@@ -2166,13 +2116,21 @@ async fn speak(
     id: &str,
     part: Part,
 ) -> Result<(String, String), ()> {
+    let prompt_context = elysium::prompt_context(context);
+    let prompt_context = prompt_context.as_ref().unwrap_or(context);
+    let prompt_entity = entity(prompt_context, id);
     let entity = entity(context, id);
-    let own_model = (part == Part::Persona)
-        .then_some(settings.reflection_model.as_deref())
-        .flatten()
-        .or_else(|| character_models.get(id).map(String::as_str));
-    let own = tier_config(config, own_model);
-    let system = waking::system(context, entity, part);
+    let bound = elysium::bound_model(context, id);
+    let own_model = bound.or_else(|| {
+        (part == Part::Persona)
+            .then_some(settings.reflection_model.as_deref())
+            .flatten()
+            .or_else(|| character_models.get(id).map(String::as_str))
+    });
+    let mut own = tier_config(config, own_model);
+    tune_elysium_voice(&mut own, bound);
+    let fallbacks = bound.map_or_else(|| settings.fallbacks(), |_| &[]);
+    let system = waking::system(prompt_context, prompt_entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
         check.limit = settings.line_limit;
@@ -2185,20 +2143,12 @@ async fn speak(
     let call = voice_metrics::Call::new(
         id,
         part,
-        voice_metrics::Budget::measure(&system, context, entity, part),
+        voice_metrics::Budget::measure(&system, prompt_context, prompt_entity, part),
     )
     .labelled(context);
-    let Some(links) = fallback::chain(config, own, settings.fallbacks()) else {
-        call.reject("unroutable");
-        call.finish(voice_metrics::Outcome::Silent);
-        tracing::warn!(
-            feature = "card_voice",
-            entity = id,
-            part = ?part,
-            model = own_model.unwrap_or("default"),
-            reason = "unroutable",
-            "card voice rejected"
-        );
+    let Some(links) = fallback::chain(config, own, fallbacks) else {
+        call.reject("unroutable", None);
+        call.silent();
         return Err(());
     };
     // Per model, for the bench: 1 an empty or blocked reply, 2 a usable line.
@@ -2209,7 +2159,7 @@ async fn speak(
         links.len(),
         |n: usize, attempt: u8, timeout: Duration| {
             let link = &links[n];
-            let prompt = messages(context, entity, part);
+            let prompt = messages(prompt_context, prompt_entity, part);
             let view = crate::ai_gateway::led(&prompt.lead, &prose(&prompt.assistant));
             let images = context.images.as_slice();
             let check = &check;
@@ -2228,7 +2178,12 @@ async fn speak(
                     } else {
                         (1.0 - 0.1 * f64::from(attempt)).max(0.7)
                     },
-                    max_tokens: if part == Part::Persona { 160 } else { 96 },
+                    max_tokens: match (bound.is_some(), part) {
+                        (true, _) if attempt == 0 => 1024,
+                        (true, _) => 2048,
+                        (false, Part::Persona) => 160,
+                        _ => 96,
+                    },
                     timeout,
                     max_attempts: 1,
                     referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
@@ -2241,74 +2196,32 @@ async fn speak(
                         if error.code() == "inference_invalid_response" {
                             tier.fetch_max(1, Ordering::Relaxed);
                         }
-                        call.reject_provider(error.code());
-                        tracing::info!(
-                            feature = "card_voice",
-                            entity = id,
-                            part = ?part,
-                            model = %link.model,
-                            provider = %link.provider,
-                            attempt = attempt + 1,
-                            fallback = n,
-                            reason = "provider",
-                            failure = error.code(),
-                            "card voice rejected"
-                        );
-                        fallback::Miss::Failed
+                        call.reject_provider(&error);
+                        fallback::Miss::provider(&error, bound.is_some() && part == Part::Line)
                     })?;
+                if elysium_model_mismatch(bound, &completion.resolved_model_id) {
+                    tier.fetch_max(1, Ordering::Relaxed);
+                    call.reject("model_mismatch", Some(&completion.finish_reason));
+                    return Err(fallback::Miss::Failed);
+                }
                 let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
                 let said = check.verdict(&completion.text, finished);
                 said.map(|(text, flags)| {
                     for &reason in &flags {
                         call.flag(reason);
                     }
-                    if !flags.is_empty() {
-                        tracing::info!(
-                            feature = "card_voice",
-                            entity = id,
-                            attempt = attempt + 1,
-                            outcome = "flagged",
-                            reasons = %flags.join(","),
-                            excerpt = %excerpt(&text),
-                            "card voice flagged"
-                        );
-                    }
+                    call.spoken(&completion.finish_reason);
                     tier.store(2, Ordering::Relaxed);
                     (text, completion.resolved_model_id.clone())
                 })
                 .map_err(|reason| {
                     tier.fetch_max(1, Ordering::Relaxed);
-                    call.reject(reason);
-                    tracing::info!(
-                        feature = "card_voice",
-                        entity = id,
-                        part = ?part,
-                        model = %link.model,
-                        provider = %link.provider,
-                        attempt = attempt + 1,
-                        fallback = n,
-                        reason,
-                        excerpt = %excerpt(&completion.text),
-                        "card voice rejected"
-                    );
+                    call.reject(reason, Some(&completion.finish_reason));
                     fallback::Miss::of(reason)
                 })
             }
         },
-        |n: usize, attempt: u8| {
-            call.reject("timeout");
-            tracing::info!(
-                feature = "card_voice",
-                entity = id,
-                part = ?part,
-                model = %links[n].model,
-                provider = %links[n].provider,
-                attempt = attempt + 1,
-                fallback = n,
-                reason = "timeout",
-                "card voice rejected"
-            );
-        },
+        |_, _| call.reject("timeout", None),
     )
     .await;
     for (fallback::Link { model, .. }, tier) in links.iter().zip(&tiers) {
@@ -2316,16 +2229,10 @@ async fn speak(
             config.readiness.record_voice_outcome(model, seen == 2);
         }
     }
-    match spoken {
-        Ok(said) => {
-            call.finish(voice_metrics::Outcome::Spoken);
-            Ok(said)
-        }
-        Err(()) => {
-            call.finish(voice_metrics::Outcome::Silent);
-            Err(())
-        }
+    if spoken.is_err() {
+        call.silent();
     }
+    spoken
 }
 
 /// A call's turns (owner, 2026-11-03: "put it in the assistant block, keep
@@ -2360,7 +2267,7 @@ pub(super) fn prose(view: &str) -> String {
 fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     let mut prompt = scene_messages(context, entity, part);
     if !context.concealed.is_empty() {
-        // Profiles and held cards add words after the scene reaches Rust.
+        let disclosed = knowledge::reserved_names(context, &entity.id, part);
         let Prompt {
             system,
             lead,
@@ -2369,7 +2276,7 @@ fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
         } = &mut prompt;
         for text in [system, lead, assistant, user] {
             for (span, id) in named_spans(text).into_iter().rev() {
-                if context.concealed.contains(id) {
+                if context.concealed.contains(id) && !disclosed.contains(&id) {
                     text.replace_range(span, "something unnamed");
                 }
             }
@@ -2413,27 +2320,6 @@ fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
             false => crate::ai_gateway::SILENCE.into(),
         },
     }
-}
-
-/// A bounded, single-line excerpt of a rejected reply for the log. Long
-/// unbroken runs, which could be keys or encoded data, are not copied.
-fn excerpt(text: &str) -> String {
-    let words: Vec<_> = text
-        .split_whitespace()
-        .map(|word| {
-            if word.chars().count() > 24 {
-                "[…]"
-            } else {
-                word
-            }
-        })
-        .collect();
-    let line = words.join(" ");
-    let mut short: String = line.chars().filter(|c| !c.is_control()).take(80).collect();
-    if line.chars().count() > 80 {
-        short.push('…');
-    }
-    short
 }
 
 /// What a reply is checked against before it is published.
@@ -2770,8 +2656,7 @@ impl<'a> Check<'a> {
             }
         }
         // A reply that opens on the scene ("The rain has begun. Come in,
-        // Pip.") speaks from its first sentence to someone, unless the
-        // narration tells my fact.
+        // Pip.") speaks from its first sentence to someone.
         if avatar {
             let lead = said
                 .iter()
@@ -2779,8 +2664,7 @@ impl<'a> Check<'a> {
                 .position(|(i, s)| !framing::scenery(s, i == 0))
                 .filter(|&i| framing::spoken(said[i], i == 0))
                 .unwrap_or(0);
-            let tells = |s: &&str| knowledge::other_words(self.context, &self.entity.id, s) != **s;
-            if !said[..lead].iter().any(|s| tells(s) || self.of_others(s)) {
+            if !said[..lead].iter().any(|s| self.of_others(s)) {
                 said.drain(..lead);
             }
         }
@@ -2851,13 +2735,7 @@ impl<'a> Check<'a> {
                 .map(str::to_string)
                 .collect::<Vec<_>>()
         };
-        let freely_spoken = if self.part == Part::Line {
-            knowledge::other_words(self.context, &self.entity.id, &kept)
-        } else {
-            kept.clone()
-        };
         let key = words(&kept).concat();
-        let sharing = freely_spoken != kept;
         if key.is_empty() {
             return Err("empty");
         }
@@ -2876,7 +2754,7 @@ impl<'a> Check<'a> {
                 .iter()
                 .chain(self.answered.iter())
                 .any(|line| words(line).concat() == key);
-        let spoken = words(&freely_spoken);
+        let spoken = words(&kept);
         // Saying the whole line answered again, even inside a longer reply
         // ("Yes, the lamp would help, if you trust me with it."), is a repeat.
         let restates = |line: &String| {
@@ -2912,14 +2790,11 @@ impl<'a> Check<'a> {
         }) {
             return Err("echoed brief");
         }
-        flag(
-            (repeats && !sharing) || self.others.iter().any(&run),
-            "repeat",
-        );
+        flag(repeats || self.others.iter().any(&run), "repeat");
         // A character speaks as "I"; a line that names its speaker in the
         // third person ("Vale's eyes flick to Pip") is narration.
         flag(
-            avatar && framing::narrates_self(&freely_spoken, &own),
+            avatar && framing::narrates_self(&kept, &own),
             "self-narration",
         );
         // The stage shows the play; a line that narrates the speaker's own
@@ -2977,16 +2852,17 @@ impl<'a> Check<'a> {
         })
     }
 
-    /// Whether a text names someone or something the scene does not know.
     fn names_unknown(&self, text: &str) -> bool {
+        let disclosed = knowledge::reserved_names(self.context, &self.entity.id, self.part);
         named_spans(text).into_iter().any(|(span, id)| {
             let label = &profiles()[id]["name"];
-            self.context.concealed.contains(id)
-                || (label.as_str() == Some(&text[span])
-                    && !self
-                        .known
-                        .iter()
-                        .any(|known| profiles()[known]["name"] == *label))
+            !disclosed.contains(&id)
+                && (self.context.concealed.contains(id)
+                    || (label.as_str() == Some(&text[span])
+                        && !self
+                            .known
+                            .iter()
+                            .any(|known| profiles()[known]["name"] == *label)))
         })
     }
 }
@@ -3306,9 +3182,23 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn greek_places_and_items_are_names_with_at_most_a_seed() {
+        for (id, profile) in profiles().as_object().unwrap() {
+            if profile["pack"] == "greek-drama" && profile["kind"] != "avatar" {
+                let seed = profile["persona"].as_str();
+                assert!(seed.is_none_or(|seed| bounded(seed, 120)), "{id}");
+            }
+        }
+        assert!(profiles()["greek-courtyard"]["persona"].is_null());
+        assert_eq!(
+            profiles()["greek-decree"]["persona"],
+            "Creon’s decree forbidding burial of the brother left outside the city."
+        );
+    }
+
+    #[test]
     fn prompts_hold_only_first_person_idiolect_and_transcript() {
         for (id, profile) in profiles().as_object().unwrap() {
-            // An avatar is one seed sentence: no persona, voice or idiolect.
             if profile["kind"] == "avatar" {
                 let seed = profile["seed"]
                     .as_str()
@@ -3354,6 +3244,7 @@ pub(crate) mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "moth".into(),
             text: "Bring that lamp to the pond.".into(),
+            ..Default::default()
         });
         c.entities[3].previous = Some("My sleeves are dry.".into());
         c.entities[3].memories.push(Memory {
@@ -3813,7 +3704,7 @@ pub(crate) mod tests {
     const EARNED_VERSE: &str = "I told her I would turn away. Her brother waited by the wall.";
     const POEM_FACT: &str = "My poem Before the Burial holds deeds by Vale.";
 
-    fn bard_context() -> Context {
+    pub(super) fn bard_context() -> Context {
         let mut value = serde_json::to_value(context()).unwrap();
         value["speakers"] = json!(["vale", "greek-rhapsode"]);
         value["outcome"] = serde_json::to_value(solo_departure()).unwrap();
@@ -3900,7 +3791,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn full_poem_context_names_every_traveller_and_no_couplet() {
+    fn full_poem_context_names_every_traveller() {
         let packs: Value =
             serde_json::from_str(include_str!("../../card-game/packs.json")).unwrap();
         let recital = &packs["packs"]
@@ -3919,23 +3810,17 @@ pub(crate) mod tests {
                 json!({"id":verse["choice"],"turn":i+1,"authorId":null,"authorName":name})
             })
             .collect();
-        let poem: recital::Poem =
+        let mut poem: recital::Poem =
             serde_json::from_value(json!({"title":recital["title"],"stanzas":stanzas})).unwrap();
         assert!(recital::valid("greek-rhapsode", Some(&poem), 100));
+        assert!(recital::known_authors(&poem));
         let prompt = recital::prompt_lines(&poem);
         assert_eq!(
             prompt,
             ["My poem Before the Burial holds deeds by Vale, Mara, an earlier traveler."]
         );
-        let lore: Value = serde_json::from_str(include_str!(
-            "../../content/greek-drama/lore/bard-couplets.json"
-        ))
-        .unwrap();
-        for verse in lore["verses"].as_object().unwrap().values() {
-            for line in verse["lines"].as_array().unwrap() {
-                assert!(!prompt[0].contains(line.as_str().unwrap()));
-            }
-        }
+        poem.stanzas[2].author_id = Some("vale".into());
+        assert!(!recital::known_authors(&poem));
     }
 
     #[tokio::test]
@@ -4050,7 +3935,7 @@ pub(crate) mod tests {
         assert_eq!(result["entries"][0]["text"], "I want to sit by the pond.");
         let system = turn_of(&seen.lock().unwrap()[0], "assistant");
         assert!(
-            system.contains(" I took the Lamp.") && !system.contains("I mention"),
+            system.contains("if it fits the conversation: Vale takes the Lamp."),
             "{system}"
         );
         server.abort();
@@ -4921,6 +4806,7 @@ pub(crate) mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "vale".into(),
             text: "I am sorry. I will ask gently.".into(),
+            ..Default::default()
         });
         c.outcome = Some(solo_departure());
         for (verb, mine, theirs) in [
@@ -5054,7 +4940,7 @@ pub(crate) mod tests {
             .any(|fact| fact.starts_with("I received")));
     }
 
-    fn request(context: &Context) -> Request<Body> {
+    pub(super) fn request(context: &Context) -> Request<Body> {
         let mut request = Request::post("/card-game/text")
             .header("content-type", "application/json")
             .header("host", "localhost")
@@ -5118,6 +5004,7 @@ pub(crate) mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into()]),
             actor_id: "vale".into(),
             text: "Would you stay here with me, Pip?".into(),
+            ..Default::default()
         }];
         assert!(valid(&c));
         assert_eq!(voiced(&c), ["moth"]);
@@ -5140,6 +5027,7 @@ pub(crate) mod tests {
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "vale".into(),
             text: "Where are you going?".into(),
+            ..Default::default()
         }];
         let mut keeper = context().entities.remove(3);
         keeper.id = "keeper".into();
@@ -6326,6 +6214,7 @@ pub(crate) mod tests {
             actor_id: "vale".into(),
             text: "A secret between us.".into(),
             witnesses: Some(vec!["vale".into()]),
+            ..Default::default()
         }];
         let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
         assert!(!transcript(&c, moth, Part::Line).contains("A secret between us."));
@@ -6445,6 +6334,7 @@ pub(crate) mod tests {
             witnesses: Some(all.clone()),
             actor_id: actor.into(),
             text: text.into(),
+            ..Default::default()
         };
         c.conversation = vec![
             said("vale", "Where does the pond lead?"),

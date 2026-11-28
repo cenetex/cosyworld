@@ -9,6 +9,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { newest } from "../v2/scripts/rules-pins.mjs";
 
 const base = "521c76cb39df10c2e552a9e2d88dc4a8d02d6fe9";
 const dir = "v2/orchestrator-rust/src/card_shared/";
@@ -21,9 +22,7 @@ const oldBundle = prior("engine-v137.js");
 const oldContent = JSON.parse(prior("content.json"));
 const now = (name) =>
   readFileSync(new URL(`../${dir}${name}`, import.meta.url), "utf8");
-const version = /const VERSION: &str = "full-card-world\/(\d+)"/.exec(
-  now("engine.rs"),
-)[1];
+const version = newest(now("rules.json"));
 const target = vm.createContext({
   structuredClone,
   cardContent: JSON.parse(now("content.json")),
@@ -81,7 +80,9 @@ function source(place = "greek-eleusis", roaming = false) {
         expect(loaded.packs["greek-drama"][field]).toEqual(
           world.packs["greek-drama"][field],
         );
-      expect(loaded.packs["greek-drama"].revision).toBe(31);
+      expect(loaded.packs["greek-drama"].revision).toBe(
+        packDefinition("greek-drama").revision,
+      );
       const shared = JSON.parse(
         context.cardShared(
           JSON.stringify({ op: "create", save: world, seed: 7 }),
@@ -209,7 +210,8 @@ it("keeps archived choices unavailable and rejects malformed or future revisions
   expect(legalActions(loaded).some((a) => archived.has(a.choiceId))).toBe(
     false,
   );
-  for (const revision of [0, -1, 24.5, "24", 32]) {
+  const future = packDefinition("greek-drama").revision + 1;
+  for (const revision of [0, -1, 24.5, "24", future]) {
     const bad = structuredClone(loaded);
     bad.packs["greek-drama"].revision = revision;
     expect(() => decodeSave(JSON.stringify(bad))).toThrow(/fresh start/);

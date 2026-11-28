@@ -541,8 +541,10 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
     grew(&["outcomes", "silent"], 1);
     grew(&["rejections", "assistant"], 1);
     assert!(after["prompt_tokens"]["max"].as_u64().unwrap() > 0);
-    // Counters carry labels and numbers, never prompt or reply text.
-    assert!(!after.to_string().contains("lamp"));
+    // A public pack entity can be named lamp. The words stay out of telemetry.
+    let metrics = after.to_string();
+    assert!(!metrics.contains("As an AI, I keep the lamp."));
+    assert!(!metrics.contains("Holding the lamp."));
 }
 
 /// Dione wants the Funeral Oil Vale carries (.dev, 2026-11-03: "Ask Vale to
@@ -655,9 +657,9 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     // L4: Antigone at the gate, no "Vale and Antigone are both at…".
     let antigone = view("Antigone at the gate", "greek-antigone");
     assert!(antigone.ends_with(
-        "Fresh mortar smells damp on the gate; dust blows in from the road. Vale, the Lamplighter is right here; I'm talking \
-         with them."
-    ));
+        "Fresh mortar smells damp on the gate; dust blows in from the road. \
+         The Gate Guard reads The Burial Decree. Vale, the Lamplighter is right here; I'm talking with them."
+    ), "{antigone}");
     // P2 and P4: a return compared with the visit before it.
     assert!(view("P2 back at the pond", "vale").contains("The Bell wasn't here last time I came."));
     assert!(view("P4 alone at the pond", "vale").ends_with(

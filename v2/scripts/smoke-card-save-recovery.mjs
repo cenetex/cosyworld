@@ -154,13 +154,16 @@ async function run(width, fault) {
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
   };
+  let waits = 0;
   const wait = async (arm) => {
     await settle();
+    const cards = waits++ % 2 ? ["vale"] : ["vale", place];
     for (const card of ["vale", place]) {
       const pressed = await page
         .locator(`#hand [data-card="${card}"]`)
         .getAttribute("aria-pressed");
-      if (pressed !== "true") await selectCard(page, card, { touch });
+      if ((pressed === "true") !== cards.includes(card))
+        await selectCard(page, card, { touch });
     }
     const button = readyActionButton(page, "wait");
     await button.waitFor();

@@ -6,10 +6,21 @@ const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:3102";
 
 pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let boot_started = Instant::now();
+    if std::env::args().nth(1).as_deref() == Some("--check-assets") {
+        check_assets()?;
+        println!("{}", cosyworld_orchestrator::card_assets::manifest_sha256());
+        return Ok(());
+    }
     initialize_tracing();
     // The signing key: made on first start and kept on the volume, or the
     // `COSYWORLD_SIGNING_KEY` override (docs/release.md#signing-key).
     crate::routes::signed_envelope::init().map_err(deployment_config_error)?;
+    check_assets()?;
+    info!(
+        assets = cosyworld_orchestrator::card_assets::manifest_sha256(),
+        elapsed_ms = boot_started.elapsed().as_millis() as u64,
+        "card assets checked"
+    );
     crate::routes::card_game::narrative::catalog_stale();
 
     if let Some(config) =
@@ -19,8 +30,6 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let drain_budget = configured_shutdown_drain_budget()?;
-    // The hosted server boots card-only (#1652): no classic content registry,
-    // journal replay, snapshot or scheduler.
     let state = AppState::bootstrap_card().await?;
     let _ai_readiness = start_ai_readiness_scheduler(state.ai_config.as_ref().clone());
     routes::start_authoring_jobs(&state);
@@ -40,6 +49,11 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     Ok(())
+}
+
+fn check_assets() -> io::Result<()> {
+    cosyworld_orchestrator::card_assets::load().map_err(deployment_config_error)?;
+    crate::card_shared::check_rules().map_err(deployment_config_error)
 }
 
 fn initialize_tracing() {

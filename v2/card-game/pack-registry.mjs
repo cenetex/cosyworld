@@ -10,7 +10,6 @@ import {
   advanceJourney,
 } from "./pack-journeys.mjs";
 import { newWant, setWant } from "./want.mjs";
-import { partyOf } from "./world/company.mjs";
 import {
   gone,
   usedUp,
@@ -39,6 +38,8 @@ import {
   packCompositionProblems,
 } from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
+import { coordinateEntityActive, coordinateRouteDiscovered } from "./world/elysium-coordinates.mjs";
+import { elysiumPortraitReady } from "./elysium-models.mjs";
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
 const record = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -244,7 +245,8 @@ export const freed = (world, id) =>
   Array.isArray(packPeople[id]?.stayUntil) &&
   conditionsMet(world, packPeople[id].packId, packPeople[id].stayUntil, id);
 export const staysPut = (id, world = null) =>
-  (packPeople[id] ?? forest.people[id])?.travels === false && !freed(world, id);
+  (packPeople[id] ?? forest.people[id])?.travels === false &&
+  !freed(world, id) && !elysiumPortraitReady(world, id);
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
 export const recordJourneyTravel = (world, id, from, to) =>
@@ -316,7 +318,10 @@ export const packMediaFiles = [
         p.art,
         ...(p.backdrops || []).map((b) => b.backdrop),
       ]),
-      ...Object.values(pack.items || {}).map((i) => i.art),
+      ...Object.values(pack.items || {}).flatMap((i) => [
+        i.art,
+        ...(i.pages || []),
+      ]),
       ...pack.crossings.flatMap((c) => [
         c.scenery?.overlay,
         c.scenery?.backdrop,
@@ -358,14 +363,48 @@ export function conditionsMet(world, packId, conditions = [], actor = null) {
   return true;
 }
 export function choiceText(choice, actor) {
-  return choice.textTemplate === undefined
-    ? choice.text
-    : choice.textTemplate.replaceAll(
-        "{actor}",
-        humanAvatar(actor)?.name ||
-          packPeople[actor]?.name ||
-          "An earlier traveler",
-      );
+  if (choice.textTemplate !== undefined)
+    return choice.textTemplate.replaceAll(
+      "{actor}",
+      humanAvatar(actor)?.name ||
+        packPeople[actor]?.name ||
+        "An earlier traveler",
+    );
+  return choice.text ?? plainChoiceText(choice, actor);
+}
+const nameOf = (id) =>
+  humanAvatar(id)?.name ||
+  entities[id]?.name ||
+  forest.people[id]?.name ||
+  forest.things[id]?.name ||
+  forest.places[id]?.name ||
+  "An earlier traveler";
+const NAMED = /^(?:The|An?) |^\p{L}+['’]s? /u;
+const theName = (id) =>
+  NAMED.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
+function plainChoiceText(choice, actor) {
+  const at = choice.subject === choice.at ? "" : ` at ${nameOf(choice.at)}`;
+  const given = (choice.requires || []).find(
+    (r) => r.kind === "holding" && r.role === "actor",
+  )?.item;
+  switch (choice.on) {
+    case "give":
+      return given
+        ? `${nameOf(actor)} gives ${theName(given)} to ${nameOf(choice.subject)}${at}.`
+        : `${nameOf(actor)} gives to ${nameOf(choice.subject)}${at}.`;
+    case "talk":
+      return `${nameOf(actor)} talks with ${nameOf(choice.subject)}${at}.`;
+    case "meet":
+      return `${nameOf(actor)} meets ${nameOf(choice.subject)}${at}.`;
+    case "wait":
+      return `${nameOf(actor)} waits at ${nameOf(choice.at)}.`;
+    case "hold":
+      return `${nameOf(actor)} takes ${theName(choice.subject)}.`;
+    case "depart":
+      return `${nameOf(choice.subject)} leaves ${nameOf(choice.at)}.`;
+    default:
+      return `${nameOf(actor)} speaks with ${nameOf(choice.subject)}${at}.`;
+  }
 }
 
 // The item's outermost holder, or the first repeated item when holders loop.
@@ -390,7 +429,8 @@ function rootOf(world, id) {
 // rules over every exit, play and resident.
 function entityLive(world, id, lockView) {
   if (world.items?.[id]) {
-    let holder = rootOf(world, id);
+    const holder = rootOf(world, id);
+    if (!coordinateEntityActive(world, holder)) return false;
     if (
       humanAvatar(holder) &&
       !humanPresent(world, holder) &&
@@ -410,6 +450,7 @@ export const entityShown = (world, id) => entityLive(world, id, true);
 export function entityEnabled(world, id, saved = false, lockView = false) {
   if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
     return false;
+  if (!saved && !coordinateEntityActive(world, id)) return false;
   // A pack switched off sleeps where it stands (rules 98, pack-toggle.mjs).
   if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
     return false;
@@ -457,19 +498,13 @@ export function entityEnabled(world, id, saved = false, lockView = false) {
   );
 }
 const routeOpen = (world, packId, r) =>
+  coordinateRouteDiscovered(world, r.from, r.to) ||
   conditionsMet(world, packId, r.requires);
 export const packRouteOpen = (world, from, to) =>
   packDefinitions.some((pack) =>
     (pack.routes || []).some(
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r),
     ),
-  );
-// A traveler's own condition on a way is met by its party: the traveler or
-// its companion holding the key, or trusted by the keeper, opens the door for
-// both (sticky companions, rules 133).
-export const partyMet = (world, pack, conditions, actor) =>
-  partyOf(world, actor).some((who) =>
-    conditionsMet(world, pack, conditions, who),
   );
 export function personalRouteOpen(world, from, to, actor) {
   const routes = packDefinitions.flatMap((pack) =>
@@ -482,7 +517,7 @@ export function personalRouteOpen(world, from, to, actor) {
     routes.some(
       ({ pack, route }) =>
         routeOpen(world, pack, route) &&
-        partyMet(world, pack, route.travelerRequires, actor),
+        conditionsMet(world, pack, route.travelerRequires, actor),
     )
   );
 }
@@ -493,7 +528,7 @@ export function packExits(world, place, actor = null) {
         (r) =>
           r.from === place &&
           routeOpen(world, pack.id, r) &&
-          partyMet(
+          conditionsMet(
             world,
             pack.id,
             r.travelerRequires,
@@ -786,18 +821,28 @@ export function applyDeparture(world, actor, to) {
   for (const item of Object.values(world.items))
     if (item.holder === actor) item.holder = world.actors[actor].place;
 }
-// Choices marked "on": "talk" are the effect of a traveler's Talk with their
-// subject. They are never offered as cards.
-export function packTalkChoice(world, action, turn = world.turn) {
+// A Talk choice linked to an authored topic waits for that topic to be spoken.
+// Other Talk choices are the action itself. Neither is offered as a card.
+export function packTalkChoice(world, action, { turn = world.turn, topicId } = {}) {
   if (!controlledByHuman(world, action.actor)) return null;
+  const atTurn = turn === world.turn ? world : { ...world, turn };
   for (const pack of packDefinitions)
-    for (const c of pack.choices || [])
+    for (const c of pack.choices || []) {
       if (
-        c.on === "talk" &&
-        c.subject === action.target &&
-        choiceFeasible(world, pack, c, action.actor, "talk", turn)
+        c.on !== "talk" ||
+        c.subject !== action.target ||
+        !choiceFeasible(atTurn, pack, c, action.actor, "talk")
       )
-        return { packId: pack.id, choiceId: c.id, actor: action.actor };
+        continue;
+      const choice = { packId: pack.id, choiceId: c.id, actor: action.actor };
+      const topics = (pack.topics || []).filter((t) => t.choiceId === c.id);
+      if (!topics.length && topicId === undefined) return choice;
+      const topic = topics.find((t) =>
+        (topicId === undefined || t.id === topicId) &&
+        conditionsMet(atTurn, pack.id, t.requires, action.actor),
+      );
+      if (topic) return { ...choice, topicId: topic.id };
+    }
   return null;
 }
 export function applyPackChoice(
@@ -899,18 +944,27 @@ export function applyPackChoice(
   recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
-function committedChoiceText(world, pack, choice) {
+export function committedChoiceText(world, pack, choice) {
   if (choice.summary) return choice.summary;
+  const turn = world.packs[pack.id].receipts?.[choice.id];
   const actor =
     world.log?.find(
       (entry) => entry.packId === pack.id && entry.choiceId === choice.id,
     )?.actorId ||
     world.packs[pack.id].recitals?.[choice.id]?.actor ||
+    world.log?.find(
+      (entry) =>
+        entry.kind === "action" &&
+        !entry.generated &&
+        entry.turn === turn &&
+        entry.actorId &&
+        [entry.locationId, entry.fromLocationId].includes(choice.at),
+    )?.actorId ||
     null;
   return choiceText(choice, actor);
 }
 
-export function packFacts(world, id) {
+export function packFacts(world, id, known = () => true) {
   const e = packEntity(id);
   if (!e) return [];
   const pack = packDefinition(e.packId),
@@ -922,7 +976,9 @@ export function packFacts(world, id) {
         owns(state.receipts, c.id) &&
         (c.subject === id ||
           (c.at === id && c.on !== "hold") ||
-          c.effects.some((effect) => effect.item === id)),
+          e.records?.includes(c.id) ||
+          c.effects.some((effect) => effect.item === id)) &&
+        known(pack, c),
     )
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-3)
@@ -944,7 +1000,7 @@ export function packNarration(world, id) {
   ).length;
   return [`Discoveries recorded so far: ${count}.`];
 }
-export function packSceneFacts(world, location) {
+export function packSceneFacts(world, location, known = () => true) {
   const e = packEntity(location);
   if (!e) return [];
   const pack = packDefinition(e.packId),
@@ -965,11 +1021,12 @@ export function packSceneFacts(world, location) {
   );
   const local = committed
     // A hold choice happens wherever its holder stands, not at its `at`.
-    .filter((c) => c.at === location && c.on !== "hold" && !canon.includes(c))
+    .filter((c) => c.at === location && c.on !== "hold" &&
+      !canon.includes(c) && known(pack, c))
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-2);
   return [
-    ...canon.map(
+    ...canon.filter((c) => known(pack, c)).map(
       (c) => `Established account: ${committedChoiceText(world, pack, c)}`,
     ),
     ...local.map((c) => committedChoiceText(world, pack, c)),

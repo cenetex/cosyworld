@@ -1,7 +1,7 @@
 {
   "pack": "willows",
   "name": "The Willows",
-  "revision": 2,
+  "revision": 3,
   "entry": "willows-landing",
   "entries": [
     {
@@ -324,6 +324,50 @@
         ],
         "live": [],
         "prerequisites": {}
+      },
+      {
+        "id": "item:willows-notebook",
+        "kind": "item",
+        "title": "The River Notebook appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=willows-willows-paced,value=true)"
+                },
+                {
+                  "op": "not",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "item_at(item=willows-notebook,place=willows-camp)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(willows-willows-paced is set or not (The River Notebook lies at River Camp))",
+        "ids": "(willows-willows-paced is set or not (willows-notebook lies at willows-camp))",
+        "latch": [
+          "flag(key=willows-willows-paced,value=true)"
+        ],
+        "live": [
+          "item_at(item=willows-notebook,place=willows-camp)"
+        ],
+        "prerequisites": {
+          "act": [
+            "willows-pace-willows"
+          ],
+          "flag": [
+            "willows-willows-paced"
+          ]
+        }
       }
     ],
     "acts": [
@@ -661,7 +705,7 @@
       {
         "id": "act:willows-swede-departs",
         "kind": "act",
-        "title": "The Swede takes the canoe",
+        "title": "The Swede leaves the island",
         "cond": {
           "op": "and",
           "of": []
@@ -817,9 +861,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "act:willows-pace-again"
+          "act:willows-pace-again",
+          "item:willows-notebook"
         ],
-        "gates": [],
+        "gates": [
+          "item:willows-notebook"
+        ],
         "acts": [
           "act:willows-pace-again"
         ]
@@ -880,6 +927,15 @@
         "holder": "willows-swede",
         "consumedBy": [],
         "readBy": []
+      },
+      {
+        "id": "willows-notebook",
+        "name": "The River Notebook",
+        "holder": "willows-camp",
+        "consumedBy": [],
+        "readBy": [
+          "item:willows-notebook"
+        ]
       }
     ],
     "needs": {
@@ -979,13 +1035,8 @@
       "flag:willows-willows-paced": [
         "act:willows-pace-willows"
       ],
-      "topic:willows-channels": [
-        "place:willows-camp",
-        "resident:willows-swede"
-      ],
-      "topic:willows-supper": [
-        "place:willows-camp",
-        "resident:willows-swede"
+      "item:willows-notebook": [
+        "flag:willows-willows-paced"
       ],
       "want:willows-swede": [
         "place:willows-landing",
@@ -1028,6 +1079,11 @@
       "kind": "flag",
       "class": "latch",
       "words": "willows-willows-paced is set"
+    },
+    "item_at(item=willows-notebook,place=willows-camp)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "willows-notebook lies at willows-camp"
     },
     "item_near(item=willows-paddle,place=willows-camp)": {
       "kind": "item_near",
@@ -1073,6 +1129,7 @@
   "conditionKinds": [
     "daylight",
     "flag",
+    "item_at",
     "item_near",
     "met",
     "ship_at",

@@ -12,45 +12,58 @@ export const CROSSFADE_MS = 4000;
 export const CHANGE_FADE_MS = 900;
 
 const fading = new WeakMap();
+function discardBackdrop(img, fade) {
+  if (!fade) return;
+  fading.delete(img);
+  fade.motion?.cancel();
+  // Release the decoded pixels before the image leaves the page.
+  fade.ghost.removeAttribute("src");
+  fade.ghost.remove();
+}
+
 export function crossfadeImage(img, source, { duration = CROSSFADE_MS } = {}) {
-  if (img.getAttribute("src") === source) return;
-  const shown = img.getAttribute("src") && img.complete && img.naturalWidth;
-  if (!duration || !shown) {
-    img.src = source;
+  const current = img.getAttribute("src");
+  const outgoing = fading.get(img);
+  if (!duration) {
+    discardBackdrop(img, outgoing);
+    if (current !== source) img.src = source;
     return;
   }
-  fading.get(img)?.remove();
-  const ghost = img.cloneNode(false);
-  const style = getComputedStyle(img);
-  ghost.removeAttribute("id");
-  ghost.alt = "";
-  ghost.setAttribute("aria-hidden", "true");
-  ghost.classList.add("backdrop-fading");
-  // The old painting keeps the place's own framing and tone while it fades.
-  ghost.style.filter = style.filter;
-  ghost.style.objectPosition = style.objectPosition;
-  ghost.style.pointerEvents = "none";
-  img.after(ghost);
-  fading.set(img, ghost);
+  if (current === source) return;
+  let ghost = outgoing?.ghost;
+  if (current && img.complete && img.naturalWidth) {
+    discardBackdrop(img, outgoing);
+    ghost = img.cloneNode(false);
+    const style = getComputedStyle(img);
+    ghost.removeAttribute("id");
+    ghost.removeAttribute("data-source");
+    ghost.alt = "";
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.classList.add("backdrop-fading");
+    ghost.style.filter = style.filter;
+    ghost.style.objectPosition = style.objectPosition;
+    ghost.style.pointerEvents = "none";
+    img.after(ghost);
+  } else outgoing?.motion?.cancel();
+  const transition = ghost && { ghost };
+  if (transition) fading.set(img, transition);
   img.src = source;
+  if (!transition) return;
   img
     .decode()
     .catch(() => {})
     .then(() => {
-      if (!ghost.isConnected) return;
-      return ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
+      if (fading.get(img) !== transition || !ghost.isConnected) return;
+      transition.motion = ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
         duration,
         easing: "ease-in-out",
         fill: "forwards",
-      }).finished;
+      });
+      return transition.motion.finished;
     })
     .catch(() => {})
     .finally(() => {
-      // The faded painting's decoded pixels go now, not at collection. The
-      // address goes before the node, or Chromium keeps it (card-ghost.mjs).
-      ghost.removeAttribute("src");
-      ghost.remove();
-      if (fading.get(img) === ghost) fading.delete(img);
+      if (fading.get(img) === transition) discardBackdrop(img, transition);
     });
 }
 
@@ -58,32 +71,34 @@ export function crossfadeImage(img, source, { duration = CROSSFADE_MS } = {}) {
 // drawing up at Black Pond) fades instead of jumping. It never takes clicks.
 const showing = new WeakMap();
 export function fadeLayer(el, show, { duration = CHANGE_FADE_MS } = {}) {
-  const shown = showing.get(el)?.show ?? !el.hidden;
-  if (shown === show) return;
-  // The same visibility can recur while an older decode is still pending.
-  // Only this transition may animate or settle the layer.
-  const transition = { show };
-  showing.set(el, transition);
-  for (const motion of el.getAnimations()) motion.cancel();
+  const previous = showing.get(el);
+  const wanted = previous?.show ?? !el.hidden;
+  if (wanted === show && (duration || !previous)) return;
+  showing.delete(el);
+  previous?.motion?.cancel();
   el.style.opacity = "";
   if (!duration) {
     el.hidden = !show;
     return;
   }
+  const transition = { show };
+  showing.set(el, transition);
   el.hidden = false;
   const ready = show ? el.decode().catch(() => {}) : Promise.resolve();
   if (show) el.style.opacity = "0";
   ready.then(() => {
     if (showing.get(el) !== transition) return;
     el.style.opacity = "";
-    const fade = el.animate(
+    transition.motion = el.animate(
       { opacity: show ? [0, 1] : [1, 0] },
       { duration, easing: "ease-in-out", fill: "forwards" },
     );
-    fade.finished
+    transition.motion.finished
       .then(() => {
-        if (!show && showing.get(el) === transition) el.hidden = true;
-        fade.cancel();
+        if (showing.get(el) !== transition) return;
+        if (!show) el.hidden = true;
+        showing.delete(el);
+        transition.motion.cancel();
       })
       .catch(() => {});
   });
@@ -119,6 +134,8 @@ export const FLASH_MS = 140;
 export const QUIET_MS = 30_000;
 export const FLASH_CHANCE = 0.4;
 const SCARES_KEY = "cosyworld.scares";
+export const SCARES_CHANGE = "cosyworld:scares-change";
+let sessionScares;
 
 export function isHalloween(
   date = new Date(),
@@ -142,6 +159,7 @@ export function uncannyAt(
 }
 
 export function scaresEnabled() {
+  if (sessionScares !== undefined) return sessionScares;
   try {
     return localStorage.getItem(SCARES_KEY) !== "off";
   } catch {
@@ -149,7 +167,6 @@ export function scaresEnabled() {
   }
 }
 
-// The settings button turns flashes and scares off for this browser.
 export function installScaresToggle(button) {
   if (!button) return;
   const show = () => {
@@ -158,10 +175,15 @@ export function installScaresToggle(button) {
     button.setAttribute("aria-pressed", String(on));
   };
   button.onclick = () => {
+    const on = !scaresEnabled();
     try {
-      localStorage.setItem(SCARES_KEY, scaresEnabled() ? "off" : "on");
-    } catch {}
+      localStorage.setItem(SCARES_KEY, on ? "on" : "off");
+      sessionScares = undefined;
+    } catch {
+      sessionScares = on;
+    }
     show();
+    document.dispatchEvent(new Event(SCARES_CHANGE));
   };
   show();
 }

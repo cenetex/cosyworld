@@ -31,11 +31,14 @@ it("a quiet cloth hold reveals the placed lit lamp's ship identically locally an
   expect(JSON.parse(runtime.cardShared(JSON.stringify(request)))).toEqual(
     shared,
   );
-  expect(shared.world.crossings[gate]).toEqual({ discovered: true });
+  expect(shared.world.crossings[gate]).toEqual({ discovered: true, method: "pond-lamp" });
   expect(shared.world.transports["greek-ship"].dock).toBe("pond");
   expect(shared.world.crossings).toEqual(local.crossings);
   expect(shared.world.turn).toBe(world.turn);
-  expect(shared.world.log).toEqual(world.log);
+  expect(shared.world.log).toEqual(local.log);
+  expect(shared.world.log.slice(world.log.length)).toMatchObject([
+    { verb: "want_met", actorId: "vale", turn: world.turn },
+  ]);
   holdChoice(local, "vale", { item: null, revision: local.revision });
   expect(decodeSave(encodeSave(local)).crossings[gate].discovered).toBe(true);
 });

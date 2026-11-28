@@ -5,6 +5,10 @@ import {
   witnessKnowledge,
   reserveKnowledge,
   reserveLaneKnowledge,
+  commitDisclosure,
+  learnQuest,
+  questFactId,
+  readClaim,
   knowledgeDisclosures,
   knowsFact,
   validKnowledge,
@@ -30,7 +34,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { packDefinition, packDefinitions } from "../v2/card-game/pack-registry.mjs";
 import { greekStart, openDoorWalk } from "./helpers/open-door.mjs";
 
 const clause = "Pip found a shell beside the pond.";
@@ -70,9 +74,22 @@ const talk = (w, speaker = "moth", listener = "vale", topics = []) => {
     entry.seq,
   );
 };
+const marker = ({ factId, speaker, listener, eventSeq }) => ({
+  factId,
+  speaker,
+  listener,
+  eventSeq,
+});
+const reveal = (w, [disclosure]) => {
+  const { speaker } = disclosure;
+  expect(commitDisclosure(w, marker(disclosure), speaker, w.actors[speaker].place))
+    .toBeTruthy();
+};
 const worldWithNews = () => {
   const w = createWorld();
   for (const id of ["vale", "moth", "keeper"]) w.actors[id].place = "station";
+  // Keep the Wayfinder home so the station does not add a return quest.
+  w.items["elysium-wayfinder"].holder = "station";
   addLog(w, "World", clause, {
     kind: "action",
     verb: "give",
@@ -91,24 +108,31 @@ const localTalk = (w) => {
   expect(result.ok).toBe(true);
   return { world: result.state, context: narrativeContext(result.state, a) };
 };
-const response = (context, words) => ({
-  revision: context.revision,
-  model: "fixture",
-  entries: context.entities.map(({ id }) => ({
-    id,
-    text:
-      id === context.disclosures[0].speaker ? words : "I am glad to see you.",
-  })),
-});
+const response = (context, words, disclosed) => {
+  const [{ speaker }] = context.disclosures;
+  return {
+    revision: context.revision,
+    model: "fixture",
+    entries: context.entities.map(({ id }) => ({
+      id,
+      text: id === speaker ? words : "I am glad to see you.",
+      ...(id === speaker && disclosed ? { disclosed } : {}),
+    })),
+  };
+};
 
 describe("saved public knowledge", () => {
-  it("teaches an absent listener on the Talk itself, with no speech", () => {
+  it("teaches an absent witness only when the Talk's disclosure is committed", () => {
     const w = bare();
     const fact = source(w);
     expect(knowsFact(w, "moth", fact.id)).toBe(true);
     expect(knowsFact(w, "vale", fact.id)).toBe(false);
     w.turn = 1;
-    expect(talk(w)).toHaveLength(1);
+    const offered = talk(w);
+    expect(offered).toMatchObject([{ factId: fact.id, deferred: true }]);
+    expect(knowsFact(w, "vale", fact.id)).toBe(false);
+    expect(validKnowledge(w, Object.keys(w.actors), ["station"])).toBe(true);
+    reveal(w, offered);
     expect(w.knowledge.known.vale[fact.id]).toMatchObject({
       kind: "heard",
       teller: "moth",
@@ -124,28 +148,87 @@ describe("saved public knowledge", () => {
     expect(validKnowledge(w, Object.keys(w.actors), ["station"])).toBe(true);
   });
 
+  it("checks the reserved pair, fact, turn, and event before accepting a disclosure", () => {
+    const w = bare(), fact = source(w);
+    w.turn = 1;
+    const [offered] = talk(w);
+    const stamp = marker(offered);
+    expect(commitDisclosure(w, stamp, "vale", "station")).toBeNull();
+    for (const invalid of [
+      { ...stamp, listener: "keeper" },
+      { ...stamp, factId: "event:1" },
+      { ...stamp, eventSeq: stamp.eventSeq - 1 },
+    ]) expect(commitDisclosure(w, invalid, "moth", "station")).toBeNull();
+    expect(commitDisclosure(w, stamp, "moth", "pond")).toBeNull();
+    expect(knowsFact(w, "vale", fact.id)).toBe(false);
+
+    w.turn = 2;
+    expect(commitDisclosure(w, stamp, "moth", "station")).toBeNull();
+    const retry = talk(w);
+    expect(retry[0].eventSeq).toBeGreaterThan(stamp.eventSeq);
+    reveal(w, retry);
+    expect(knowsFact(w, "vale", fact.id)).toBe(true);
+    expect(commitDisclosure(w, marker(retry[0]), "moth", "station")).toBeNull();
+  });
+
   it("tells the next fact on a second Talk, then nothing", () => {
     const w = bare(),
       first = source(w),
       second = source(w, { text: "Pip carried a shell to the pond." });
     w.turn = 1;
-    expect(talk(w)[0].factId).toBe(second.id);
+    let offered = talk(w);
+    expect(offered[0].factId).toBe(second.id);
+    reveal(w, offered);
     expect(knowsFact(w, "vale", first.id)).toBe(false);
     w.turn = 2;
-    expect(talk(w)[0].factId).toBe(first.id);
+    offered = talk(w);
+    expect(offered[0].factId).toBe(first.id);
+    reveal(w, offered);
     w.turn = 3;
     expect(talk(w)).toEqual([]);
+  });
+
+  it("shares a current request and a book claim over successive Talks despite newer news", () => {
+    const w = bare();
+    const request = { kind: "item", target: "lamp" };
+    const current = questFactId("keeper", request);
+    const former = questFactId("keeper", { kind: "item", target: "bell" });
+    const claim = "claim:sample:river-book:ford";
+    w.actors.keeper.want = request;
+    for (const [id, text] of [
+      [former, "The keeper wants the Bell."],
+      [current, "The keeper wants the Lamp."],
+    ]) {
+      learnQuest(w, "keeper", "moth", { id, text }, { seq: ++w.eventSeq, turn: w.turn });
+    }
+    readClaim(w, "moth", {
+      id: claim, text: "The nearest ford lies beneath the old quay.",
+      book: "river-book", claim: "ford", author: "keeper", about: "station",
+    }, { seq: ++w.eventSeq, turn: w.turn });
+
+    for (const [index, expected] of [current, claim].entries()) {
+      w.turn++;
+      source(w, { text: `Pip brought shell ${index} from the pond.` });
+      const offered = talk(w);
+      expect(offered.map(({ factId }) => factId)).toEqual([expected]);
+      reveal(w, offered);
+    }
+    w.turn++;
+    const news = source(w, { text: "Pip carried one more shell from the pond." });
+    expect(talk(w).map(({ factId }) => factId)).toEqual([news.id]);
+    expect(knowsFact(w, "vale", former)).toBe(false);
+    expect(w.knowledge.known.vale[claim]).toMatchObject({ kind: "heard", teller: "moth" });
   });
 
   it("uses one hop per round and keeps the immediate teller on each hop", () => {
     const w = bare(),
       fact = source(w);
     w.turn = 1;
-    talk(w);
+    reveal(w, talk(w));
     expect(talk(w, "vale", "keeper")).toEqual([]);
     expect(knowsFact(w, "keeper", fact.id)).toBe(false);
     w.turn = 2;
-    talk(w, "vale", "keeper");
+    reveal(w, talk(w, "vale", "keeper"));
     expect(w.knowledge.known.keeper[fact.id]).toMatchObject({
       kind: "heard",
       teller: "vale",
@@ -180,12 +263,15 @@ describe("saved public knowledge", () => {
       );
     w.turn = 1;
     const entry = () => ({ seq: ++w.eventSeq, turn: w.turn });
-    expect(reserveLaneKnowledge(w, "pip", "rue", entry(), lane)).toBeTruthy();
+    const first = reserveLaneKnowledge(w, "pip", "rue", entry(), lane);
+    expect(knowsFact(w, "rue", lane.id)).toBe(false);
+    reveal(w, [first]);
     expect(reserveLaneKnowledge(w, "rue", "ada", entry(), lane)).toBeNull();
     expect(knowsFact(w, "ada", lane.id)).toBe(false);
     expect(ok()).toBe(true);
     w.turn = 2;
-    expect(reserveLaneKnowledge(w, "rue", "ada", entry(), lane)).toBeTruthy();
+    const later = reserveLaneKnowledge(w, "rue", "ada", entry(), lane);
+    reveal(w, [later]);
     expect(w.knowledge.known.ada[lane.id]).toMatchObject({
       kind: "heard",
       teller: "rue",
@@ -215,7 +301,7 @@ describe("saved public knowledge", () => {
       text: "The families ask the city for a burial.",
       packId: "sample",
     };
-    talk(w, "moth", "vale", [topic]);
+    reveal(w, talk(w, "moth", "vale", [{ ...topic, said: true }]));
     source(w);
     for (let i = 0; i < KNOWLEDGE_FACT_LIMIT + 5; i++)
       source(w, { text: `Pip carried shell number ${i} to the pond.` });
@@ -337,7 +423,6 @@ describe("saved public knowledge", () => {
       ).length;
     // Every active grievance keeps its evidence; dormant ones keep theirs by
     // most recent touch; no repaired one holds a pin while others need it.
-    // (The newest unpinned incidents survive by age alone.)
     for (let h = 0; h < 10; h++) expect(kept(h), ids[h]).toBe(6);
     const dormant = Array.from({ length: 20 }, (_, d) => kept(10 + d));
     expect(dormant.reduce((n, k) => n + k, 0)).toBe(GRIEVANCE_PIN_LIMIT - 60);
@@ -387,7 +472,11 @@ describe("saved public knowledge", () => {
     const w = bare();
     source(w);
     w.turn = 1;
-    talk(w);
+    const offered = talk(w);
+    const broken = structuredClone(w);
+    broken.knowledge.pending[0].eventSeq = broken.eventSeq + 1;
+    expect(validKnowledge(broken, Object.keys(broken.actors), ["station"])).toBe(false);
+    reveal(w, offered);
     for (const change of [
       (v) => {
         v.knowledge.extra = true;
@@ -410,7 +499,7 @@ describe("saved public knowledge", () => {
     }
   });
 
-  it("keeps topic prerequisites on gossip and permits a later source confirmation", () => {
+  it("says a topic only at its Talk choice and keeps its prerequisites on gossip", () => {
     const w = bare();
     w.turn = 1;
     const topic = {
@@ -421,17 +510,16 @@ describe("saved public knowledge", () => {
       choiceId: "record-petition",
       text: "The families ask the city for a burial.",
     };
-    expect(talk(w, "moth", "vale", [topic])).toHaveLength(1);
+    expect(talk(w, "moth", "vale", [topic])).toEqual([]);
+    expect(w.knowledge.facts[topic.id]).toBeUndefined();
+    reveal(w, talk(w, "moth", "vale", [{ ...topic, said: true }]));
     expect(knowsFact(w, "vale", topic.id)).toBe(true);
     expect(talk(w, "moth", "keeper", [])).toEqual([]);
     w.turn = 2;
-    expect(talk(w, "vale", "keeper", [topic])).toHaveLength(1);
-    const confirmation = talk(w, "moth", "vale", [
-      { ...topic, choiceReady: true },
-    ]);
-    expect(confirmation[0].factId).toBe(topic.id);
-    expect(w.knowledge.pending.at(-1).commitChoice).toBe(true);
-    expect(w.knowledge.known.vale[topic.id].teller).toBe("moth");
+    const forwarded = talk(w, "vale", "keeper", [topic]);
+    expect(w.knowledge.pending.at(-1).commitChoice).toBe(false);
+    reveal(w, forwarded);
+    expect(w.knowledge.known.keeper[topic.id].teller).toBe("vale");
   });
   it("keeps a topic's receipt from becoming a second news origin", () => {
     const w = bare();
@@ -462,33 +550,68 @@ describe("saved public knowledge", () => {
     installKnowledge(w, undefined, [topic]);
     expect(Object.keys(w.knowledge.facts)).toEqual([]);
     w.turn = 1;
-    expect(talk(w, "moth", "vale", [topic])).toHaveLength(1);
+    expect(talk(w, "moth", "vale", [{ ...topic, said: true }])).toHaveLength(1);
     expect(Object.keys(w.knowledge.facts)).toEqual([topic.id]);
   });
 });
 
 describe("Talk publication and learned facts", () => {
-  it("saves the learned fact on a local Talk, whatever is then said", () => {
+  it("can retry local Talk when the reply leaves its fact unspoken", () => {
     const { world, context } = localTalk(worldWithNews());
-    const id = context.disclosures[0].factId;
-    expect(knowsFact(world, "vale", id)).toBe(true);
-    const spoken = applyGeneratedText(
+    const disclosure = context.disclosures[0];
+    expect(disclosure).toMatchObject({ text: clause, deferred: true });
+    expect(knowsFact(world, "vale", disclosure.factId)).toBe(false);
+    const missingReply = response(context, "I enjoy the warm breeze.");
+    missingReply.entries = missingReply.entries.filter(({ id }) => id !== disclosure.speaker);
+    expect(applyGeneratedText(world, context, missingReply).knowledge).toEqual(world.knowledge);
+    const unrelated = applyGeneratedText(
       world,
       context,
       response(context, "I enjoy the warm breeze."),
     );
-    expect(spoken.knowledge).toEqual(world.knowledge);
-    const restored = decodeSave(encodeSave(world));
-    expect(restored.knowledge).toEqual(world.knowledge);
-    // Vale already knows it; the cast may still pass it on among themselves.
+    expect(unrelated.knowledge).toEqual(world.knowledge);
+    const restored = decodeSave(encodeSave(unrelated));
+    expect(restored.knowledge).toEqual(unrelated.knowledge);
+    const retry = localTalk(restored);
+    const next = retry.context.disclosures[0];
+    expect(next).toMatchObject({ factId: disclosure.factId, speaker: "moth", listener: "vale" });
+    expect(next.eventSeq).toBeGreaterThan(disclosure.eventSeq);
+    const spoken = applyGeneratedText(
+      retry.world,
+      retry.context,
+      response(retry.context, "You should see the shell I picked up by the water.", marker(next)),
+    );
+    expect(knowsFact(spoken, "vale", disclosure.factId)).toBe(true);
     expect(
-      (localTalk(restored).context.disclosures || []).filter(
+      (localTalk(decodeSave(encodeSave(spoken))).context.disclosures || []).filter(
         (d) => d.listener === "vale",
       ),
     ).toEqual([]);
   });
 
-  it("saves the learned fact on a shared Talk, whatever is then said", () => {
+  it("commits a local streamed disclosure on final delivery without repeating the line", () => {
+    const { world, context } = localTalk(worldWithNews());
+    const offered = context.disclosures[0];
+    const words = "I picked up a little shell at the water's edge.";
+    const options = { incremental: true, preservePublished: true };
+    const streamed = applyGeneratedText(world, context, response(context, words), options);
+    expect(knowsFact(streamed, "vale", offered.factId)).toBe(false);
+    const mismatch = applyGeneratedText(
+      streamed, context, response(context, `${words} Come look.`, marker(offered)), options,
+    );
+    expect(knowsFact(mismatch, "vale", offered.factId)).toBe(false);
+    const finalReply = response(context, words, marker(offered));
+    const completed = applyGeneratedText(streamed, context, finalReply, options);
+    expect(knowsFact(completed, "vale", offered.factId)).toBe(true);
+    const lines = completed.log.filter((line) => line.generated && line.text === words);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].disclosedFactId).toBe(offered.factId);
+    const replayed = applyGeneratedText(completed, context, finalReply, options);
+    expect(replayed.knowledge).toEqual(completed.knowledge);
+    expect(replayed.log).toEqual(completed.log);
+  });
+
+  it("records a shared disclosure only from the reserved speaker and event", () => {
     let world = worldWithNews();
     const request = (op, extra = {}) =>
       dispatchShared({
@@ -511,16 +634,28 @@ describe("Talk publication and learned facts", () => {
       present: ["vale"],
       action,
     }).disclosures;
-    expect(knowsFact(world, "vale", ds[0].factId)).toBe(true);
-    const spoken = request("speech", {
-      room: "station",
-      lines: [
-        { actorId: "vale", text: "What did you find?" },
-        { actorId: "moth", text: "I enjoy the warm breeze." },
-      ],
+    const [offered] = ds;
+    expect(offered).toMatchObject({ text: clause, deferred: true });
+    expect(knowsFact(world, "vale", offered.factId)).toBe(false);
+    const stamp = marker(offered);
+    const speak = (lines) => request("speech", { room: "station", lines }).world;
+    const reply = { actorId: "moth", text: "I found a small shell right by the water." };
+    for (const line of [
+      reply,
+      { ...reply, disclosed: { ...stamp, eventSeq: stamp.eventSeq - 1 } },
+      { actorId: "vale", text: "Did you find something?", disclosed: stamp },
+    ]) {
+      const unrelated = speak([line]);
+      expect(knowsFact(unrelated, "vale", offered.factId)).toBe(false);
+    }
+    const spoken = speak([{ ...reply, disclosed: stamp }]);
+    expect(spoken.knowledge.known.vale[offered.factId]).toMatchObject({
+      kind: "heard", teller: "moth", eventSeq: offered.eventSeq,
     });
-    expect(spoken.world.knowledge).toEqual(world.knowledge);
-    expect(decodeSave(encodeSave(world)).knowledge).toEqual(world.knowledge);
+    const restored = decodeSave(encodeSave(spoken));
+    expect(restored.knowledge).toEqual(spoken.knowledge);
+    expect(restored.log.findLast((line) => line.text === reply.text).disclosedFactId)
+      .toBe(offered.factId);
   });
 });
 
@@ -541,7 +676,10 @@ describe("learned facts in the avatar's own view", () => {
       .facts;
   };
   it("keeps a told fact in view on later turns", () => {
-    let { world } = localTalk(worldWithNews());
+    let { world, context } = localTalk(worldWithNews());
+    world = applyGeneratedText(
+      world, context, response(context, "I found a shell at the pond.", marker(context.disclosures[0])),
+    );
     for (let i = 0; i < 3; i++)
       world = play(
         world,
@@ -567,7 +705,7 @@ describe("learned facts in the avatar's own view", () => {
       w.turn = i;
       source(w, { text: `Pip carried shell number ${i} to the pond.` });
       w.turn = i + 1;
-      talk(w);
+      reveal(w, talk(w));
     }
     const names = (n) =>
       knowledgeFacts(w, "vale", undefined, [], n).map(
@@ -583,141 +721,64 @@ describe("learned facts in the avatar's own view", () => {
   });
 });
 
-describe("authored topics keep their saved deed identity", () => {
+describe("authored topics are said at their Talk choice", () => {
   const pack = packDefinition("greek-drama");
   const originalTopics = pack.topics;
-  // The guard's decree commits on meeting him. These cases stand it in for a
-  // choice that commits through its Talk topic.
+  // The guard's decree commits on meeting him. These cases make it a Talk
+  // choice with a topic.
   const decree = pack.choices.find((c) => c.id === "greek-hear-decree");
-  beforeEach(() => delete decree.on);
+  const topic = {
+    id: decree.id,
+    speaker: decree.subject,
+    at: decree.at,
+    text: "A public decree forbids burial of the brother left outside the city.",
+    requires: decree.requires,
+    choiceId: decree.id,
+  };
+  beforeEach(() => {
+    decree.on = "talk";
+    pack.topics = [topic];
+  });
   afterEach(() => {
     decree.on = "meet";
     if (originalTopics === undefined) delete pack.topics;
     else pack.topics = originalTopics;
   });
-  it("records the plea's receipt and teaches it at the Talk", () => {
-    const choice = decree;
-    const text =
-      "A public decree forbids burial of the brother left outside the city.";
-    pack.topics = [
-      {
-        id: choice.id,
-        speaker: choice.subject,
-        at: choice.at,
-        text,
-        requires: choice.requires,
-        choiceId: choice.id,
-      },
-    ];
-    let world = openDoorWalk(greekStart(), "gate");
-    const action = legalActions(world).find(
-      (a) => a.kind === "talk" && a.target === choice.subject,
-    );
-    world = play(world, action).state;
-    const context = narrativeContext(world, action);
-    expect(context.disclosures[0].factId).toBe(choice.id);
-    expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
-    expect(knowsFact(world, "vale", choice.id)).toBe(true);
-    const restored = decodeSave(encodeSave(world));
-    expect(restored.packs[pack.id].receipts[choice.id]).toBe(world.turn);
-    expect(restored.knowledge.known.vale[choice.id].teller).toBe(
-      choice.subject,
-    );
+  it("gives every pack topic a Talk choice of its speaker at its place", () => {
+    for (const p of packDefinitions)
+      for (const t of p.topics || [])
+        expect(p.choices.find((c) => c.id === t.choiceId), t.id).toMatchObject({
+          on: "talk",
+          subject: t.speaker,
+          at: t.at,
+        });
   });
-  it("lets a resident who seeks Vale out tell the plea without making her choice", () => {
-    const choice = decree;
-    const text =
-      "A public decree forbids burial of the brother left outside the city.";
-    pack.topics = [
-      {
-        id: choice.id,
-        speaker: choice.subject,
-        at: choice.at,
-        text,
-        requires: choice.requires,
-        choiceId: choice.id,
-      },
-    ];
-    let world = openDoorWalk(greekStart(), "gate");
-    // The guard's own quest is to talk with Vale, so he speaks first.
-    world.actors[choice.subject].want = {
-      kind: "person",
-      target: "vale",
-      since: world.turn,
-      refusals: 0,
-    };
-    // The roaming Bard stays at the harbor instead of walking in.
-    world.actors["greek-rhapsode"].want = {
-      kind: "place",
-      target: "greek-harbor",
-      since: world.turn,
-      refusals: 0,
-    };
-    // Antigone keeps to herself, so the decree reaches Vale and no one else.
-    world.actors["greek-antigone"].want = {
-      kind: "place",
-      target: world.actors["greek-antigone"].place,
-      since: world.turn,
-      refusals: 0,
-    };
-    // Wait until he has sought Vale out, never for a fixed number of turns.
-    const sought = () =>
-      world.log.some(
-        (e) =>
-          e.turn === world.turn &&
-          e.verb === "talk" &&
-          e.actorId === choice.subject,
-      );
-    let wait;
-    for (let turns = 0; turns < 80 && !sought(); turns++) {
-      wait = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
-      world = play(world, wait).state;
-    }
-    expect(sought()).toBe(true);
-    let context = narrativeContext(world, wait);
-    expect(context.disclosures[0].factId).toBe(choice.id);
-    world = applyGeneratedText(world, context, response(context, text));
-    // He tells it; the choice stays Vale's own deed for Vale's own Talk.
-    expect(knowsFact(world, "vale", choice.id)).toBe(true);
-    expect(world.packs[pack.id].receipts[choice.id]).toBeUndefined();
-    const talk = legalActions(world).find(
-      (a) => a.kind === "talk" && a.target === choice.subject,
-    );
-    world = play(world, talk).state;
-    context = narrativeContext(world, talk);
-    expect(context.disclosures[0].factId).toBe(choice.id);
-    world = applyGeneratedText(world, context, response(context, text));
-    expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
-    expect(decodeSave(encodeSave(world))).toEqual(world);
-  });
-  it("records the source scene after its public fact was learned earlier", () => {
-    const choice = decree;
-    const topic = {
-      id: choice.id,
-      speaker: choice.subject,
-      at: choice.at,
-      text: "A public decree forbids burial of the brother left outside the city.",
-      requires: choice.requires,
-      choiceId: choice.id,
-    };
-    pack.topics = [topic];
+  it("records the Talk choice and topic after the fact is revealed", () => {
     let world = openDoorWalk(greekStart(), "gate");
     const entry = { seq: ++world.eventSeq, turn: world.turn };
     reserveKnowledge(world, topic.speaker, "vale", entry, [
       { ...topic, packId: pack.id },
     ]);
-    expect(knowsFact(world, "vale", topic.id)).toBe(true);
-    expect(world.packs[pack.id].receipts[choice.id]).toBeUndefined();
+    expect(world.knowledge.facts[topic.id]).toBeUndefined();
     const action = legalActions(world).find(
       (a) => a.kind === "talk" && a.target === topic.speaker,
     );
     world = play(world, action).state;
     const context = narrativeContext(world, action);
     expect(context.disclosures[0].factId).toBe(topic.id);
-    world = applyGeneratedText(world, context, response(context, topic.text));
-    expect(
-      decodeSave(encodeSave(world)).packs[pack.id].receipts[choice.id],
-    ).toBe(world.turn);
+    expect(world.packs[pack.id].receipts[decree.id]).toBeUndefined();
+    expect(knowsFact(world, "vale", topic.id)).toBe(false);
+    world = applyGeneratedText(world, context, response(
+      context,
+      "The decree leaves his brother outside the walls without a burial.",
+      marker(context.disclosures[0]),
+    ));
+    const restored = decodeSave(encodeSave(world));
+    expect(restored.packs[pack.id].receipts[decree.id]).toBe(world.turn);
+    expect(restored.knowledge.known.vale[topic.id].teller).toBe(topic.speaker);
+    expect(restored.knowledge.known[topic.speaker][topic.id].kind).toBe(
+      "witnessed",
+    );
   });
 });
 

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "elysium-station",
+  "pack": "elysium",
+  "description": "The Wayfinder draws a night path to Void 001. A silver filament leaves Void 002 for Empty station.",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "station",
+      "arrive": "elysium-void-002",
+      "via": "elysium-void-002-station"
+    }
+  ],
+  "crossings": [
+    {
+      "id": "pond-elysium-void-001",
+      "from": "pond",
+      "to": "elysium-void-001",
+      "travelers": "player",
+      "travel": "along the gold filament",
+      "retired": true,
+      "requires": []
+    },
+    {
+      "id": "elysium-void-001-pond",
+      "from": "elysium-void-001",
+      "to": "pond",
+      "travelers": "player",
+      "travel": "back along the gold filament",
+      "retired": true,
+      "requires": []
+    },
+    {
+      "id": "elysium-void-002-station",
+      "from": "elysium-void-002",
+      "to": "station",
+      "travelers": "player",
+      "travel": "along the silver filament",
+      "requires": []
+    }
+  ],
+  "values": {
+    "elysium-resident": {
+      "lamp": 3,
+      "oil": 1,
+      "bell": 1,
+      "cloth": 1
+    }
+  }
+}

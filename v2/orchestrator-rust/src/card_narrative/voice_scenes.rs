@@ -83,9 +83,7 @@ pub(super) fn snapshot() -> Value {
     )
 }
 
-/// A request refused before any voice was called. `reason` is one of a
-/// fixed set (busy, client_busy, rate_limited, invalid, envelope, unreadable,
-/// too_large, forbidden, unavailable).
+/// A request refused before calling a voice.
 pub(super) fn refused(reason: &'static str) {
     add(|t| *t.refused.entry(reason).or_default() += 1);
     tracing::info!(

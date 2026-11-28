@@ -131,13 +131,11 @@ describe("a button in each traveler's own colour", () => {
     validateWorld(reload(world));
   });
 
-  it("lets RATi say she would sew it into a scarf", () => {
+  it("gives RATi no authored line about the button at a Talk", () => {
     let world = meetRati();
     world = act(world, "talk", { target: "rati" });
     const text = JSON.stringify(narrativeContext(world));
-    expect(text).toContain(
-      "RATi says she would sew Vale's black button into a white scarf",
-    );
+    expect(text).not.toContain("RATi says she would sew");
   });
 
   it("sews the found button into Vale's white scarf", () => {

@@ -124,7 +124,8 @@ button:focus-visible {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.build-info a {
+.build-info a,
+.action-beat-note a {
   color: inherit;
 }
 main {
@@ -1001,12 +1002,11 @@ body .dialogue[data-dropped="true"] {
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
-  /* Room for the outer cards' lean, the folded quest and a chosen card's lift,
-     which the hand's scroll box would otherwise clip. The room rises above
-     the dock, so the cards still sit 12px under the dialogue. Its scroll
-     padding keeps that room when a focused card scrolls into view; without
-     it the hand scrolls down to the card's top and the cards rise into the
-     dialogue. */
+  /* Each redraw sets the scroll itself: Safari's scroll anchoring moved it. */
+  overflow-anchor: none;
+  /* Room for the outer cards' lean, the folded quest and a chosen card's lift
+     sits inside the scroll box but above the dock. The scroll padding keeps
+     it when a focused card scrolls into view. */
   margin-top: calc(12px - var(--hand-top));
   padding: var(--hand-top) var(--hand-inline) 0;
   height: calc(var(--card-height) * 0.75 + var(--hand-top));
@@ -1552,6 +1552,12 @@ body .card-frame[hidden] {
 }
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
+}
+.hand > .card-frame[data-holder="listener"]:has(> [data-face="offered"]) {
+  margin-left: calc(var(--fan-overlap) * -1.4);
+}
+.want-card[data-face="offered"] > .quest-head > .quest-verb {
+  white-space: normal;
 }
 /* The places you can go from here: face-down cards behind the current
    place. Opening the place fans them out like the hand. */
@@ -2475,14 +2481,6 @@ body .beat-live {
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-.inner-life .inner-life-im {
-  font-size: 15px;
-}
-.inner-life .inner-life-name {
-  margin-top: 10px;
-  font-style: italic;
-  text-align: right;
-}
 .memory-visit + .memory-visit {
   margin-top: 18px;
 }
@@ -2944,7 +2942,6 @@ body .beat-live {
   display: block;
   color: #cfc3ab;
 }
-/* The note reads under the heading. */
 .action-beat-heading {
   order: -2;
 }
@@ -3240,9 +3237,9 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   color: var(--muted);
   font: 10px/12px Arial, sans-serif;
 }
-/* A status note shares the card with the action message. */
+/* A note shares the card with the action message. */
 .beat-action[data-card-tap=""]
-  .action-beat-body:has(#play-status:not([hidden])) {
+  .action-beat-body:has(:is(#play-status, .action-beat-note:not([contenteditable])):not([hidden])) {
   flex: 0 1 33%;
 }
 .beat-action[data-card-tap] #card-actions button {
@@ -3295,10 +3292,10 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   color: var(--danger);
 }
 @media (max-width: 700px) {
-  body .beat-stack > .action-panel[data-card-tap=""]:has(#play-status:not([hidden])) {
+  body .beat-stack > .action-panel[data-card-tap=""]:has(:is(#play-status, .action-beat-note:not([contenteditable])):not([hidden])) {
     flex-wrap: wrap;
   }
-  .beat-action[data-card-tap=""] .action-beat-body:has(#play-status:not([hidden])) {
+  .beat-action[data-card-tap=""] .action-beat-body:has(:is(#play-status, .action-beat-note:not([contenteditable])):not([hidden])) {
     flex: 1 1 100%;
     order: 1;
     padding-top: 0;

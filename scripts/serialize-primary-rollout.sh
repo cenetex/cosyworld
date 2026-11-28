@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# .dev trains (scheduled, or the `dev` dispatch target) and production (v* tag
+# .dev deploys (main pushes or the `dev` dispatch target) and production (v* tag
 # or dispatch) deploys use separate concurrency groups, so a train can never
 # replace a production run waiting in the queue. Both roll out the primary app, so this keeps that
 # work from overlapping:
@@ -45,7 +45,7 @@ dev_rollouts() {
   runs="$(deploy_runs "${train} and .head_branch == \"main\"" in_progress)" || return 1
   while read -r id branch; do
     [ -n "$id" ] || continue
-    gh api "repos/${GH_REPO}/actions/runs/${id}/jobs" --jq \
+    gh api "repos/${GH_REPO}/actions/runs/${id}/jobs?per_page=100" --jq \
       ".jobs[] | select(.name == \"Deploy main to .dev\" and .status == \"in_progress\") | select(any(.steps[]; .name == \"${wait_step}\" and .status == \"completed\")) | \"${id} ${branch}\"" ||
       return 1
   done <<< "$runs"
@@ -56,9 +56,8 @@ if [ "$mode" = production ]; then
 elif [ "$mode" != dev ]; then
   echo "Use dev or production." >&2
   exit 1
-elif [ "${GITHUB_REF:-}" != refs/heads/main ] ||
-  { [ "${GITHUB_EVENT_NAME:-}" != schedule ] && [ "${GITHUB_EVENT_NAME:-}" != workflow_dispatch ]; }; then
-  echo "Only .dev trains wait for production deploys."
+elif [ "${GITHUB_REF:-}" != refs/heads/main ]; then
+  echo "Only .dev deploys from main wait for production deploys."
   exit 0
 else
   list=production_runs what="production deploy"

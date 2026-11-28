@@ -7,6 +7,7 @@ import { legalActions, play } from "../v2/card-game/world.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
 import { toldWant } from "../v2/card-game/talk-quest.mjs";
 import { wantOf } from "../v2/card-game/want-talk.mjs";
+import { knowsFact } from "../v2/card-game/knowledge.mjs";
 
 const R = "greek-ismene";
 const saved = { want: packPeople[R].want, wants: packPeople[R].wants };
@@ -38,12 +39,12 @@ const setup = (trust) => {
 describe("minTrust and the one want", () => {
   it("does not tell, or record as heard, a want below the trust", () => {
     const cold = talkTo(setup(1));
-    expect(cold.actors.vale.heard?.[R]).toBeUndefined();
     expect(toldWant(cold, "vale", R)).toBe(false);
+    expect(knowsFact(cold, "vale", `quest:${R}:greek-sanctuary`)).toBe(false);
   });
   it("tells and records it at the trust", () => {
     const warm = talkTo(setup(2));
     // The resident may renew its want in the same turn, so check what was told.
-    expect(warm.actors.vale.heard?.[R]).toBe("place:greek-sanctuary");
+    expect(knowsFact(warm, "vale", `quest:${R}:greek-sanctuary`)).toBe(true);
   });
 });

@@ -146,5 +146,15 @@ it("moves a pool without cutting an active time-of-day ease", () => {
   changed();
   tick();
   expect(stageLight(shown).pools.map((p) => p.x)).toEqual([0, 1, 2, 3]);
+
+  lamp.dataset.lit = "true";
+  renderStageLight(shown, { turn: 0, lamp: true, ease: false });
+  expect(stageLight(shown).pools).toMatchObject([
+    { x: 50, y: 50, portable: true, on: 0.15 },
+  ]);
+  lamp.visibility = "hidden";
+  changed();
+  tick();
+  expect(stageLight(shown).pools).toHaveLength(0);
   vi.restoreAllMocks();
 });

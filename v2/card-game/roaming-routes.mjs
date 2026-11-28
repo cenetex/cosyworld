@@ -1,4 +1,5 @@
 import forest from "./forest.json" with { type: "json" };
+import { movedStationDoors } from "./station-exits.mjs";
 import {
   packDefinitions,
   packPeople,
@@ -71,6 +72,18 @@ export function rememberRoutes(world, actor, edges) {
   knowledge[actor] = [...known.values()].sort((a, b) =>
     edgeKey(a).localeCompare(edgeKey(b)),
   );
+}
+export function restoreStationRoutes(world, actor) {
+  const replacements = [];
+  const routes = world.routeKnowledge[actor].filter(([from, to]) => {
+    if (!(from === "station" && movedStationDoors.includes(to)) &&
+        !(to === "station" && movedStationDoors.includes(from))) return true;
+    replacements.push([from, "behind-station"], ["behind-station", to]);
+    return false;
+  });
+  if (!replacements.length) return;
+  world.routeKnowledge[actor] = routes;
+  rememberRoutes(world, actor, replacements);
 }
 export function knownRoute(world, actor, from, to, allowed = () => true) {
   const queue = [[from]],

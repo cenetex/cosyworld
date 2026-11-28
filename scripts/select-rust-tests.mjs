@@ -3,13 +3,13 @@
 // `rust` section of scripts/fast-smokes.json. Prints the filters on one line;
 // an empty line means no Rust input changed. `--inputs` lists the inputs.
 // Usage: node scripts/select-rust-tests.mjs (changed-files.txt | --inputs)
-// The inputs come from the crate itself: every quoted relative path in its
-// sources (include_str!, include_bytes!, files the tests read, modules they
-// import through Node) that names a real file or directory, owned by the
-// module that names it. A filter is that module's test path, read from the
-// `mod` tree, since #[path] renames files (src/card_narrative.rs is
-// routes::card_game::narrative).
-import { existsSync, readFileSync, statSync } from "node:fs";
+// The inputs come from the crate itself: every quoted relative path or
+// card_assets key in its sources (include_str!, include_bytes!, files the
+// tests read, modules they import through Node) that names a real file or
+// directory, owned by the module that names it. A filter is that module's
+// test path, read from the `mod` tree, since #[path] renames files
+// (src/card_narrative.rs is routes::card_game::narrative).
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, posix } from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -65,6 +65,28 @@ export function moduleTree() {
   return modules;
 }
 
+const ASSET_DIRS = {
+  "card-game": "v2/card-game",
+  card_shared: `${SRC}/card_shared`,
+  card_narrative: `${SRC}/card_narrative`,
+};
+export function assetInputs(text) {
+  const key =
+    /card_assets::(?:text|read)\(\s*&?(?:format!\(\s*)?"([\w-]+)\/([^"]+)"/g;
+  return [...text.matchAll(key)].flatMap(([, dir, name]) => {
+    if (!ASSET_DIRS[dir]) return [];
+    const path = posix.join(ASSET_DIRS[dir], name);
+    if (!name.includes("{")) return exists(path) ? [path] : [];
+    const pattern = posix
+      .basename(path)
+      .replace(/[.*+?^$()|[\]\\]/g, "\\$&")
+      .replace(/\{[^}]*\}/g, "[^/]*");
+    return readdirSync(join(REPO, posix.dirname(path)))
+      .filter((entry) => new RegExp(`^${pattern}$`).test(entry))
+      .map((entry) => posix.join(posix.dirname(path), entry));
+  });
+}
+
 // Repo paths each source file names, resolved from the file, the crate, or
 // the repository root, keeping data files and directories outside the crate.
 // Every user of the AI model crate reads it too.
@@ -73,9 +95,14 @@ export function rustInputs(modules) {
   const use = (key, file) =>
     inputs.set(key, (inputs.get(key) ?? new Set()).add(file));
   const literal = /["']((?:\.{1,2}\/|src\/|v2\/|test\/)[\w@./-]*[\w-])["']/g;
+  const sibling = /include_(?:str|bytes)!\("([\w@.-]+)"\)/g;
   for (const file of modules.keys()) {
     const text = read(file);
     if (/\bcosyworld_ai_model\b/.test(text)) use("v2/ai-model-rust/", file);
+    for (const path of assetInputs(text)) use(path, file);
+    for (const [, name] of text.matchAll(sibling))
+      if (exists(posix.join(posix.dirname(file), name)))
+        use(posix.join(posix.dirname(file), name), file);
     for (const [, ref] of text.matchAll(literal)) {
       const target = [posix.dirname(file), CRATE, "."]
         .map((base) => posix.normalize(posix.join(base, ref)))
@@ -91,12 +118,24 @@ export function rustInputs(modules) {
   return inputs;
 }
 
+export function compiledInputs(modules) {
+  const compiled = new Set();
+  for (const file of modules.keys()) {
+    for (const [, ref] of read(file).matchAll(
+      /include_(?:str|bytes)!\(\s*"([^"]+)"/g,
+    ))
+      compiled.add(posix.normalize(posix.join(posix.dirname(file), ref)));
+    for (const path of assetInputs(read(file))) compiled.add(path);
+  }
+  return compiled;
+}
+
 // A module's libtest filter, or null for a crate root (the default covers it).
 const filterOf = (modules, file) =>
   modules.get(file)?.length ? `${modules.get(file).join("::")}::` : null;
 
-// A file under src/ belongs to its own module or, for data beside the
-// sources (a rules bundle, a JSON table), to its directory's module.
+// A file under src/ that no module names belongs to its own module or its
+// directory's.
 const ownerOf = (modules, file) => {
   for (let dir = file; dir.startsWith(SRC); dir = posix.dirname(dir))
     for (const owner of [dir, `${dir}.rs`, `${dir}/mod.rs`])
@@ -108,6 +147,12 @@ export function selectRustTests(changed, config, tree = {}) {
   const { rust } = config;
   const modules = tree.modules ?? moduleTree();
   const inputs = tree.inputs ?? rustInputs(modules);
+  const compiled = tree.compiled ?? compiledInputs(modules);
+  const triggers = [rust.paths, ...rust.rules.map((rule) => rule.paths)];
+  const triggered = (file) =>
+    triggers.some((p) => new RegExp(p).test(file)) ||
+    (compiled.has(file) && !rust.ignoreInputs.includes(file));
+  if (!changed.some(triggered)) return [];
   const picked = new Set();
   let fallback = false;
   const add = (file) => {
@@ -116,11 +161,13 @@ export function selectRustTests(changed, config, tree = {}) {
     else fallback = true;
   };
   for (const file of changed) {
-    const owners = file.startsWith(`${SRC}/`) ? [ownerOf(modules, file)] : [];
+    const owners = [];
     for (const [input, users] of inputs)
       if (!rust.ignoreInputs.includes(input))
         if (input.endsWith("/") ? file.startsWith(input) : file === input)
           owners.push(...users);
+    if (!owners.length && file.startsWith(`${SRC}/`))
+      owners.push(ownerOf(modules, file));
     for (const rule of rust.rules)
       if (new RegExp(rule.paths).test(file))
         owners.push(...rule.modules.map((m) => `${SRC}/${m}`));

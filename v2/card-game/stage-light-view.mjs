@@ -18,14 +18,18 @@ const listeners = new Set();
 export const onStageLight = (listener) => listeners.add(listener);
 export const stageLight = (stage) => states.get(stage)?.light;
 
+const propPools = (stage, { lamp }) =>
+  lamp ? [portableLampPool(stage)].filter(Boolean) : [];
+
 function apply(stage, light) {
   const state = states.get(stage);
-  const portable = state.options?.lamp && portableLampPool(stage);
-  state.geometry = JSON.stringify(portable || null);
+  const props = propPools(stage, state.options);
+  state.geometry = JSON.stringify(props);
   light.pools = [
-    ...(portable
-      ? [{ ...portable, on: Math.max(0.15, nightness(light.hour)) }]
-      : []),
+    ...props.map((pool) => ({
+      ...pool,
+      on: Math.max(0.15, nightness(light.hour)),
+    })),
     ...(state.ambientPools || []),
   ].slice(0, 4);
   for (const [name, value] of Object.entries(lightStyle(light)))
@@ -37,8 +41,7 @@ function apply(stage, light) {
   for (const listener of listeners) listener(stage, light);
 }
 
-// Reuse the lamp prop's rendered bounds, including responsive floor/hand layout.
-// No represented lamp means no invented on-screen position or hidden-item leak.
+// Light follows the rendered prop, including the responsive floor and hand.
 export function portableLampPool(stage) {
   const lamp = [...stage.querySelectorAll('[data-item="lamp"]')].find(
     (el) =>
@@ -94,7 +97,7 @@ export function renderStageLight(
       if (state.layoutFrame || !state.options?.lamp) return;
       state.layoutFrame = requestAnimationFrame(() => {
         state.layoutFrame = 0;
-        const geometry = JSON.stringify(portableLampPool(stage));
+        const geometry = JSON.stringify(propPools(stage, state.options));
         if (geometry !== state.geometry && state.light)
           // Move only the pool. Do not cut an in-flight time-of-day ease.
           apply(stage, { ...state.light });

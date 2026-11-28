@@ -8,6 +8,7 @@ import { arcanumArt, glimpseCompanion } from "../v2/card-game/glimpse-card.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
 import { conditionWords, UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 import { createWorld, nameOf } from "../v2/card-game/world.mjs";
+import { questOwners } from "../v2/card-game/quest-learn.mjs";
 
 const cards = {
   name: (id) => ({ den: "the Den", bread: "Bread", wren: "Wren" })[id] ?? id,
@@ -26,7 +27,7 @@ const hold = (s, id, face = "up", did = []) => {
         face,
         base: {
           visited: s.actors.vale.visited.length,
-          heard: Object.keys(s.actors.vale.heard || {}).length,
+          heard: questOwners(s, "vale").length,
           trusting: 0,
           opened: 0,
         },
@@ -210,7 +211,19 @@ describe("the words of a level card", () => {
       conditionWords(arcanumTerms(hold(s, "arcanum-10", "up", did), "vale", 0));
     expect(wheel([])).toBe("eat Dried Figs and find Dried Figs");
     expect(wheel(["spent"])).toBe("find Dried Figs");
-    expect(arcanumTerms(hold(s, "arcanum-10", "down"), "vale", 0)).toEqual([]);
+  });
+
+  it("words a face-down card by the people still to help", () => {
+    const s = hold(createWorld({ seed: 7 }), "arcanum-10", "down");
+    const said = (calls) => {
+      s.actors.vale.arcana.calls = calls;
+      const terms = arcanumTerms(s, "vale", 0);
+      expect(JSON.stringify(terms)).not.toContain("arcanum-10");
+      return conditionWords(terms);
+    };
+    expect(said(0)).toBe("help three people complete their goals");
+    expect(said(1)).toBe("help two more people complete their goals");
+    expect(said(2)).toBe("help one more person complete their goal");
   });
 
   it("words every card in a fresh world", () => {

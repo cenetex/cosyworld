@@ -42,6 +42,12 @@ function act(s, pick, who = "vale") {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 }
+const collect = (s) =>
+  act(
+    s,
+    (a) =>
+      a.kind === "accept" && a.tarot !== undefined && a.label === "Collect",
+  );
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
 function quiet(s) {
   for (const id of ["moth", "keeper"])
@@ -52,8 +58,10 @@ function quiet(s) {
 function longRest(s) {
   const before = longRests(s);
   for (let i = 0; i < 40 && longRests(s) === before; i++)
-    s = act(s, (a, _, all) =>
-      a.sleep || (a.kind === "wait" && !all.some((b) => b.sleep)),
+    s = act(
+      s,
+      (a, _, all) =>
+        a.sleep || (a.kind === "wait" && !all.some((b) => b.sleep)),
     );
   expect(longRests(s)).toBe(before + 1);
   return s;
@@ -70,8 +78,14 @@ function visit(s) {
   const record = (s.actors.vale.arcana ??= { proved: [], did: [] });
   record.calls = 3;
   s.actors.listener.place = s.actors.vale.place;
-  return act(s, (a) => a.kind === "talk" && a.target === "listener");
+  const offered = act(s, (a) => a.kind === "talk" && a.target === "listener");
+  return act(offered, (a) => a.label === "Accept card");
 }
+const turnOver = (s) =>
+  act(
+    s,
+    (a) => a.kind === "accept" && a.tarot === 0 && a.label === "Turn over",
+  );
 function leveledFool(cards) {
   let s = createWorld({ seed: 3 });
   const far = legalActions(s, "vale").find((a) => a.kind === "move").target;
@@ -80,8 +94,8 @@ function leveledFool(cards) {
   expect(recordOf(s, "vale").spread).toEqual([{ card: FOOL, face: "down" }]);
   s.actors.vale.place = far;
   settleArcana(s, "vale");
-  expect(recordOf(s, "vale").spread[0].done).toBe(true);
-  s = visit(s);
+  expect(recordOf(s, "vale").spread[0].done).toBeUndefined();
+  s = collect(turnOver(s));
   expect(levelOf(s, "vale")).toBe(1);
   s.actors.vale.place = homeOf("vale");
   return quiet(s);
@@ -92,7 +106,7 @@ afterEach(() => {
 });
 
 describe("travelers level by cards", () => {
-  it("raises the level from 0 to 1 when the Listener turns over a done Fool", () => {
+  it("raises the level from 0 to 1 when the unlocked Fool is collected", () => {
     let s = createWorld({ seed: 3 });
     s.actors.vale.place = "pond";
     s = visit(s);
@@ -107,11 +121,12 @@ describe("travelers level by cards", () => {
     expect(recordOf(s, "vale").spread[0]).toMatchObject({
       card: FOOL,
       face: "down",
-      done: true,
     });
     expect(levelOf(s, "vale")).toBe(0);
-    s = visit(s);
-    expect(recordOf(s, "vale").proved).toEqual([FOOL]);
+    s = turnOver(s);
+    expect(levelOf(s, "vale")).toBe(0);
+    s = collect(s);
+    expect(recordOf(s, "vale").proved).toEqual([]);
     expect(s.actors.vale.upgrades).toContain(FOOL);
     expect(levelOf(s, "vale")).toBe(1);
     expect(dreams(s)).toEqual([

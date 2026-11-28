@@ -1,8 +1,8 @@
 // The closed vocabulary for card-table world packs and their bridges.
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
-import { validFactText } from "./knowledge.mjs";
-
+import { distinctQuestStages, safeId, stagedQuestFactId, validFactText } from "./knowledge.mjs";
+import { BOOK_KEYS, bookProblems } from "./book-schema.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { RARITY_WEIGHTS } from "./pack-specials.mjs";
@@ -105,6 +105,7 @@ const record = (v) => v && typeof v === "object" && !Array.isArray(v);
 const owns = (o, key) =>
   record(o) && typeof key === "string" && Object.hasOwn(o, key);
 const idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
+const proseOk = (v, max = 1200) => v === undefined || textOk(v, max);
 const textOk = (v, max = 1200) =>
   typeof v === "string" &&
   v.trim().length > 0 &&
@@ -513,6 +514,7 @@ export function packProblems(
         "name",
         "text",
         "persona",
+        "seed",
         "voice",
         "exits",
         "backdrop",
@@ -533,8 +535,11 @@ export function packProblems(
       `place ${id} sanctuary must be true when set`,
     );
     check(
-      textOk(p.name, 120) && textOk(p.text) && textOk(p.persona),
-      `place ${id} needs a name, text and persona`,
+      textOk(p.name, 120) &&
+        proseOk(p.text) &&
+        proseOk(p.persona) &&
+        proseOk(p.seed, 120),
+      `place ${id} needs a name; its text, persona and one-line seed are optional`,
     );
     check(
       p.voice === undefined || textOk(p.voice, 900),
@@ -748,10 +753,10 @@ export function packProblems(
     );
     check(
       textOk(a.name, 120) &&
-        textOk(a.text) &&
+        proseOk(a.text) &&
         textOk(a.seed, 120) &&
         owns(places, a.place),
-      `avatar ${id} needs a name, text, one seed sentence and a home place in this pack`,
+      `avatar ${id} needs a name, one seed sentence and a home place in this pack`,
     );
     check(
       a.expression === undefined || EXPRESSION_TYPES.includes(a.expression),
@@ -786,14 +791,11 @@ export function packProblems(
       keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) &&
         textOk(a.tastes?.likes, 120) &&
         textOk(a.tastes?.sore, 120) &&
-        textOk(a.tastes?.reason, 240) &&
+        proseOk(a.tastes?.reason, 240) &&
         (a.tastes?.noise === undefined ||
           templateOk(a.tastes.noise, 240, ["actor"])),
-      `avatar ${id} tastes need likes, sore and reason`,
+      `avatar ${id} tastes need likes and sore`,
     );
-    // One want per resident: an item, a place or a person it seeks first, or
-    // (BoardyAI) connecting humans. Or staged wants (rules 133): a short list
-    // of `{want, when}` entries, at most three, any of which may surface.
     check(
       a.want === undefined || a.wants === undefined,
       `avatar ${id} sets want or wants, not both`,
@@ -807,14 +809,14 @@ export function packProblems(
         Array.isArray(a.wants) && a.wants.length >= 1 && a.wants.length <= 3,
         `avatar ${id} wants needs one to three staged wants`,
       );
-      for (const [n, entry] of (Array.isArray(a.wants)
-        ? a.wants
-        : []
-      ).entries())
+      const stages = Array.isArray(a.wants) ? a.wants : [];
+      check(distinctQuestStages(stages), `avatar ${id} wants need distinct ids and terms for stages sharing a target`);
+      for (const [n, entry] of stages.entries())
         check(
-          keysOk(entry, ["want", "when"]) &&
+          keysOk(entry, ["id", "want", "when"]) &&
             record(entry?.want) &&
             wantOk(entry.want, id) &&
+            (entry.id === undefined || (idOk(entry.id) && safeId(stagedQuestFactId(id, entry.want.target, entry.id)))) &&
             (entry.when === undefined ||
               (Array.isArray(entry.when) &&
                 entry.when.length >= 1 &&
@@ -1035,7 +1037,6 @@ export function packProblems(
         case "shared_world":
           ok = keysOk(c, ["kind"]);
           break;
-        // A gate route this world has opened for good (pack-registry.mjs).
         case "gate_open":
           ok =
             keysOk(c, ["kind", "from", "to"]) &&
@@ -1157,14 +1158,17 @@ export function packProblems(
       `${what} must use the closed condition vocabulary with valid references`,
     );
   };
-  // Saved state, or `any`/`not` over saved state, such as a thing that
-  // shows only while no other thing is in the same place.
-  const savedCondition = (c) =>
+  // Routes can check hub lights without a dependency on pack activation.
+  const savedCondition = (c, scope) =>
     c?.kind === "any"
-      ? Array.isArray(c.conditions) && c.conditions.every(savedCondition)
+      ? Array.isArray(c.conditions) &&
+        c.conditions.every((r) => savedCondition(r, scope))
       : c?.kind === "not"
-        ? savedCondition(c.condition)
-        : [
+        ? savedCondition(c.condition, scope)
+        : (scope === "route" &&
+            c?.kind === "light" &&
+            hub.items.includes(c.item)) ||
+          [
             "choice",
             "choice_unset",
             "flag",
@@ -1209,9 +1213,7 @@ export function packProblems(
     }
     return null;
   };
-  // `perTraveler` conditions are read with the traveler, so a door may ask
-  // for the trust of its keeper (route.travelerRequires only).
-  const requirements = (cs, what, persistent = true, perTraveler = false) => {
+  const requirements = (cs, what, persistent = true, scope) => {
     if (cs === undefined) return;
     check(
       Array.isArray(cs) && cs.length <= 12,
@@ -1222,8 +1224,8 @@ export function packProblems(
         condition(c, what);
         check(
           !persistent ||
-            savedCondition(c) ||
-            (perTraveler && c?.kind === "trusted"),
+            savedCondition(c, scope) ||
+            (scope === "traveler" && c?.kind === "trusted"),
           `${what} must use saved state or human presence conditions`,
         );
       });
@@ -1311,6 +1313,9 @@ export function packProblems(
         "name",
         "text",
         "persona",
+        "seed",
+        "records",
+        ...BOOK_KEYS,
         "holder",
         "art",
         "requires",
@@ -1334,8 +1339,19 @@ export function packProblems(
             i.tags.length <= 4 &&
             i.tags.every(idOk))) &&
         textOk(i.name, 120) &&
-        textOk(i.text) &&
-        textOk(i.persona) &&
+        proseOk(i.text) &&
+        proseOk(i.persona) &&
+        proseOk(i.seed, 120) &&
+        (i.records === undefined ||
+          (Array.isArray(i.records) &&
+            i.records.length >= 1 &&
+            i.records.length <= 6 &&
+            new Set(i.records).size === i.records.length &&
+            i.records.every(
+              (choice) =>
+                Array.isArray(pack.choices) &&
+                pack.choices.some((c) => c?.id === choice),
+            ))) &&
         (owns(places, i.holder) ||
           owns(avatars, i.holder) ||
           hub?.places?.includes(i.holder)),
@@ -1363,10 +1379,6 @@ export function packProblems(
       i.reservedUntil === undefined ||
         (Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0),
       `item ${id} reservedUntil needs a condition`,
-    );
-    check(
-      i.scatterOutside === undefined || i.scatterOutside === true,
-      `item ${id} scatterOutside must be true`,
     );
     check(
       i.recoverTo === undefined || anyPlace(i.recoverTo),
@@ -1404,8 +1416,8 @@ export function packProblems(
                 : q.kind === "person" && owns(avatars, q.target)))),
       `route ${r.from}>${r.to} sealed card needs a gate and a quest`,
     );
-    requirements(r.requires, "route requires");
-    requirements(r.travelerRequires, "route traveller requires", true, true);
+    requirements(r.requires, "route requires", true, "route");
+    requirements(r.travelerRequires, "route traveller requires", true, "traveler");
     warn(
       routes.some((q) => q.from === r.to && q.to === r.from) ||
         places[r.to]?.exits?.includes(r.from),
@@ -1460,8 +1472,8 @@ export function packProblems(
         !choiceIds.has(c.id) &&
         own.includes(c.subject) &&
         owns(places, c.at) &&
-        textOk(c.label, 120) &&
-        textOk(c.text, 600) &&
+        proseOk(c.label, 120) &&
+        proseOk(c.text, 600) &&
         (c.textTemplate === undefined ||
           templateOk(c.textTemplate, 600, ["actor"])) &&
         (c.summary === undefined || textOk(c.summary, 600)),
@@ -1616,9 +1628,7 @@ export function packProblems(
     ...Object.values(items),
     ...routes,
     ...choices,
-  ].forEach((e) => {
-    verifyRefs(e.requires);
-  });
+  ].forEach((e) => verifyRefs(e.requires));
   if (pack.sections !== undefined) {
     check(
       Array.isArray(pack.sections) && pack.sections.length <= 32,
@@ -1694,7 +1704,6 @@ export function packProblems(
       "recital needs a singer, a title and up to 64 verses",
     );
     const seen = new Set();
-    // Couplet text is lore (content/<pack>/lore), never part of the rules.
     for (const v of Array.isArray(r?.verses) ? r.verses : []) {
       check(
         keysOk(v, ["choice", "quest", "summons"]) &&
@@ -1933,6 +1942,7 @@ export function packProblems(
         "travel",
         "signal",
         "unlockWhen",
+        "unlockMethod",
         "requires",
         "scenery",
         "opened",
@@ -2017,6 +2027,11 @@ export function packProblems(
       for (const r of c.unlockWhen || [])
         condition(r, `${name} unlock condition`);
     }
+    if (c.unlockMethod !== undefined)
+      check(
+        Boolean(c.unlockWhen?.length) && idOk(c.unlockMethod),
+        `${name} unlockMethod needs an id and unlockWhen conditions`,
+      );
     const s = c?.signal;
     if (s === undefined) continue;
     check(
@@ -2098,7 +2113,7 @@ export function packProblems(
   );
   for (const kit of Array.isArray(pack.kits) ? pack.kits : [])
     requirements(kit?.requires, `kit ${kit?.id} requires`);
-  problems.push(...itemCycleProblems(pack, mountedPlaces, hub?.places || []));
+  problems.push(...itemCycleProblems(pack, mountedPlaces, hub?.places || []), ...bookProblems(pack));
   return problems;
 }
 

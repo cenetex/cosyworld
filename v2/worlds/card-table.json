@@ -29,6 +29,13 @@
           "hoppycat-archive"
         ]
       },
+      "elysium": {
+        "name": "Elysium",
+        "packs": [
+          "elysium"
+        ],
+        "reachedBy": "shore"
+      },
       "radio": {
         "name": "Night Shift at RatiRadio",
         "packs": [
@@ -39,6 +46,7 @@
     },
     "places": [
       "station",
+      "behind-station",
       "attic",
       "pond"
     ],
@@ -52,7 +60,8 @@
       "lamp",
       "oil",
       "bell",
-      "cloth"
+      "cloth",
+      "keeper-log"
     ],
     "observations": [
       {
@@ -108,6 +117,7 @@
     "hoppycat-archive",
     "willows",
     "lonely-forest",
-    "ratiradio"
+    "ratiradio",
+    "elysium"
   ]
 }

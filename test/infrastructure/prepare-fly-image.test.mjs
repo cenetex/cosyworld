@@ -25,6 +25,8 @@ function prepare({
   targetCache = false,
   runFailures = 0,
   train = "",
+  equivalent = "",
+  ref = "refs/heads/main",
 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cosyworld-image-test-"));
   const log = join(dir, "calls.jsonl");
@@ -59,6 +61,9 @@ if (command === 'flyctl' && args[0] === 'auth') {
 } else if (command === 'skopeo' && args[0] === 'inspect' && args[args.indexOf('--authfile') + 1].includes('/source/')) {
   if (!env.TEST_TRAIN) process.exit(1);
   console.log(env.TEST_TRAIN);
+} else if (command === 'skopeo' && args[0] === 'inspect' && args.at(-1).endsWith(':deploy-' + 'c'.repeat(40))) {
+  if (env.TEST_EQUIVALENT === 'none') process.exit(1);
+  console.log(env.TEST_EQUIVALENT);
 } else if (command === 'skopeo' && args[0] === 'inspect') {
   if (existsSync(env.TEST_STATE)) {
     const counter = env.TEST_STATE + '.reads';
@@ -94,6 +99,7 @@ if (command === 'flyctl' && args[0] === 'auth') {
           FLY_API_TOKEN: "destination-fixture",
           FLY_SOURCE_API_TOKEN: "source-fixture",
           GITHUB_SHA: "b".repeat(40),
+          GITHUB_REF: ref,
           GITHUB_OUTPUT: output,
           SOURCE_IMAGE: copy ? sourceImage : "",
           COSYWORLD_IMAGE_BUILDER: imageBuilder,
@@ -101,6 +107,8 @@ if (command === 'flyctl' && args[0] === 'auth') {
           TEST_STATE: join(dir, "state"),
           TEST_EXISTING: existing,
           TEST_TRAIN: train,
+          TEST_EQUIVALENT: equivalent,
+          EQUIVALENT_COMMIT: equivalent ? "c".repeat(40) : "",
           TEST_DIGEST: wrongDigest ? `sha256:${"c".repeat(64)}` : digest,
           TEST_COPY_FAIL: String(copyFails),
           TEST_BUILD_FAIL: String(buildFails),
@@ -311,6 +319,23 @@ describe("Fly commit image preparation", () => {
     expect(result.status).toBe(0);
     expect(operations(result, "skopeo", "copy")).toHaveLength(0);
     expect(operations(result, "flyctl", "deploy")).toHaveLength(1);
+  });
+  it("promotes the image of an equivalent commit .dev runs", () => {
+    const result = prepare({ equivalent: digest });
+    expect(result.status).toBe(0);
+    expect(operations(result, "skopeo", "copy")[0].args.slice(-2)).toEqual([
+      `docker://${source}`,
+      `docker://registry.fly.io/cosyworld:deploy-${"b".repeat(40)}`,
+    ]);
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(0);
+    expect(result.output).toBe(`image=${source}\n`);
+    const missing = prepare({ equivalent: "none" });
+    expect(operations(missing, "skopeo", "copy")).toHaveLength(0);
+    expect(operations(missing, "flyctl", "deploy")).toHaveLength(1);
+    const tag = prepare({ equivalent: digest, ref: "refs/tags/v1.2.163" });
+    expect(tag.status).toBe(0);
+    expect(operations(tag, "skopeo", "copy")).toHaveLength(0);
+    expect(operations(tag, "flyctl", "deploy")).toHaveLength(1);
   });
   it("reuses the destination when it already has the source digest", () => {
     const result = prepare({ copy: true, existing: digest });

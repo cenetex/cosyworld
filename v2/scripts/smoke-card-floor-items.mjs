@@ -1,6 +1,12 @@
 // Things lying in the current place stand on the painted floor as props: bare
 // item cutouts behind the cast, at stable spots clear of the dialogue.
-import { clearSelection, readyActionButton, revealOpening, selectCard } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  readyActionButton,
+  revealOpening,
+  selectCard,
+  unreachableCards,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -11,34 +17,47 @@ import { sceneStaging } from "../card-game/scene.mjs";
 const output = new URL("../../output/floor-props/", import.meta.url);
 await mkdir(output, { recursive: true });
 
-// The bell starts on the station floor. Boardy's calling card shows there only while
-// BoardyAI does, with two connected humans. The Swede holds the map, so the camp floor is bare.
 const station = createWorld({ opening: true, seed: 7 });
 station.actors.vale.place = "station";
+const stationProps = ["bell", "keeper-log", "ratiradio-red-beanie"];
 assert.deepEqual(
   sceneStaging(station, { currentState: true }).floorItems.map(({ id }) => id),
-  ["bell"],
+  stationProps,
 );
 const willows = createWorld({ opening: true, seed: 7 });
 willows.actors.vale.place = "willows-camp";
+assert.equal(willows.items["willows-notebook"].holder, "willows-camp");
 assert.deepEqual(
   sceneStaging(willows, { currentState: true }).floorItems.map(({ id }) => id),
   [],
 );
-// A crowded station floor for the browser: four camp things set down beside
-// the bell.
-const camp = createWorld({ opening: true, seed: 7 });
-camp.actors.vale.place = "station";
-for (const id of [
+willows.packs.willows.flags["willows-willows-paced"] = true;
+assert.deepEqual(
+  sceneStaging(willows, { currentState: true }).floorItems.map(({ id }) => id),
+  ["willows-notebook"],
+);
+const camp = structuredClone(station);
+const lead = "elysium-wayfinder";
+const known = [
+  "bell",
   "willows-map",
   "willows-rope",
   "willows-sheet",
-  "willows-paddle",
-])
-  camp.items[id].holder = "station";
+  "willows-notebook",
+  "ratiradio-station-key",
+  lead,
+];
+const covered = ["keeper-log", "willows-paddle", "cloth", "ratiradio-red-beanie"];
+for (const id of [...known, ...covered]) camp.items[id].holder = "station";
+camp.items.cloth.holder = "bell";
+camp.actors.vale.want = { kind: "item", target: lead, since: 0, refusals: 0 };
 const spots = (world) =>
   JSON.stringify(sceneStaging(world, { currentState: true }).floorItems);
 assert.equal(spots(camp), spots(structuredClone(camp)), "spots are stable");
+const lockedPond = createWorld({ seed: 17 });
+lockedPond.actors.vale.place = "pond";
+lockedPond.actors.vale.visited.push("pond");
+lockedPond.items["ratiradio-station-key"].holder = "station";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -103,7 +122,6 @@ try {
       await ready();
     }
     const floor = page.locator("#floor-items .floor-item");
-    const layout = width >= 1300 ? "wide" : height <= 640 ? "short" : "narrow";
     async function propBoxes() {
       return page.evaluate(() =>
         Object.fromEntries(
@@ -252,7 +270,7 @@ try {
       .locator('#hand [data-card="bell"]')
       .waitFor({ state: "attached" });
     await ready();
-    await assertFloor(["bell"], "station-start");
+    await assertFloor(stationProps, "station-start");
     // A fresh render puts every prop back on the same spot.
     const before = await propBoxes();
     await page.reload();
@@ -260,7 +278,7 @@ try {
       .locator('#hand [data-card="bell"]')
       .waitFor({ state: "attached" });
     await ready();
-    await assertFloor(["bell"], "station-again");
+    await assertFloor(stationProps, "station-again");
     const after = await propBoxes();
     for (const [id, box] of Object.entries(before))
       box.forEach((value, index) =>
@@ -269,22 +287,87 @@ try {
           `${id} keeps its spot across a render`,
         ),
       );
-    // A crowded floor shows six props on a wide stage and three on a narrow one.
-    await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
-      key,
-      save: encodeSave(camp),
-    });
+    // Covered objects leave their floor slots for known objects farther down the list.
+    await page.evaluate(
+      ({ key, save, covered }) => {
+        localStorage.setItem(key, save);
+        localStorage.setItem(`${key}.seen.covered`, JSON.stringify(covered));
+      },
+      { key, save: encodeSave(camp), covered },
+    );
     await page.reload();
     await ready();
-    const campIds = sceneStaging(camp, { currentState: true }).floorItems.map(
-      ({ id }) => id,
+    await floor.first().waitFor();
+    const campIds = await floor.evaluateAll((props) =>
+      props.map((el) => el.dataset.item),
     );
-    await assertFloor(
-      campIds,
-      "camp-crowded",
-      sceneStaging(camp, { currentState: true })
-        .floorItems.filter(({ spots }) => spots[layout])
-        .map(({ id }) => id),
+    const shown = Object.keys(await propBoxes());
+    assert.equal(
+      shown.length,
+      width >= 1300 ? 6 : 3,
+      "known objects fill the available spots",
+    );
+    assert.equal(
+      shown[0],
+      lead,
+      "the current item quest leads the visible props",
+    );
+    assert(
+      campIds.every((id) => known.includes(id)),
+      "covered items stay off the floor",
+    );
+    assert.equal(
+      await page.locator("#floor-items .object-cover").count(),
+      0,
+      "the Bell's covered cloth stays off the floor",
+    );
+    const bell = page.locator('#floor-items [data-item="bell"]');
+    assert.equal(await bell.getAttribute("data-covered"), "true");
+    await assertFloor(campIds, "camp-crowded", shown);
+    const stationPreview = page.locator(
+      '.card-frame:has(> [data-card="station"]) > .held-preview',
+    );
+    const leadArt = page.locator(`#hand [data-card="${lead}"] .art img`);
+    assert.equal(
+      await stationPreview.getAttribute("src"),
+      await leadArt.getAttribute("src"),
+    );
+    await selectCard(page, "station", { touch: width === 390 });
+    const room = page.locator(
+      '#hand > [data-holder="station"]:not([hidden]) > .card',
+    );
+    const fanned = await room.evaluateAll((cards) =>
+      cards.map((card) => card.dataset.card),
+    );
+    assert.equal(fanned[0], lead, "the current item quest leads the room fan");
+    assert(
+      known.every((id) => fanned.includes(id)),
+      "all known items stay in the room fan",
+    );
+    assert.deepEqual(
+      (await unreachableCards(page)).filter((id) => known.includes(id)),
+      [],
+    );
+    await page.evaluate(
+      ({ key, save }) => {
+        localStorage.setItem(key, save);
+        localStorage.removeItem(`${key}.seen.covered`);
+      },
+      { key, save: encodeSave(lockedPond) },
+    );
+    await page.reload();
+    await ready();
+    const locks = page.getByRole("button", {
+      name: "2 locked boxes. Select to fan out.",
+    });
+    await locks.waitFor();
+    const pondPreview = page.locator(
+      '.card-frame:has(> [data-card="pond"]) > .held-preview',
+    );
+    assert.equal(
+      await pondPreview.count(),
+      0,
+      "the dedicated lock stack owns its only preview",
     );
     assert.deepEqual(errors, []);
     await page.close();

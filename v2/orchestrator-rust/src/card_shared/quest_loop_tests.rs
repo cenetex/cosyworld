@@ -69,7 +69,7 @@ fn woke(world: &World) -> Option<Value> {
 // no sleep quest dreams nothing. The journal replays every record exactly.
 #[test]
 fn rules_133_one_want_commits_and_replays_in_the_c_host() {
-    let mut world = created(engine::VERSION);
+    let mut world = created(engine::version());
     let game = &mut world.game;
     game.as_object_mut().unwrap().remove("opening");
     game["turn"] = json!(2);
@@ -110,8 +110,8 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
     assert_eq!(held[0]["from"], "quest:from:keeper");
     assert_eq!(held[0]["target"], "bell");
     assert_eq!(
-        world.game["actors"]["vale"]["heard"],
-        json!({"keeper":"item:bell"})
+        world.game["knowledge"]["known"]["vale"]["quest:keeper:bell"]["teller"],
+        "keeper"
     );
     let again = play(&world, |a| a["kind"] == "talk" && a["target"] == "keeper");
     commit(&mut world, again);
@@ -180,7 +180,7 @@ fn play_missing(world: &World, pick: impl Fn(&Value) -> bool) -> bool {
 
 #[test]
 fn craft_outcome_keeps_its_source_and_custody_through_journal_replay() {
-    let mut world = created(engine::VERSION);
+    let mut world = created(engine::version());
     let game = &mut world.game;
     game.as_object_mut().unwrap().remove("opening");
     game["turn"] = json!(12);
@@ -246,7 +246,7 @@ fn craft_outcome_keeps_its_source_and_custody_through_journal_replay() {
 
 #[test]
 fn quiet_held_choice_replays_without_a_turn_or_speech_job() {
-    let mut world = created(engine::VERSION);
+    let mut world = created(engine::version());
     world.game["items"]["lamp"]["holder"] = json!("vale");
     world.game["actors"]["vale"]["heldItem"] = json!("lamp");
     let (path, c, id) = fixture("quiet-held-choice", &world);
@@ -289,7 +289,7 @@ fn quiet_held_choice_replays_without_a_turn_or_speech_job() {
 
 #[test]
 fn three_room_lamp_replays_dark_travel_and_exhaustion() {
-    let mut world = created(engine::VERSION);
+    let mut world = created(engine::version());
     let (path, c, id) = fixture("lamp-room-visits", &world);
     let commit = |w: &mut World, cmd: Value| full_store::commit(&c, &id, w, cmd, now()).unwrap();
     commit(&mut world, json!({"op":"claim","actor":"vale"}));
@@ -323,7 +323,7 @@ fn three_room_lamp_replays_dark_travel_and_exhaustion() {
 
 #[test]
 fn portable_radio_switch_custody_and_sqlite_journal_replay() {
-    let mut world = created(engine::VERSION);
+    let mut world = created(engine::version());
     let radio = "ratiradio-portable-radio";
     // Synthetic possession/location fixture, not a completed station quest.
     world.game["items"][radio]["holder"] = json!("attic");

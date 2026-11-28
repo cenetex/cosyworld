@@ -24,6 +24,8 @@ gate.actors.vale.want = {
   refusals: 0,
   story: true,
 };
+gate.actors["greek-guard"].want = { kind: "item", target: "greek-decree", since: 0, refusals: 0 };
+Object.assign(gate.actors["greek-guard"], { level: 9, xp: 36 });
 await mkdir(output, { recursive: true });
 try {
   for (const [width, height, motion] of [
@@ -108,7 +110,7 @@ try {
     assert.equal(await fold.count(), 1);
     assert.equal(await page.locator("#hand .quest-tab").count(), 0);
     const [foldBox, valeBox] = await page.evaluate(() =>
-      [".quest-fold", '[data-card="vale"]'].map((s) => {
+      [".quest-fold:not([data-owner])", '[data-card="vale"]'].map((s) => {
         const el = document.querySelector(`#hand ${s}`);
         return [el.offsetWidth, el.offsetHeight];
       }),
@@ -156,7 +158,7 @@ try {
       { name: "Hold", lines: 1, color: "rgb(255, 240, 130)" },
       "the verb alone, in the Legendary lamp's tier",
     );
-    assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
+    assert.equal(await page.locator("#hand .quest-fold:not([data-owner])").isHidden(), true);
     assert.equal(
       await page.locator('#hand .want-frame > .want-card[data-near="true"]').isVisible(),
       true,
@@ -181,18 +183,15 @@ try {
     await page.screenshot({
       path: new URL(`expanded-${width}.png`, output).pathname,
     });
-    // Choosing the quest card shows its details and one button. The lamp is
-    // already held, so there is no step left: Discard is the one button.
+    // Choosing the quest card shows its details and no button: a quest is
+    // never set down.
     await page.locator("#hand .want-frame > .want-card").click({ position: { x: 40, y: 16 } });
     assert.equal(
       await page.locator("#hand .want-frame > .want-card").getAttribute("aria-pressed"),
       "true",
     );
-    await page
-      .locator('#card-actions button:not([data-revealing="true"])')
-      .first()
-      .waitFor();
-    assert.equal(await page.locator("#card-actions button").count(), 1);
+    await page.locator(".action-beat-heading:not([hidden])").waitFor();
+    assert.equal(await page.locator("#card-actions button").count(), 0);
     // Tapping the chosen quest lowers it again; the avatar's stack stays.
     await page.locator("#hand .want-frame > .want-card").click({ position: { x: 40, y: 16 } });
     assert.equal(
@@ -209,19 +208,12 @@ try {
       )
       .click();
     await ready();
-    assert.equal((await saved()).want, null, "no box quest is held unasked");
-    await selectCard(page, "pond");
-    await tapCard(page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card'));
-    await readyActionButton(page, "accept").click();
-    await page.waitForFunction(
-      (k) =>
-        JSON.parse(localStorage.getItem(k)).actors.vale.want?.from ===
-        "quest:box:pond",
-      key,
-    );
     const after = await saved();
+    assert.equal(after.want, null, "no box quest is held unasked");
     assert.equal(after.xp, before.xp, "a traveler earns no XP");
-    assert.equal(after.want.lit, false);
+    await selectCard(page, "pond");
+    assert.equal(await page.locator('#hand .want-frame[data-quest-id="offer:0"]').count(), 0, "the shut pond lays out no quest card");
+    assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.equal(
       await page.locator("#card-actions [data-claim]").count(),
@@ -229,8 +221,7 @@ try {
       "no Claim button",
     );
 
-    // Discard. A held quest has one button, asks again, and drops on the
-    // second tap with no turn passing and no cost.
+    // A held quest opened from its fold keeps focus and offers no Discard.
     await page.evaluate(({ key }) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
@@ -244,62 +235,21 @@ try {
     }, { key });
     await page.reload();
     await ready();
-    await page.locator("#hand .quest-fold").focus();
+    await page.locator("#hand .quest-fold:not([data-owner])").focus();
     await page.keyboard.press("Enter");
     await page.locator("#hand .want-frame:not([hidden])").waitFor();
-    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
-    // The fold's tap also chooses the quest and shows its details.
+    assert.equal(await page.evaluate(() => document.activeElement.matches("#hand .want-card")), true, "Enter leaves focus on the quest card");
     assert.equal(
       await page.locator("#hand .want-frame > .want-card").getAttribute("aria-pressed"),
       "true",
     );
-    const drop = page.locator('#card-actions [data-drop-quest="0"]');
-    await page
-      .locator('#card-actions [data-drop-quest="0"]:not([data-revealing="true"])')
-      .waitFor();
-    assert.equal(await page.locator("#card-actions button").count(), 1);
-    assert.equal(await drop.getAttribute("aria-label"), "Discard");
-    // Discard is the beat's usual context button, its words red.
-    assert.deepEqual(
-      await drop.evaluate((el) => {
-        const style = getComputedStyle(el);
-        return [style.color, style.textShadow, style.borderTopWidth];
-      }),
-      ["rgb(255, 143, 132)", "none", "0px"],
-    );
-    const { turn } = await saved();
-    const readyDrop = page.locator(
-      '#card-actions [data-drop-quest]:not([data-revealing="true"])',
-    );
-    await readyDrop.click();
-    assert.equal((await saved()).turn, turn);
-    const panel = page.locator("#action-beat");
-    assert.equal(
-      await panel.evaluate((el) => getComputedStyle(el).borderTopColor),
-      "rgb(255, 143, 132)",
-    );
     assert.match(
-      await panel.locator(".action-beat-note").innerText(),
-      /^Discover somewhere\.$/u,
+      await page.locator(".action-beat-heading:not([hidden])").textContent(),
+      /^\s*Discover somewhere\s*$/u,
     );
-    assert.equal(await panel.locator("button").count(), 1);
-    // Escape asks no more; nothing was dropped.
-    await page.keyboard.press("Escape");
-    assert.equal((await saved()).want.target, "station");
-    assert.equal((await saved()).turn, turn);
-    await readyDrop.click();
-    const confirm = panel.locator("button");
-    // The first tap on words still being typed finishes them.
-    if ((await confirm.getAttribute("data-revealing")) === "true")
-      await confirm.click();
-    await confirm.click();
-    await ready();
-    const dropped = await saved();
-    assert.equal(dropped.xp, 0, "the quest dropped at no cost");
-    assert.equal(dropped.want, null, "no box quest returns unasked");
+    assert.equal(await page.locator("#card-actions button").count(), 0, "no Discard");
 
-    // A step quest: at the Theban City Gate, the chosen quest card offers one
-    // button, Discard; giving the Decree meets it and pays no XP.
+    // A step quest at the Theban City Gate: giving the Decree meets it and pays no XP.
     const gateKey = `cosyworld.reflected-shore.v1.quest-give-${width}`;
     await page.evaluate(
       ({ gateKey, save, seen }) => {
@@ -312,7 +262,7 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=quest-give-${width}`,
     );
     await ready();
-    await page.locator("#hand .quest-fold").focus();
+    await page.locator("#hand .quest-fold:not([data-owner])").focus();
     await page.keyboard.press("Enter");
     await page.locator('#hand .want-frame > .want-card[data-unrevealed="false"]').waitFor();
     assert.deepEqual(await head(), {
@@ -321,27 +271,18 @@ try {
       color: "rgb(255, 240, 130)",
     });
     assert.equal(
-      await page.locator("#hand .want-frame > .want-card").getAttribute("aria-label"),
+      await page.locator('#hand .want-frame[data-quest-id="quest:0"] > .want-card').getAttribute("aria-label"),
       "Quest: Give the Burial Decree to the Gate Guard, near",
     );
-    // The fold's tap names the quest; its one button is Discard.
-    await page
-      .locator('#card-actions [data-drop-quest]:not([data-revealing="true"])')
-      .waitFor();
+    // The fold's tap names the quest, with no button.
+    await page.locator(".action-beat-heading:not([hidden])").waitFor();
     assert.equal(
       (
         await page.locator(".action-beat-heading:not([hidden])").textContent()
       ).trim(),
       "Give the Burial Decree to the Gate Guard",
     );
-    assert.deepEqual(
-      await page
-        .locator("#card-actions button")
-        .evaluateAll((buttons) =>
-          buttons.map((b) => [b.textContent, b.disabled]),
-        ),
-      [["Tap to discard", false]],
-    );
+    assert.equal(await page.locator("#card-actions button").count(), 0);
     assert.equal(
       await page
         .locator('#hand .want-frame > .want-card .quest-screen[data-parts="3"] > img')
@@ -357,6 +298,9 @@ try {
       path: new URL(`give-${width}.png`, output).pathname,
     });
     const xp = (await saved(gateKey)).xp;
+    const guardTier = () =>
+      page.locator('#hand [data-card="greek-guard"]').evaluate((el) => [el.dataset.tier, getComputedStyle(el).getPropertyValue("--tier-color").trim()]);
+    assert.deepEqual(await guardTier(), ["common", "#c8dce6"]);
     // The Give is done as any give is, by choosing the Decree and the guard.
     await clearSelection(page);
     await selectCard(page, "greek-decree");
@@ -368,16 +312,17 @@ try {
     );
     await ready();
     assert.equal((await saved(gateKey)).want, null);
+    assert.deepEqual(await guardTier(), ["uncommon", "#8cdcff"], "a kept card takes its new tier colour");
     assert.equal(
       (await saved(gateKey)).xp,
       xp,
       "the Give paid a traveler no XP, with no claim",
     );
-    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
+    assert.equal(await page.locator('#hand .want-frame[data-quest-id="quest:0"]').count(), 0);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.deepEqual(errors, []);
     console.log(
-      `One quest card: fold, deal, one button (Discard), met with no claim passed at ${width}px (${motion}).`,
+      `One quest card: fold, deal, no Discard, met with no claim passed at ${width}px (${motion}).`,
     );
     await page.close();
   }

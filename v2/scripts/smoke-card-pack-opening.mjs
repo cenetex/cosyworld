@@ -10,19 +10,19 @@
 // locked box in the pack is turned and stays locked. Nothing is named before
 // it is turned. At 390 and 1440 px, and with reduced motion.
 //
-// The place is chosen at run time by counting the cards each place deals;
-// the unturned set is seeded into the save's seen list.
-//
 //   node v2/scripts/smoke-card-pack-opening.mjs [screenshot-dir]
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { availableCards, cardPlay } from "../card-game/cards.mjs";
+import { availableCards, cardPlay, unmet } from "../card-game/cards.mjs";
 import { heldItem } from "../card-game/held-item.mjs";
 import { isLockedBox } from "../card-game/locked-box.mjs";
 import { levelTier } from "../card-game/level-tiers.mjs";
+import { REVEAL_ALL_OVER } from "../card-game/pack-opening.mjs";
 import { cardLevel } from "../card-game/rarity.mjs";
+import { tableQuests } from "../card-game/quest-hand.mjs";
+import { TRAVEL_MS, travelFrames } from "../card-game/card-travel.mjs";
 import {
   createWorld,
   encodeSave,
@@ -51,7 +51,7 @@ const shots = process.argv[2]
   : null;
 if (shots) await mkdir(shots, { recursive: true });
 
-// The place that deals the most cards, with a locked box and a Rare or better
+// The place that deals the most cards, with one locked box and a Rare or better
 // among them when one does. Counted now, from the rules, not named.
 function chooseScenario() {
   let best = null;
@@ -66,7 +66,7 @@ function chooseScenario() {
     let here;
     try {
       here = availableCards(world).filter(
-        (id) => id !== "vale" && !id.startsWith("quest:"),
+        (id) => id !== "vale" && !id.startsWith("quest:") && !unmet(world, id),
       );
     } catch {
       continue;
@@ -75,6 +75,7 @@ function chooseScenario() {
       rare = here.filter(
         (id) => !id.startsWith("quest:") && levelTier(cardLevel(world, id)).rank >= 2,
       ).length;
+    if (boxes > 1) continue;
     const score = here.length + (boxes ? 3 : 0) + (rare ? 3 : 0);
     if (!best || score > best.score) best = { place, score, here, world, boxes, rare };
   }
@@ -94,7 +95,11 @@ const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
 });
 
-async function openTable(width, motion, { covered, tag, place = scenario.place, world: given = null }) {
+async function openTable(
+  width,
+  motion,
+  { covered, tag, place = scenario.place, world: given = null, controlTime = false },
+) {
   const key = `cosyworld.reflected-shore.v1.${tag}`;
   const everything = [
     ...Object.keys(people),
@@ -107,6 +112,7 @@ async function openTable(width, motion, { covered, tag, place = scenario.place, 
     viewport: { width, height: width < 600 ? 844 : 900 },
     reducedMotion: motion,
   });
+  if (controlTime) await page.clock.install();
   page.setDefaultTimeout(15000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -202,7 +208,7 @@ for (const [width, motion] of [
   const tag = `pack-${width}-${motion}`;
   const members = scenario.here;
   const names = members.map((id) => nameOf(id)).filter(Boolean);
-  const { page, key, errors } = await openTable(width, motion, { covered: members, tag });
+  const { page, key, errors } = await openTable(width, motion, { covered: members, tag, controlTime: true });
   const shot = async (name) => {
     if (shots) await page.screenshot({ path: new URL(`${tag}-${name}.png`, shots).pathname });
   };
@@ -308,37 +314,27 @@ for (const [width, motion] of [
   await page.waitForFunction(() => !document.querySelector('#hand [data-pack="open"]'));
   await oneButton(page, "Reveal all", `${label}: the lowered stack asks Reveal all again`);
 
-  // 4. Reveal all: one button, "Tap to finish"; mid-run frames.
+  // Pause before Reveal all so browser and screenshot latency cannot run out the pack.
+  await page.clock.pauseAt(Date.now() + 5000);
   await page.locator("#card-actions [data-pack='reveal']").click();
-  await oneButton(page, "Tap to finish", `${label}: a run asks to be finished`);
   assert.ok(members.includes(await focusedHandCard(page)), `${label}: Reveal all leaves focus on a card`);
-  // 5. A tap finishes it: every card turned, none half turned, one Done.
-  // With motion the run still plays once its button shows: past the quarter
-  // second double-tap guard, this tap is the skip of the cards still down.
-  await page.waitForTimeout(300);
+  const finish = page.locator("#card-actions [data-pack='finish']");
+  const tapFinish = () => finish.evaluate((button) => button.click());
+  if ((await finish.getAttribute("data-revealing")) === "true") await tapFinish();
+  await oneButton(page, "Tap to finish", `${label}: a run asks to be finished`);
+  await tapFinish();
+  assert.equal(await finish.count(), 1, `${label}: an immediate second tap does not skip`);
+
+  // Cross the quarter-second tap guard before the next card can turn.
+  await page.clock.runFor(250);
   await shot("4-mid-run");
-  const skipped = await page.evaluate(
-    ({ key, members }) => {
-      const finish = document.querySelector("#card-actions [data-pack='finish']"),
-        down = JSON.parse(localStorage.getItem(`${key}.seen.covered`) || "[]").filter((id) =>
-          members.includes(id),
-        );
-      finish?.click();
-      return { playing: Boolean(finish), down: down.length };
-    },
-    { key, members },
-  );
-  if (motion !== "reduce") {
-    assert.ok(skipped.playing, `${label}: the run is still playing`);
-    assert.ok(skipped.down >= 1, `${label}: some cards are still face down to skip`);
-  }
+  const faceDownCards = async () => (await unturned(page, key)).filter((id) => members.includes(id));
+  assert.ok((await faceDownCards()).length >= 1, `${label}: some cards are still face down to skip`);
+  await tapFinish();
+  assert.deepEqual(await faceDownCards(), [], `${label}: Finish turns the remaining cards immediately`);
+  await page.clock.resume();
   await oneButton(page, "Done", `${label}: every card turned asks for Done`);
   await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
-  assert.deepEqual(
-    (await unturned(page, key)).filter((id) => members.includes(id)),
-    [],
-    `${label}: nothing is left face down`,
-  );
   const turned = await page.evaluate(() =>
     [...document.querySelectorAll('#hand [data-pack="open"] > .card')].map((c) => ({
       id: c.dataset.card,
@@ -356,7 +352,6 @@ for (const [width, motion] of [
     assert.equal(card.tell, "", `${label}: ${card.id} keeps no tell once turned`);
     assert.equal(card.glow, 0, `${label}: ${card.id} keeps no glow once turned`);
   }
-  // A locked box in the pack is turned and still locked.
   for (const id of members.filter((id) => isLockedBox(scenario.world, id))) {
     const box = turned.find((card) => card.id === id);
     assert.ok(box, `${label}: the locked box ${id} was in the pack`);
@@ -385,7 +380,16 @@ for (const [width, motion] of [
   assert.ok(before.includes(await focusedHandCard(page)), `${label}: Done leaves focus on a card`);
   assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "false");
   assert.deepEqual([...(await handIds(page))].sort(), [...before].sort(), `${label}: every card is in the hand`);
-  assert.equal(await page.locator("#hand [data-unrevealed='true']").count(), 0);
+  const unknownQuests = tableQuests(scenario.world, "vale", members.filter(
+    (id) => !isLockedBox(scenario.world, id),
+  )).filter(({ quest }) => !quest).map(({ id }) => id).sort();
+  assert.deepEqual(
+    await page.locator("#hand .card[data-unrevealed='true']").evaluateAll(
+      (cards) => cards.map((card) => card.dataset.questId ?? card.dataset.card).sort(),
+    ),
+    unknownQuests,
+    `${label}: only unheard quests stay face down`,
+  );
   assert.equal(await page.locator("#hand [data-pack]").count(), 0);
   assert.deepEqual(await unreachableCards(page), [], `${label}: settled cards are reachable`);
   await shot("6-settled");
@@ -417,10 +421,14 @@ function chooseArrival(held) {
         const moved = play(world, move);
         if (!moved.ok || heldItem(moved.state, "vale") !== item) continue;
         if (item && cardPlay(moved.state, [item]).action) continue;
-        const fresh = availableCards(moved.state).filter(
-          (id) => id !== "vale" && !id.startsWith("quest:") && !before.includes(id),
+        const dealt = availableCards(moved.state).filter((id) => !unmet(moved.state, id));
+        const stacked = dealt.filter((id) => isLockedBox(moved.state, id));
+        const fresh = dealt.filter(
+          (id) => id !== "vale" && !id.startsWith("quest:") && !before.includes(id) &&
+            (stacked.length < 2 || !stacked.includes(id)),
         );
-        if (fresh.length >= 3) return { world, to: move.target, fresh, item };
+        if (fresh.length > REVEAL_ALL_OVER)
+          return { world, to: move.target, fresh, item };
       }
     } catch {
       continue;
@@ -445,13 +453,14 @@ for (const width of [390, 1440])
     await selectCard(page, arrival.to);
     await readyActionButton(page, "move").click();
     await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="closed"]').length > 1);
-    await page.waitForFunction(() => document.querySelector("#play-status").textContent === "New cards unlocked");
+    assert.equal(await page.locator("#play-status").isHidden(), true, `${label}: no status line repeats the pack`);
     assert.deepEqual(
       (await chosen()).sort(),
       [arrival.to, ...(held ? [arrival.item] : [])].sort(),
       `${label}: the move keeps its chosen cards`,
     );
     await page.keyboard.press("Escape");
+    await settleHand(page);
     await oneButton(page, "Reveal all", `${label}: folding the hand asks Reveal all`);
     assert.deepEqual(await chosen(), held ? [arrival.item] : [], `${label}: only the held thing is chosen`);
     assert.equal(await page.locator("#play-readout").textContent(), "", `${label}: the readout names no other play`);
@@ -467,7 +476,7 @@ for (const width of [390, 1440])
     await page.close();
   }
 
-// Two unturned cards are a pack too: nothing turns without a tap.
+// Two unturned cards are a pack too, turned only by tapping the stack.
 {
   const pair = scenario.here.filter((id) => !id.startsWith("quest:")).slice(0, 2);
   const { page, key, errors } = await openTable(390, "no-preference", {
@@ -476,7 +485,7 @@ for (const width of [390, 1440])
   });
   await page.waitForTimeout(800);
   assert.equal(await page.locator("#hand [data-pack]").count(), 2, "two cards form a pack");
-  await oneButton(page, "Reveal all", "two cards ask Reveal all");
+  assert.equal(await page.locator("#card-actions [data-pack]").count(), 0, "two cards offer no Reveal all");
   assert.equal((await unturned(page, key)).length, 2, "nothing turns without a tap");
   assert.deepEqual(errors, []);
   await page.close();
@@ -532,7 +541,6 @@ const besideHolder = (page, item, holder) =>
         hidden: frame.hidden,
         pressed: frame.querySelector(".card").getAttribute("aria-pressed"),
         grouped: lead === owner,
-        moving: frame.getAnimations().some((a) => a.playState === "running"),
         between: shown.filter((f) => {
           const left = f.getBoundingClientRect().left;
           return f !== frame && f !== owner && left > base.left && left < box.left;
@@ -594,11 +602,37 @@ for (const [width, motion] of [
   await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length > 1);
   await page.waitForTimeout(900);
   await turnAndChoose(page, item);
+  await page.evaluate(({ item, travelMs, signature }) => {
+    const animate = Element.prototype.animate, motions = [];
+    Element.prototype.animate = function (frames, options) {
+      const animation = animate.call(this, frames, options);
+      const flight = options?.duration === travelMs && Array.isArray(frames) &&
+        frames.length === signature.length && frames.every((frame, index) =>
+          frame.scale === signature[index].scale && frame.zIndex === signature[index].zIndex) &&
+        frames.at(-1).translate === signature.at(-1).translate;
+      if (flight && this.matches("#hand > .card-frame") && this.dataset.holder === "vale" &&
+          this.querySelector(".card")?.dataset.card === item)
+        motions.push(animation);
+      return animation;
+    };
+    window.finishTakeMotion = () => {
+      Element.prototype.animate = animate;
+      return motions.map((animation) => ({
+        state: animation.playState,
+        duration: animation.effect.getTiming().duration,
+      }));
+    };
+  }, { item, travelMs: TRAVEL_MS, signature: travelFrames({ left: 0, top: 0 }, { left: 0, top: 0 }) });
   await page.locator('#card-actions [data-action="take"]:not([data-revealing="true"])').click();
   const taken = await lies(page, item, "vale", `${label}: at once after Take`, { settled: false });
   assert.equal(taken.hidden, false, `${label}: the taken card shows`);
   assert.equal(taken.pressed, "true", `${label}: the taken card stays chosen`);
-  assert.equal(taken.moving, motion !== "reduce", `${label}: the card travels only with motion`);
+  const takeMotions = await page.evaluate(() => window.finishTakeMotion());
+  if (motion === "reduce")
+    assert.deepEqual(takeMotions, [], `${label}: reduced motion starts no handover flight`);
+  else
+    assert.ok(takeMotions.some(({ state }) => ["running", "finished"].includes(state)),
+      `${label}: the handover flight runs or finishes: ${JSON.stringify(takeMotions)}`);
   if (motion === "reduce") await lies(page, item, "vale", `${label}: at once, without motion`);
   await page.waitForTimeout(700);
   await lies(page, item, "vale", `${label}: settled after Take`);
@@ -628,9 +662,8 @@ for (const [width, motion] of [
   await page.close();
 }
 
-// A spread the Listener deals for a thing comes as its own face-down cards in
-// the same pack: the locked one under the keyhole back from the start, a
-// chosen card turned by its own Reveal, the rest by Reveal all.
+// Known tarot art shows its canonical quests directly. The unknown card
+// keeps its keyhole back and reveals its quest through the ordinary pack.
 function spreadWorld() {
   let world = createPipWorld(5);
   const talk = legalActions(world, "vale").find((a) => a.kind === "talk" && a.target === "moth");
@@ -653,11 +686,11 @@ const tarotFaces = (page) =>
       label: c.getAttribute("aria-label"),
     })),
   );
-for (const oneByOne of [false, true]) {
-  const label = `spread ${oneByOne ? "one by one" : "Reveal all"}`;
+{
+  const label = "spread";
   const { page, errors } = await openTable(390, "no-preference", {
     covered: [],
-    tag: `pack-spread-${oneByOne}`,
+    tag: "pack-spread",
     world: spreadWorld(),
   });
   const levelled = await page.evaluate(() => document.querySelector('#hand .card[data-card="vale"]')?.getAttribute("aria-label") ?? "");
@@ -665,68 +698,55 @@ for (const oneByOne of [false, true]) {
   await selectCard(page, "bell");
   await selectCard(page, "listener");
   await readyActionButton(page, "give").click();
+  await settleHand(page);
+  const offer = page.getByRole("button", {
+    name: "Accept spread from the Listener",
+  });
+  await offer.waitFor();
+  assert.deepEqual(
+    await tarotFaces(page),
+    [],
+    `${label}: payment leaves the spread with the Listener`,
+  );
+  await tapCard(offer);
   await page.waitForFunction(
     () => document.querySelectorAll('#hand .want-card[data-quest-key^="tarot:vale:"]').length === 3,
   );
   await settleHand(page);
+  await selectCard(page, "vale");
+  await page.waitForFunction(() => {
+    const known = [...document.querySelectorAll('#hand .want-card[data-face="up"]')];
+    return known.length === 2 && known.every((card) => card.dataset.unrevealed === "false");
+  });
   const dealt = await tarotFaces(page);
-  assert.deepEqual(dealt.map((c) => c.unrevealed), ["true", "true", "true"], `${label}: the spread is dealt face down`);
-  assert.deepEqual(dealt.map((c) => c.pack), ["closed", "closed", "closed"], `${label}: the spread is one pack`);
-  for (const card of dealt) {
-    assert.match(card.label, /^(A face-down card|3 closed boxes\. Select to open\.)$/u, `${label}: ${card.key} is not named face down`);
-    assert.match(
-      card.back,
-      card.face === "locked" ? /tarot-back-locked/u : /tarot-back(?!-locked)/u,
-      `${label}: ${card.key} lies under its own back`,
-    );
+  for (const card of dealt.filter((entry) => entry.face === "up")) {
+    assert.equal(card.pack, null, `${label}: owned art needs no Reveal pack`);
+    assert.match(card.label, /^(Quest: Level Up|Bonus quest)/u);
+    assert.match(card.back, /tarot-back(?!-locked)/u);
   }
-  await clearSelection(page);
-  await page.mouse.move(2, 2);
-  for (let i = 0; i < 6 && (await page.locator("#action-beat").isHidden()); i++) {
-    if (await page.locator("#dialogue-advance").isVisible()) await page.locator("#dialogue-advance").click();
-    await page.waitForTimeout(500);
-  }
-  await oneButton(page, "Reveal all", `${label}: a lowered spread asks Reveal all`);
-  assert.equal(
-    (await tarotFaces(page)).filter((c) => c.shown).length,
-    1,
-    `${label}: the lowered spread shows one stack`,
+  const locked = dealt.find((card) => card.face === "locked");
+  assert.ok(locked, `${label}: one unknown card remains`);
+  assert.equal(locked.unrevealed, "true");
+  assert.equal(locked.pack, "closed");
+  assert.equal(locked.label, "A face-down card");
+  assert.match(locked.back, /tarot-back-locked/u);
+  await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
+  await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length === 1);
+  await page.waitForTimeout(900);
+  const card = page.locator(`#hand .want-card[data-quest-key="${locked.key}"]`);
+  await tapCard(card);
+  await oneButton(page, "Reveal", `${label}: a chosen face-down tarot asks Reveal`);
+  await page.locator(`#card-actions [data-open-box="${locked.key}"]`).click();
+  await page.waitForFunction(
+    (key) => document.querySelector(`#hand [data-quest-key="${key}"]`)?.dataset.unrevealed === "false",
+    locked.key,
   );
-  if (oneByOne) {
-    await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
-    await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length >= 3);
-    await page.waitForTimeout(900);
-    const up = dealt.find((c) => c.face === "up");
-    const card = page.locator(`#hand .want-card[data-quest-key="${up.key}"]`);
-    await tapCard(card);
-    await oneButton(page, "Reveal", `${label}: a chosen face-down tarot asks Reveal`);
-    await page.locator(`#card-actions [data-open-box="${up.key}"]`).click();
-    await page.waitForFunction(
-      (key) => document.querySelector(`#hand [data-quest-key="${key}"]`)?.dataset.unrevealed === "false",
-      up.key,
-    );
-    assert.match(
-      await page.locator("#discovery-announcement").textContent(),
-      /^New card: /u,
-      `${label}: the turned tarot is announced`,
-    );
-    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
-  } else {
-    await page.locator("#card-actions [data-pack='reveal']").click();
-    const finish = page.locator("#card-actions [data-pack='finish']");
-    await page.waitForTimeout(400);
-    if (await finish.count()) await finish.click();
-    await oneButton(page, "Done", `${label}: the turned spread asks for Done`);
-    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
-    const turned = await tarotFaces(page);
-    for (const card of turned) {
-      assert.equal(card.unrevealed, card.face === "down" ? "true" : "false", `${label}: ${card.key} is turned`);
-      if (card.face !== "down") assert.match(card.label, /^Quest: Level/u, `${label}: ${card.key} is named`);
-    }
-    await page.waitForTimeout(300);
-    await page.locator("#card-actions [data-pack='done']").click();
-    await page.waitForFunction(() => !document.querySelector("#hand [data-pack]"));
-  }
+  assert.equal(
+    await page.locator("#discovery-announcement").textContent(),
+    "New card.",
+    `${label}: turning the keyhole card does not name unknown art`,
+  );
+  await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
   assert.deepEqual(errors, [], `${label}: no page errors`);
   await page.close();
 }

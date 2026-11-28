@@ -1,5 +1,4 @@
 // Geography: place text, exits and sealed ways.
-// Split out of world.mjs (#1390).
 import {
   entityActive,
   entityShown,
@@ -21,17 +20,22 @@ import { stationExits } from "../station-exits.mjs";
 import { reflectionOpen, sensesFor, reflectionsFrom } from "./senses.mjs";
 import { nameOf, places } from "./catalog.mjs";
 import { baseExits, stationCandidates, limitedExits } from "./station.mjs";
+import { wayfinderExit } from "./elysium-travel.mjs";
+import { coordinateScenery } from "./elysium-coordinates.mjs";
 
 export const placeText = (s, place) =>
   [
     place === "attic" && reflectionOpen(s, place)
       ? "A tall mirror opens onto a black shore. A path leads through the glass."
       : places[place].text,
+    coordinateScenery(s, place),
     ...crossingScenery(s, place, sensesFor(s),
       place === "station" ? stationCandidates(s).filter((id) =>
         !stationExits(s, stationCandidates(s)).includes(id)) : []),
     ...transportScenery(s, place, nameOf),
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 function rawOrdinaryExits(s, place, actor, previous) {
   return [
     ...new Set([
@@ -51,14 +55,16 @@ export function exits(s, place, actor = null, previous = null) {
   // A guardable way, and the way back through it (rules 100).
   for (const to of guardedExits(s, place))
     if (!ways.includes(to)) ways.push(to);
-  return limitedExits(s, place, ways.filter(
-    (to) =>
-      entityActive(s, to) &&
-      actorCanVisit(actor, to, s) &&
-      humanRoomAvailable(s, actor, to) &&
-      personalRouteOpen(s, place, to, actor || currentActor(s)) &&
-      !guardOf(s, place, to, actor),
-  ));
+  const usable = (to) =>
+    entityActive(s, to) &&
+    actorCanVisit(actor, to, s) &&
+    humanRoomAvailable(s, actor, to) &&
+    personalRouteOpen(s, place, to, actor || currentActor(s)) &&
+    !guardOf(s, place, to, actor);
+  const admitted = limitedExits(s, place, ways.filter(usable));
+  const portal = wayfinderExit(s, place, actor);
+  if (portal && usable(portal) && !admitted.includes(portal)) admitted.push(portal);
+  return admitted;
 }
 
 // A sealed way (rules 95): a pack route that names its sealed card and the

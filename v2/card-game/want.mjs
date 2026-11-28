@@ -1,12 +1,11 @@
 // One want per avatar: an item, a place or a person. The world rules decide
 // when it is met and what it earns: one experience, paid on the play that
 // meets it. `actor.want` is that want.
-// A resident's next want is drawn from the world, deterministically, so a
-// replayed journal makes the same choices. A player's is never drawn or
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { controlledByHuman, humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
   entityActive,
+  crossings,
   isFood,
   freed,
   isPackActor,
@@ -22,6 +21,8 @@ import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
+import { elysiumPortraitReady, elysiumResidentAnchored } from "./elysium-models.mjs";
+import { knowsFact, questFactId, questTerms } from "./knowledge.mjs";
 import { gainTrust } from "./world/company.mjs";
 import { HEARD_FROM, heardWant, validRumours } from "./world/rumours.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
@@ -69,11 +70,11 @@ export const knownActors = (s) =>
         packDiscovered(s, packOf(id).id) ||
         s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
-// Pack residents keep to their own scene unless their data lets them travel.
 export const wantless = (id) => forest.people[id]?.wants === false;
 export const travels = (id, s = null) =>
   (!isPackActor(id) && forest.people[id]?.travels !== false) ||
   freed(s, id) ||
+  elysiumPortraitReady(s, id) ||
   id === BOARDY ||
   humanAvatarIds.includes(id) ||
   packPeople[id]?.personalQuests === true ||
@@ -113,12 +114,7 @@ export const startXp = (id) =>
   rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
-// The same quest keeps its identity wherever it is read.
-export const questTerms = (w) => JSON.stringify([
-  w.kind, w.target,
-  w.step ? Object.keys(w.step).sort().map((key) => [key, w.step[key]]) : null,
-  w.lit ?? null,
-]);
+export { questTerms };
 export const sameQuest = (left, right) =>
   questTerms(left) === questTerms(right);
 export const wantKey = (id, want) =>
@@ -437,7 +433,7 @@ export function wantCandidates(
     .sort();
 }
 export function nextWant(s, actor, api, previous = null) {
-  if (wantless(actor)) return null;
+  if (wantless(actor) || elysiumResidentAnchored(s, actor)) return null;
   const staged = stagedNext(s, actor, previous);
   if (staged) return staged;
   const thick = previous?.from === HEARD_FROM && authoredWant(actor);
@@ -506,6 +502,7 @@ function stepMet(s, actor, want, action) {
       (verb === "give"
         ? action.item === want.target && action.target === to && action.accepted
         : action.target === want.target);
+  if (verb === "call") return false; // settled with the crossing's exact predicate
   if (verb === "lay") return layMet(s, want);
   if (verb === "find") return placeOfItem(s, want.target) === me.place;
   // Eat (rules 102): this avatar eats the food, there and with that
@@ -544,6 +541,29 @@ function stepMet(s, actor, want, action) {
 }
 export const wantMet = (s, actor, talk = null, action = null) =>
   questMet(s, actor, wantOf(s, actor), talk, action);
+function knownCards(s, id, api) {
+  const a = s.actors[id];
+  return Object.entries(s.actors)
+    .filter(
+      ([owner, o]) =>
+        owner !== id && o.want && !api.player(owner) &&
+        knowsFact(s, id, questFactId(owner, o.want)),
+    )
+    .map(([owner, o]) => ({ ...api.card(owner, o.want), from: `quest:from:${owner}` }))
+    .filter(
+      (card) =>
+        card.kind && !closedBy(a, card.from, card) &&
+        !heldOf(a).some((w) => w.from === card.from),
+    );
+}
+export const staleWants = (s, ids, actor, api) => [
+  ...ids.filter((id) => wantMet(s, id)),
+  ...(api.player(actor)
+    ? knownCards(s, actor, api)
+        .filter((card) => questMet(s, actor, card, null, null))
+        .map((card) => card.from)
+    : []),
+];
 function questMet(s, actor, want, talk, action) {
   if (!want) return false;
   if (want.step) return stepMet(s, actor, want, action);
@@ -606,9 +626,8 @@ export const resting = (s, actor) => {
   );
 };
 
-// Record what each participant saw and said, then commit met wants. The want
-// is paid on the play that meets it. A resident's next is drawn where one is
-// met. A player whose play meets ANOTHER avatar's want helps them.
+// Record what each participant saw and said, then commit the wants, held
+// quests and known cards the play meets. A player who meets another's want helps.
 export function settleWants(s, actors, api, action = null, stale = []) {
   const talk =
     action?.kind === "talk"
@@ -626,19 +645,40 @@ export function settleWants(s, actors, api, action = null, stale = []) {
       if (s.actors[other] && !a.talked.includes(other))
         a.talked = [...a.talked, other].slice(-64);
     }
-    for (const held of api.player(id) ? heldOf(a) : a.want ? [a.want] : [])
+    const known =
+      action?.actor === id && api.player(id)
+        ? knownCards(s, id, api).filter((card) => !stale.includes(card.from))
+        : [];
+    for (const held of api.player(id) ? [...heldOf(a), ...known] : a.want ? [a.want] : [])
       if (questMet(s, id, held, talk, action)) {
         commitMet(s, id, api, met, held);
         if (stale.includes(id)) continue;
-        helped(s, id, api, action);
+        helped(s, id, api, action, met, held);
         if (a.content) setWant(a, stagedNext(s, id, held));
       }
   }
   return met;
 }
+export function completeCall(s, owner, by, api) {
+  const a = s.actors[owner], want = a.want;
+  if (!want || (a.completedQuest && sameQuest(a.completedQuest.want, want))) return;
+  const helpers = Object.keys(s.actors).filter((id) => id !== owner &&
+    (id === by || knowsFact(s, id, questFactId(owner, want))));
+  a.completedQuest = { want: structuredClone(want), by, turn: s.turn };
+  const met = [], quiet = { ...api, log: () => {} };
+  commitMet(s, owner, quiet, met, want);
+  helped(s, owner, quiet, { kind: "call", actor: by }, met, want);
+  api.log(by, want, owner);
+  for (const id of helpers) {
+    if (id !== by) gainTrust(s, owner, id);
+    const card = { ...api.card(owner, want), from: `quest:from:${owner}` };
+    if (api.player(id) && !closedBy(s.actors[id], card.from, card))
+      commitMet(s, id, quiet, met, card);
+  }
+}
 // A refused gift or trade meets nothing, and a handover under pressure is no
 // help. A plain Give earns trust in `trustGiver`.
-function helped(s, owner, api, action) {
+function helped(s, owner, api, action, met, card) {
   const own = action?.actor === owner,
     helper = own ? action.target : action?.actor,
     h = s.actors[helper];
@@ -647,6 +687,7 @@ function helped(s, owner, api, action) {
     api.player(owner)
   )
     return;
+  if (api.player(helper)) credit(s, owner, helper, api, met, card);
   if (!own && api.player(helper) && !humanAvatarIds.includes(helper)) {
     h.level ??= levelFor(h.xp);
     h.xp += 1;
@@ -660,23 +701,37 @@ function helped(s, owner, api, action) {
   }
   if (action.kind !== "give" || action.chosen) gainTrust(s, owner, helper);
 }
+export function ownerOf(id, want) {
+  const [, kind, source] = /^quest:(\w+):(.*)$/su.exec(want.from ?? "") ?? [];
+  if (kind === "home") return want.target;
+  return kind === "from" || kind === "place" ? source : kind ? null : id;
+}
+function credit(s, owner, helper, api, met, want) {
+  const from = `quest:from:${owner}`,
+    h = s.actors[helper],
+    held = heldOf(h).find((w) => w.from === from),
+    card = api.card(owner, want),
+    knew = knowsFact(s, helper, questFactId(owner, want));
+  if (held || (card && knew && h.closed?.[from]?.[0] !== s.turn))
+    commitMet(s, helper, api, met, held ?? { ...card, from });
+}
 function commitMet(s, id, api, met, held = null) {
   const a = s.actors[id],
     want = held ?? a.want,
+    owner = ownerOf(id, want),
     traveler = humanAvatarIds.includes(id);
   const xp = traveler || want.from?.startsWith("quest:box:") ? 0 : 1;
   if (!traveler) a.level ??= levelFor(a.xp);
   a.xp += xp;
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
-  api.log(id, want);
-  if (traveler && want.from?.startsWith("quest:from:"))
-    countResidentQuest(a, want.from.slice("quest:from:".length));
-  if (want.from?.startsWith(PLACE_FROM)) {
-    const place = want.from.slice(PLACE_FROM.length),
-      met = s.placeMet?.[place] ?? [],
-      laid = want.step.items.filter((item) => !met.includes(item));
-    if (laid.length) s.placeMet = { ...s.placeMet, [place]: [...met, ...laid] };
+  api.log(id, want, owner);
+  if (traveler && owner !== id && api.kindOf(owner) === "person")
+    countResidentQuest(a, owner);
+  if (owner !== id && api.kindOf(owner) === "place") {
+    const done = s.placeMet?.[owner] ?? [],
+      laid = want.step.items.filter((item) => !done.includes(item));
+    if (laid.length) s.placeMet = { ...s.placeMet, [owner]: [...done, ...laid] };
   }
   if (!traveler && !api.player(id) && !packPeople[id]?.levelAtHome)
     a.level = Math.max(a.level, levelFor(a.xp));
@@ -742,6 +797,7 @@ export function reviseStalledWants(s, actors, api, before = s) {
     if (
       !api.player(id) &&
       !accepted(s, id) &&
+      want?.step?.verb !== "call" &&
       (travels(id, s) || api.wanders?.(id)) &&
       (want?.kind === "place"
         ? want.target !== s.actors[id].place &&
@@ -760,6 +816,8 @@ export function reviseStalledWants(s, actors, api, before = s) {
     const want = s.actors[id].want;
     if (
       want &&
+      want.step?.verb !== "call" &&
+      !elysiumResidentAnchored(s, id) &&
       !api.player(id) &&
       !humanAvatarIds.includes(id) &&
       entityActive(s, id) &&
@@ -811,7 +869,7 @@ function sawLost(s, id, lost, action, api) {
 export function fillWants(s, api, now = false) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (a.want) delete a.content;
-    if (api.player(id) || wantless(id)) continue;
+    if (api.player(id) || wantless(id) || a.completedQuest) continue;
     if (
       !a.want &&
       entityActive(s, id) &&
@@ -824,7 +882,7 @@ export function fillWants(s, api, now = false) {
 // drawn as ever.
 export function renewWant(s, id, api) {
   const a = s.actors[id];
-  if (!a?.content || api.player(id)) return;
+  if (!a?.content || api.player(id) || a.completedQuest) return;
   delete a.content;
   if (!a.want) setWant(a, nextWant(s, id, api));
 }
@@ -832,6 +890,9 @@ export function renewWant(s, id, api) {
 const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
 function validStep(s, w, id) {
   const { verb, ...cards } = w.step;
+  if (verb === "call")
+    return w.kind === "place" && Object.keys(cards).join() === "crossing" &&
+      crossings.some((c) => c.id === cards.crossing && c.from === w.target && c.unlockWhen?.length);
   if (verb === "lay")
     return (
       w.kind === "place" &&
@@ -887,25 +948,6 @@ function validStep(s, w, id) {
     (!cards.with || (Object.hasOwn(s.actors, cards.with) && cards.with !== id))
   );
 }
-// The saved record of wants a player was told by Talk, by avatar
-// (talk-quest.mjs, rules 99).
-function validHeard(s, id) {
-  const heard = s.actors[id].heard;
-  if (heard === undefined) return true;
-  return Boolean(
-    heard &&
-      typeof heard === "object" &&
-      !Array.isArray(heard) &&
-      Object.entries(heard).every(
-        ([them, told]) =>
-          them !== id &&
-          Object.hasOwn(s.actors, them) &&
-          typeof told === "string" &&
-          told.length <= 160 &&
-          /^(item|place|person):./u.test(told),
-      ),
-  );
-}
 export function validWant(s, id) {
   const a = s.actors[id];
   const whole = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
@@ -935,6 +977,7 @@ export function validWant(s, id) {
     (a.metTurn === undefined || whole(a.metTurn)) &&
     validUnder(s, id) &&
     validClosed(s, a) &&
+    (a.completedQuest === undefined || validCompletion(s, id, a.completedQuest)) &&
     a.questRewards === undefined &&
     (a.content === undefined || a.content === true) &&
     (a.glimpse === undefined || validGlimpse(a.glimpse)) &&
@@ -945,12 +988,31 @@ export function validWant(s, id) {
         typeof a.gaveUp.target === "string" &&
         whole(a.gaveUp.turn))) &&
     list(a.talked, s.actors) &&
-    validHeard(s, id) &&
+    a.heard === undefined &&
+    validTold(s, id) &&
     validRumours(s, id) &&
     validOffered(s, id) &&
     !a.talked.includes(id) &&
     Array.isArray(a.visited) &&
     (a.want === null || validQuest(s, id, a.want))
+  );
+}
+function validCompletion(s, id, done) {
+  return Boolean(done && Object.keys(done).sort().join() === "by,turn,want" &&
+    Object.hasOwn(s.actors, done.by) && Number.isSafeInteger(done.turn) &&
+    done.turn >= done.want?.since && done.turn <= s.turn &&
+    done.want?.step?.verb === "call" && validQuest(s, id, done.want));
+}
+function validTold(s, id) {
+  const told = s.actors[id].told;
+  return (
+    told === undefined ||
+    (Array.isArray(told) &&
+      told.length > 0 &&
+      told.every(
+        (o, i) =>
+          o !== id && Object.hasOwn(s.actors, o) && (!i || told[i - 1] < o),
+      ))
   );
 }
 function validUnder(s, id) {

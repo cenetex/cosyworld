@@ -23,7 +23,11 @@ export async function request(path, body, headers = {}) {
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(15000),
   });
-  const result = await response.json();
+  const result = await response.json().catch((error) => {
+    if (path === "/auth/account" && response.status === 404)
+      error.status = response.status;
+    throw error;
+  });
   if (!response.ok || result.error)
     // No cause: a cause marks a play whose fate is uncertain (app.mjs).
     // The code names a refusal that passes on its own ("updating").
@@ -31,6 +35,7 @@ export async function request(path, body, headers = {}) {
       new Error(
         playerText(result.error) || "The world is taking a moment. Try again.",
       ),
+      { status: response.status },
       result.code ? { code: result.code } : {},
     );
   if (path === "/auth/account") accountRevision.observe(result);

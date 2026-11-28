@@ -26,18 +26,27 @@ const sorted = (value) =>
       : value;
 
 const key = "ratiradio-station-key",
-  kitchen = "ratiradio-staff-kitchen";
+  kitchen = "ratiradio-staff-kitchen",
+  entrancePlace = "behind-station";
 const route = [
   ["move", "pond"],
   ["take", key],
   ["move", "station"],
+  ["move", entrancePlace],
   ["move", kitchen],
   ["drop", key],
-  ["move", "station"],
+  ["move", entrancePlace],
 ];
 const fields = (kind, target) => ({
   [kind === "move" ? "target" : "item"]: target,
 });
+// Today's route has one more room between the two locations in old traces.
+const needsEntranceLeg = (world, actor, action) => {
+  if (action?.kind !== "move") return false;
+  const from = world.actors[actor].place;
+  return (from === "station" && action.target === kitchen) ||
+    (from === kitchen && action.target === "station");
+};
 
 for (const opening of [false, true])
   it(`opens the Radio entrance only while the key is carried or inside (opening ${opening})`, () => {
@@ -61,7 +70,7 @@ for (const opening of [false, true])
       }
       if (kind === "take") expect(world.items[key].holder).toBe("vale");
     }
-    expect(trace).toEqual(route); // Six reached transitions, not six random attempts.
+    expect(trace).toEqual(route);
     expect(world.packs.ratiradio.flags).toEqual({});
     expect(world.items[key].holder).toBe(kitchen);
     // The key lies inside the station, so the entrance stays open from
@@ -115,17 +124,8 @@ it("agrees between today's source and compiled JS through the reachable trace", 
     save: encodeSave(createWorld({ opening: true, seed: 17 })),
   }).world;
   world = sorted(world);
-  let reached = 0;
-  for (const [index, step] of fixture.steps.entries()) {
-    const request = { ...step.request, world };
+  const replay = (request) => {
     const before = structuredClone(request);
-    // The recorded journey re-entered the kitchen without the key (steps 7
-    // and 14). The entrance now follows the key, and the key lies inside the
-    // station, so those re-entries are still offered, with no flag set.
-    if ([7, 14].includes(index)) {
-      expect(step.request.action.target).toBe(kitchen);
-      expect(world.items[key].holder).toBe(kitchen);
-    }
     const result = dispatchShared(request);
     expect(request).toEqual(before);
     expect(result.ok, result.error).toBe(true);
@@ -134,12 +134,32 @@ it("agrees between today's source and compiled JS through the reachable trace", 
     );
     validateWorld(structuredClone(result.world));
     world = sorted(reload(result.world));
-    expect(dispatchShared({ ...step.request, op: "view", world })).toEqual(
-      dispatchShared({ ...step.request, op: "view", world: result.world }),
+    expect(dispatchShared({ ...request, op: "view", world })).toEqual(
+      dispatchShared({ ...request, op: "view", world: result.world }),
     );
-    reached++;
+  };
+  let entranceLegs = 0;
+  for (const [index, step] of fixture.steps.entries()) {
+    const { actor, action: recorded } = step.request;
+    let action = recorded;
+    // The recorded journey re-entered without the key. The key still lies
+    // inside RATiRadio, so the door stays open without a saved flag.
+    if ([7, 14].includes(index)) {
+      expect(action.target).toBe(kitchen);
+      expect(world.items[key].holder).toBe(kitchen);
+    }
+    if (needsEntranceLeg(world, actor, recorded)) {
+      const actions = () => dispatchShared({ ...step.request, op: "view", world }).actions;
+      const via = actions().find((a) => a.kind === "move" && a.target === entrancePlace);
+      expect(via).toBeDefined();
+      replay({ ...step.request, world, action: via });
+      action = actions().find((a) => a.key === recorded.key);
+      expect(action).toBeDefined();
+      entranceLegs++;
+    }
+    replay({ ...step.request, world, ...(action && { action }) });
   }
-  expect(reached).toBe(15);
+  expect(entranceLegs).toBe(4);
   expect(world.items[key].holder).toBe(kitchen);
   expect(world.packs.ratiradio.flags).toEqual({});
   expect(world.actors.mara.place).toBe(kitchen);
@@ -174,9 +194,11 @@ const thermos = "ratiradio-thermos",
 // key in the kitchen, and setting the beanie and Thermos down in the
 // Listening Room.
 const skipped = new Set([37, 44, 45]);
-// The plays to add before local command `index`.
-const localLockPlays = (index) =>
+// Meet the keeper at the station, then return to Pip's pond.
+const localRoutePlays = (index) =>
   ({
+    11: [["move", "station"]],
+    12: [["move", "pond"]],
     38: [["drop", glass]],
     41: [
       ["drop", stationKey],
@@ -188,14 +210,23 @@ const localLockPlays = (index) =>
     57: [["drop", beanie]],
     59: [["take", beanie]],
   })[index] ?? [];
+const recordedPlacement = {
+  [beanie]: "station",
+  [thermos]: "clearing",
+  [figurine]: "forest-cottage",
+  [glass]: "greek-harbor",
+};
 it("reaches a local Raven return using the local NPC route and reloads every play", () => {
   let world = createWorld({ seed: 92 }),
     met,
     awakened,
     added = 0;
-  for (const [index, command] of ravenTrace.localRoute.commands.entries()) {
+  for (const [id, place] of Object.entries(recordedPlacement))
+    world.items[id].holder = place;
+  for (const [index, recorded] of ravenTrace.localRoute.commands.entries()) {
     if (skipped.has(index)) continue;
-    for (const [kind, to] of localLockPlays(index)) {
+    let command = recorded;
+    for (const [kind, to] of localRoutePlays(index)) {
       const action = legalActions(world).find(
         (a) => a.kind === kind && (a.item === to || a.target === to),
       );
@@ -203,6 +234,13 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
       const result = play(world, action, world.revision);
       expect(result.ok, result.error).toBe(true);
       world = reload(result.state);
+      added++;
+    }
+    if (needsEntranceLeg(world, "vale", recorded.action)) {
+      world = reload(act(world, "move", { target: entrancePlace }));
+      const action = legalActions(world).find((a) => a.key === recorded.action.key);
+      expect(action).toBeDefined();
+      command = { ...recorded, action };
       added++;
     }
     // Residents dwell where they arrive (rules 133), so a recorded play can
@@ -217,14 +255,18 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
       );
       waits++
     ) {
-      const rest = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
+      const rest = legalActions(world).find(
+        (a) => a.kind === "wait" && !a.sleep,
+      );
       world = reload(play(world, rest, world.revision).state);
       added++;
     }
     const before = structuredClone(world),
       request = structuredClone(command);
     if (command.op === "play")
-      expect(legalActions(world), `command ${index}`).toContainEqual(command.action);
+      expect(legalActions(world), `command ${index}`).toContainEqual(
+        command.action,
+      );
     let result;
     if (command.op === "hold") {
       const next = structuredClone(world);

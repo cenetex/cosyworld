@@ -71,7 +71,6 @@ describe("the attic opening and saved pond journeys", () => {
   });
   it("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
-    // A player takes its own quest by a tap; give Vale the lamp quest.
     world.actors.vale.want = { kind: "item", target: "lamp", since: 0, refusals: 0 };
     world = selectLamp(world, "lamp");
     const xp = world.actors.vale.xp;
@@ -189,27 +188,25 @@ describe("the attic opening and saved pond journeys", () => {
     for (const avatar of humanAvatars)
       world.items[avatar.item.id].holder = "pond";
     world.items["boardyai-calling-card"].holder = "pond";
-    expect(["station", "attic"]).toContain(doorway);
+    expect(doorway).toBe("behind-station");
     const neighbors = [];
     for (const place of Object.keys(places)) {
       world.actors.vale.place = place;
       const roads = exits(world, place, "vale");
-      if (place === "station") expect(roads).toEqual(["pond"]);
+      if (place === "station") expect(roads).toEqual(["pond", doorway]);
       if (roads.includes("station")) neighbors.push(place);
     }
     expect(neighbors).toEqual([
+      doorway,
       "pond",
-      ...(places["ratiradio-staff-kitchen"] ? ["ratiradio-staff-kitchen"] : []),
-      ...(doorway === "station" ? ["boardyai-parlour"] : []),
+      ...(places["elysium-void-002"] ? ["elysium-void-002"] : []),
     ]);
     world.items["boardyai-calling-card"].holder = "station";
-    expect(exits(world, "station", "vale")).toEqual(
-      doorway === "station" ? ["pond", "boardyai-parlour"] : ["pond"],
-    );
-    const elsewhere = doorway === "station" ? "attic" : "station";
-    expect(exits(world, elsewhere, "vale")).not.toContain("boardyai-parlour");
+    expect(exits(world, doorway, "vale")).not.toContain("boardyai-parlour");
     world.items["boardyai-calling-card"].holder = doorway;
     expect(exits(world, doorway, "vale")).toContain("boardyai-parlour");
+    expect(exits(world, "boardyai-parlour", "vale")).toContain(doorway);
+    expect(exits(world, "station", "vale")).toEqual(["pond", doorway]);
   });
 
   it("preserves saved attic purposes, positions, possessions and history", () => {
@@ -220,7 +217,7 @@ describe("the attic opening and saved pond journeys", () => {
     const restored = decodeSave(encodeSave(before));
     expect(restored).toEqual(before);
     expect(restored.actors.vale.want).toBeNull();
-    expect(exits(restored, "station")).toEqual(["pond"]);
+    expect(exits(restored, "station")).toEqual(["pond", "behind-station"]);
     const shore = act(restored, "move", "pond");
     expect(shore.actors.vale.want).toBeNull();
     const attic = act(shore, "move", "attic");

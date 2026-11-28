@@ -51,7 +51,7 @@ describe("count conditions", () => {
     s.actors.walker.visited.push("mill");
     expect(holds(s, count("visited", { min: 2 }), me)).toBe(true);
     expect(holds(s, count("heard", { min: 1 }), me)).toBe(false);
-    s.actors.walker.heard = { ash: "item:coin" };
+    s.actors.walker.told = ["ash"];
     expect(holds(s, count("heard", { min: 1 }), me)).toBe(true);
     s.actors.walker.upgrades = ["scarf"];
     expect(() => holds(s, count("upgrades", { min: 1 }), me)).toThrow();
@@ -139,6 +139,7 @@ describe("did conditions", () => {
       done: [],
       spread: [],
       sale: false,
+      paid: false,
     });
     expect(s.actors.walker.arcana).toBeUndefined();
   });

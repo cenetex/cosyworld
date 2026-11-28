@@ -73,7 +73,7 @@ it("credits opening a box whose quest was never taken", () => {
 
 it("leaves the slots free for a resident's offer after Talk", () => {
   const told = act(arrive(), "talk", { target: KEEPER });
-  expect(residentOffer(told)).toMatchObject({ source: KEEPER, full: false });
+  expect(residentOffer(told, "vale", KEEPER)).toMatchObject({ source: KEEPER, full: false });
   expect(sources(act(told, "accept", { target: KEEPER }))).toEqual([`quest:from:${KEEPER}`]);
 });
 
