@@ -29,8 +29,7 @@ export { life };
 export const DAY_TURNS = DAYLIGHT_TURNS * 2;
 // The most off-stage steps one play takes, so a busy world stays cheap.
 export const OFFSTAGE_STEPS = 24;
-// Story suites written for a cast that stands still turn this off to test a
-// story alone (test/helpers/still-cast.mjs). The rules never change it.
+// Still-cast tests turn this off to isolate the story. The rules leave it unchanged.
 export const worldLife = { on: true };
 
 // --- Data ----------------------------------------------------------------
