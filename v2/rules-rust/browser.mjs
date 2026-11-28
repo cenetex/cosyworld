@@ -51,6 +51,9 @@ export function browserRules(bytes) {
       const pondPlay =
         request.op === "play" &&
         (key === "move:vale::pond" || key === "move:vale:lamp:pond");
+      const pondSpeech =
+        request.op === "speech" &&
+        request.world?.actors?.vale?.place === "pond";
       const ordered =
         [
           "opening_wait_roster",
@@ -63,7 +66,8 @@ export function browserRules(bytes) {
           "opening_full_move",
         ].includes(request.op) ||
         atticPlay ||
-        pondPlay;
+        pondPlay ||
+        pondSpeech;
       const actors = ordered ? request.world?.actors : null;
       const actorOrder =
         actors && typeof actors === "object" && !Array.isArray(actors)
