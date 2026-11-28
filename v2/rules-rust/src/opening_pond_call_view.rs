@@ -391,18 +391,22 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
 
 pub(super) fn private_view(request: &Value) -> Option<Value> {
     let world = request.get("world")?;
-    if world["speechVoices"][VALE] != json!([VALE]) {
-        return None;
-    }
-    signal_events(world, drop_receipt(world)?, true)?;
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    called_scene(world, &geo)?;
+    settled_speech(world, &geo)?;
     reply(
         json!({"ok":true,"world":opening_view::private_world(world, request)?}),
         world,
         &geo,
         profiles::project(&files)?,
     )
+}
+
+pub(super) fn settled_speech(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    if world["speechVoices"][VALE] != json!([VALE]) {
+        return None;
+    }
+    signal_events(world, drop_receipt(world)?, true)?;
+    called_scene(world, geo)
 }
