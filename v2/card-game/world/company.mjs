@@ -32,8 +32,7 @@ export function validTrust(actors, id, trust, actorCount) {
     Number.isInteger(trust[other]) && trust[other] >= 0 && trust[other] <= 3,
   );
 }
-// What an act against a resident takes from its trust in the actor. Trust
-// floors at 0. Only a human traveler's visible acts count.
+// Only a human traveler's visible acts reduce trust, which floors at 0.
 export const TRUST_LOSS = { threaten: 2, threatenForItem: 3, attack: 1 };
 
 // An act against a resident lowers its trust in the actor, never below 0.
