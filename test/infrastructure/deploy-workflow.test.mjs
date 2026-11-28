@@ -208,7 +208,6 @@ describe("deploy workflow", () => {
     expect(checks).toContain("cancel-in-progress: true");
     expect(checks).toContain("uses: ./.github/workflows/fast-check.yml");
     expect(checks).toContain("base: ${{ needs.dev-checks-base.outputs.base }}");
-    // The plan leaves the slow lookup of where checks last passed to its own job.
     const base = job("dev-checks-base", "dev-checks");
     expect(base).toContain("base: ${{ steps.checked.outputs.base || needs.dev-plan.outputs.base }}");
     expect(base).toContain("node scripts/last-dev-rollout.mjs --checked");
@@ -324,7 +323,6 @@ describe("deploy workflow", () => {
     }
     expect(dev).toContain("needs.dev-plan.outputs.deploy == 'true' && needs.dev-plan.outputs.image == 'true'");
     expect(dev).toContain("(needs.dev-image.result == 'success' || needs.dev-plan.outputs.image != 'true')");
-    // A Rust change compiles only the server, and the release brings it.
     expect(dev).toContain("needs.dev-plan.outputs.image != 'true' && needs.dev-plan.outputs.server == 'build'");
     expect(dev).toContain("(needs.dev-server.result == 'success' || needs.dev-plan.outputs.server != 'build')");
     expect(dev).toContain("needs.dev-plan.outputs.server == 'carry' && 'carry'");

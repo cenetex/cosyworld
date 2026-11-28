@@ -44,7 +44,6 @@ serving() {
   printf '%s\n%s\n' "$image" "$commit" > "$out/serving"
   cp "$image/manifest.json" "$out/image.json"
   cp "$dir/manifest.json" "$out/serving.json"
-  # The sha256 of the server this release brought, or nothing.
   if [ -f "$dir/server" ]; then sha256sum < "$dir/server" | cut -c1-64; fi > "$out/server"
   tar -czf - -C "$out" serving image.json serving.json server
 }

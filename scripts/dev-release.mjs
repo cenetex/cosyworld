@@ -45,7 +45,6 @@ export function imageInput(file) {
   return IMAGE.some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path));
 }
 
-// The server's own source: a change here ships a new server on the volume.
 const SERVER = ["v2/ai-model-rust/", "v2/rules-rust/", "v2/orchestrator-rust/"];
 export const serverInput = (file) => imageInput(file) && SERVER.some((dir) => file.startsWith(dir));
 
@@ -124,7 +123,6 @@ function served(dir) {
   return { imageDir, commit, image: JSON.parse(read("image.json")), servingText: read("serving.json"), servingServer };
 }
 
-// A built server, or "carry" for the one the serving release brought.
 function serverFor(arg, servingServer) {
   if (!arg) return null;
   if (arg !== "carry") return { path: arg, sha: createHash("sha256").update(readFileSync(arg)).digest("hex") };

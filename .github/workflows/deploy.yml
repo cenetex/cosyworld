@@ -89,8 +89,7 @@ jobs:
           base="$(sed -n 's/^commit=//p' <<< "$serving")"
           bash scripts/plan-dev-deploy.sh "${base:-$(node scripts/last-dev-rollout.mjs)}" >> "$GITHUB_OUTPUT"
 
-      # COSYWORLD_DEV_RELEASES=off builds an image for every change. A Rust
-      # change ships its server in the release: built, or carried from .dev.
+      # COSYWORLD_DEV_RELEASES=off builds an image for every change.
       - name: Choose between a new image and a release on the volume
         id: path
         if: steps.impact.outputs.deploy == 'true'
@@ -231,8 +230,6 @@ jobs:
           path: ${{ runner.temp }}/release-target
           key: ${{ steps.release-cache.outputs.cache-primary-key }}
 
-  # A Rust change without an image input: only the server is compiled, and
-  # .dev stages it with the release. Latest wins, as for the image.
   dev-server:
     name: Compile the .dev server
     needs: dev-plan

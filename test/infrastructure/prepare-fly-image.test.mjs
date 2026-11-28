@@ -202,7 +202,6 @@ describe("Fly commit image preparation", () => {
       expect(run).toContain(
         `type=bind,src=${resolve(path)},dst=/app/${path},readonly`,
       );
-    // The server compiles from Rust alone; the card game is not mounted.
     expect(run.join(" ")).not.toContain("v2/card-game");
     expect(run).toContain(
       `type=bind,src=${resolve("v2/orchestrator-rust")},dst=/src,readonly`,

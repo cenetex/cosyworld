@@ -2,7 +2,6 @@
 set -euo pipefail
 
 # Stage $GITHUB_SHA on .dev's volume (docs/design/fast-deploys.md); prints unchanged=.
-# SERVER names a server built for it, or "carry" to keep the one .dev serves.
 : "${MACHINE:?The machine .dev serves from is required}"
 : "${IMAGE_COMMIT:?The commit the image .dev runs was built from is required}"
 [[ "${GITHUB_SHA:-}" =~ ^[0-9a-f]{40}$ ]]

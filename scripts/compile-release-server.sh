@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Compile the release server with a saved target, in the Dockerfile's toolchain
-# so it runs on the image. compile-release-binary.sh holds the crate version.
 target_cache="${1:?A saved target directory is required}"
 out="${2:?An output directory is required}"
 [[ "$target_cache" = /* ]]
@@ -25,7 +23,6 @@ compile() {
     "$toolchain" sh /usr/local/bin/compile-release-binary
 }
 if ! compile; then
-  # A damaged or incompatible saved target must not block a deploy.
   echo "Warm release build failed; retrying from an empty target." >&2
   rm -rf "$target_cache/target"
   mkdir -p "$target_cache/target"
