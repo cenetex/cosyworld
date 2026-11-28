@@ -59,7 +59,7 @@ pub(super) fn verify_wayfinder(world: &Value, geo: &Geography) -> Option<()> {
     verify_wayfinder_placement(world, geo)
 }
 
-fn verify_wayfinder_placement(world: &Value, geo: &Geography) -> Option<()> {
+pub(super) fn verify_wayfinder_placement(world: &Value, geo: &Geography) -> Option<()> {
     if !world["items"].as_object()?.contains_key(WAYFINDER) {
         return Some(());
     }
