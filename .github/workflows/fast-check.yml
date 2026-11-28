@@ -20,7 +20,7 @@ jobs:
   plan:
     name: Change budget, comment ratchet, version, engine gate, and smoke plan
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       contents: read
       actions: read
