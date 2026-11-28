@@ -16,7 +16,10 @@ use super::{
     opening_station_keeper_gift::settle_keeper_abandon_gift,
     opening_station_move::{self, rue_arrived},
     opening_station_quest_drop_learning::confirm_pip_wait,
-    opening_station_read::{after_first_log, first_log_history, keeper_book_claim},
+    opening_station_read::{
+        first_log_history, keeper_book_claim, keeper_want, settled_first_read, witnessed_read_wait,
+        KEEPER_FROM,
+    },
     opening_station_read_wait::{observe_place, record_wait_learning},
     opening_view, opening_visitor_routes, opening_wants,
     pack_state::Catalog,
@@ -36,8 +39,6 @@ const ROUTES: &str = "routes";
 pub(super) const ACCEPT_KEEPER: &str = "accept:vale::keeper";
 pub(super) const ACCEPT_TRAIN: &str = "accept:vale::box:train";
 pub(super) const ABANDON_QUEST: &str = "drop:vale:::0";
-const KEEPER_QUEST: &str = "quest:keeper:pond";
-const KEEPER_FROM: &str = "quest:from:keeper";
 const KEEPER_TERMS: &str =
     r#"["place","pond",[["crossing","pond-greek-harbor"],["verb","call"]],null]"#;
 const TRAIN_TERMS: &str = r#"["item","routes",[["at","station"],["verb","bring"]],null]"#;
@@ -103,84 +104,6 @@ fn response_chronology(world: &Value) -> Option<u64> {
     } else {
         chronology(world)
     }
-}
-
-fn settled_first_read(world: &Value) -> Option<[&Value; 2]> {
-    let seq = after_first_log(world)?;
-    let [.., read, wait] = world["log"].as_array()?.as_slice() else {
-        return None;
-    };
-    if world["eventSeq"] != seq.checked_add(1)? {
-        return None;
-    }
-    witnessed_read_wait(world, read, wait, seq)?;
-    Some([read, wait])
-}
-
-fn witnessed_read_wait(world: &Value, read: &Value, wait: &Value, seq: u64) -> Option<()> {
-    let learned = &world["knowledge"]["known"][VALE][KEEPER_QUEST];
-    (read["seq"] == seq
-        && wait["seq"] == seq.checked_add(1)?
-        && wait["turn"] == 3
-        && wait["kind"] == "action"
-        && wait["verb"] == "wait"
-        && wait["actorId"] == PIP
-        && wait["locationId"] == STATION
-        && wait["generated"] != true
-        && wait["witnesses"] == read["witnesses"]
-        && wait["cast"] == read["cast"]
-        && *learned == keeper_read_fact(seq))
-    .then_some(())
-}
-
-fn keeper_read_fact(seq: u64) -> Value {
-    json!({"kind":"read","teller":null,"eventSeq":seq,"learnedTurn":3,"book":"keeper-log"})
-}
-
-pub(super) fn keeper_want(world: &Value, geo: &Geography) -> Option<Value> {
-    let [read, _] = settled_first_read(world)?;
-    keeper_want_from_read(world, geo, read["seq"].as_u64()?)
-}
-
-pub(super) fn keeper_want_from_read(world: &Value, geo: &Geography, seq: u64) -> Option<Value> {
-    let claim = keeper_book_claim(world, geo)?;
-    let id = format!("claim:hub:keeper-log:{}", claim["id"].as_str()?);
-    let forest = &geo.files()["v2/card-game/forest.json"];
-    let keeper = forest["people"][KEEPER]["name"].as_str()?;
-    let goal = keeper_call_goal(
-        forest["things"]["cloth"]["name"].as_str()?,
-        forest["places"][POND]["name"].as_str()?,
-        forest["things"][LAMP]["name"].as_str()?,
-    );
-    let facts = &world["knowledge"]["facts"];
-    let known = &world["knowledge"]["known"][VALE];
-    if world["knowledge"]["version"] != 1
-        || !world["knowledge"]["pending"].as_array()?.is_empty()
-        || known[KEEPER_QUEST] != keeper_read_fact(seq)
-        || facts[KEEPER_QUEST]
-            != json!({
-                "id":KEEPER_QUEST,"text":format!("{keeper} wants you to {goal}."),"source":{
-                    "kind":"quest","eventSeq":2,"turn":0,"actorId":KEEPER,
-                    "locationId":STATION,"witnesses":[VALE],"topic":null,
-                },
-            })
-        || known[&id] != known[KEEPER_QUEST]
-        || facts[&id]
-            != json!({
-                "id":id,"text":claim["text"],"source":{
-                    "kind":"claim","eventSeq":seq,"turn":3,"actorId":VALE,
-                    "locationId":STATION,"witnesses":[VALE],"topic":null,"book":"keeper-log",
-                    "claim":claim["id"],"author":KEEPER,"about":claim["about"],
-                },
-            })
-    {
-        return None;
-    }
-    let mut want = forest["people"][KEEPER]["want"].clone();
-    want["since"] = json!(3);
-    want["refusals"] = json!(0);
-    want["from"] = json!(KEEPER_FROM);
-    Some(want)
 }
 
 fn historic_sleepers(world: &Value, geo: &Geography<'_>) -> Option<()> {

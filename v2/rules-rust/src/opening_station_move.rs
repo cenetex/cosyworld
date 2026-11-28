@@ -7,7 +7,7 @@ use super::{
     opening_held_items,
     opening_pickups::item_as_named,
     opening_pond_return_view, opening_pond_view, opening_roster, opening_second_attic_tail,
-    opening_station_view, opening_visitor_routes,
+    opening_station_read, opening_station_view, opening_visitor_routes,
     opening_wait_response::{ordinary_attic_wait, vale_action},
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -340,7 +340,7 @@ fn quiet_station_destination(world: &Value, geo: &Geography<'_>, residents: &[&s
 }
 
 fn quiet_return_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
-    if world["actors"][VALE]["want"] != opening_station_view::keeper_want(world, geo)?
+    if world["actors"][VALE]["want"] != opening_station_read::keeper_want(world, geo)?
         || world["speechVoices"][VALE] != json!([])
     {
         return None;
