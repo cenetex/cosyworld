@@ -356,9 +356,7 @@ export function knownActors(world, place) {
 }
 
 import { createWorld, seedRun } from "./world/create.mjs";
-import {
-  elysiumTokenLanding, settleStrandedWayfinder, spreadVoidTokens, wayfinderPassage,
-} from "./world/elysium-travel.mjs";
+import { elysiumTokenLanding, settleStrandedWayfinder, wayfinderPassage } from "./world/elysium-travel.mjs";
 export { createWorld, seedRun };
 // Mount missing packs while preserving the save's history.
 export function installPacks(s) {
@@ -3956,7 +3954,6 @@ export function decodeSave(text) {
     });
     installJourneyProgress(s, packDefinitions);
     installConversations(s);
-    spreadVoidTokens(s);
     settleGuards(s);
     settleHeldItems(s);
     settleLamp(s);

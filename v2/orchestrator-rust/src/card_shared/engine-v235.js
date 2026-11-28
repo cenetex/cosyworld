@@ -9109,6 +9109,7 @@
           if (s.usedUp.includes(id)) s.items[id].holder = item.holder;
       installItemCycle(s, added);
     }
+    spreadVoidTokens(s);
   }
   function reconcilePackProgress(s, reworked) {
     for (const pack of packDefinitions) {
@@ -13065,7 +13066,6 @@
       });
       installJourneyProgress(s, packDefinitions);
       installConversations(s);
-      spreadVoidTokens(s);
       settleGuards(s);
       settleHeldItems(s);
       settleLamp(s);

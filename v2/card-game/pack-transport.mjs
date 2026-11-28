@@ -374,7 +374,6 @@ export function transportWait(s, action) {
   const berth = berthsAt(s, place).find(([id]) =>
     callPath(s, id, place, s.turn + 1),
   );
-  // A wait a ship answers stays beside Sleep, but never names the ship.
   return berth ? { ...action, label: "Wait" } : action;
 }
 

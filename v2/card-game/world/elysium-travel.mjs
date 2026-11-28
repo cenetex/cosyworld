@@ -50,8 +50,6 @@ export function elysiumScatterLandings(world, actor = currentActor(world)) {
   return [...reachable].sort();
 }
 
-// A Void token lands in any world: the one holding fewest tokens, then its
-// emptiest open room, so a tour spreads them through every world.
 const tokenRooms = (world) =>
   Object.keys(places).filter((place) => !isElysium(place) && !transportPlace(place) &&
     entityActive(world, place) && !packPlaces[place]?.requires?.length).sort();
@@ -78,8 +76,6 @@ export function elysiumTokenLanding(world, token) {
   return tied[runHash(world, token) % tied.length].place;
 }
 
-// Once: tokens scattered before they could reach every world, even ones a
-// traveler carries, are scattered again. Returned tokens stay returned.
 export function spreadVoidTokens(world) {
   if (world.voidTokensSpread) return;
   world.voidTokensSpread = true;

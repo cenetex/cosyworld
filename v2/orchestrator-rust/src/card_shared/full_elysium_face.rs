@@ -1,4 +1,3 @@
-//! A Void resident's generated portrait as a public, square Discord face.
 use super::{directory, hash, read_portrait, resident};
 use crate::AppState;
 use axum::{
@@ -11,7 +10,6 @@ use image::{imageops, DynamicImage, ImageFormat, RgbaImage};
 pub(in super::super) const FACE_ROUTE: &str = "/card-game/elysium-face/{resident}/{file}";
 const SIDE: u32 = 256;
 
-/// The face path for a resident's current portrait; the hash changes with it.
 pub(crate) async fn elysium_face_path(state: &AppState, id: &str) -> Option<String> {
     let dir = directory(&state.generated_asset_dir, resident(id)?);
     let bytes = tokio::task::spawn_blocking(move || read_portrait(&dir))
@@ -48,7 +46,6 @@ pub(in super::super) async fn face(
     }
 }
 
-/// The head and shoulders: the top quarter of the figure, centred on its head.
 fn crop(png: &[u8]) -> Option<Vec<u8>> {
     let image: RgbaImage = image::load_from_memory_with_format(png, ImageFormat::Png)
         .ok()?
