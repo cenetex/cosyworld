@@ -317,6 +317,16 @@ pub(super) fn actions(
             &[LAMP, STATION],
         ),
     ]);
+    let owns_cloth = pip_sleeping.is_none() && world["items"][CLOTH]["holder"] == VALE;
+    if owns_cloth {
+        out.push(offer(
+            "move",
+            Some(CLOTH),
+            Some(STATION),
+            format!("{vale} carries {cloth} to {station}."),
+            &[CLOTH, STATION],
+        ));
+    }
     if pip_sleeping.is_some() {
         out.extend([
             offer(
@@ -354,6 +364,15 @@ pub(super) fn actions(
         format!("{vale} puts {lamp} in {pond}."),
         &[LAMP],
     ));
+    if owns_cloth {
+        out.push(offer(
+            "drop",
+            Some(CLOTH),
+            Some(POND),
+            format!("{vale} puts {cloth} in {pond}."),
+            &[CLOTH],
+        ));
+    }
     if pip_sleeping.is_some() {
         out.push(offer(
             "give",
@@ -452,7 +471,7 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
         return None;
     }
     let world = request.get("world")?;
-    if world["turn"] == 4 && world.get("began").is_none() {
+    if matches!(world["turn"].as_u64(), Some(4 | 6)) && world.get("began").is_none() {
         return super::opening_pond_return_view::private_view(request);
     }
     if world["turn"] == 7 && world.get("began").is_none() {
