@@ -36,7 +36,7 @@ Production dialogue goes out through the model gateway configured for [lonelyfor
 
 Each shared world is a SQLite journal. Writers for one database take a single turn, then the rules and the Rust session guard accept or refuse the command. Replaying the journal rebuilds the world. The world stores the rules version it was written with. Released bundles from `full-card-world/133` onward stay available to the server, so an old journal still reduces on the rules that wrote it. A rules change mints the next bundle (`npm run v2:card:shared:next`). Released bundle bytes stay fixed. The active deployment reports its rules version in `/meta`. [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
 
-The Rust rules candidate in `v2/rules-rust` covers room fuel for the lamp and a narrow opening presence transition. CI builds the import-free WASM guest and compares supported reducer responses to QuickJS under a read-only SQLite replay. Wasmi limits memory, tables, and execution fuel for each call.
+The Rust rules candidate in `v2/rules-rust` covers room fuel for the lamp and a narrow opening presence transition. CI builds the import-free WASM guest, exercises it through the browser-compatible JSON interface, and compares supported reducer responses to QuickJS under a read-only SQLite replay. Wasmi limits memory, tables, and execution fuel for each server-side call.
 
 With the Rust `wasm32-unknown-unknown` target installed, build and replay a candidate from the repository root.
 

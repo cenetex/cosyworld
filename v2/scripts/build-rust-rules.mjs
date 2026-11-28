@@ -1,8 +1,10 @@
+import { deepStrictEqual } from "node:assert";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { browserRules } from "../rules-rust/browser.mjs";
 
 const manifestPath = fileURLToPath(
   new URL("../rules-rust/wasm/Cargo.toml", import.meta.url),
@@ -43,19 +45,19 @@ const binary = messages
 if (!binary) throw new Error("Cargo did not produce a rules WASM artifact");
 
 const bytes = readFileSync(binary);
-const module = new WebAssembly.Module(bytes);
-if (WebAssembly.Module.imports(module).length)
-  throw new Error("Rules WASM must have zero host imports");
-const exports = new Map(
-  WebAssembly.Module.exports(module).map(({ name, kind }) => [name, kind]),
+const reduce = browserRules(bytes);
+deepStrictEqual(
+  reduce({
+    op: "settle_lamp",
+    lamp: { fuelRooms: 3, fuelPlace: "attic", fuelVisit: true },
+    position: { place: "étang", held: true },
+  }),
+  {
+    ok: true,
+    lamp: { fuelRooms: 2, fuelPlace: "étang", fuelVisit: true, lit: true },
+  },
 );
-if (
-  exports.get("memory") !== "memory" ||
-  ["reserve_input", "reduce", "output_ptr"].some(
-    (name) => exports.get(name) !== "function",
-  )
-)
-  throw new Error("Rules WASM is missing required ABI exports");
+deepStrictEqual(reduce({ op: "__abi_probe" }), null);
 
 const sha256 = createHash("sha256").update(bytes).digest("hex");
 const outputDir = join(
