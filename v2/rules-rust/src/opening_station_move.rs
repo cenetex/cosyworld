@@ -69,15 +69,25 @@ fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool {
 pub(super) fn arrival(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
     (matches!(turn, 2 | 3) && world.get("began").is_none()).then_some(())?;
-    arrived_from_pond(world, turn, turn == 3)
+    arrived_from_pond(world, turn, turn == 3, false)
 }
 
 pub(super) fn historic_arrival(world: &Value) -> Option<u64> {
     (world["began"] == 480 && world["turn"] == 482).then_some(())?;
-    arrived_from_pond(world, 482, false)
+    arrived_from_pond(world, 482, false, false)
 }
 
-fn arrived_from_pond(world: &Value, turn: u64, waited: bool) -> Option<u64> {
+pub(super) fn abandoned_train_arrival(world: &Value) -> Option<u64> {
+    let prior = world["turn"].as_u64()?.checked_sub(1)?;
+    (matches!(prior, 2 | 3)
+        && world.get("began").is_none()
+        && world["actors"][VALE]["closed"]["quest:box:train"][0] == world["turn"]
+        && world["actors"][VALE]["gaveUp"]["target"] == "routes")
+        .then_some(())?;
+    arrived_from_pond(world, prior, prior == 3, true)
+}
+
+fn arrived_from_pond(world: &Value, turn: u64, waited: bool, abandoned: bool) -> Option<u64> {
     let receipt = &world["arrival"];
     let seq = receipt["seq"].as_u64()?;
     let vale = &world["actors"][VALE];
@@ -115,6 +125,18 @@ fn arrived_from_pond(world: &Value, turn: u64, waited: bool) -> Option<u64> {
         first
     };
     let station = actions.next()?;
+    if abandoned {
+        let drop = actions.next()?;
+        if drop["turn"] != turn + 1
+            || drop["verb"] != "drop"
+            || drop["locationId"] != STATION
+            || !drop["itemId"].is_null()
+            || !drop["targetId"].is_null()
+            || drop["seq"].as_u64()? <= seq
+        {
+            return None;
+        }
+    }
     (move_event(pond, turn - 1, "attic", POND)
         && pond["seq"].as_u64()? < seq
         && move_event(station, turn, POND, STATION)

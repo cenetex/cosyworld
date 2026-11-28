@@ -68,6 +68,14 @@ test("quiet Station train acceptance and seated reload match pinned replies", as
         assert.deepEqual(privateView.world.actors.vale.want, accepted.world.actors.vale.want);
         assert.equal(privateView.world.memories.keeper.subjects, undefined);
         assert.ok(!Object.hasOwn(privateView, "events"));
+        const dropped = success(pinned, {
+          ...request,
+          world: persisted,
+          action: "drop:vale:::0",
+          revision: persisted.revision,
+        });
+        const after = { ...reloaded, world: dropped.world };
+        assert.ok(isDeepStrictEqual(wasm(after), success(pinned, after)), `abandoned reload ${label}`);
       }
     }
   }

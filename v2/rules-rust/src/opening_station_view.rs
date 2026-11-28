@@ -22,6 +22,8 @@ const STATION: &str = "station";
 const POND: &str = "pond";
 const ROUTES: &str = "routes";
 pub(super) const ACCEPT_TRAIN: &str = "accept:vale::box:train";
+pub(super) const ABANDON_TRAIN: &str = "drop:vale:::0";
+const TRAIN_TERMS: &str = r#"["item","routes",[["at","station"],["verb","bring"]],null]"#;
 const EXITS: [&str; 2] = [POND, "behind-station"];
 const LAMP: &str = "lamp";
 const WAYFINDER: &str = "elysium-wayfinder";
@@ -220,6 +222,7 @@ fn station_scene<'a>(
     let turn = world["turn"].as_u64()?;
     let met_keeper = world["opening"]["met"][KEEPER].as_u64()?;
     let after_read = turn == 3 && met_keeper == 2 && settled_first_read(world).is_some();
+    let arrival_turn = turn - u64::from(train_abandoned(world));
     let historic = historic_station(world);
     let actors = world["actors"].as_object()?;
     let vale = actors.get(VALE)?;
@@ -230,7 +233,7 @@ fn station_scene<'a>(
         || (world.get("began").is_some() && !historic)
         || !(turn..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
         || world["opening"]["crossed"] != true
-        || (met_keeper != turn && !after_read)
+        || (met_keeper != arrival_turn && !after_read)
         || world["opening"]["met"][PIP] != met_keeper.checked_sub(1)?
         || !world["disabledPacks"].is_null()
         || !world["standoffs"].as_array()?.is_empty()
@@ -241,7 +244,8 @@ fn station_scene<'a>(
             .iter()
             .any(|key| entries(&world[*key]).any(|id| id == WAYFINDER || id == "routes"))
         || vale["waitSpeech"] != json!({"place":STATION,"turn":null})
-        || ["closed", "arcana"].iter().any(|key| !vale[*key].is_null())
+        || !vale["arcana"].is_null()
+        || (!vale["closed"].is_null() && !train_abandoned(world))
         || lamp["lit"] != false
         || fuel.fuel_place != STATION
         || lamp["fuel"] != fuel.fuel_rooms * 4
@@ -440,7 +444,7 @@ fn actions(
         }
     }
     out.extend(trades);
-    if !train_accepted {
+    if !train_accepted && !train_abandoned(world) {
         let text = format!("{vale} accepts the closed box's quest.");
         let mut train = offer("accept", None, None, text, &[]);
         train["box"] = json!("train");
@@ -459,7 +463,7 @@ fn actions(
         let text = format!("{vale} abandons their quest to bring {board} to {station}.");
         let mut abandon = offer("drop", None, None, text, &[]);
         abandon["quest"] = json!(0);
-        abandon["key"] = json!("drop:vale:::0");
+        abandon["key"] = json!(ABANDON_TRAIN);
         out.push(abandon);
     }
     Some(out)
@@ -707,19 +711,59 @@ pub(super) fn accept_train(request: &Value) -> Option<Value> {
     Some(response)
 }
 
+fn train_abandoned(world: &Value) -> bool {
+    let vale = &world["actors"][VALE];
+    let turn = &world["turn"];
+    matches!(turn.as_u64(), Some(3 | 4))
+        && vale["want"].is_null()
+        && vale["gaveUp"] == json!({"target":ROUTES,"turn":turn})
+        && vale["closed"] == json!({"quest:box:train":[turn,TRAIN_TERMS]})
+}
+
+fn abandonment_events(world: &Value) -> Option<&[Value]> {
+    let log = world["log"].as_array()?;
+    let events = log.get(log.len().checked_sub(2)?..)?;
+    let [drop, wait] = events else { return None };
+    (drop["actorId"] == VALE
+        && drop["verb"] == "drop"
+        && wait["actorId"] == PIP
+        && wait["verb"] == "wait"
+        && wait["sleep"].is_null()
+        && wait["guards"].is_null()
+        && wait["seq"] == world["eventSeq"]
+        && drop["seq"].as_u64()?.checked_add(1) == wait["seq"].as_u64()
+        && events.iter().all(|event| {
+            event["turn"] == world["turn"]
+                && event["kind"] == "action"
+                && event["locationId"] == STATION
+                && event["generated"] != true
+        }))
+    .then_some(events)
+}
+
 pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let world = request.get("world")?;
     let train_accepted = !world["actors"][VALE]["want"].is_null();
+    let abandoned = train_abandoned(world);
     let after_read = world["turn"] == 3 && settled_first_read(world).is_some();
-    let named = if after_read { &[] } else { voices(world) };
+    let named = if after_read {
+        &[]
+    } else if abandoned {
+        &[VALE]
+    } else {
+        voices(world)
+    };
     if request["claimed"] != json!([VALE])
         || (!present.is_empty() && present != [VALE])
-        || ((rue_arrived(world) || train_accepted) && present != [VALE])
+        || ((rue_arrived(world) || train_accepted || abandoned) && present != [VALE])
         || world["speechVoices"][VALE] != json!(named)
     {
         return None;
     }
-    if !after_read {
+    if abandoned {
+        opening_station_move::abandoned_train_arrival(world)?;
+        abandonment_events(world)?;
+    } else if !after_read {
         arrival_events(
             world,
             response_chronology(world)?.checked_sub(1)?,
