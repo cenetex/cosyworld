@@ -45,10 +45,41 @@ fn refusal(world: &Value, error: &str) -> Option<Value> {
 }
 
 fn accept_pond(world: &Value, request: &Value) -> Option<Value> {
+    if world["actors"]["vale"].get("want") != Some(&Value::Null) {
+        return None;
+    }
+    let files = attic_files(world, request)?;
+    let revision = world["revision"].as_u64()?.checked_add(1)?;
+    if revision > opening::MAX_REVISION {
+        return None;
+    }
+    let mut next = world.clone();
+    next["actors"]["vale"]["want"] = pond_quest(world);
+    next["actors"]["vale"].as_object_mut()?.remove("content");
+    let voices = next
+        .as_object_mut()?
+        .entry("speechVoices")
+        .or_insert_with(|| json!({}));
+    voices
+        .as_object_mut()?
+        .insert("vale".into(), json!(["vale"]));
+    next["revision"] = json!(revision);
+    let mut response = opening::stored_response(next)?;
+    response["events"] = json!([]);
+    attic_response(response, &files, true)
+}
+
+pub(super) fn pond_quest(world: &Value) -> Value {
+    json!({
+        "kind":"item", "target":"lamp", "since":world["turn"], "refusals":0,
+        "story":true, "lit":false, "from":"quest:box:pond"
+    })
+}
+
+pub(super) fn attic_files(world: &Value, request: &Value) -> Option<Value> {
     let vale = world["actors"]["vale"].as_object()?;
     if world["items"]["lamp"]["lit"] != true
         || world["items"]["lamp"]["holder"] != "vale"
-        || vale.get("want") != Some(&Value::Null)
         || ["arcana", "closed", "sleeping", "under"]
             .iter()
             .any(|field| vale.contains_key(*field))
@@ -79,11 +110,11 @@ fn accept_pond(world: &Value, request: &Value) -> Option<Value> {
     {
         return None;
     }
-    let content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
+    let mut content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
     if content["schema"] != 1 {
         return None;
     }
-    let files = &content["files"];
+    let files = content.as_object_mut()?.remove("files")?;
     let forest = &files["v2/card-game/forest.json"];
     let mut reflections = forest["reflectionRoutes"]
         .as_array()?
@@ -98,33 +129,21 @@ fn accept_pond(world: &Value, request: &Value) -> Option<Value> {
         || !forest["places"]["attic"]["exits"]
             .as_array()
             .is_some_and(Vec::is_empty)
-        || packs_add_attic_actions(files)?
+        || packs_add_attic_actions(&files)?
     {
         return None;
     }
-    let revision = world["revision"].as_u64()?.checked_add(1)?;
-    if revision > opening::MAX_REVISION {
-        return None;
-    }
-    let mut next = world.clone();
-    next["actors"]["vale"]["want"] = json!({
-        "kind":"item", "target":"lamp", "since":world["turn"], "refusals":0,
-        "story":true, "lit":false, "from":"quest:box:pond"
-    });
-    next["actors"]["vale"].as_object_mut()?.remove("content");
-    let voices = next
-        .as_object_mut()?
-        .entry("speechVoices")
-        .or_insert_with(|| json!({}));
-    voices
-        .as_object_mut()?
-        .insert("vale".into(), json!(["vale"]));
-    next["revision"] = json!(revision);
-    let mut response = opening::stored_response(next)?;
-    response["events"] = json!([]);
+    Some(files)
+}
+
+pub(super) fn attic_response(
+    mut response: Value,
+    files: &Value,
+    quest_accepted: bool,
+) -> Option<Value> {
     response["actor"] = json!("vale");
     response["room"] = json!("attic");
-    response["actions"] = actions(forest)?;
+    response["actions"] = actions(&files["v2/card-game/forest.json"], quest_accepted)?;
     response["exits"] = json!([]);
     response["profiles"] = profiles::project(files)?;
     Some(response)
@@ -157,17 +176,24 @@ fn packs_add_attic_actions(files: &Value) -> Option<bool> {
     }))
 }
 
-fn actions(forest: &Value) -> Option<Value> {
+fn actions(forest: &Value, quest_accepted: bool) -> Option<Value> {
     let name = forest["people"]["vale"]["name"].as_str()?;
     let lamp = forest["things"]["lamp"]["name"].as_str()?;
     let attic = forest["places"]["attic"]["name"].as_str()?;
+    let quest = if quest_accepted {
+        json!({"kind":"drop","actor":"vale","item":null,"target":null,
+            "text":format!("{name} abandons their quest to hold the dark {lamp}."),
+            "cards":[],"key":"drop:vale:::0","quest":0})
+    } else {
+        json!({"kind":"accept","actor":"vale","item":null,"target":null,
+            "text":format!("{name} accepts the closed box's quest."),
+            "cards":[],"key":ACCEPT_POND,"box":"pond"})
+    };
     Some(json!([
         {"kind":"wait","actor":"vale","item":null,"target":null,
             "text":format!("{name} waits one turn."),"cards":[],"key":"wait:vale::"},
         {"kind":"drop","actor":"vale","item":"lamp","target":"attic",
             "text":format!("{name} puts the {lamp} in {attic}."),"cards":["lamp"],"key":"drop:vale:lamp:attic"},
-        {"kind":"drop","actor":"vale","item":null,"target":null,
-            "text":format!("{name} abandons their quest to hold the dark {lamp}."),
-            "cards":[],"key":"drop:vale:::0","quest":0}
+        quest
     ]))
 }

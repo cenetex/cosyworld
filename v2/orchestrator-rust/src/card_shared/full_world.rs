@@ -268,10 +268,8 @@ impl World {
     pub fn project(&self, a: usize) -> Result<Value> {
         let mut view =
             engine::reduce_pack(&self.version, self.pack.as_deref(), self.request("view", a))?;
-        // Apply privacy to every released interpreter, including older saves.
-        // The browser reads only its own avatar's memory, so every other
-        // memory leaves as an empty record. This keeps each view a fraction
-        // of the world's size; the journal and the stored world keep all.
+        // Keep only the viewer's memory in browser snapshots for every rules
+        // version. The journal and stored world retain the full records.
         if let Some(memories) = view["world"]["memories"].as_object_mut() {
             for (id, memory) in memories {
                 if id != actor_id(a) {
