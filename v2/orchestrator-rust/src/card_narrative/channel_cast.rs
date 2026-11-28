@@ -76,6 +76,26 @@ pub(super) async fn chosen_names(app: Option<&crate::AppState>, residents: &mut 
     }
 }
 
+pub(super) fn called(who: &str, cast: &[Resident]) -> String {
+    cast.iter()
+        .find(|r| r.id == who || super::super::name(&r.id) == who)
+        .filter(|r| r.name != super::super::name(&r.id))
+        .map_or_else(|| who.to_string(), |r| r.name.clone())
+}
+
+pub(super) fn heard_as(id: &str, me: &Resident, cast: &[Resident]) -> String {
+    match cast.iter().any(|r| r.id == id) {
+        true if id != me.id => called(id, cast),
+        true => id.to_string(),
+        false => super::label(id),
+    }
+}
+
+pub(super) fn chosen_fact(resident: &Resident) -> Option<String> {
+    (resident.name != super::super::name(&resident.id))
+        .then(|| format!("Privately chosen name: {}.", resident.name))
+}
+
 fn avatar_card(id: &str) -> Option<&'static Value> {
     let all = packs()["packs"].as_array()?;
     all.iter().find_map(|p| p["avatars"].get(id))
@@ -160,6 +180,39 @@ pub(super) fn joined(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_resident_hears_the_others_by_their_chosen_names() {
+        let mut cast = cast("elysium").unwrap();
+        cast.retain(|r| ["elysium-claude", "elysium-gemini"].contains(&r.id.as_str()));
+        cast[0].name = "Quill Ashby".into();
+        cast[1].name = "Indigo Echo".into();
+        let gemini_default = super::super::super::name("elysium-gemini");
+        let request: super::super::LinesRequest = serde_json::from_value(serde_json::json!({
+            "pack": "elysium",
+            "messages": [
+                {"resident": "elysium-gemini", "text": "Where did they come from?"},
+                {"author": "ratimics", "text": "And Quill Ashby"}
+            ],
+            "channel": {"active": ["elysium-gemini", "ratimics"]}
+        }))
+        .unwrap();
+        let context = super::super::scene(&cast[0], &cast, &request).unwrap();
+        let actors: Vec<_> = context
+            .conversation
+            .iter()
+            .map(|l| l.actor_id.as_str())
+            .collect();
+        assert_eq!(actors, ["Indigo Echo", "ratimics"]);
+        assert_eq!(context.present, ["ratimics", "Indigo Echo"]);
+        let own = &context.entities[0].facts;
+        assert!(own.contains(&"Privately chosen name: Quill Ashby.".to_string()));
+        assert_eq!(called(&gemini_default, &cast), "Indigo Echo");
+        assert_eq!(
+            heard_as("elysium-claude", &cast[0], &cast),
+            "elysium-claude"
+        );
+    }
 
     #[test]
     fn a_guild_encounter_resolves_the_listener_without_changing_the_roster_limit() {

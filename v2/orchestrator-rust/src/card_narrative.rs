@@ -1541,8 +1541,7 @@ fn names(ids: &[String]) -> String {
         .join(" and ")
 }
 
-/// An avatar's one seed sentence, such as "Vale, the Lamplighter." (#1673).
-/// Everything else it knows about itself comes from events and its inner life.
+/// An avatar's one seed sentence ("Vale, the Lamplighter."); the rest is events (#1673).
 fn seed_sentence(id: &str) -> String {
     profiles()[id]["seed"]
         .as_str()
