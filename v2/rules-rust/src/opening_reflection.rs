@@ -83,7 +83,10 @@ fn opening_world(request: &Value) -> Option<&Value> {
         || !world["stationExitOrder"]
             .as_array()
             .is_some_and(Vec::is_empty)
-        || world["items"]["elysium-wayfinder"]["holder"] != "behind-station"
+        || !matches!(
+            world["items"]["elysium-wayfinder"]["holder"].as_str(),
+            Some("behind-station" | "pond")
+        )
         || claimed.len() != 1
         || claimed[0] != "vale"
         || (!present.is_empty() && present.as_slice() != claimed)
