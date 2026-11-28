@@ -1,7 +1,7 @@
 use super::{
     create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
     opening_company, opening_content, opening_mirror_move, opening_play, opening_stale_wants,
-    pack_state::Catalog,
+    opening_station_move, pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -138,7 +138,7 @@ fn settle_wants(
     world: &mut Value,
     geo: &Geography,
     turn: u64,
-    first_pond_move: bool,
+    allow_lamp_refusal: bool,
     historic: bool,
     fade_trust: impl FnOnce(&mut Value) -> Option<()>,
 ) -> Option<()> {
@@ -159,7 +159,7 @@ fn settle_wants(
         want["since"].as_u64()?;
         if want["kind"] == "item"
             && want["refusals"].as_u64()? != 0
-            && !(first_pond_move
+            && !(allow_lamp_refusal
                 && id == "moth"
                 && want["target"] == "lamp"
                 && want["refusals"] == 1)
@@ -236,7 +236,26 @@ pub(super) fn settle_second_pond(world: &mut Value, geo: &Geography<'_>) -> Opti
     settle_wants(world, geo, 2, true, false, opening_company::fade_trust)
 }
 
-pub(super) fn second_projection(request: &Value) -> Option<Value> {
+pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    opening_station_move::arrival(world)?;
+    if world["actors"]["vale"].get("want") != Some(&Value::Null)
+        || ["moth", "keeper"]
+            .iter()
+            .any(|id| world["actors"][*id]["place"] != "station")
+        || world["items"]["lamp"]["holder"] != "vale"
+        || !world["elysiumEncounters"].is_null()
+        || world["playerActorId"] != "vale"
+        || ["heldActors", "presentActors", "controlledActors"]
+            .iter()
+            .any(|key| world[*key] != json!(["vale"]))
+    {
+        return None;
+    }
+    let turn = world["turn"].as_u64()?;
+    settle_wants(world, geo, turn, true, false, opening_company::fade_trust)
+}
+
+pub(super) fn round_projection(request: &Value) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
@@ -244,6 +263,7 @@ pub(super) fn second_projection(request: &Value) -> Option<Value> {
     match request["op"].as_str()? {
         "opening_second_attic_wants" => settle_second_attic(&mut world, &geo)?,
         "opening_second_pond_wants" => settle_second_pond(&mut world, &geo)?,
+        "opening_station_wants" => settle_station(&mut world, &geo)?,
         _ => return None,
     }
     Some(json!({"ok":true, "world":world}))
