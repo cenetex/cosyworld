@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
+import { withPending } from "../v2/card-game/beats.mjs";
 import { cardActions } from "../v2/card-game/cards.mjs";
 import {
   handFocusId,
@@ -8,6 +9,7 @@ import {
   matchingPairAction,
   phase,
   roomCardOrder,
+  showPendingSpeech,
 } from "../v2/card-game/presentation.mjs";
 import { lockedStack } from "../v2/card-game/mystery-view.mjs";
 import { pickedQuestAction } from "../v2/card-game/quest-action.mjs";
@@ -39,6 +41,47 @@ it("keeps dialogue, hand, and action presentation identical with the Rust module
     "next",
   ]);
   choices.push({ live: true, complete: true, next: { seq: 3 } });
+  const pending = combinations([
+    "shared",
+    "generating",
+    "hasLine",
+    "preparing",
+    "lineFirst",
+    "ownPlay",
+    "committed",
+  ]);
+  const speechBeats = combinations([
+    "committed",
+    "spoken",
+    "sameTurn",
+    "sameSpeaker",
+  ]).map(({ committed, spoken, sameTurn, sameSpeaker }, key) => ({
+    key,
+    committed,
+    line: spoken ? { text: "Earlier words." } : null,
+    turn: sameTurn ? 7 : 6,
+    speakerId: sameSpeaker ? "moth" : "vale",
+    actions: [{ text: `Action ${key}.` }],
+  }));
+  const effect = speechBeats.find(
+    (beat) =>
+      !beat.committed &&
+      !beat.line &&
+      beat.turn === 7 &&
+      beat.speakerId === "moth",
+  );
+  const following = {
+    ...effect,
+    key: "following",
+    actions: [{ text: "Later." }],
+  };
+  const stacks = [
+    [],
+    speechBeats,
+    [...speechBeats].reverse(),
+    [following, ...speechBeats],
+    speechBeats.filter((beat) => beat !== effect),
+  ];
   const ids = ["a", "b", "c", "d"];
   const holders = [undefined, "missing", ...ids];
   const hands = Array.from({ length: 7 ** ids.length }, (_, pattern) =>
@@ -88,6 +131,8 @@ it("keeps dialogue, hand, and action presentation identical with the Rust module
   const project = () => [
     phases.map(phase),
     choices.map(holdDialogueChoice),
+    pending.map(showPendingSpeech),
+    stacks.map((beats) => withPending(beats, { turn: 7, speakerId: "moth" })),
     hands.map((frames) => preferred.map((picks) => handFocusId(frames, picks))),
     Array.from({ length: ids.length + 1 }, (_, count) =>
       [...ids, "missing"].map((id) =>
@@ -140,12 +185,21 @@ it("keeps dialogue, hand, and action presentation identical with the Rust module
   expect(instance.exports.room_card_order).toBeTypeOf("function");
   expect(instance.exports.quest_action).toBeTypeOf("function");
   expect(instance.exports.matching_pair_action).toBeTypeOf("function");
+  expect(instance.exports.pending_speech).toBeTypeOf("function");
+  expect(instance.exports.pending_effect).toBeTypeOf("function");
   expect(
     await loadClientViewModel(
       `data:application/wasm;base64,${wasm.toString("base64")}`,
     ),
   ).toBe(true);
   expect(project()).toEqual(before);
+  expect(showPendingSpeech({ ownPlay: true, committed: true })).toBe(false);
+  expect(
+    showPendingSpeech({ ownPlay: true, committed: true, shared: true }),
+  ).toBe(true);
+  expect(
+    withPending(speechBeats, { turn: 7, speakerId: "moth" }).pending.actions,
+  ).toBe(effect.actions);
   expect(cardActions(trade, ["lamp", "cloth"]).actions[0]?.kind).toBe("trade");
   expect(matchingPairAction(pairOptions, "use", ["lamp", "cloth"], true)).toBe(
     pairOptions[3],

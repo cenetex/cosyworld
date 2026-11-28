@@ -111,6 +111,7 @@ import {
   handFocusId,
   holdDialogueChoice,
   roomCardOrder,
+  showPendingSpeech,
   THINKING_GRACE_MS,
 } from "./presentation.mjs";
 import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
@@ -4190,11 +4191,6 @@ function renderScene() {
     // A zero-turn change joins the stack after the reply being read.
     // Its caption must leave that reply's Continue control in front.
     ((sharedSession ? queuedChoice && !sharedAdvanceRequested : exchange.current) && entry.seq > liveThrough);
-  const waiting = sharedSession
-    ? sharedSpeech.status === "pending" && sharedLineSeq === null
-    : Boolean(
-        exchange.preparing || (storyStatus === "pending" && !exchange.current),
-      );
   const scened = sceneBeats(view, {
     viewer,
     shared,
@@ -4202,19 +4198,22 @@ function renderScene() {
     hiddenSpeech,
     hiddenAction,
   });
-  // Every play in flight is one Thinking card, once the lines before it
-  // are read: a line being written stays in front.
   const last = scened.findLast((beat) => beat.line)?.line;
   const lineFirst = sharedSession
     ? moreToRead || (last?.seq === sharedLineSeq && !sharedAdvanceRequested)
     : Boolean(exchange.current) && (queuedChoice || !exchange.read || exchange.hasNext);
   const own = ownPlayInFlight();
+  const pending = showPendingSpeech({
+    shared,
+    generating: (shared ? sharedSpeech.status : storyStatus) === "pending",
+    hasLine: shared ? sharedLineSeq !== null : Boolean(exchange.current),
+    preparing: exchange.preparing,
+    lineFirst,
+    ownPlay: Boolean(own),
+    committed: own?.committed,
+  });
   const stack = withPending(scened, {
-    // A committed local play waits through its own exchange.
-    speakerId:
-      waiting || (own && !lineFirst && (sharedSession || !own.committed))
-        ? waitingSpeaker || viewer
-        : null,
+    speakerId: pending ? waitingSpeaker || viewer : null,
     turn: world.turn,
   });
   const dreaming = sleepView.dream();
