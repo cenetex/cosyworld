@@ -182,8 +182,14 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
   }
 
   let staged;
-  for (const mode of ["stowed", "dry"]) {
-    const pond = arriveAtPond(99, mode);
+  for (const [seed, mode] of [
+    [99, "stowed"],
+    [99, "dry"],
+    [17, "stowed"],
+    [17, "dry"],
+  ]) {
+    const cass = seed === 17;
+    const pond = arriveAtPond(seed, mode);
     const sorted = Object.fromEntries(Object.entries(pond.actors).toSorted());
     for (const actors of [pond.actors, sorted]) {
       const key =
@@ -194,27 +200,44 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
       );
       assert.deepEqual(
         reply.events.map(({ actorId }) => actorId),
-        ["vale", "moth", "keeper"],
+        cass ? ["vale", "moth", "orin", "keeper"] : ["vale", "moth", "keeper"],
       );
       const before = copy(reference.beforeLife);
       const middle = copy(reference.afterKeeper);
       const after = copy(reference.afterSleep);
-      const label = `${mode} ${actors === sorted ? "sorted" : "authored"}`;
-      assert.equal(before.eventSeq, before.arrival.seq + 1, label);
+      const label = `${seed} ${mode} ${actors === sorted ? "sorted" : "authored"}`;
+      assert.equal(before.eventSeq, before.arrival.seq + (cass ? 2 : 1), label);
       assert.equal(middle.eventSeq, before.eventSeq + 1, label);
+      assert.equal(after.actors.moth.homeward, cass ? true : undefined, label);
+      assert.equal(after.actors.moth.place, "station", label);
+      assert.equal(after.actors.moth.sleeping, undefined, label);
       const woke = Object.keys(before.actors)
         .filter(
           (id) => before.actors[id].sleeping && !after.actors[id].sleeping,
         )
         .sort();
-      assert.deepEqual(woke, [
-        "greek-baker",
-        "greek-creon",
-        "greek-marathon-keeper",
-        "greek-story-aristophanes-thesmophoria-first",
-        "keeper",
-        "rue",
-      ]);
+      assert.deepEqual(
+        woke,
+        cass
+          ? [
+              "elysium-chatgpt",
+              "greek-market-neighbor",
+              "greek-story-aeschylus-persians-first",
+              "greek-story-aeschylus-prometheus-bound-first",
+              "greek-story-euripides-orestes-first",
+              "greek-story-sophocles-oedipus-tyrannus-first",
+              "keeper",
+              "oak",
+            ]
+          : [
+              "greek-baker",
+              "greek-creon",
+              "greek-marathon-keeper",
+              "greek-story-aristophanes-thesmophoria-first",
+              "keeper",
+              "rue",
+            ],
+      );
       staged = {
         ...copy(before),
         log: middle.log,
@@ -244,13 +267,6 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
     }
   }
 
-  const extra = observe(arriveAtPond(17, "stowed"), "move:vale::station");
-  assert.deepEqual(
-    extra.events.map(({ actorId }) => actorId),
-    ["vale", "moth", "orin", "keeper"],
-  );
-  assert.equal(wasm({ op, world: copy(reference.beforeLife) }), null);
-  assert.equal(wasm({ op, world: copy(reference.afterKeeper) }), null);
   for (const mutate of [
     (world) => {
       world.log.at(-1).text = "The keeper waits.";
@@ -264,6 +280,12 @@ test("historic Station settles the awake Pip round and Keeper wake in resident o
     },
     (world) => {
       world.actors.mara.place = "station";
+    },
+    (world) => {
+      world.items.board.holder = "orin";
+    },
+    (world) => {
+      world.routeKnowledge.moth = [];
     },
   ]) {
     const world = structuredClone(staged);

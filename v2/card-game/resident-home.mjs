@@ -160,7 +160,6 @@ export function rangeTest(s, id) {
   const table = hopsFrom(home);
   return (place) => (table.get(place) ?? Infinity) <= range;
 }
-// Whether a place lies within a resident's range of its home.
 export function inRange(s, id, place) {
   const range = rangeOf(s, id);
   if (range === null || range === Infinity) return true;
