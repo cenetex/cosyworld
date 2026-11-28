@@ -12,8 +12,7 @@
 // those moves never ask the planner's dwell test.
 // The caller supplies world life and journey state, so this module needs no imports.
 
-// Story and liveness suites written for a cast that walks at once turn dwell
-// off (test/helpers/no-dwell.mjs). The rules never change it.
+// Story and liveness suites can turn dwell off with test/helpers/no-dwell.mjs.
 export const dwellRule = { on: true };
 
 // A resident dwells at least half the 48-turn day (owner, 2026-11-11).

@@ -269,6 +269,11 @@ pub(super) fn confirm_awake_visitors(
     geo: &Geography<'_>,
     order: &[&str],
 ) -> Option<()> {
+    awake_visitor_scene(world, geo, order)?;
+    confirm_historic_visitors(world, geo)
+}
+
+fn awake_visitor_scene(world: &Value, geo: &Geography<'_>, order: &[&str]) -> Option<()> {
     let follow = opening_station_move::historic_follow(world)?;
     let cast = opening_roster::known_actors(world, geo, order, Some(STATION))?;
     if world["eventSeq"] != follow
@@ -293,14 +298,37 @@ pub(super) fn confirm_awake_visitors(
     {
         return None;
     }
-    confirm_historic_visitors(world, geo)
+    Some(())
 }
 
 fn confirm_historic_visitors(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    historic_visitor_turns(world, geo, |_, _, _| None)
+}
+
+pub(super) fn settle_awake_visitors(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+) -> Option<()> {
+    awake_visitor_scene(world, geo, order)?;
+    historic_visitor_turns(world, geo, |world, custody, actor| {
+        opening_visitor_play::perform(world, geo, authored, order, evidence, custody, actor)
+    })
+}
+
+fn historic_visitor_turns(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    mut move_visitor: impl FnMut(&mut Value, &mut Custody, &str) -> Option<()>,
+) -> Option<()> {
     opening_crossings::no_crossing_unlocks(world, geo)?;
-    let custody = Custody::new(world)?;
+    let mut custody = Custody::new(world)?;
     for avatar in geo.files()["v2/card-game/shared-cast.json"]["avatars"].as_array()? {
-        confirm_historic_visitor(world, geo, avatar, &custody)?;
+        if confirm_historic_visitor(world, geo, avatar, &custody).is_none() {
+            move_visitor(world, &mut custody, avatar["id"].as_str()?)?;
+        }
     }
     Some(())
 }

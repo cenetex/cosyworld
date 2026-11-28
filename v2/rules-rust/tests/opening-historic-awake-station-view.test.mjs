@@ -72,7 +72,6 @@ test("awake historic Station speech and reloads keep the witnessed arrival", asy
           beforeSeq: pond.eventSeq,
         };
         exact(wasm(complete), expected, label);
-        assert.equal(wasm(request), null);
         speech = {
           ...seats,
           op: "speech",

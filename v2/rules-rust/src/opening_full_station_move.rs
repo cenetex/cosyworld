@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     let (before, carry) = opening_station_move::move_world(request)?;
     let historic = before["began"] == 480;
+    let awake = historic && before["actors"]["moth"]["sleeping"].is_null();
     let before_seq = before["eventSeq"].as_u64()?;
     let order = opening_roster::actor_order(request, before)?;
     let (files, authored) = opening_content::wait_files(request)?;
@@ -39,7 +40,34 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     let deck = Deck::new(&world, &geo)?;
     deck.settle(&mut world, &geo, None)?;
     if historic {
-        settle_historic(before, &mut world, &geo, &catalog, &order, &residents)?;
+        if awake {
+            opening_station_residents::settle(&mut world, &geo, &authored, &order, &evidence)?;
+            opening_station_residents::settle_awake_visitors(
+                &mut world, &geo, &authored, &order, &evidence,
+            )?;
+            deck.settle(&mut world, &geo, None)?;
+        } else {
+            opening_station_residents::confirm_historic_idle(&mut world, &geo, &order)?;
+        }
+        opening_settlement::decay_bell(&mut world)?;
+        opening_roaming::settle_dwell(&mut world, &geo)?;
+        settle_historic(
+            before,
+            &mut world,
+            &geo,
+            &catalog,
+            &residents,
+            awake,
+            |world, residents| {
+                if awake {
+                    opening_resident_sleep::settle_awake_station(
+                        world, &geo, residents, &authored, &order, &evidence,
+                    )
+                } else {
+                    opening_resident_sleep::settle_station(world, &geo, residents)
+                }
+            },
+        )?;
     } else {
         opening_station_residents::settle(&mut world, &geo, &authored, &order, &evidence)?;
         opening_second_round::settle_visitors(
@@ -66,13 +94,13 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         opening_second_attic_lamp::settle_station(&mut world, &geo)?;
         opening_second_attic_tail::verify_station(&world, &geo)?;
     }
-    opening_station_view::completed_station_response_with_profiles(
+    opening_station_view::completed_arrival(
         world,
         &geo,
         &authored,
         before_seq,
         &order,
-        &["vale"],
+        awake,
         || Some(evidence.into_profiles()),
     )
 }
@@ -82,14 +110,12 @@ fn settle_historic(
     world: &mut Value,
     geo: &Geography<'_>,
     catalog: &Catalog,
-    order: &[&str],
     residents: &[&str],
+    awake: bool,
+    settle_sleep: impl FnOnce(&mut Value, &opening_resident_sleep::Residents<'_>) -> Option<()>,
 ) -> Option<()> {
-    opening_station_residents::confirm_historic_idle(world, geo, order)?;
-    opening_settlement::decay_bell(world)?;
-    opening_roaming::settle_dwell(world, geo)?;
     let resident_catalog = opening_resident_sleep::Residents::new(geo)?;
-    opening_resident_sleep::settle_station(world, geo, &resident_catalog)?;
+    settle_sleep(world, &resident_catalog)?;
     let acted: Vec<_> = std::iter::once("vale")
         .chain(residents.iter().copied())
         .collect();
@@ -99,8 +125,12 @@ fn settle_historic(
     }
     opening_held_items::settle(world, geo, Some(before))?;
     opening_second_attic_lamp::settle_station(world, geo)?;
-    opening_full_move::quiet_ways(before, world, geo, false)?;
-    opening_resident_sleep::verify_station_wake(world)?;
+    opening_full_move::quiet_ways(before, world, geo, awake)?;
+    if awake {
+        opening_resident_sleep::verify_awake_station_wake(world, geo)?;
+    } else {
+        opening_resident_sleep::verify_station_wake(world)?;
+    }
     opening_settlement::no_item_cycle(world)?;
     opening_wants::settle_station(world, geo)?;
     opening_second_attic_tail::settle_historic_station(before, world, geo)
