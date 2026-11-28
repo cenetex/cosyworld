@@ -6,13 +6,16 @@ const MOTH: &str = "moth";
 const STATION: &str = "station";
 
 const MEMORY_LIMIT: usize = 16;
+const LANDMARK_LIMIT: usize = 6;
 const LOG_LIMIT: usize = 100;
 
-pub(super) fn remember_moment(events: &mut Vec<Value>, moment: &Value) {
-    if !events.iter().any(|event| event["seq"] == moment["seq"]) {
-        events.push(moment.clone());
-        events.drain(..events.len().saturating_sub(MEMORY_LIMIT));
+pub(super) fn remember_moment(events: &mut Vec<Value>, moment: &Value) -> bool {
+    if events.iter().any(|event| event["seq"] == moment["seq"]) {
+        return false;
     }
+    events.push(moment.clone());
+    events.drain(..events.len().saturating_sub(MEMORY_LIMIT));
+    true
 }
 
 pub(super) fn trim_log(log: &mut Vec<Value>) {
@@ -140,7 +143,15 @@ pub(super) fn remember_for_seats(
             continue;
         }
         let memory = memories.get_mut(id)?;
-        remember_moment(memory["events"].as_array_mut()?, &moment);
+        let added = remember_moment(memory["events"].as_array_mut()?, &moment);
+        if added && entry["kind"] == "action" && entry["verb"] == "give" {
+            if memory["landmarks"].is_null() {
+                memory["landmarks"] = json!([]);
+            }
+            let landmarks = memory["landmarks"].as_array_mut()?;
+            landmarks.push(moment.clone());
+            landmarks.drain(..landmarks.len().saturating_sub(LANDMARK_LIMIT));
+        }
         let visible = cast.contains(&id);
         if !avatar || !(visible || mine || witnesses.contains(&id)) {
             continue;
@@ -185,7 +196,7 @@ pub(super) fn remember_for_seats(
         }
         if matches!(
             entry["verb"].as_str(),
-            Some("talk" | "take" | "drop" | "read" | "want_met" | "ask")
+            Some("talk" | "take" | "drop" | "read" | "want_met" | "ask" | "give")
         ) && (mine || target == Some(id))
         {
             let reference = |value: Option<&str>| json!(value.filter(|id| known(id)));

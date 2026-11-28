@@ -8,6 +8,7 @@ const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const keeperQuest = "accept:vale::keeper";
 const abandon = "drop:vale:::0";
 const abandonOp = "opening_keeper_abandon";
+const giftOp = "opening_keeper_abandon_gift";
 
 function traceKeeperAbandon(source) {
   const loop = "    for (const id of residents2) {";
@@ -25,13 +26,14 @@ ${loop}`,
     .replace(
       action,
       `      const chosen = read2 ?? plan(next, id).action;
-      if (next.turn === 4 && next.actors.vale.gaveUp?.target === "pond" && id === "moth")
-        globalThis.pipAction = chosen.key;
-      perform(next, chosen, round2, residents2);`,
+      const gift = next.turn === 4 && next.actors.vale.gaveUp?.target === "pond" && id === "moth";
+      if (gift) globalThis.pipAction = chosen.key;
+      perform(next, chosen, round2, residents2);
+      if (gift) globalThis.giftPhase = structuredClone(next);`,
     );
 }
 
-test("Keeper Log reading, acceptance, reload and primary abandon match pinned states", async () => {
+test("Keeper Log reading, abandonment, and Pip’s gift match pinned states", async () => {
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(traceKeeperAbandon);
   const run = (request) => {
@@ -170,6 +172,25 @@ test("Keeper Log reading, acceptance, reload and primary abandon match pinned st
     assert.deepEqual(primary.world.log.at(-1), fullDrop.events[0]);
     assert.equal(primary.world.items.cloth.holder, "moth");
     assert.equal(fullDrop.world.items.cloth.holder, "vale");
+    const expectedGift = JSON.parse(JSON.stringify(reference.giftPhase));
+    const giving = { op: giftOp, world: stage };
+    const gift = wasm(giving);
+    const giftDifference = Object.keys(expectedGift).find(
+      (key) => !isDeepStrictEqual(expectedGift[key], gift?.world[key]),
+    );
+    assert.ok(
+      isDeepStrictEqual(gift, { ok: true, world: expectedGift }),
+      `gift stage ${seed} ${giftDifference ?? ""}`,
+    );
+    assert.deepEqual(gift.world.log.at(-1), fullDrop.events[1]);
+    assert.equal(gift.world.actors.vale.heldItem, "cloth");
+    assert.equal(gift.world.memories.moth.learning.at(-1).reward, -5);
+    assert.equal(wasm({ ...giving, world: gift.world }), null);
+    const invalid = structuredClone(stage);
+    invalid.knowledge.pending.push({ factId: "unsettled" });
+    const saved = structuredClone(invalid);
+    assert.equal(wasm({ ...giving, world: invalid }), null);
+    assert.deepEqual(invalid, saved);
     assert.equal(wasm({ ...probe, revision: probe.revision - 1 }), null);
     assert.equal(wasm({ ...probe, present: [] }), null);
     assert.equal(

@@ -54,6 +54,7 @@ mod opening_second_round;
 mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
+mod opening_station_keeper_gift;
 mod opening_station_move;
 mod opening_station_quest_drop_learning;
 mod opening_station_read;
@@ -82,6 +83,7 @@ mod validate;
 
 pub use create_geography::Geography;
 pub use opening_pond_view::completed_move_response;
+pub use opening_station_keeper_gift::settle_keeper_abandon_gift;
 pub use opening_station_read::begin_station_log_read;
 pub use opening_station_read_wait::settle_station_read_wait;
 pub use opening_station_view::{begin_keeper_abandon, completed_station_response};
@@ -221,6 +223,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_keeper_abandon") => {
             opening_station_view::keeper_abandon_projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_keeper_abandon_gift") => {
+            opening_station_keeper_gift::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_station_train_quest") => {
             opening_station_view::accept_train(request).unwrap_or(Value::Null)

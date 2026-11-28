@@ -992,6 +992,15 @@ fn train_abandoned(world: &Value) -> bool {
         && vale["closed"] == json!({"quest:box:train":[turn,TRAIN_TERMS]})
 }
 
+pub(super) fn keeper_abandoned(world: &Value) -> bool {
+    let vale = &world["actors"][VALE];
+    world["turn"] == 4
+        && world.get("began").is_none()
+        && vale["want"].is_null()
+        && vale["gaveUp"] == json!({"target":POND,"turn":4})
+        && vale["closed"] == json!({(KEEPER_FROM):[4,KEEPER_TERMS]})
+}
+
 fn abandonment_events(world: &Value) -> Option<&[Value]> {
     let log = world["log"].as_array()?;
     let events = log.get(log.len().checked_sub(2)?..)?;
