@@ -154,7 +154,7 @@ fn sqlite_rules_wasm_parity_replays_the_first_move_behind_station() -> Result<()
         ],
     )?;
     verify_opening_journal(&mut c, id, &calls)?;
-    verify_station_departure_reload(&c, id, &state, "behind-station", 8)
+    verify_seated_reload(&c, id, &state, "behind-station", &["station"], 8)
 }
 
 #[test]
@@ -170,33 +170,10 @@ fn sqlite_rules_wasm_parity_replays_the_first_keeper_log_read() -> Result<()> {
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_keeper_quest_pond_return() -> Result<()> {
     let id = "keeper-quest-pond-return";
-    let (mut c, mut state, mut calls) = commit_opening_turns(
-        id,
-        unseeded_opening()?,
-        true,
-        &[BARE_POND_MOVE, BARE_STATION_MOVE, KEEPER_LOG_READ],
-    )?;
-    let mut expected = state.game.clone();
-    let revision = expected["revision"].as_u64().ok_or("Missing revision.")?;
-    let known = expected["knowledge"]["known"]["vale"]["quest:keeper:pond"].clone();
-    let want = json!({
-        "kind":"place", "target":"pond", "since":3, "refusals":0,
-        "step":{"verb":"call","crossing":"pond-greek-harbor"}, "from":"quest:from:keeper",
-    });
-    expected["revision"] = json!(revision + 1);
-    expected["actors"]["vale"]["want"] = want.clone();
-    let accepted = full_store::commit(
-        &c,
-        id,
-        &mut state,
-        json!({"op":"play","actor":"vale","action":"accept:vale::keeper"}),
-        8,
-    )?;
-    assert_eq!(accepted["ok"], true);
-    assert_eq!(accepted["events"], json!([]));
-    assert_eq!(accepted["world"], expected);
-    assert_eq!(state.game, expected);
-
+    let (mut c, mut state, mut calls) = commit_keeper_quest(id)?;
+    let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
+    let known = state.game["knowledge"]["known"]["vale"]["quest:keeper:pond"].clone();
+    let want = state.game["actors"]["vale"]["want"].clone();
     let lamp = state.game["items"]["lamp"].clone();
     let returned = full_store::commit(
         &c,
@@ -208,7 +185,7 @@ fn sqlite_rules_wasm_parity_replays_the_keeper_quest_pond_return() -> Result<()>
     assert_eq!(returned["ok"], true);
     assert_eq!(returned["world"], state.game);
     assert_eq!(state.game["turn"], 4);
-    assert_eq!(state.game["revision"], revision + 2);
+    assert_eq!(state.game["revision"], revision + 1);
     check_quiet_station_departure(&lamp, &returned, "pond");
     assert_eq!(state.game["actors"]["vale"]["want"], want);
     assert_eq!(
@@ -228,9 +205,83 @@ fn sqlite_rules_wasm_parity_replays_the_keeper_quest_pond_return() -> Result<()>
     assert!(actions
         .iter()
         .any(|action| action["key"] == "accept:vale::box:greek-ship"));
-    calls.extend(["play", "play"]);
+    calls.push("play");
     verify_opening_journal(&mut c, id, &calls)?;
-    verify_station_departure_reload(&c, id, &state, "pond", 10)
+    verify_seated_reload(&c, id, &state, "pond", &["station"], 10)
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_keeper_quest_abandonment_and_cloth_gift() -> Result<()> {
+    let id = "keeper-quest-abandonment-cloth-gift";
+    let (mut c, mut state, mut calls) = commit_keeper_quest(id)?;
+    let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
+    let seq = state.game["eventSeq"]
+        .as_u64()
+        .ok_or("Missing event sequence.")?;
+    let known = state.game["knowledge"]["known"]["vale"]["quest:keeper:pond"].clone();
+    let reply = full_store::commit(
+        &c,
+        id,
+        &mut state,
+        json!({"op":"play","actor":"vale","action":"drop:vale:::0"}),
+        9,
+    )?;
+    assert_eq!(reply["ok"], true);
+    assert_eq!(reply["world"], state.game);
+    assert_eq!(reply["room"], "station");
+    assert_eq!(state.game["turn"], 4);
+    assert_eq!(state.game["revision"], revision + 1);
+    assert_eq!(state.game["eventSeq"], seq + 2);
+    let [drop, gift] = reply["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected Vale's abandonment followed by Pip's gift");
+    };
+    assert_eq!(drop["seq"], seq + 1);
+    assert_eq!(drop["actorId"], "vale");
+    assert_eq!(drop["verb"], "drop");
+    assert_eq!(drop["itemId"], Value::Null);
+    assert_eq!(gift["seq"], seq + 2);
+    assert_eq!(gift["actorId"], "moth");
+    assert_eq!(gift["verb"], "give");
+    assert_eq!(gift["itemId"], "cloth");
+    assert_eq!(gift["targetId"], "vale");
+    assert_eq!(gift["accepted"], true);
+    assert_eq!(gift["locationId"], "station");
+    assert_eq!(gift["cast"], drop["cast"]);
+    assert_eq!(gift["witnesses"], drop["witnesses"]);
+    let witnesses = gift["witnesses"]
+        .as_array()
+        .ok_or("Missing gift witnesses.")?;
+    for id in ["vale", "moth", "keeper", "cloth"] {
+        assert!(witnesses.iter().any(|witness| witness == id));
+    }
+    let vale = &state.game["actors"]["vale"];
+    assert_eq!(vale["want"], Value::Null);
+    assert_eq!(vale["gaveUp"], json!({"target":"pond","turn":4}));
+    let terms = r#"["place","pond",[["crossing","pond-greek-harbor"],["verb","call"]],null]"#;
+    assert_eq!(vale["closed"], json!({"quest:from:keeper":[4,terms]}));
+    assert_eq!(vale["heldItem"], "cloth");
+    assert_eq!(state.game["actors"]["moth"]["heldItem"], Value::Null);
+    assert_eq!(state.game["items"]["cloth"]["holder"], "vale");
+    let history = state.game["items"]["cloth"]["history"].as_array().unwrap();
+    assert_eq!(
+        history.last(),
+        Some(&json!("Turn 4: Pip gives the Black cloth to Vale."))
+    );
+    assert_eq!(state.game["speechVoices"]["vale"], json!(["vale"]));
+    assert_eq!(
+        state.game["knowledge"]["known"]["vale"]["quest:keeper:pond"],
+        known
+    );
+    let actions = reply["actions"].as_array().ok_or("Missing actions.")?;
+    assert!(actions
+        .iter()
+        .all(|action| action["key"] != "accept:vale::keeper"));
+    assert!(actions
+        .iter()
+        .any(|action| action["key"] == "drop:vale:cloth:station"));
+    calls.push("play");
+    verify_opening_journal(&mut c, id, &calls)?;
+    verify_seated_reload(&c, id, &state, "station", &["pond", "behind-station"], 10)
 }
 
 #[test]
@@ -607,6 +658,35 @@ fn unseeded_opening() -> Result<World> {
     Ok(state)
 }
 
+fn commit_keeper_quest(id: &str) -> Result<(Connection, World, Vec<&'static str>)> {
+    let (c, mut state, mut calls) = commit_opening_turns(
+        id,
+        unseeded_opening()?,
+        true,
+        &[BARE_POND_MOVE, BARE_STATION_MOVE, KEEPER_LOG_READ],
+    )?;
+    let mut expected = state.game.clone();
+    let revision = expected["revision"].as_u64().ok_or("Missing revision.")?;
+    expected["revision"] = json!(revision + 1);
+    expected["actors"]["vale"]["want"] = json!({
+        "kind":"place", "target":"pond", "since":3, "refusals":0,
+        "step":{"verb":"call","crossing":"pond-greek-harbor"}, "from":"quest:from:keeper",
+    });
+    let accepted = full_store::commit(
+        &c,
+        id,
+        &mut state,
+        json!({"op":"play","actor":"vale","action":"accept:vale::keeper"}),
+        8,
+    )?;
+    assert_eq!(accepted["ok"], true);
+    assert_eq!(accepted["events"], json!([]));
+    assert_eq!(accepted["world"], expected);
+    assert_eq!(state.game, expected);
+    calls.push("play");
+    Ok((c, state, calls))
+}
+
 fn replay_opening_turns(
     id: &str,
     state: World,
@@ -687,11 +767,12 @@ fn verify_opening_journal(c: &mut Connection, id: &str, calls: &[&str]) -> Resul
     Ok(())
 }
 
-fn verify_station_departure_reload(
+fn verify_seated_reload(
     c: &Connection,
     id: &str,
     state: &World,
     room: &str,
+    exits: &[&str],
     now: i64,
 ) -> Result<()> {
     let reloaded = full_store::world(c, id, now)?;
@@ -701,7 +782,7 @@ fn verify_station_departure_reload(
     let pack = reloaded.pack.as_deref();
     let reference = engine::reduce_journal(&reloaded.version, pack, request.clone())?;
     assert_eq!(reference["room"], room);
-    assert_eq!(reference["exits"], json!(["station"]));
+    assert_eq!(reference["exits"], json!(exits));
     assert!(reference.get("events").is_none());
     assert_eq!(
         reference["world"]["memories"]["vale"],

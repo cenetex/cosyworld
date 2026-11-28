@@ -90,7 +90,6 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     // Only private memory moved.
     assert_eq!(reflected.game["actors"], w.game["actors"]);
     assert_eq!(reflected.game["turn"], w.game["turn"]);
-    // A retry is not journaled twice.
     assert!(!full::reflect::commit(&app, &id, &revision(1), command).unwrap());
     assert_eq!(reflect_count(&c, &id), 1);
     // Private to its avatar, and rebuilt from the journal alone.
