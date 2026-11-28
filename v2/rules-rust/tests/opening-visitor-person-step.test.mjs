@@ -31,17 +31,25 @@ function capturePursuit(source) {
 test("unplayed visitors use the first step on the pinned projected route", async () => {
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(capturePursuit);
-  const moved = new Set();
+  let campVisits = 0;
   let noRoute = 0;
-  for (const options of [
+  for (const { ashVisitsSwede, ...options } of [
     {}, { seed: 2 }, { seed: 17 }, { seed: 4242 }, { seed: 4294967295 },
-    { seed: 17, history: true },
+    { seed: 17, history: true }, { seed: 2, ashVisitsSwede: true },
   ]) {
     const created = pinned({ op: "create", ...options });
     assert.equal(created.ok, true, created.error);
     for (const [first, second] of sequences) {
       const started = pinned({ ...seats, op: "play", world: created.world, action: first });
       assert.equal(started.ok, true, started.error);
+      if (ashVisitsSwede) {
+        started.world.actors.ash.want = {
+          kind: "person",
+          target: "willows-swede",
+          since: started.world.turn,
+          refusals: 0,
+        };
+      }
       reference.pursuits = [];
       const completed = JSON.parse(reference.cardShared(JSON.stringify({
         ...seats, op: "play", world: started.world, action: second,
@@ -51,20 +59,20 @@ test("unplayed visitors use the first step on the pinned projected route", async
       for (const pursuit of reference.pursuits) {
         const { world, actor, step, action } = JSON.parse(JSON.stringify(pursuit));
         const actual = wasm({ op: "visitor_person_step", world, actor });
-        assert.deepEqual(actual, { ok: true, step }, JSON.stringify({ options, second, actor }));
+        const label = JSON.stringify({ options, ashVisitsSwede, second, actor });
+        assert.deepEqual(actual, { ok: true, step }, label);
         if (step) {
           assert.equal(action, `move:${actor}::${step}`);
-          moved.add(action);
+          if (ashVisitsSwede && actor === "ash") {
+            assert.equal(action, "move:ash::willows-camp");
+            campVisits++;
+          }
         } else {
           noRoute++;
         }
       }
     }
   }
-  for (const action of [
-    "move:ash::willows-camp",
-    "move:orin::willows-bank",
-    "move:nell::forest-cottage",
-  ]) assert.ok(moved.has(action), action);
+  assert.equal(campVisits, sequences.length);
   assert.ok(noRoute > 0);
 });
