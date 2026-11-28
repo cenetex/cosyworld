@@ -366,7 +366,6 @@ mod tests {
         let none = parse(r#"{"entries":[]}"#, &work, &ids).unwrap();
         assert_eq!(none, json!([]));
         assert_eq!(silent(&work, 0, &none), vec!["pip"]);
-        // A silent play voices nobody.
         work["context"]["speakers"] = json!([]);
         assert!(prepared(0, &work).unwrap().1.is_empty());
         // A first arrival's place caption needs no speaker.
