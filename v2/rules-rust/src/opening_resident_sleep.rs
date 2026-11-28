@@ -2,7 +2,7 @@ use super::{
     authored_order::Order,
     create_geography::Geography,
     initial_wants::{People, Person},
-    opening_content, opening_mirror_move, opening_quiet_life, opening_roster,
+    opening_content, opening_mirror_move, opening_roster,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     seed::hash,
@@ -143,7 +143,7 @@ fn sealed_home(world: &Value, geo: &Geography<'_>, here: &str, home: &str) -> Op
             }
         }
     }
-    let interior = opening_quiet_life::attic_interior(geo)?;
+    let interior = geo.attic_interior()?;
     Some(!interior.contains(here) && !interior.contains(home))
 }
 

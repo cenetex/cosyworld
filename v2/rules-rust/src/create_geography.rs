@@ -1,5 +1,8 @@
 use serde_json::Value;
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    sync::OnceLock,
+};
 
 pub struct Geography<'a> {
     files: &'a Value,
@@ -8,6 +11,7 @@ pub struct Geography<'a> {
     released: BTreeMap<&'a str, BTreeSet<&'a str>>,
     section_requirements: BTreeMap<(&'a str, &'a str), &'a Value>,
     humans: Vec<&'a str>,
+    attic_interior: OnceLock<Option<BTreeSet<String>>>,
 }
 
 #[derive(Clone, Copy)]
@@ -66,6 +70,7 @@ impl<'a> Geography<'a> {
             released,
             section_requirements,
             humans,
+            attic_interior: OnceLock::new(),
         })
     }
 
@@ -540,6 +545,37 @@ impl<'a> Geography<'a> {
             .get(place)
             .map_or(&forest["places"][place], |(_, place)| place);
         Some(definition["exits"].as_array()?)
+    }
+
+    pub(super) fn attic_interior(&self) -> Option<&BTreeSet<String>> {
+        self.attic_interior
+            .get_or_init(|| self.find_attic_interior())
+            .as_ref()
+    }
+
+    fn find_attic_interior(&self) -> Option<BTreeSet<String>> {
+        let mut found = BTreeSet::from(["attic"]);
+        let mut queue = VecDeque::from(["attic"]);
+        while let Some(from) = queue.pop_front() {
+            let mut neighbor = |to| {
+                if to != "pond" && found.insert(to) {
+                    queue.push_back(to);
+                }
+            };
+            for to in self.base_exits(from)? {
+                neighbor(to.as_str()?);
+            }
+            for pack in self.packs() {
+                let land = array(&pack["crossings"]).filter(|edge| edge["transport"].is_null());
+                for edge in array(&pack["routes"])
+                    .chain(land)
+                    .filter(|edge| edge["from"] == from)
+                {
+                    neighbor(edge["to"].as_str()?);
+                }
+            }
+        }
+        Some(found.into_iter().map(str::to_owned).collect())
     }
 
     pub fn pack_route_open(&self, world: &Value, from: &str, to: &str) -> Option<bool> {

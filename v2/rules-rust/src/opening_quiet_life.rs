@@ -7,10 +7,6 @@ use super::{
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, VecDeque};
 
-fn entries(value: &Value) -> impl Iterator<Item = &Value> {
-    value.as_array().into_iter().flatten()
-}
-
 pub(super) fn ranged(world: &Value, geo: &Geography, id: &str, person: &Person) -> Option<bool> {
     let authored = person.data;
     if person.pack == "hub"
@@ -37,31 +33,6 @@ fn home<'a>(world: &Value, geo: &Geography, id: &str, person: &Person<'a>) -> Op
         .or_else(|| person.data["place"].as_str())
 }
 
-pub(super) fn attic_interior<'a>(geo: &Geography<'a>) -> Option<BTreeSet<&'a str>> {
-    let mut found = BTreeSet::from(["attic"]);
-    let mut queue = VecDeque::from(["attic"]);
-    while let Some(from) = queue.pop_front() {
-        let mut neighbor = |to| {
-            if to != "pond" && found.insert(to) {
-                queue.push_back(to);
-            }
-        };
-        for to in geo.base_exits(from)? {
-            neighbor(to.as_str()?);
-        }
-        for pack in geo.packs() {
-            let land = entries(&pack["crossings"]).filter(|edge| edge["transport"].is_null());
-            for edge in entries(&pack["routes"])
-                .chain(land)
-                .filter(|edge| edge["from"] == from)
-            {
-                neighbor(edge["to"].as_str()?);
-            }
-        }
-    }
-    Some(found)
-}
-
 fn can_walk_home<'a>(
     world: &mut Value,
     geo: &Geography<'a>,
@@ -69,7 +40,7 @@ fn can_walk_home<'a>(
     from: &str,
     home: &str,
 ) -> Option<bool> {
-    let interior = attic_interior(geo)?;
+    let interior = geo.attic_interior()?;
     if interior.contains(from)
         || interior.contains(home)
         || world["routeKnowledge"].get(id).is_some()
