@@ -252,6 +252,51 @@ fn commit_keeper_quest_station_return(id: &str) -> Result<(Connection, World, Ve
 }
 
 #[test]
+fn sqlite_rules_wasm_parity_replays_keeper_quest_pond_return_with_cloth() -> Result<()> {
+    let id = "keeper-quest-pond-return-with-cloth";
+    let (mut c, state, calls) = commit_keeper_quest_pond_with_cloth(id)?;
+    assert_eq!(calls.len(), 10);
+    verify_opening_journal(&mut c, id, &calls)?;
+    verify_seated_reload(&c, id, &state, "pond", &["station"], 12)
+}
+
+fn commit_keeper_quest_pond_with_cloth(id: &str) -> Result<(Connection, World, Vec<&'static str>)> {
+    let (c, mut state, mut calls) = commit_keeper_quest_station_return(id)?;
+    let want = state.game["actors"]["vale"]["want"].clone();
+    let lamp = state.game["items"]["lamp"].clone();
+    let mut cloth = state.game["items"]["cloth"].clone();
+    cloth["history"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("Turn 6: Vale carried it to Black pond."));
+    let returned = commit_keeper_play(&c, id, &mut state, &mut calls, BARE_POND_MOVE.0, 11)?;
+    let [arrival] = returned["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected Vale's single Pond arrival with the cloth");
+    };
+    let world = &state.game;
+    check_stowed_lamp_move(&lamp, &returned, "station", "pond");
+    assert_eq!(world["turn"], 6);
+    assert_eq!(world["eventSeq"], 20);
+    assert_eq!(arrival["seq"], world["eventSeq"]);
+    assert_eq!(arrival["cast"], json!(["vale"]));
+    assert_eq!(world["actors"]["moth"]["place"], "station");
+    assert_eq!(world["actors"]["keeper"]["place"], "station");
+    assert_eq!(world["actors"]["vale"]["heldItem"], "cloth");
+    assert_eq!(world["items"]["cloth"], cloth);
+    assert_eq!(world["actors"]["vale"]["want"], want);
+    assert_eq!(
+        world["crossings"]["pond-greek-harbor"],
+        json!({"discovered":false})
+    );
+    assert!(returned["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|action| action["key"] == "drop:vale:lamp:pond"));
+    Ok((c, state, calls))
+}
+
+#[test]
 fn sqlite_rules_wasm_parity_replays_keeper_quest_abandonment_and_cloth_gift() -> Result<()> {
     let id = "keeper-quest-abandonment-cloth-gift";
     let (mut c, mut state, mut calls) = commit_keeper_quest(id)?;
