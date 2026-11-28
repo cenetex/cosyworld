@@ -144,6 +144,22 @@ pub(crate) fn hold_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
     Some(())
 }
 
+pub(super) fn private_scene(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    if world["actors"][VALE]["heldItem"] == "cloth" {
+        return events(world, geo).map(|_| ());
+    }
+    opening::verify_keeper_station_hand(world, geo)?;
+    crate::opening_second_attic_tail::verify_station_hold(world, geo)?;
+    (!geo.packs().any(|pack| {
+        pack["avatars"].as_object().is_some_and(|actors| {
+            actors
+                .values()
+                .any(|actor| actor["sealed"]["at"] == STATION)
+        })
+    }))
+    .then_some(())
+}
+
 fn custody(world: &Value, departure: &Value, back: &Value, gift: &Value, head: u64) -> Option<()> {
     let origin = std::iter::once(Some(VALE))
         .chain(entries(&departure["items"]).map(|item| item["id"].as_str()))
@@ -189,7 +205,9 @@ pub(crate) fn completed(
     profiles: Value,
 ) -> Option<Value> {
     let events = events(&world, geo)?;
-    if events.first()?["seq"] != before_seq.checked_add(1)? {
+    if events.first()?["seq"] != before_seq.checked_add(1)?
+        || world["actors"][VALE]["heldItem"] != "cloth"
+    {
         return None;
     }
     let events = json!(events);

@@ -358,18 +358,36 @@ pub(super) fn hold(request: &Value) -> Option<Value> {
 fn hold_keeper_station(request: &Value, item: &Value) -> Option<Value> {
     let before = request.get("world")?;
     let revision = before["revision"].as_u64()?.checked_add(1)?;
-    let lamp = &before["items"]["lamp"];
-    let hand = before["actors"]["vale"].get("heldItem")?;
-    let fuel = lamp_state(lamp).ok()?;
     if request["actor"] != "vale"
         || request["claimed"] != json!(["vale"])
         || request["present"] != json!(["vale"])
-        || revision <= 5
         || revision > MAX_REVISION
-        || before["schema"] != 8
-        || before["sharedVersion"] != 1
-        || !before["disabledPacks"].is_null()
-        || !before["pondLampLoan"].is_null()
+        || !station_hold_item(item)
+    {
+        return None;
+    }
+    let (files, _) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    verify_keeper_station_hand(before, &geo)?;
+    let mut world = before.clone();
+    world["actors"]["vale"]["heldItem"] = item.clone();
+    world["revision"] = revision.into();
+    opening_held_items::settle(&mut world, &geo, None)?;
+    opening_second_attic_lamp::settle_station(&mut world, &geo)?;
+    opening_second_attic_tail::verify_station_hold(&world, &geo)?;
+    stored_response(world)
+}
+
+pub(super) fn verify_keeper_station_hand(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let lamp = &world["items"]["lamp"];
+    let hand = world["actors"]["vale"].get("heldItem")?;
+    let fuel = lamp_state(lamp).ok()?;
+    if !(5..=MAX_REVISION).contains(&world["revision"].as_u64()?)
+        || world["schema"] != 8
+        || world["sharedVersion"] != 1
+        || !world["disabledPacks"].is_null()
+        || !world["pondLampLoan"].is_null()
         || [
             "playerActorId",
             "controlledActors",
@@ -377,9 +395,8 @@ fn hold_keeper_station(request: &Value, item: &Value) -> Option<Value> {
             "heldActors",
         ]
         .iter()
-        .any(|key| before.get(*key).is_some())
+        .any(|key| world.get(*key).is_some())
         || !station_hold_item(hand)
-        || !station_hold_item(item)
         || lamp["holder"] != "vale"
         || fuel.fuel_place != "station"
         || lamp["fuel"] != fuel.fuel_rooms * 4
@@ -388,24 +405,12 @@ fn hold_keeper_station(request: &Value, item: &Value) -> Option<Value> {
     {
         return None;
     }
-    let (files, _) = opening_content::wait_files(request)?;
-    let catalog = Catalog::from_files(&files)?;
-    let geo = Geography::new(&files, catalog.packs())?;
-    opening_station_view::keeper_return::hold_scene(before, &geo)?;
-    if !stable_station_hold_terms(&files["v2/card-game/forest.json"])
-        || geo.packs().any(|pack| !stable_station_hold_terms(pack))
-        || !geo.entity_enabled(before, "lamp")?
-        || !geo.entity_enabled(before, "cloth")?
-    {
-        return None;
-    }
-    let mut world = before.clone();
-    world["actors"]["vale"]["heldItem"] = item.clone();
-    world["revision"] = revision.into();
-    opening_held_items::settle(&mut world, &geo, None)?;
-    opening_second_attic_lamp::settle_station(&mut world, &geo)?;
-    opening_second_attic_tail::verify_station_hold(&world, &geo)?;
-    stored_response(world)
+    opening_station_view::keeper_return::hold_scene(world, geo)?;
+    (stable_station_hold_terms(&geo.files()["v2/card-game/forest.json"])
+        && geo.packs().all(stable_station_hold_terms)
+        && geo.entity_enabled(world, "lamp")?
+        && geo.entity_enabled(world, "cloth")?)
+    .then_some(())
 }
 
 fn station_hold_item(item: &Value) -> bool {
