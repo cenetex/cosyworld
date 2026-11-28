@@ -39,7 +39,7 @@ fn quiet_discoveries(before: &Value, world: &Value, geo: &Geography<'_>) -> Opti
                 .find(|edge| edge["id"] == *id)
         })?;
         let taken = world["log"].as_array()?.iter().any(|event| {
-            event["turn"] == 2
+            event["turn"] == world["turn"]
                 && event["kind"] == "action"
                 && event["verb"] == "move"
                 && event["generated"] != true
@@ -54,8 +54,13 @@ fn quiet_discoveries(before: &Value, world: &Value, geo: &Geography<'_>) -> Opti
     Some(())
 }
 
-fn quiet_ways(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<()> {
-    if world["turn"] == 2 {
+pub(super) fn quiet_ways(
+    before: &Value,
+    world: &Value,
+    geo: &Geography<'_>,
+    allow_discoveries: bool,
+) -> Option<()> {
+    if allow_discoveries {
         quiet_discoveries(before, world, geo)?;
     } else if before["crossings"] != world["crossings"] {
         return None;
@@ -65,7 +70,7 @@ fn quiet_ways(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<()> 
         for crossing in pack["crossings"]
             .as_array()?
             .iter()
-            .filter(|entry| entry["from"] == "pond")
+            .filter(|entry| entry["from"] == world["actors"]["vale"]["place"])
         {
             if ["opened", "closed"]
                 .iter()
@@ -81,7 +86,7 @@ fn quiet_ways(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<()> 
     let mirror = forest["reflectionRoutes"]
         .as_array()?
         .iter()
-        .find(|route| route["from"] == "attic")?;
+        .find(|route| route["from"] == before["actors"]["vale"]["place"])?;
     if geo.reflection_open(before, mirror)? != geo.reflection_open(world, mirror)? {
         return None;
     }
@@ -164,7 +169,7 @@ fn progress(
         opening_second_attic_lamp::settle_pond(&mut world, &geo)?;
         opening_second_attic_tail::verify_wake(&world)?;
     }
-    quiet_ways(before, &world, &geo)?;
+    quiet_ways(before, &world, &geo, second)?;
     opening_settlement::no_item_cycle(&world)?;
     if second {
         opening_wants::settle_second_pond(&mut world, &geo)?;
