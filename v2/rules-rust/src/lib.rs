@@ -49,6 +49,7 @@ mod opening_take;
 mod opening_take_response;
 mod opening_view;
 mod opening_visitor_routes;
+mod opening_visitor_transport;
 mod opening_wait;
 mod opening_wait_response;
 mod opening_wants;
@@ -151,6 +152,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("seed_opening") => seed::opening_projection(request).unwrap_or(Value::Null),
         Some("seed_arrivals") => seed_arrivals::projection(request).unwrap_or(Value::Null),
         Some("visitor_reach") => opening_visitor_routes::projection(request).unwrap_or(Value::Null),
+        Some("visitor_transport") => {
+            opening_visitor_transport::projection(request).unwrap_or(Value::Null)
+        }
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
         Some("opening_drop_step") => opening_drop::projection(request).unwrap_or(Value::Null),

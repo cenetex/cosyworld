@@ -387,6 +387,24 @@ impl<'a> Geography<'a> {
                     || present(world, holder);
                 available && condition["place"] == item_place(world, holder)
             }
+            "pack_item_present" => {
+                let pack_id = condition["pack"].as_str()?;
+                let place = condition["place"].as_str()?;
+                let pack = self.packs().find(|pack| pack["id"] == pack_id)?;
+                for id in pack["items"]
+                    .as_object()
+                    .into_iter()
+                    .flat_map(|items| items.keys())
+                {
+                    if world["items"].get(id).is_some()
+                        && item_place(world, root_holder(world, id)?) == place
+                        && self.active(world, id, depth)?
+                    {
+                        return Some(true);
+                    }
+                }
+                false
+            }
             "light" => {
                 let id = item()?;
                 let item = &world["items"][id];

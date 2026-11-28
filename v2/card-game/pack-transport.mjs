@@ -15,8 +15,7 @@ import {
 
 // A voyage takes one world round along authored lanes between docks.
 export const TRANSPORT_VERSION = 3;
-// Route search from aboard a ship plans the whole voyage, not only the
-// course cards in the current hand.
+// Route search from aboard considers the whole voyage beyond the current course cards.
 export const VOYAGE = "@voyage";
 const PHASES = ["docked", "course", "sea", "arrived"];
 const atBerth = (state) => state.phase === "docked" || state.phase === "arrived";
@@ -54,8 +53,7 @@ export function lanesFrom(t, dock) {
   }
   return [...new Set(out)];
 }
-// Knowing a lane is personal. Lanes are saved in route knowledge as sea
-// edges, which no walking route can follow.
+// Each traveller knows their own sea edges, which walking routes cannot follow.
 
 export const seaEdge = (from, to) => [`sea:${from}`, `sea:${to}`];
 export const laneOfEdge = ([from, to]) =>
