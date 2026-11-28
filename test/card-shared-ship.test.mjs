@@ -56,7 +56,6 @@ const move = (world, actor, target) =>
 const course = (world, actor, target) =>
   playKind(world, actor, "course", target, "Set course");
 const wait = (world, actor) => playKind(world, actor, "wait");
-// A whole voyage for one passenger: course, a round at sea, Disembark.
 const sail = (world, actor, target) =>
   move(wait(course(world, actor, target), actor), actor, target);
 
