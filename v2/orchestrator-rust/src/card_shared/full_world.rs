@@ -88,7 +88,6 @@ impl World {
             .guard(&next.session()?, action, a)
             .map_err(str::to_owned)
     }
-    // Journal commands use versioned rules and the same seat guard.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
         self.apply_with(command, &mut engine::reduce_journal)
     }
