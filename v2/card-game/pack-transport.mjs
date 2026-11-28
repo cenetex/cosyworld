@@ -287,8 +287,7 @@ const humanAboard = (s, t) =>
 const playerAvatar = (s, who) =>
   controlledByHuman(s, who) || Boolean(humanAvatar(who));
 
-// Arrived riders can step ashore. A player with no available course can
-// also return to the dock.
+// Arrived riders can disembark, as can players with no available course.
 export function canDisembark(s, id, actor) {
   const state = read(s, id);
   if (!atBerth(state) || s.actors[actor]?.place !== transports[id].place)
