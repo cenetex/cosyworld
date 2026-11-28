@@ -12,4 +12,4 @@ Generate editor JSON Schemas from the same Rust types. Choose `pack` for `card-w
 cargo run --locked --manifest-path v2/world-check-rust/Cargo.toml -- --schema pack > pack.schema.json
 ```
 
-The Rust check covers document structure, place exits, release lists and availability, shared entity IDs, and the crossings that mount packs. It runs through `npm run v2:card:world:check` and CI. The existing `npm run v2:card:pack:check` also checks rule conditions, media, imported packs, and generated runtime assets.
+The Rust check covers document structure, place exits, release lists and availability, shared entity IDs, mounted crossings, and transport docks and lanes. It runs through `npm run v2:card:world:check` and CI. The existing `npm run v2:card:pack:check` also checks rule conditions, media, imported packs, and generated runtime assets.

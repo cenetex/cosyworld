@@ -89,7 +89,6 @@ for (const pack of packs) {
     ...Object.keys(pack.items || {}),
     ...(pack.crossings || []).map((c) => `crossing:${c.id}`),
     ...Object.keys(pack.transports || {}).map((id) => `transport:${id}`),
-    // One crossing per direction between two places, across every pack.
     ...(pack.crossings || []).map((c) => `route:${c.from}->${c.to}`),
   ]) {
     if (seen.has(id))

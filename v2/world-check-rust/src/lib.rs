@@ -12,6 +12,7 @@ mod release;
 #[allow(dead_code)]
 mod schema;
 mod topology;
+mod transport;
 use schema::{Bridge, Pack, Table};
 
 fn load<T: DeserializeOwned>(path: &Path) -> Result<T, String> {

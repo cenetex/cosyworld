@@ -1,6 +1,6 @@
 use super::{
     schema::{Bridge, Crossing, Hub, Pack, Table},
-    valid_id,
+    transport, valid_id,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -58,8 +58,13 @@ pub(super) fn crossings<'a>(
         "hub",
         hub.places.iter().chain(&hub.avatars).chain(&hub.items),
     )?;
-    let mut places = hub.places.iter().collect::<BTreeSet<_>>();
-    for (id, (pack, _)) in packs {
+    let mut places = hub
+        .places
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    let mut transports = BTreeMap::new();
+    for (id, (pack, bridge)) in packs {
         register_ids(
             &mut entities,
             id,
@@ -69,18 +74,20 @@ pub(super) fn crossings<'a>(
                 .chain(pack.items.keys())
                 .chain(pack.fixtures.keys()),
         )?;
-        places.extend(pack.places.keys());
+        register_ids(&mut transports, id, bridge.transports.keys())?;
+        places.extend(pack.places.keys().map(String::as_str));
     }
 
     let mut crossings = BTreeMap::new();
     let mut directions = BTreeSet::new();
     for (id, (pack, bridge)) in packs {
+        transport::check(pack, bridge, |place| places.contains(place))?;
         if bridge.crossings.is_empty() {
             return Err(format!("{id}: bridge needs crossings"));
         }
         for crossing in &bridge.crossings {
             let crossing_id = crossing.id.as_str();
-            let (from, to) = (&crossing.from, &crossing.to);
+            let (from, to) = (crossing.from.as_str(), crossing.to.as_str());
             if !valid_id(crossing_id) || crossings.insert(crossing_id, crossing).is_some() {
                 return Err(format!("{id}: invalid or duplicate crossing {crossing_id}"));
             }

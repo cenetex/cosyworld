@@ -136,7 +136,30 @@ pub(crate) struct Bridge {
     #[serde(default)]
     pub values: Records,
     #[serde(default)]
-    pub transports: Records,
+    pub transports: BTreeMap<String, Transport>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct Transport {
+    pub place: String,
+    pub docks: Vec<String>,
+    pub at: String,
+    pub lanes: Vec<Lane>,
+    pub shipmaster: Option<String>,
+    pub wait_verb: Option<String>,
+    pub wait_sentence: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct Lane {
+    pub from: String,
+    pub to: String,
+    pub one_way: Option<bool>,
+    pub opens_with: Option<Vec<Record>>,
+    pub spends: Option<Value>,
+    pub sealed: Option<bool>,
 }
 
 #[derive(Deserialize, JsonSchema)]
