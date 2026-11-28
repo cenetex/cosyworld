@@ -47,8 +47,7 @@ export function settleHeldItems(world, before = null) {
   }
 }
 
-// Selection is not custody: only the actor's own directly carried card may
-// become held. An explicit empty hand survives saves and later settlement.
+// Choose only a directly carried card. An empty hand stays empty across saves and settlement.
 export function chooseHeldItem(world, actor, item) {
   if (!Object.hasOwn(world.actors, actor))
     throw new Error("Choose an avatar in this world.");

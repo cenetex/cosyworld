@@ -6,21 +6,49 @@ use crate::card_shared::{
     full_world::actor_index,
     store::{self, sql_error},
 };
-use serde_json::json;
+use serde_json::{json, Value};
 use std::path::Path;
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
+    replay_first_attic_turn("first-attic-wait", "wait:vale::", |_, reply| {
+        assert_eq!(reply["events"][0]["verb"], "wait");
+    })
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_first_attic_drop() -> Result<()> {
+    replay_first_attic_turn("first-attic-drop", "drop:vale:lamp:attic", |lamp, reply| {
+        let event = &reply["events"][0];
+        assert_eq!(event["verb"], "drop");
+        assert_eq!(event["itemId"], "lamp");
+        assert_eq!(event["locationId"], "attic");
+        assert_eq!(event["targetId"], "attic");
+        let world = &reply["world"];
+        let dropped = &world["items"]["lamp"];
+        assert_eq!(world["actors"]["vale"]["heldItem"], Value::Null);
+        assert_eq!(lamp["holder"], "vale");
+        assert_eq!(dropped["holder"], "attic");
+        assert_eq!(dropped["lit"], true);
+        assert_eq!(dropped["fuelRooms"], lamp["fuelRooms"]);
+        assert_eq!(dropped["fuel"], lamp["fuel"]);
+    })
+}
+
+fn replay_first_attic_turn(
+    id: &str,
+    action: &str,
+    check_reply: impl FnOnce(&Value, &Value),
+) -> Result<()> {
     let guest = Rules::new(&read_candidate()?)?;
     let mut c = store::open(Path::new(":memory:"))?;
     full_store::schema(&c)?;
-    let id = "first-attic-wait";
     store::create(&c, id, "opening-owner", 1)?;
     let mut state = World::create(None)?;
     assert_eq!(state.game["turn"], 0);
     assert!(state.game.get("began").is_none());
     assert!(state.game.get("run").is_none());
-    full_store::seed(&c, id, &state, "first-attic-wait", 1)?;
+    full_store::seed(&c, id, &state, id, 1)?;
     for (time, op) in [(2, "claim"), (3, "enter")] {
         full_store::commit(&c, id, &mut state, json!({"op":op, "actor":"vale"}), time)?;
     }
@@ -28,11 +56,11 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
     assert_eq!(incoming["claimed"], json!(["vale"]));
     assert_eq!(incoming["present"], json!(["vale"]));
     let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
-    let action = json!({"op":"play", "actor":"vale", "action":"wait:vale::"});
-    let accepted = full_store::commit(&c, id, &mut state, action, 4)?;
+    let lamp = state.game["items"]["lamp"].clone();
+    let command = json!({"op":"play", "actor":"vale", "action":action});
+    let accepted = full_store::commit(&c, id, &mut state, command, 4)?;
     assert_eq!(accepted["ok"], true);
     assert_eq!(accepted["world"], state.game);
-    assert_eq!(accepted["events"][0]["verb"], "wait");
     assert_eq!(accepted["events"][0]["actorId"], "vale");
     assert!(accepted["events"]
         .as_array()
@@ -40,6 +68,7 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
     assert_eq!(state.game["turn"], 1);
     assert_eq!(state.game["revision"], revision + 1);
     assert_eq!(state.game["speechVoices"]["vale"], json!(["vale"]));
+    check_reply(&lamp, &accepted);
 
     c.pragma_update(None, "query_only", true)
         .map_err(sql_error)?;
@@ -55,7 +84,7 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
     assert_eq!(report.checked, observed.len());
     report.require_coverage(true)?;
     println!(
-        "WASM first attic Wait replay matched {} current journal calls",
+        "WASM {id} replay matched {} current journal calls",
         report.checked
     );
     Ok(())

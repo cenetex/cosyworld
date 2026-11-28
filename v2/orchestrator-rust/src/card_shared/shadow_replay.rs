@@ -13,7 +13,7 @@ mod opening_repack;
 #[cfg(feature = "rules-wasm")]
 mod opening_seat;
 #[cfg(feature = "rules-wasm")]
-mod opening_wait;
+mod opening_turn;
 mod proof;
 
 #[derive(Debug, Default, PartialEq)]
