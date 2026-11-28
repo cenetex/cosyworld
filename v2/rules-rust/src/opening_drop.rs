@@ -128,6 +128,7 @@ pub(super) fn completed_response(
     files: &Value,
     before_seq: u64,
     mirror: opening_play::Mirror,
+    projected: Value,
 ) -> Option<Value> {
     let events: Vec<_> = world["log"]
         .as_array()?
@@ -151,8 +152,12 @@ pub(super) fn completed_response(
         return None;
     }
     opening_wait_response::apply_vale_voice(&mut world)?;
-    let mut response =
-        opening_play::attic_response(opening::stored_response(world)?, files, mirror)?;
+    let mut response = opening_play::attic_response_with_profiles(
+        opening::stored_response(world)?,
+        files,
+        mirror,
+        projected,
+    )?;
     response["events"] = json!(events);
     Some(response)
 }

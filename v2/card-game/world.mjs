@@ -3343,8 +3343,7 @@ export function play(
   noteRumours(s, next, wantAPI(next), wantAPI(s));
   if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));
   validateWorld(next);
-  // Alone, the world runs on around a sleeper until something wakes it.
-  // It stops at the first refused play, and the sleep cap bounds it.
+  // Solo sleep advances until a wake, a refused play, or the sleep cap.
   let slept = next;
   if (!s.actors[actor].sleeping && !sharedEnabled(next))
     for (let i = 0; i < SLEEP_TURNS && slept.actors[actor].sleeping; i++) {

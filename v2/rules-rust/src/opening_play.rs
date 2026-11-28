@@ -214,7 +214,16 @@ pub(super) fn attic_content(files: &Value) -> Option<()> {
     Some(())
 }
 
-pub(super) fn attic_response(mut response: Value, files: &Value, mirror: Mirror) -> Option<Value> {
+pub(super) fn attic_response(response: Value, files: &Value, mirror: Mirror) -> Option<Value> {
+    attic_response_with_profiles(response, files, mirror, profiles::project(files)?)
+}
+
+pub(super) fn attic_response_with_profiles(
+    mut response: Value,
+    files: &Value,
+    mirror: Mirror,
+    projected: Value,
+) -> Option<Value> {
     let grounded = response["world"]["items"]["lamp"]["holder"] == "attic";
     response["actor"] = json!("vale");
     response["room"] = json!("attic");
@@ -229,12 +238,21 @@ pub(super) fn attic_response(mut response: Value, files: &Value, mirror: Mirror)
         json!([])
     };
     response["actions"] = actions(&files["v2/card-game/forest.json"], mirror, grounded)?;
-    response["profiles"] = profiles::project(files)?;
+    response["profiles"] = projected;
     Some(response)
 }
 
 pub(super) fn after_wait_response(response: Value, files: &Value, mirror: Mirror) -> Option<Value> {
-    let mut response = attic_response(response, files, mirror)?;
+    after_wait_response_with_profiles(response, files, mirror, profiles::project(files)?)
+}
+
+pub(super) fn after_wait_response_with_profiles(
+    response: Value,
+    files: &Value,
+    mirror: Mirror,
+    projected: Value,
+) -> Option<Value> {
+    let mut response = attic_response_with_profiles(response, files, mirror, projected)?;
     let name = files["v2/card-game/forest.json"]["people"]["vale"]["name"].as_str()?;
     response["actions"].as_array_mut()?.insert(
         1,

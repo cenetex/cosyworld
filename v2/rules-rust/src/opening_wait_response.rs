@@ -1,14 +1,26 @@
-use super::{opening, opening_play, opening_view};
+use super::{opening, opening_play, opening_view, profiles};
 use serde_json::{json, Value};
 
 const ACTOR: &str = "vale";
 const ROOM: &str = "attic";
 
 pub fn completed_wait_response(
+    world: Value,
+    files: &Value,
+    before_seq: u64,
+    present: &[&str],
+) -> Option<Value> {
+    completed_wait_response_with_profiles(world, files, before_seq, present, || {
+        profiles::project(files)
+    })
+}
+
+pub(super) fn completed_wait_response_with_profiles(
     mut world: Value,
     files: &Value,
     before_seq: u64,
     present: &[&str],
+    projected: impl FnOnce() -> Option<Value>,
 ) -> Option<Value> {
     first_wait_attic(&world)?;
     if !present.contains(&ACTOR) {
@@ -32,8 +44,12 @@ pub fn completed_wait_response(
     }
     apply_vale_voice(&mut world)?;
 
-    let mut response =
-        opening_play::after_wait_response(opening::stored_response(world)?, files, mirror)?;
+    let mut response = opening_play::after_wait_response_with_profiles(
+        opening::stored_response(world)?,
+        files,
+        mirror,
+        projected()?,
+    )?;
     response["events"] = json!(events);
     Some(response)
 }
