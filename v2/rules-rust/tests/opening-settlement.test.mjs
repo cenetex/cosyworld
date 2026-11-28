@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { reducers } from "./parity.mjs";
 
@@ -32,6 +33,9 @@ test("the pinned first attic Wait decays old bells and leaves docked ships and s
       const result = check(engines, world);
       assert.equal(result.world.items.bell.ringing, Math.max(0, duration - 1));
       assert.deepEqual(result.world.usedUp, world.usedUp);
+      assert.deepEqual(result.world.crossings, world.crossings);
+      assert.ok(!result.events.some((event) =>
+        event.kind === "narration" && event.locationId === "attic"));
     }
   }
 });
@@ -76,4 +80,24 @@ test("attic settlement declines a light change or a ship with someone aboard", a
   const occupied = world.transports["greek-ship"];
   Object.assign(occupied, { phase: "sea", destination: "pond" });
   assert.equal(wasm({ ...request, world }), null);
+});
+
+test("attic settlement requires a blocked physical unlock and known stair stock", async () => {
+  const { pinned, wasm } = await reducers();
+  const { world } = pinned({ op: "create" });
+  const request = { ...play, world, op: "opening_wait_settlement" };
+  const content = JSON.parse(await readFile(new URL(
+    "../../orchestrator-rust/src/card_shared/content.json", import.meta.url,
+  ), "utf8"));
+  const packs = content.files["v2/card-game/packs.json"].packs;
+  const unlock = packs.flatMap((pack) => pack.crossings)
+    .find((crossing) => crossing.id === "pond-greek-harbor");
+  const original = unlock.unlockWhen;
+  unlock.unlockWhen = [{ kind: "actor_at", place: "attic" }];
+  assert.equal(wasm(request, JSON.stringify(content)), null);
+  unlock.unlockWhen = original;
+
+  const pack = packs.find((entry) => entry.items && Object.keys(entry.items).length > 0);
+  pack.items[Object.keys(pack.items)[0]].type = "cloth";
+  assert.equal(wasm(request, JSON.stringify(content)), null);
 });

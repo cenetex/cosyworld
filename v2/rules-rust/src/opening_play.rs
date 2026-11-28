@@ -181,16 +181,20 @@ pub(super) fn attic_response(mut response: Value, files: &Value, mirror: Mirror)
     Some(response)
 }
 
-fn packs_add_attic_actions(files: &Value) -> Option<bool> {
-    let packs = files["v2/card-game/packs.json"]["packs"].as_array()?;
-    let boardy = files.get("v2/card-game/boardyai.json")?;
-    let cottage_conditions = json!([
+pub(super) fn attic_stairs_requirements() -> Value {
+    json!([
         {"kind":"light", "item":"lamp", "at":["attic"], "uncovered":true},
         {"kind":"any", "conditions":[
             {"kind":"item_present", "item":"cloth", "place":"attic"},
             {"kind":"tag_held", "tag":"scarf", "place":"attic"}
         ]}
-    ]);
+    ])
+}
+
+fn packs_add_attic_actions(files: &Value) -> Option<bool> {
+    let packs = files["v2/card-game/packs.json"]["packs"].as_array()?;
+    let boardy = files.get("v2/card-game/boardyai.json")?;
+    let cottage_conditions = attic_stairs_requirements();
     Some(packs.iter().chain([boardy]).any(|pack| {
         ["routes", "crossings"].iter().any(|kind| {
             pack[*kind].as_array().is_some_and(|routes| {

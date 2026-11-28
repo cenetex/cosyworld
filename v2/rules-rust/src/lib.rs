@@ -16,6 +16,7 @@ mod join;
 mod opening;
 mod opening_candidates;
 mod opening_content;
+mod opening_crossings;
 pub mod opening_evidence;
 pub mod opening_history;
 mod opening_pickups;
