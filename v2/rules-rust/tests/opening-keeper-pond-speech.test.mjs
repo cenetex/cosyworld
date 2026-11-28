@@ -16,7 +16,23 @@ function exact(actual, expected, label) {
   assert.ok(isDeepStrictEqual(actual, expected), `${label} ${field ?? ""}`);
 }
 
-test("Pond speech and reloads follow the Keeper quest return and ship call", async () => {
+function checkPresence(wasm, run, saved, label) {
+  let world = saved;
+  for (const [claimed, present] of [
+    [seats.claimed, []],
+    [seats.claimed, seats.present],
+    [[], []],
+  ]) {
+    const request = { ...seats, op: "presence", claimed, present, world };
+    const pinned = run(request);
+    exact(pinned, { ok: true, world: saved }, `${label} pinned presence`);
+    const actual = wasm(request);
+    exact(actual, pinned, `${label} presence ${claimed}/${present}`);
+    world = actual.world;
+  }
+}
+
+test("Pond speech, presence and reloads follow the Keeper quest return and ship call", async () => {
   const { pinned, wasm } = await reducers();
   const run = (request) => {
     const reply = pinned(request);
@@ -49,6 +65,17 @@ test("Pond speech and reloads follow the Keeper quest return and ship call", asy
       "move:vale::station",
       returnWithCloth,
     ]) {
+      if (seed === 2 && action === returnWithCloth) {
+        for (const item of ["lamp", "cloth"]) {
+          ({ world } = run({
+            ...seats,
+            op: "hold",
+            world,
+            choice: { item, revision: world.revision },
+          }));
+        }
+        assert.equal(world.items.lamp.fuel, 8);
+      }
       if (sorted) {
         world.actors = Object.fromEntries(
           Object.entries(world.actors).toSorted(),
@@ -67,10 +94,12 @@ test("Pond speech and reloads follow the Keeper quest return and ship call", asy
       });
       assert.equal(called.world.turn, 7);
       assert.equal(called.world.transports["greek-ship"].dock, "pond");
+      if (seed === 2) assert.equal(called.world.items.lamp.fuel, 4);
       saves.push(called.world);
     }
     for (const saved of saves) {
       const label = `${seed} turn ${saved.turn}`;
+      checkPresence(wasm, run, saved, label);
       assert.deepEqual(saved.speechVoices.vale, ["vale"]);
       const speech = {
         ...seats,
@@ -105,6 +134,7 @@ test("Pond speech and reloads follow the Keeper quest return and ship call", asy
       delete afterRelease.room;
       const repeated = wasm(afterRelease);
       exact(repeated, run(afterRelease), `${label} released scenery`);
+      checkPresence(wasm, run, repeated.world, `${label} narrated`);
       const voiceAfterRelease = { ...afterRelease, lines: lines.slice(0, 1) };
       exact(
         wasm(voiceAfterRelease),
@@ -132,6 +162,12 @@ test("Pond speech and reloads follow the Keeper quest return and ship call", asy
         const nextSpeech = { ...speech, world: called.world };
         const described = wasm(nextSpeech);
         exact(described, run(nextSpeech), `${label} speech after call`);
+        checkPresence(
+          wasm,
+          run,
+          described.world,
+          `${label} called after captions`,
+        );
         const reload = {
           ...seats,
           present: [],
@@ -156,6 +192,34 @@ test("Pond speech and reloads follow the Keeper quest return and ship call", asy
       const forged = structuredClone(published.world);
       forged.log.at(-1).entityId = "station";
       assert.equal(wasm({ ...speech, world: forged }), null);
+      const presence = { ...seats, op: "presence", world: published.world };
+      for (const invalid of [
+        { ...presence, claimed: [] },
+        { ...presence, claimed: ["vale", "mara"] },
+        { ...presence, present: ["vale", "vale"] },
+        { ...presence, world: forged },
+      ]) {
+        assert.equal(wasm(invalid), null);
+      }
+    }
+    if (dry) {
+      const grounded = run({
+        ...seats,
+        op: "play",
+        world,
+        action: "drop:vale:lamp:pond",
+      }).world;
+      assert.equal(grounded.items.lamp.holder, "pond");
+      assert.equal(grounded.items.lamp.lit, false);
+      checkPresence(wasm, run, grounded, `${seed} dry lamp grounded`);
+      const spoken = run({
+        ...seats,
+        op: "speech",
+        world: grounded,
+        room: "pond",
+        lines,
+      });
+      checkPresence(wasm, run, spoken.world, `${seed} dry lamp narrated`);
     }
   }
 });

@@ -1,8 +1,8 @@
 use super::{
-    lamp_state, opening_content, opening_held_items, opening_play, opening_roster,
-    opening_second_attic_lamp, opening_second_attic_tail, opening_station_move,
-    opening_station_view, opening_take_response, opening_wait_response, pack_state::Catalog,
-    Geography, Lamp, LampPosition,
+    lamp_state, opening_content, opening_held_items, opening_play, opening_pond_call_view,
+    opening_pond_return_view, opening_roster, opening_second_attic_lamp, opening_second_attic_tail,
+    opening_station_move, opening_station_view, opening_take_response, opening_wait_response,
+    pack_state::Catalog, Geography, Lamp, LampPosition,
 };
 use serde_json::{json, Value};
 
@@ -237,21 +237,28 @@ pub(super) fn presence(request: &Value) -> Option<Value> {
         let held = opening.held;
         return opening.respond(world.clone(), held);
     }
+    let before = request.get("world")?;
+    if before["actors"]["vale"]["place"] == "pond" && matches!(before["turn"].as_u64(), Some(6 | 7))
+    {
+        return keeper_pond_presence(request, before);
+    }
     station_presence(request)
+}
+
+fn presence_seats(request: &Value) -> Option<(Vec<&str>, Vec<&str>)> {
+    let claimed = seats(&request["claimed"])?;
+    let present = seats(&request["present"])?;
+    (request["actor"] == "vale"
+        && matches!(claimed.as_slice(), [] | ["vale"])
+        && present.iter().all(|id| claimed.contains(id)))
+    .then_some((claimed, present))
 }
 
 fn station_presence(request: &Value) -> Option<Value> {
     let before = request.get("world")?;
     opening_station_move::arrival(before)
         .or_else(|| opening_station_move::historic_follow(before))?;
-    let claimed = seats(&request["claimed"])?;
-    let present = seats(&request["present"])?;
-    if request["actor"] != "vale"
-        || !matches!(claimed.as_slice(), [] | ["vale"])
-        || present.iter().any(|id| !claimed.contains(id))
-    {
-        return None;
-    }
+    let (claimed, present) = presence_seats(request)?;
     let order = opening_roster::actor_order(request, before)?;
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
@@ -269,6 +276,32 @@ fn station_presence(request: &Value) -> Option<Value> {
     opening_held_items::settle(&mut world, &geo, None)?;
     opening_second_attic_lamp::settle_station(&mut world, &geo)?;
     opening_second_attic_tail::verify_station_order(&world, &geo)?;
+    stored_response(world)
+}
+
+fn keeper_pond_presence(request: &Value, before: &Value) -> Option<Value> {
+    let (claimed, present) = presence_seats(request)?;
+    let (files, _) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let mut world = before.clone();
+    world["playerActorId"] = json!("vale");
+    world["heldActors"] = json!(claimed);
+    world["controlledActors"] = json!(present);
+    world["presentActors"] = json!(present);
+    if world["turn"] == 6 {
+        opening_pond_return_view::verify_cloth_arrival(&world, &geo)?;
+    } else if world["items"]["lamp"]["lit"] == true {
+        opening_pond_call_view::settled_speech(&world, &geo)?;
+    } else {
+        opening_pond_call_view::settled_dry(&world, &geo)?;
+    }
+    opening_second_attic_tail::verify_wayfinder_placement(&world, &geo)?;
+    opening_second_attic_tail::verify_station_order(&world, &geo)?;
+    opening_held_items::settle(&mut world, &geo, None)?;
+    if world["actors"] != before["actors"] {
+        return None;
+    }
     stored_response(world)
 }
 
