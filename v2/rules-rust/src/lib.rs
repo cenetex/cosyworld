@@ -208,6 +208,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_station_move") => {
             opening_station_move::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_historic_awake_station_view") => {
+            opening_station_view::historic_awake_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_station_train_quest") => {
             opening_station_view::accept_train(request).unwrap_or(Value::Null)
         }

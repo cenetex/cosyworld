@@ -76,7 +76,6 @@ describe("resident sleep", () => {
   });
 
   it("wakes for Talk, a threat or a ring, and keeps Ask, Trade and Invite for waking", () => {
-    // The keeper at the station after midnight, holding the bell.
     let s = lifeWorld({ turn: DAY_TURNS + 38, place: "station" });
     s.actors.keeper.place = "station";
     s.items.bell.holder = "keeper";
