@@ -104,28 +104,15 @@ pub(super) fn first_lamp_drop(world: &Value) -> Option<()> {
         || world["turn"] != 1
         || world.get("began").is_some()
         || vale["place"] != "attic"
-        || vale.get("heldItem") != Some(&Value::Null)
         || vale.get("want") != Some(&Value::Null)
         || vale["waitSpeech"] != json!({"place":"attic","turn":null})
         || !world["defeats"]["vale"].is_null()
         || !world["disabledPacks"].is_null()
-        || world["items"]["lamp"]["holder"] != "attic"
     {
         return None;
     }
     opening_play::quiet_attic_scene(world)?;
-    let mut actions = world["log"].as_array()?.iter().filter(|entry| {
-        entry["kind"] == "action" && entry["actorId"] == "vale" && entry["generated"] != true
-    });
-    let drop = actions.next()?;
-    (drop["verb"] == "drop"
-        && drop["turn"] == 1
-        && drop["itemId"] == "lamp"
-        && drop["locationId"] == "attic"
-        && drop["fromLocationId"] == "attic"
-        && drop["targetId"] == "attic"
-        && actions.next().is_none())
-    .then_some(())
+    super::opening_drop::grounding_committed(world)
 }
 
 pub(super) fn attic_mirror(world: &Value, present: &[&str]) -> Option<Mirror> {

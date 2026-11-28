@@ -100,13 +100,7 @@ pub(super) fn reduce_drop(request: &Value) -> Option<Value> {
 fn round(request: &Value, play: RoundPlay) -> Option<Value> {
     let before = match play {
         RoundPlay::Wait => opening_wait::wait_world(request)?,
-        RoundPlay::DropLamp => {
-            let world = opening_drop::drop_world(request)?;
-            if world["turn"] != 0 {
-                return None;
-            }
-            world
-        }
+        RoundPlay::DropLamp => opening_drop::drop_world(request)?,
     };
     quiet_opening(before)?;
     let historic = before["began"] == 480;
