@@ -17,6 +17,7 @@ mod join;
 mod opening;
 mod opening_attic_rest;
 mod opening_candidates;
+mod opening_company;
 mod opening_content;
 mod opening_crossings;
 pub mod opening_evidence;
@@ -151,6 +152,7 @@ pub fn reduce(request: &Value) -> Value {
             opening_place_cards::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
+        Some("opening_fade_trust") => opening_company::projection(request).unwrap_or(Value::Null),
         Some("opening_resident_sleep") => {
             opening_resident_sleep::projection(request).unwrap_or(Value::Null)
         }
