@@ -96,3 +96,19 @@ test("fresh mount declines mounted state and duplicate pack identities", async (
     null,
   );
 });
+
+test("fresh mounts derive hub overlays, traveller lives and routes from authored packs", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = pinned({ op: "create" }).world;
+  const actual = wasm({ op: "mount_packs" }).world;
+  const fields = [
+    "schema", "turn", "revision", "conversations", "locations", "standoffs",
+    "opening", "usedUp", "motives", "life", "journeyProgress", "routeKnowledge",
+  ];
+  for (const field of fields) {
+    assert.deepEqual(actual[field], reference[field], field);
+  }
+  assert.deepEqual(actual.log, reference.log.slice(0, 1));
+  assert.equal(actual.actors.vale.place, reference.actors.vale.place);
+  assert.equal(actual.items.lamp.holder, reference.items.lamp.holder);
+});
