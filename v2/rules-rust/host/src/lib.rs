@@ -129,7 +129,10 @@ fn encode_request(
         .get("action")
         .and_then(|action| action.as_str().or_else(|| action["key"].as_str()))
         .filter(|_| op == Some("play"));
-    let attic_play = matches!(play, Some("wait:vale::" | "drop:vale:lamp:attic"));
+    let attic_play = matches!(
+        play,
+        Some("wait:vale::" | "drop:vale:lamp:attic" | "take:vale:lamp:")
+    );
     let pond_play = matches!(play, Some("move:vale::pond" | "move:vale:lamp:pond"));
     let ordered = matches!(
         op,

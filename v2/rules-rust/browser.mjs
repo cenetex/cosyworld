@@ -45,7 +45,9 @@ export function browserRules(bytes) {
           : request.action?.key;
       const atticPlay =
         request.op === "play" &&
-        (key === "wait:vale::" || key === "drop:vale:lamp:attic");
+        (key === "wait:vale::" ||
+          key === "drop:vale:lamp:attic" ||
+          key === "take:vale:lamp:");
       const pondPlay =
         request.op === "play" &&
         (key === "move:vale::pond" || key === "move:vale:lamp:pond");

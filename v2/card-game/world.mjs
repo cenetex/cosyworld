@@ -2924,8 +2924,7 @@ function wantPlan(s, actor) {
     const step = home && here !== home ? stepToward(s, actor, home) : null;
     return step?.action ? { action: step.action } : idle();
   };
-  // A resident that just arrived stays a while (rules 133): it neither drifts
-  // home nor goes for a want until its dwell is over.
+  // A resident neither drifts home nor pursues a want during arrival dwell (rules 133).
   const settled = dwelling(s, actor);
   const drift = () =>
     ranged && worldLife.on && !settled ? homeStep() : idle();

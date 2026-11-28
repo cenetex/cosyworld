@@ -9,6 +9,9 @@ pub(super) enum Mirror {
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
+    if request["world"]["turn"] == 1 {
+        return super::opening_second_round::round(request);
+    }
     let world = opening::supported_world(request)?;
     let actor = request["actor"].as_str()?;
     if !request["present"]
