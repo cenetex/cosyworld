@@ -183,6 +183,7 @@ fn encode_request(
                 | "opening_pond_ship_board"
                 | "opening_pond_ship_course"
                 | "opening_pond_ship_course_depart"
+                | "opening_pond_ship_disembark"
                 | "opening_pond_ship_wait"
                 | "opening_pond_ship_dock"
                 | "opening_station_residents"

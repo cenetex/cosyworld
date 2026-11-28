@@ -39,7 +39,7 @@ pub(super) fn wait_world(request: &Value) -> Option<&Value> {
     .then_some(world)
 }
 
-fn riders(world: &Value, geo: &Geography<'_>) -> Option<Vec<&'static str>> {
+pub(super) fn riders(world: &Value, geo: &Geography<'_>) -> Option<Vec<&'static str>> {
     let mut riders = Vec::new();
     for (id, actor) in world["actors"].as_object()? {
         if actor["place"] != SHIP || !geo.entity_active(world, id)? {

@@ -50,6 +50,7 @@ mod opening_pond_return_view;
 mod opening_pond_rumours;
 mod opening_pond_ship_board;
 mod opening_pond_ship_course;
+mod opening_pond_ship_disembark;
 mod opening_pond_ship_settlement;
 mod opening_pond_ship_view;
 mod opening_pond_ship_wait;
@@ -249,6 +250,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_pond_ship_course" | "opening_pond_ship_course_depart") => {
             opening_pond_ship_course::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_pond_ship_disembark") => {
+            opening_pond_ship_disembark::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_pond_ship_wait" | "opening_pond_ship_dock") => {
             opening_pond_ship_wait::projection(request).unwrap_or(Value::Null)

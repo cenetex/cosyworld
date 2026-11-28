@@ -66,7 +66,7 @@ fn move_world_to<'a>(request: &'a Value, to: &str) -> Option<(&'a Value, bool)> 
     Some((before, carry))
 }
 
-fn move_request(request: &Value) -> Option<(&Value, &str)> {
+pub(super) fn move_request(request: &Value) -> Option<(&Value, &str)> {
     let before = request.get("world")?;
     let action = &request["action"];
     if request["actor"] != VALE
@@ -107,7 +107,7 @@ pub(super) fn cloth_return_event(event: &Value) -> bool {
         && (event["itemId"].is_null() || event["itemId"] == LAMP || event["itemId"] == CLOTH)
 }
 
-fn move_between(event: &Value, turn: u64, from: &str, to: &str) -> bool {
+pub(super) fn move_between(event: &Value, turn: u64, from: &str, to: &str) -> bool {
     event["turn"] == turn
         && event["verb"] == "move"
         && event["fromLocationId"] == from
