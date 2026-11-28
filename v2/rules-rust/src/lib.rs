@@ -26,6 +26,7 @@ mod profiles;
 mod reset;
 mod seed;
 mod seed_packs;
+mod seed_scatter;
 mod seed_wayfinder;
 mod validate;
 

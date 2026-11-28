@@ -1,4 +1,4 @@
-use super::{pack_state::Catalog, seed_packs, seed_wayfinder};
+use super::{pack_state::Catalog, seed_packs, seed_scatter, seed_wayfinder};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -190,7 +190,9 @@ pub(super) fn seed_fresh(world: &mut Value, files: &Value, seed: u32) -> Option<
         .as_object_mut()?
         .insert("run".into(), json!({"seed": seed}));
     seeded["doors"] = place_doors(files, seed, None)?;
-    seed_packs::install(&mut seeded, &Catalog::from_files(files)?, seed)?;
+    let catalog = Catalog::from_files(files)?;
+    seed_packs::install(&mut seeded, &catalog, seed)?;
+    seed_scatter::place(&mut seeded, files, &catalog, seed)?;
     place_wayfinder(&mut seeded, files)?;
     *world = seeded;
     Some(())
