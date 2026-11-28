@@ -45,6 +45,7 @@ mod opening_roster;
 pub mod opening_rumours;
 mod opening_second_attic_lamp;
 mod opening_second_attic_tail;
+mod opening_second_round;
 mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
@@ -169,6 +170,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
         Some("opening_second_wait_step") => {
             opening_wait::second_projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_second_resident_round") => {
+            opening_second_round::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_drop_step") => opening_drop::projection(request).unwrap_or(Value::Null),
         Some("opening_take_step") => opening_take::projection(request).unwrap_or(Value::Null),
