@@ -186,7 +186,6 @@ fn reduce_source(
     if input.len() > MAX_BYTES {
         return Err("This saved world is too large to share.".into());
     }
-    // Two content revisions under one engine never share a cached view.
     let cache_key = view.then(|| match content {
         Some((_, pack)) => view_cache_key(&format!("{version}+{pack}"), &input),
         None => view_cache_key(version, &input),
