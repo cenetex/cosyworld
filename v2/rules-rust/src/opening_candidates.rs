@@ -38,42 +38,51 @@ fn member(array: &Value, key: &str) -> bool {
         .is_some_and(|values| values.iter().any(|value| value == key))
 }
 
-pub(super) fn fill(
-    world: &mut Value,
-    geo: &Geography,
-    people: &People,
-    files: &Value,
-) -> Option<()> {
-    choose(world, geo, people, files, Draw::Opening)
+pub(super) fn fill(world: &mut Value, geo: &Geography, people: &People) -> Option<()> {
+    let context = prepare(world, geo, people)?;
+    choose(world, geo, people, &context, Draw::Opening)
 }
 
-pub(super) fn replace(
-    world: &mut Value,
-    geo: &Geography,
-    people: &People,
-    files: &Value,
-    stalled: &BTreeSet<&str>,
-) -> Option<()> {
-    choose(world, geo, people, files, Draw::Stalled(stalled))
+#[derive(Default)]
+pub(super) struct RoundDraws<'a>(Option<Context<'a>>);
+
+impl<'a> RoundDraws<'a> {
+    pub(super) fn replace(
+        &mut self,
+        world: &mut Value,
+        geo: &Geography<'a>,
+        people: &People<'a>,
+        stalled: &BTreeSet<&str>,
+    ) -> Option<()> {
+        let context = self.context(world, geo, people)?;
+        choose(world, geo, people, context, Draw::Stalled(stalled))
+    }
+
+    pub(super) fn fill_due(
+        &mut self,
+        world: &mut Value,
+        geo: &Geography<'a>,
+        people: &People<'a>,
+    ) -> Option<()> {
+        let context = self.context(world, geo, people)?;
+        choose(world, geo, people, context, Draw::Due)
+    }
+
+    fn context(
+        &mut self,
+        world: &Value,
+        geo: &Geography<'a>,
+        people: &People<'a>,
+    ) -> Option<&Context<'a>> {
+        if self.0.is_none() {
+            self.0 = Some(prepare(world, geo, people)?);
+        }
+        self.0.as_ref()
+    }
 }
 
-pub(super) fn fill_due(
-    world: &mut Value,
-    geo: &Geography,
-    people: &People,
-    files: &Value,
-) -> Option<()> {
-    choose(world, geo, people, files, Draw::Due)
-}
-
-fn choose(
-    world: &mut Value,
-    geo: &Geography,
-    people: &People,
-    files: &Value,
-    draw: Draw<'_>,
-) -> Option<()> {
-    let forest = files.get("v2/card-game/forest.json")?;
+fn prepare<'a>(world: &Value, geo: &Geography<'a>, people: &People<'a>) -> Option<Context<'a>> {
+    let forest = geo.files().get("v2/card-game/forest.json")?;
     let mut authored = BTreeMap::<_, Vec<_>>::new();
     for ((from, to), retired) in create::authored_edges(forest, geo.packs())? {
         authored.entry(from).or_default().push((to, retired));
@@ -148,6 +157,16 @@ fn choose(
                 .then_some(id)
         })
         .collect();
+    Some(context)
+}
+
+fn choose(
+    world: &mut Value,
+    geo: &Geography,
+    people: &People,
+    context: &Context,
+    draw: Draw<'_>,
+) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     for (&id, person) in &people.people {
         if id == "vale" || person.data["wants"] == false || !context.active.contains(id) {
@@ -214,13 +233,13 @@ fn choose(
         let reaches = if world["hidden"]["actor"] == id {
             opening_visitor_routes::reachable(world, geo, id, &here)?
         } else if roams {
-            reachable(world, geo, &context, id, &here, allowed.as_ref())?
+            reachable(world, geo, context, id, &here, allowed.as_ref())?
         } else {
             BTreeSet::new()
         };
         let (pick, reset) = pick_want(
             world,
-            &context,
+            context,
             people,
             id,
             person,

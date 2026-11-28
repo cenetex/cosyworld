@@ -2,7 +2,7 @@ use super::{
     create_geography::Geography,
     elysium,
     initial_wants::{same_terms, People, Person},
-    opening_candidates,
+    opening_candidates::RoundDraws,
 };
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -68,7 +68,13 @@ fn can_abandon_earlier(
     })
 }
 
-pub(super) fn revise(world: &mut Value, geo: &Geography, people: &People, turn: u64) -> Option<()> {
+pub(super) fn revise<'a>(
+    world: &mut Value,
+    geo: &Geography<'a>,
+    people: &People<'a>,
+    turn: u64,
+    draws: &mut RoundDraws<'a>,
+) -> Option<()> {
     let actors = world["actors"].as_object()?;
     let accepted: BTreeSet<_> = actors
         .values()
@@ -94,16 +100,17 @@ pub(super) fn revise(world: &mut Value, geo: &Geography, people: &People, turn: 
         }
     }
     if !stalled.is_empty() {
-        opening_candidates::replace(world, geo, people, geo.files(), &stalled)?;
+        draws.replace(world, geo, people, &stalled)?;
     }
     Some(())
 }
 
-pub(super) fn fill_due(
+pub(super) fn fill_due<'a>(
     world: &mut Value,
-    geo: &Geography,
-    people: &People,
+    geo: &Geography<'a>,
+    people: &People<'a>,
     turn: u64,
+    draws: &mut RoundDraws<'a>,
 ) -> Option<()> {
     for (&id, person) in &people.people {
         let actor = &world["actors"][id];
@@ -115,7 +122,7 @@ pub(super) fn fill_due(
             && turn.saturating_sub(actor["metTurn"].as_u64().unwrap_or(0)) >= 24
             && geo.entity_active(world, id)?
         {
-            return opening_candidates::fill_due(world, geo, people, geo.files());
+            return draws.fill_due(world, geo, people);
         }
     }
     Some(())
