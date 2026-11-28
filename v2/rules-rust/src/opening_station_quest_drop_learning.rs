@@ -30,6 +30,10 @@ pub(super) fn confirm_pip_wait(world: &Value, geo: &Geography) -> Option<()> {
     let [prior] = world["memories"][PIP]["learning"].as_array()?.as_slice() else {
         return None;
     };
+    confirm_pond_ask_trial(world, prior, prior_turn)
+}
+
+pub(super) fn confirm_pond_ask_trial(world: &Value, prior: &Value, prior_turn: u64) -> Option<()> {
     let ask = world["log"].as_array()?.iter().find(|event| {
         event["seq"] == prior["seq"]
             && event["kind"] == "action"

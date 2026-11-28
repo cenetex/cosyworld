@@ -126,10 +126,50 @@ pub(super) fn keeper_book_claim<'a>(world: &Value, geo: &Geography<'a>) -> Optio
     .then_some(claim)
 }
 
+pub(super) fn record_station_witness(
+    knowledge: &mut Value,
+    actor: &str,
+    seq: u64,
+    turn: u64,
+    text: &str,
+) -> Option<()> {
+    let event = format!("event:{seq}");
+    if knowledge["version"] != 1 || !knowledge["pending"].as_array()?.is_empty() {
+        return None;
+    }
+    let facts = knowledge["facts"].as_object_mut()?;
+    if facts.len() >= PROTECTED_FACT_LIMIT || facts.contains_key(&event) {
+        return None;
+    }
+    let witnessed = [KEEPER, "moth", VALE];
+    facts.insert(
+        event.clone(),
+        json!({
+            "id":event,"text":text,"source":{
+                "kind":"event","eventSeq":seq,"turn":turn,"actorId":actor,"locationId":STATION,
+                "witnesses":witnessed,"topic":null,
+            }
+        }),
+    );
+    let known = knowledge["known"].as_object_mut()?;
+    for actor in witnessed {
+        known
+            .entry(actor)
+            .or_insert_with(|| json!({}))
+            .as_object_mut()?
+            .insert(
+                event.clone(),
+                json!({
+                    "kind":"witnessed","teller":null,"eventSeq":seq,"learnedTurn":turn,
+                }),
+            );
+    }
+    Some(())
+}
+
 fn record_knowledge(world: &mut Value, claim: &Value, text: &str) -> Option<()> {
     let seq = world["eventSeq"].as_u64()?;
     let turn = world["turn"].as_u64()?;
-    let event = format!("event:{seq}");
     let claim_id = format!("claim:hub:{BOOK}:{}", claim["id"].as_str()?);
     let knowledge = &mut world["knowledge"];
     let quest = &knowledge["facts"][QUEST];
@@ -146,24 +186,12 @@ fn record_knowledge(world: &mut Value, claim: &Value, text: &str) -> Option<()> 
     {
         return None;
     }
-    let facts = knowledge["facts"].as_object_mut()?;
-    if facts.len() >= PROTECTED_FACT_LIMIT
-        || facts.contains_key(&event)
-        || facts.contains_key(&claim_id)
-    {
+    if knowledge["facts"].get(&claim_id).is_some() {
         return None;
     }
+    record_station_witness(knowledge, VALE, seq, turn, text)?;
+    let facts = knowledge["facts"].as_object_mut()?;
     facts.get_mut(QUEST)?["source"]["witnesses"] = json!([VALE]);
-    let witnessed = [KEEPER, "moth", VALE];
-    facts.insert(
-        event.clone(),
-        json!({
-            "id":event,"text":text,"source":{
-                "kind":"event","eventSeq":seq,"turn":turn,"actorId":VALE,"locationId":STATION,
-                "witnesses":witnessed,"topic":null,
-            }
-        }),
-    );
     facts.insert(
         claim_id.clone(),
         json!({
@@ -174,21 +202,8 @@ fn record_knowledge(world: &mut Value, claim: &Value, text: &str) -> Option<()> 
             }
         }),
     );
-    let known = knowledge["known"].as_object_mut()?;
-    for actor in witnessed {
-        let actor = known
-            .entry(actor)
-            .or_insert_with(|| json!({}))
-            .as_object_mut()?;
-        actor.insert(
-            event.clone(),
-            json!({
-                "kind":"witnessed","teller":null,"eventSeq":seq,"learnedTurn":turn,
-            }),
-        );
-    }
     for id in [claim_id.as_str(), QUEST] {
-        known[VALE][id] = json!({
+        knowledge["known"][VALE][id] = json!({
             "kind":"read","teller":null,"eventSeq":seq,"learnedTurn":turn,"book":BOOK,
         });
     }

@@ -336,7 +336,7 @@ fn project_choices(choices: Vec<Choice>) -> Value {
 
 fn project_choice(choice: Choice) -> Option<Value> {
     let station_gift = choice.on.as_deref() == Some("give")
-        && matches!(choice.subject.as_deref(), Some("moth" | "keeper"));
+        && matches!(choice.subject.as_deref(), Some("vale" | "moth" | "keeper"));
     let opening_choice = matches!(
         (choice.at.as_deref(), choice.on.as_deref()),
         (Some("attic"), Some("wait" | "meet"))
@@ -418,7 +418,8 @@ mod tests {
                     {"id":"drop", "effects":[{"kind":"drop_item", "item":"b"}]},
                     {"id":"archived", "archived":true, "effects":[{"kind":"drop_item", "item":"c"}]},
                     {"at":"station","text":"A Station choice"},
-                    {"on":"give","subject":"keeper","label":"Gift"}
+                    {"on":"give","subject":"keeper","label":"Gift"},
+                    {"at":"elsewhere","on":"give","subject":"vale","label":"Gift"}
                 ]},
                 {"id":"empty", "choices":[]},
                 {"id":"absent"}
@@ -448,7 +449,8 @@ mod tests {
                         {"at":"attic", "on":"wait"},
                         {"id":"drop", "effects":[{"kind":"drop_item", "item":"b"}]},
                         {"at":"station","on":null},
-                        {"at":null,"on":"give","subject":"keeper"}
+                        {"at":null,"on":"give","subject":"keeper"},
+                        {"at":"elsewhere","on":"give","subject":"vale"}
                     ]},
                     {"id":"empty", "choices":[]},
                     {"id":"absent"}

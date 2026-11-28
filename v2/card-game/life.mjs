@@ -131,8 +131,6 @@ function remember(life, e) {
     ? [...life.experiences.slice(0, -1), e]
     : [...life.experiences, e].slice(-EXPERIENCE_LIMIT);
 }
-// Record what happened to each participant. Experiences are memories, not
-// points.
 export function recordLifeAction(
   s,
   a,

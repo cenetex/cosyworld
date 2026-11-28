@@ -31,7 +31,7 @@ impl ResidentEvidence {
             (detail["kind"].as_str(), detail["verb"].as_str()),
             (
                 Some("action"),
-                Some("take" | "move" | "drop" | "ask" | "read" | "wait")
+                Some("take" | "move" | "drop" | "ask" | "read" | "wait" | "give")
             ) | (Some("narration"), Some("want_met"))
         ) {
             return None;

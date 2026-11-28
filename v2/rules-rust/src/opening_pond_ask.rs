@@ -128,6 +128,7 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
 pub(super) fn lamp_trial(world: &Value, turn: u64, kind: &str, text: &str) -> Option<Value> {
     let (target, item) = match kind {
         "ask" => (Some(VALE), Some(LAMP)),
+        "give" => (Some(VALE), Some(CLOTH)),
         "wait" => (None, None),
         _ => return None,
     };
