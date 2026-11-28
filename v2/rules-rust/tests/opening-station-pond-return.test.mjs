@@ -43,13 +43,25 @@ ${narration}
   );
   const pending = "    const narrate = () => {";
   assert.equal(source.split(pending).length, 2);
-  return source.replace(
+  source = source.replace(
     pending,
     `
     if (defer && s.turn === 7 && s.actors.vale.place === "pond" && globalThis.callQueue === undefined)
       globalThis.callQueue = structuredClone(pending);
 ${pending}`,
   );
+  for (const [target, phase] of [
+    ["    creditOpened(s, next, actor);", "beforeCredit"],
+    ["    for (const id of residents2) {", "afterCredit"],
+    ["    const rings2 = next.log.filter(", "afterResidents"],
+  ]) {
+    assert.equal(source.split(target).length, 2);
+    source = source.replace(
+      target,
+      `    if (next.turn === 7) globalThis.${phase} = structuredClone(next);\n${target}`,
+    );
+  }
+  return source;
 }
 
 test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state", async () => {
@@ -263,6 +275,32 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
             wasm({ op, phase: "record", world: grounded.world }),
             null,
           );
+        const tail = { op: "opening_pond_call_tail", before: ready };
+        assert.ok(
+          isDeepStrictEqual(
+            wasm({ ...tail, phase: "credit", world: cut("beforeCredit") }),
+            { ok: true, world: cut("afterCredit") },
+          ),
+          `credit ${label}`,
+        );
+        const cutAfterResidents = cut("afterResidents");
+        const finished = wasm({
+          ...tail,
+          phase: "finish",
+          world: cutAfterResidents,
+        });
+        assert.ok(finished?.ok, `finish ${label}`);
+        for (const field of [
+          "playerActorId",
+          "heldActors",
+          "presentActors",
+          "controlledActors",
+        ])
+          delete finished.world[field];
+        assert.ok(
+          isDeepStrictEqual(finished.world, called.world),
+          `tail ${label}`,
+        );
         const request = {
           ...seats,
           op: "opening_pond_call_view",

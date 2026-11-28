@@ -340,7 +340,8 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
     let departure = matches!((turn, place), (3, "behind-station") | (4, "pond"));
     let return_to_station = (turn, place) == (5, "station");
     let cloth_return = (turn, place) == (6, "pond");
-    let witnessed = historic || departure || return_to_station || cloth_return;
+    let pond_drop = (turn, place) == (7, "pond");
+    let witnessed = historic || departure || return_to_station || cloth_return || pond_drop;
     let prior = match (historic, turn, place) {
         (true, 482, "station") => {
             if let Some(head) = opening_station_move::historic_resident_moves(world) {
@@ -383,6 +384,11 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
                 return None;
             }
             opening_pond_call_view::cloth_arrival(world, false)?;
+            only_bard_roams(world, geo)?;
+            1
+        }
+        (false, 7, "pond") => {
+            opening_pond_call_view::cloth_arrival(world, true)?;
             only_bard_roams(world, geo)?;
             1
         }

@@ -166,7 +166,7 @@ pub(super) fn no_sleepers(world: &Value) -> Option<()> {
         .then_some(())
 }
 
-fn sealed_at_rest(world: &Value, geo: &Geography) -> Option<()> {
+pub(super) fn sealed_at_rest(world: &Value, geo: &Geography) -> Option<()> {
     let spent = world["usedUp"].as_array()?;
     for pack in geo.packs() {
         for (id, item) in pack["items"].as_object().into_iter().flatten() {
@@ -182,7 +182,7 @@ fn sealed_at_rest(world: &Value, geo: &Geography) -> Option<()> {
     Some(())
 }
 
-fn guards_stable(world: &Value, geo: &Geography) -> Option<()> {
+pub(super) fn guards_stable(world: &Value, geo: &Geography) -> Option<()> {
     if !world["standoffs"].as_array()?.is_empty() {
         return None;
     }

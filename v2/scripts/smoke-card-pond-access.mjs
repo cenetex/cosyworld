@@ -110,8 +110,6 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=pond-access-check`,
     );
-    // A way that is shut lies in the hand as a locked box, never as a card to
-    // enter (rules 133).
     const opened = async (id) => {
       await page.waitForFunction(
         (id) =>

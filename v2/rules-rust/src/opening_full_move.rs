@@ -12,7 +12,12 @@ use super::{
 };
 use serde_json::{json, Value};
 
-fn quiet_discoveries(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<()> {
+pub(super) fn quiet_discoveries(
+    before: &Value,
+    world: &Value,
+    geo: &Geography<'_>,
+    allowed: Option<&str>,
+) -> Option<()> {
     let old = before["crossings"].as_object()?;
     let new = world["crossings"].as_object()?;
     if old.len() != new.len()
@@ -24,7 +29,7 @@ fn quiet_discoveries(before: &Value, world: &Value, geo: &Geography<'_>) -> Opti
     }
     for (id, state) in new {
         let prior = old.get(id)?;
-        if prior == state {
+        if prior == state || allowed == Some(id.as_str()) {
             continue;
         }
         let mut confirmed = prior.clone();
@@ -61,10 +66,34 @@ pub(super) fn quiet_ways(
     allow_discoveries: bool,
 ) -> Option<()> {
     if allow_discoveries {
-        quiet_discoveries(before, world, geo)?;
+        quiet_discoveries(before, world, geo, None)?;
     } else if before["crossings"] != world["crossings"] {
         return None;
     }
+    no_crossing_narration(before, world, geo)?;
+    let forest = &geo.files()["v2/card-game/forest.json"];
+    let source = before["actors"]["vale"]["place"].as_str()?;
+    let mut mirrors = forest["reflectionRoutes"]
+        .as_array()?
+        .iter()
+        .filter(|route| route["from"] == source);
+    if let Some(mirror) = mirrors.next() {
+        if geo.reflection_open(before, mirror)? != geo.reflection_open(world, mirror)?
+            || mirrors.next().is_some()
+        {
+            return None;
+        }
+    } else if source != "station" {
+        return None;
+    }
+    opening_crossings::no_crossing_unlocks(world, geo)
+}
+
+pub(super) fn no_crossing_narration(
+    before: &Value,
+    world: &Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
     for pack in geo.packs() {
         let pack_id = pack["id"].as_str()?;
         for crossing in pack["crossings"]
@@ -82,22 +111,7 @@ pub(super) fn quiet_ways(
             }
         }
     }
-    let forest = &geo.files()["v2/card-game/forest.json"];
-    let source = before["actors"]["vale"]["place"].as_str()?;
-    let mut mirrors = forest["reflectionRoutes"]
-        .as_array()?
-        .iter()
-        .filter(|route| route["from"] == source);
-    if let Some(mirror) = mirrors.next() {
-        if geo.reflection_open(before, mirror)? != geo.reflection_open(world, mirror)?
-            || mirrors.next().is_some()
-        {
-            return None;
-        }
-    } else if source != "station" {
-        return None;
-    }
-    opening_crossings::no_crossing_unlocks(world, geo)
+    Some(())
 }
 
 fn progress(

@@ -150,7 +150,6 @@ fn verify_quiet_day(
     room: &str,
     cast: &[&str],
 ) -> Option<()> {
-    let turn = world["turn"].as_u64()?;
     if world.get("began").is_some_and(|t| t != 0)
         || world["sharedVersion"] != 1
         || (room != "attic" && world["items"]["lamp"]["holder"] != "vale")
@@ -171,6 +170,16 @@ fn verify_quiet_day(
     {
         return None;
     }
+    verify_quiet_residents(world, geo, room, cast)
+}
+
+pub(super) fn verify_quiet_residents(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    room: &str,
+    cast: &[&str],
+) -> Option<()> {
+    let turn = world["turn"].as_u64()?;
     let people = People::new(geo.files(), geo.packs())?;
     for (&id, person) in &people.people {
         if id == "vale" || !geo.entity_active(world, id)? {
