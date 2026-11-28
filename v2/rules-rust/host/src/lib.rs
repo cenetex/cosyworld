@@ -135,7 +135,10 @@ fn encode_request(
         play,
         Some("wait:vale::" | "drop:vale:lamp:attic" | "take:vale:lamp:")
     );
-    let pond_play = matches!(play, Some("move:vale::pond" | "move:vale:lamp:pond"));
+    let pond_play = matches!(
+        play,
+        Some("move:vale::pond" | "move:vale:lamp:pond" | "move:vale:cloth:pond")
+    );
     let station_play = matches!(
         play,
         Some(

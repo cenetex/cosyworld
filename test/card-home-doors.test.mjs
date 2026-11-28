@@ -238,7 +238,6 @@ describe("an unlocked avatar's homecoming", () => {
         ...hidingPlaces(create()),
       ]),
     ].filter((place) => !reached.has(place));
-    // Thematic doors behind the lamp stay as written: a Vale opens them.
     expect(gated.sort()).toEqual(
       [
         "forest-cottage",
