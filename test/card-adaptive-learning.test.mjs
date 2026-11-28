@@ -35,8 +35,7 @@ function setup() {
   w.actors.moth.want = null;
   return w;
 }
-// A flask is always full, so the keeper's spare item is the lamp it values
-// least; the flask rests on the station floor.
+// The full flask stays on the station floor; the keeper’s least-valued spare is the lamp.
 function spareWorld() {
   const w = setup();
   w.items.lamp.holder = "keeper";
