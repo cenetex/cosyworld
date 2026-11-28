@@ -49,6 +49,27 @@ pub(super) fn drop_world(request: &Value) -> Option<&Value> {
     Some(world)
 }
 
+pub(super) fn ground_lamp(world: &mut Value, room: &str, text: &str) -> Option<()> {
+    let turn = world["turn"].as_u64()?;
+    let lamp = &mut world["items"][LAMP];
+    lamp["holder"] = json!(room);
+    let history = lamp["history"].as_array_mut()?;
+    history.push(json!(format!("Turn {turn}: {text}")));
+    history.drain(..history.len().saturating_sub(12));
+    lamp_state(lamp)
+        .ok()?
+        .settle(LampPosition {
+            place: room.into(),
+            held: false,
+            grounded: true,
+        })
+        .write(lamp);
+    for life in world["life"]["actors"].as_object_mut()?.values_mut() {
+        life["attachments"].as_object_mut()?.remove(LAMP);
+    }
+    Some(())
+}
+
 pub(super) fn begin(
     before: &Value,
     geo: &Geography,
@@ -95,23 +116,7 @@ pub(super) fn begin(
     vale.remove("guarding");
     vale.insert("heldItem".into(), Value::Null);
 
-    let lamp = &mut world["items"][LAMP];
-    lamp["holder"] = json!(ROOM);
-    let history = lamp["history"].as_array_mut()?;
-    history.push(json!(format!("Turn {turn}: {text}")));
-    history.drain(..history.len().saturating_sub(12));
-    lamp_state(lamp)
-        .ok()?
-        .settle(LampPosition {
-            place: ROOM.into(),
-            held: false,
-            grounded: true,
-        })
-        .write(lamp);
-    for life in world["life"]["actors"].as_object_mut()?.values_mut() {
-        life["attachments"].as_object_mut()?.remove(LAMP);
-    }
-
+    ground_lamp(&mut world, ROOM, &text)?;
     opening_crossings::no_crossing_unlocks(&world, geo)?;
     let detail = json!({
         "speaker":"World", "text":text,"kind":"action","verb":"drop","actorId":VALE,

@@ -20,22 +20,36 @@ const KEY: &str = "ratiradio-station-key";
 const WAYFINDER: &str = "elysium-wayfinder";
 const EXITS: [&str; 3] = [STATION, "attic", SHIP];
 
-fn drop_receipt(world: &Value) -> Option<u64> {
+pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> {
     let vale = &world["actors"][VALE];
     let log = world["log"].as_array()?;
     let moves: Vec<_> = log.iter().filter(|entry| vale_action(entry)).collect();
-    let [pond, station, read, first_return, reentry, second_return, drop] = moves.as_slice() else {
+    let [pond, station, read, first_return, reentry, second_return, tail @ ..] = moves.as_slice()
+    else {
         return None;
     };
     let returned = second_return["seq"].as_u64()?;
-    let seq = drop["seq"].as_u64()?;
+    let next = returned.checked_add(1)?;
     let gift = reentry["seq"].as_u64()?.checked_add(1)?;
+    match (dropped, tail) {
+        (false, []) => {}
+        (true, [drop])
+            if world["turn"] == 7
+                && drop["seq"] == next
+                && drop["turn"] == 7
+                && drop["verb"] == "drop"
+                && drop["itemId"] == "lamp"
+                && drop["locationId"] == POND
+                && drop["targetId"] == POND => {}
+        _ => return None,
+    }
     if world["schema"] != 8
         || world["sharedVersion"] != 1
-        || world["turn"] != 7
+        || !matches!(world["turn"].as_u64()?, 6 | 7)
         || world.get("began").is_some()
         || !quiet_opening(world)
-        || !(8..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
+        || !(world["turn"].as_u64()?.checked_add(1)?..=opening::MAX_REVISION)
+            .contains(&world["revision"].as_u64()?)
         || world["opening"]["met"] != json!({"vale":0,"moth":1,"keeper":2})
         || vale["visited"] != json!(["attic", POND, STATION])
         || vale["crossed"] != 1
@@ -55,12 +69,6 @@ fn drop_receipt(world: &Value) -> Option<u64> {
         || !move_event(reentry, 5, POND, STATION)
         || !move_event(second_return, 6, STATION, POND)
         || gift >= returned
-        || returned.checked_add(1)? != seq
-        || drop["turn"] != 7
-        || drop["verb"] != "drop"
-        || drop["itemId"] != "lamp"
-        || drop["locationId"] != POND
-        || drop["targetId"] != POND
     {
         return None;
     }
@@ -77,7 +85,11 @@ fn drop_receipt(world: &Value) -> Option<u64> {
                 && event["targetId"] == VALE
                 && event["accepted"] == true
         })
-        .then_some(seq)
+        .then_some((returned, read["seq"].as_u64()?))
+}
+
+fn drop_receipt(world: &Value) -> Option<u64> {
+    cloth_arrival(world, true)?.0.checked_add(1)
 }
 
 fn signal_events(world: &Value, seq: u64, allow_speech: bool) -> Option<&[Value]> {
