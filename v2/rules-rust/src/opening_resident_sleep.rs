@@ -2,7 +2,9 @@ use super::{
     authored_order::Order,
     create_geography::Geography,
     initial_wants::{People, Person},
-    opening_content, opening_mirror_move, opening_roster, opening_station_move,
+    opening_content,
+    opening_full_wait::visible_items,
+    opening_mirror_move, opening_roster, opening_station_move,
     opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -351,6 +353,79 @@ pub(super) fn verify_station_wake(world: &Value) -> Option<()> {
         .then_some(())
 }
 
+pub(super) fn wake_station_keeper(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+) -> Option<()> {
+    let turn = historic_round(world, 482)?;
+    let follow_seq = opening_station_move::historic_arrival(world)?.checked_add(1)?;
+    let head = world["eventSeq"].as_u64()?;
+    let keeper = &world["actors"]["keeper"];
+    let pip = &world["actors"]["moth"];
+    let log = world["log"].as_array()?;
+    let last = log.last()?;
+    if world["playerActorId"] != "vale"
+        || !vale_only(&world["heldActors"])
+        || geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
+        || keeper["place"] != "station"
+        || keeper["sleeping"] != json!({"since":turn-1,"place":"station","until":turn})
+        || !keeper["homeward"].is_null()
+        || pip["place"] != "station"
+        || !pip["sleeping"].is_null()
+        || follow_seq > head
+        || last["seq"] != head
+        || last["turn"] != turn
+    {
+        return None;
+    }
+    let follow = log.iter().find(|event| event["seq"] == follow_seq)?;
+    if follow["turn"] != turn
+        || follow["kind"] != "action"
+        || follow["generated"] == true
+        || follow["actorId"] != "moth"
+        || follow["verb"] != "move"
+        || follow["fromLocationId"] != "pond"
+        || follow["locationId"] != "station"
+        || follow["targetId"] != "station"
+        || !follow["itemId"].is_null()
+        || log.iter().any(|event| {
+            event["seq"].as_u64().is_some_and(|seq| seq > follow_seq)
+                && (event["locationId"] == "station" || event["fromLocationId"] == "station")
+        })
+    {
+        return None;
+    }
+    let cast = opening_roster::known_actors(world, geo, order, Some("station"))?;
+    if cast.len() != 3
+        || !["vale", "keeper", "moth"]
+            .iter()
+            .all(|id| cast.contains(id))
+    {
+        return None;
+    }
+    let items = visible_items(world, geo, authored, "station")?;
+    let name = geo.files()["v2/card-game/forest.json"]["people"]["keeper"]["name"].as_str()?;
+    wake_scheduled_resident(world, "keeper")?;
+    evidence.narrate_by(
+        world,
+        &cast,
+        &items,
+        Some("keeper"),
+        "station",
+        &format!("{name} wakes."),
+    )
+}
+
+fn wake_scheduled_resident(world: &mut Value, id: &str) -> Option<()> {
+    let actor = world["actors"].get_mut(id)?.as_object_mut()?;
+    actor.get("sleeping")?["until"].as_i64()?;
+    actor.remove("sleeping")?;
+    Some(())
+}
+
 pub(super) fn settle(
     world: &mut Value,
     geo: &Geography<'_>,
@@ -453,11 +528,10 @@ fn settle_at(
         let at_home = home == Some(here);
         let clear_homeward = at_home && actor["homeward"] == true;
         if wake {
-            sleeping["until"].as_i64()?;
             if here == observed {
                 return None;
             }
-            world["actors"][id].as_object_mut()?.remove("sleeping");
+            wake_scheduled_resident(world, id)?;
         } else if let Some((start, end)) = bedtime {
             if let Some(home) = home.filter(|_| !at_home) {
                 if seeks_home_when_tired(world, geo, id, person, human)? {
