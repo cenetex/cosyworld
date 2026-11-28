@@ -28,7 +28,6 @@ fn checkpoint(c: &Connection, id: &str, w: &World, seq: i64) -> Result<()> {
     c.execute("INSERT INTO card_full_checkpoints(world,seq,state) VALUES(?,?,?) ON CONFLICT(world) DO UPDATE SET seq=excluded.seq,state=excluded.state",params![id,seq,serde_json::to_string(w).map_err(sql_error)?]).map_err(sql_error)?;
     Ok(())
 }
-// The world's run seed, which names it; a world saved before seeds uses its id's.
 pub(super) fn name_seed(c: &Connection, id: &str) -> Result<u32> {
     let seed: Option<i64> = c
         .query_row(

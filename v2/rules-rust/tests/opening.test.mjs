@@ -99,3 +99,44 @@ test("grounded station doors keep their first-open order", async () => {
   assert.ok(isDeepStrictEqual(actual, pinned(request)));
   assert.deepEqual(actual.world.stationExitOrder, ["pavilion", "train"]);
 });
+
+test("resident empty-hand holds preserve the opening lantern state", async () => {
+  const { pinned, wasm } = await reducers();
+  const actors = ["mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
+  for (const seed of [0, 17, 4242]) {
+    for (const history of [false, true]) {
+      const world = opening(pinned, { seed, history });
+      const unlit = pinned({
+        ...seats,
+        op: "hold",
+        world,
+        choice: { item: null, revision: world.revision },
+      }).world;
+      const grounded = pinned({ ...seats, op: "reset", world }).world;
+      for (const state of [world, unlit, grounded]) {
+        for (const actor of actors) {
+          const request = {
+            actor,
+            claimed: ["vale", actor],
+            present: ["vale", actor],
+            op: "hold",
+            world: state,
+            choice: { item: null, revision: state.revision },
+          };
+          const actual = wasm(request);
+          assert.ok(
+            isDeepStrictEqual(actual, pinned(request)),
+            `${actor} seed ${seed} history ${history} revision ${state.revision}`,
+          );
+          assert.equal(actual.world.revision, state.revision + 1);
+          assert.deepEqual(actual.world.items.lamp, state.items.lamp);
+          assert.equal(wasm({ ...request, present: ["vale"] }), null);
+          assert.equal(
+            wasm({ ...request, choice: { ...request.choice, item: "lamp" } }),
+            null,
+          );
+        }
+      }
+    }
+  }
+});

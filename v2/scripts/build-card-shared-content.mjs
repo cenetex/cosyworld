@@ -1,6 +1,4 @@
-// Assemble the pack content the shared rules read into one revision for the
-// Rust host. Every JSON module the rules bundle imports belongs to it. Rust
-// hashes these exact bytes; see docs/design/pack-content-outside-the-engine.md.
+// Build the hashed JSON revision described in docs/design/pack-content-outside-the-engine.md.
 import { build } from "esbuild";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";

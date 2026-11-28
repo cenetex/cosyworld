@@ -8,15 +8,26 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+mod create;
+mod create_geography;
 mod join;
 mod opening;
+pub mod opening_evidence;
+pub mod opening_history;
 mod opening_play;
 mod opening_reflection;
+pub mod opening_rumours;
 mod opening_speech;
 mod opening_view;
+mod pack_state;
 mod profiles;
 mod reset;
+mod seed;
+mod seed_packs;
 mod validate;
+
+pub use create_geography::Geography;
+pub use opening_view::create_response;
 
 pub const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_WIRE_BYTES: usize = 3 * MAX_JSON_BYTES + 64;
@@ -95,13 +106,17 @@ pub fn reduce(request: &Value) -> Value {
         },
         Some("presence") => opening::presence(request).unwrap_or(Value::Null),
         Some("hold") => opening::hold(request).unwrap_or(Value::Null),
+        Some("seed_doors") => seed::door_projection(request).unwrap_or(Value::Null),
+        Some("seed_specials") => seed::specials_projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
         Some("join_state") => opening::join_state(request).unwrap_or(Value::Null),
+        Some("mount_packs") => pack_state::reduce(request).unwrap_or(Value::Null),
         Some("speech") => opening_speech::reduce(request).unwrap_or(Value::Null),
         Some("validate") => validate::reduce(request).unwrap_or(Value::Null),
+        Some("create") => validate::import_refusal(request).unwrap_or(Value::Null),
         _ => Value::Null,
     }
 }

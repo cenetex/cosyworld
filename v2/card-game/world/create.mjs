@@ -1,6 +1,5 @@
 import { settleLamp } from "../lamp-state.mjs";
 import { SAVE_SCHEMA } from "../legacy-saves.mjs";
-// World creation and run seeding, split out of world.mjs (#1390).
 import { installJourneyProgress } from "../pack-journeys.mjs";
 import { enableMotives } from "../motives.mjs";
 import { newMemories, rememberEvent } from "../memory.mjs";

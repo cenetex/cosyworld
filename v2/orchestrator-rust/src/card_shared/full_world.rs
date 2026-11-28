@@ -14,7 +14,6 @@ pub(super) struct World {
     pub game: Value,
     pub claimed: [i32; 8],
     pub present: [i32; 8],
-    // The pack content revision is omitted from older saved bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pack: Option<String>,
 }
@@ -39,7 +38,6 @@ impl World {
     pub fn seeded(save: Option<&str>, seed: Option<u32>) -> Result<Self> {
         Self::hiding(save, seed, &Value::Null)
     }
-    // A new world's hidden and absent avatars, and its creator's homecoming.
     pub fn hiding(save: Option<&str>, seed: Option<u32>, hide: &Value) -> Result<Self> {
         let mut request = json!({"op":"create","save":save});
         if let Some(seed) = seed {
@@ -89,7 +87,6 @@ impl World {
             .guard(&next.session()?, action, a)
             .map_err(str::to_owned)
     }
-    // Journal commands use versioned rules and the same seat guard.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
         self.apply_with(command, &mut engine::reduce_journal)
     }
@@ -124,7 +121,6 @@ impl World {
             let mut request = self.request("upgrade", 0);
             request["from"] = json!(self.version);
             request["to"] = json!(target);
-            // Earlier rules ignore the seed; older records carry none.
             if command["seed"].is_u64() {
                 request["seed"] = command["seed"].clone();
             }
@@ -133,7 +129,6 @@ impl World {
                     .as_str()
                     .ok_or("Choose the upgrade's pack content.")?,
             );
-            // Recorded upgrades retain their released target transformation.
             let result = reduce(target, pack, request)?;
             self.game = result["world"].clone();
             self.version = target.into();
@@ -232,7 +227,6 @@ impl World {
             }
             _ => return Err("Choose an available play.".into()),
         };
-        // Station admission is journaled with presence, not with a later GET.
         if matches!(op, "enter" | "leave" | "release" | "reset") {
             let settled = reduce(
                 &next.version,
@@ -245,7 +239,6 @@ impl World {
         *self = next;
         Ok(result)
     }
-    // Move the world onto another pack content revision under the same rules.
     fn repack(
         &mut self,
         command: &Value,
@@ -268,8 +261,6 @@ impl World {
     pub fn project(&self, a: usize) -> Result<Value> {
         let mut view =
             engine::reduce_pack(&self.version, self.pack.as_deref(), self.request("view", a))?;
-        // Keep only the viewer's memory in browser snapshots for every rules
-        // version. The journal and stored world retain the full records.
         if let Some(memories) = view["world"]["memories"].as_object_mut() {
             for (id, memory) in memories {
                 if id != actor_id(a) {

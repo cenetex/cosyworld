@@ -182,21 +182,20 @@ pub(super) fn supported_world(request: &Value) -> Option<&Value> {
 }
 
 pub(super) fn hold(request: &Value) -> Option<Value> {
+    let actor = request["actor"].as_str()?;
     let present = request["present"].as_array()?;
-    if request["actor"] != "vale" || !present.iter().any(|id| id == "vale") {
+    if !present.iter().any(|id| id == actor) {
         return None;
     }
     let opening = Opening::supported(request)?;
     let choice = request["choice"].as_object()?;
-    if opening.grounded
-        || choice.len() != 2
+    if choice.len() != 2
         || choice.get("revision")?.as_u64()? != opening.revision
         || opening.revision == MAX_REVISION
     {
         return None;
     }
     let item = choice.get("item")?;
-    let held = holds_lamp(item)?;
     let world = opening.world;
     if world["actors"]["vale"]["visited"] != json!(["attic"])
         || world["items"]["oil"]["holder"] != "keeper"
@@ -214,11 +213,18 @@ pub(super) fn hold(request: &Value) -> Option<Value> {
     {
         return None;
     }
+    let held = if actor == "vale" && !opening.grounded {
+        holds_lamp(item)?
+    } else if item.is_null() && world["actors"][actor].get("heldItem") == Some(item) {
+        opening.held
+    } else {
+        return None;
+    };
     let mut next = world.clone();
     if opening.held && !held && opening.lamp.fuel_rooms > 0 && world.get("opened").is_none() {
         next["opened"] = json!({"pond": ["vale"]});
     }
-    next["actors"]["vale"]["heldItem"] = item.clone();
+    next["actors"][actor]["heldItem"] = item.clone();
     next["revision"] = json!(opening.revision + 1);
     opening.respond(next, held)
 }
