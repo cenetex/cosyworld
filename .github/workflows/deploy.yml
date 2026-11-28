@@ -50,8 +50,9 @@ jobs:
       actions: read
     outputs:
       image: ${{ steps.path.outputs.image }}
+      server: ${{ steps.path.outputs.server }}
       deploy: ${{ steps.impact.outputs.deploy }}
-      checks-base: ${{ steps.checked.outputs.base || steps.impact.outputs.base }}
+      base: ${{ steps.impact.outputs.base }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -84,6 +85,7 @@ jobs:
         run: |
           serving="$(node scripts/fly-machines-serve-commit.mjs cosyworld --serving || true)"
           grep '^image_commit=' <<< "$serving" >> "$GITHUB_OUTPUT" || true
+          sed -n 's/^commit=/serving_commit=/p' <<< "$serving" >> "$GITHUB_OUTPUT"
           base="$(sed -n 's/^commit=//p' <<< "$serving")"
           bash scripts/plan-dev-deploy.sh "${base:-$(node scripts/last-dev-rollout.mjs)}" >> "$GITHUB_OUTPUT"
 
@@ -93,19 +95,22 @@ jobs:
         if: steps.impact.outputs.deploy == 'true'
         env:
           IMAGE_COMMIT: ${{ steps.impact.outputs.image_commit }}
+          SERVING_COMMIT: ${{ steps.impact.outputs.serving_commit }}
           RELEASES: ${{ vars.COSYWORLD_DEV_RELEASES }}
+          RUNNER: ${{ vars.DEV_DEPLOY_RUNNER }}
         run: |
           if [ "$RELEASES" != off ] && [ -n "$IMAGE_COMMIT" ] &&
             git fetch --quiet --no-tags --depth=1 --filter=blob:none origin "$IMAGE_COMMIT"; then
-            node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA" | tee -a "$GITHUB_OUTPUT"
+            [ -z "$SERVING_COMMIT" ] || git fetch --quiet --no-tags --depth=1 --filter=blob:none origin "$SERVING_COMMIT" || SERVING_COMMIT=""
+            node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA" $SERVING_COMMIT > "$RUNNER_TEMP/path"
+            if [ "$RUNNER" = fly ] && grep -qx server=build "$RUNNER_TEMP/path"; then
+              printf 'image=true\nreason=the Fly runner has no Docker to compile the server\n'
+            else
+              cat "$RUNNER_TEMP/path"
+            fi | tee -a "$GITHUB_OUTPUT"
           else
             echo "image=true" | tee -a "$GITHUB_OUTPUT"
           fi
-
-      - name: Find the commit main's checks last passed
-        id: checked
-        if: steps.impact.outputs.deploy == 'true'
-        run: echo "base=$(node scripts/last-dev-rollout.mjs --checked)" >> "$GITHUB_OUTPUT"
 
       - name: Record the train
         if: steps.impact.outputs.deploy == 'true'
@@ -117,9 +122,34 @@ jobs:
   # Lint, tests and smokes for main, beside the build. They never hold .dev;
   # a failure turns main red, and the tag's gates keep it out of production.
   # Latest wins: checks start where they last passed, so they cover cancelled ones.
+  dev-checks-base:
+    name: Find where main's checks last passed
+    needs: dev-plan
+    if: needs.dev-plan.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      base: ${{ steps.checked.outputs.base || needs.dev-plan.outputs.base }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout deploy scripts
+        uses: actions/checkout@v7
+        with:
+          filter: blob:none
+          sparse-checkout: scripts
+
+      - name: Find the commit main's checks last passed
+        id: checked
+        run: echo "base=$(node scripts/last-dev-rollout.mjs --checked)" >> "$GITHUB_OUTPUT"
+
   dev-checks:
     name: Check main
-    needs: dev-plan
+    needs: [dev-plan, dev-checks-base]
     if: needs.dev-plan.outputs.deploy == 'true'
     concurrency:
       group: deploy-${{ github.repository }}-dev-checks
@@ -129,7 +159,7 @@ jobs:
       actions: read
     uses: ./.github/workflows/fast-check.yml
     with:
-      base: ${{ needs.dev-plan.outputs.checks-base }}
+      base: ${{ needs.dev-checks-base.outputs.base }}
 
   # Latest wins: a newer main push cancels this build. Only a run that will
   # deploy joins the group, so a no-op run never cancels a real build.
@@ -276,12 +306,42 @@ jobs:
             *) echo "::notice::.dev serves ${commit:0:7}, which contains ${GITHUB_SHA:0:7} ($status); not rolling it back." ;;
           esac
 
+      - name: Checkout the server's source
+        if: steps.serving.outputs.rollout == 'true' && needs.dev-plan.outputs.server == 'build'
+        uses: actions/checkout@v7
+        with:
+          path: server-source
+          sparse-checkout: |
+            Dockerfile
+            scripts
+            v2/ai-model-rust
+            v2/rules-rust
+            v2/orchestrator-rust
+          sparse-checkout-cone-mode: false
+
+      - name: Restore release build cache
+        id: release-cache
+        if: steps.serving.outputs.rollout == 'true' && needs.dev-plan.outputs.server == 'build'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/release-target
+          key: release-target-v1-${{ hashFiles('server-source/Dockerfile') }}-${{ github.run_id }}
+          restore-keys: |
+            release-target-v1-${{ hashFiles('server-source/Dockerfile') }}-
+            release-target-v1-
+
+      - name: Compile the server
+        id: server
+        if: steps.serving.outputs.rollout == 'true' && needs.dev-plan.outputs.server == 'build'
+        run: bash server-source/scripts/compile-release-server.sh "$RUNNER_TEMP/release-target" "$RUNNER_TEMP/server"
+
       - name: Stage the release on .dev
         id: stage
         if: steps.serving.outputs.rollout == 'true' && env.FAST == 'true'
         env:
           IMAGE_COMMIT: ${{ steps.serving.outputs.image_commit }}
           MACHINE: ${{ steps.serving.outputs.machine }}
+          SERVER: ${{ steps.server.outcome == 'success' && format('{0}/server/cosyworld-orchestrator', runner.temp) || needs.dev-plan.outputs.server == 'carry' && 'carry' || '' }}
         run: bash scripts/stage-dev-release.sh >> "$GITHUB_OUTPUT"
 
       # Another Fly release can restore the old image after flyctl reports
@@ -349,6 +409,13 @@ jobs:
           else
             node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
           fi
+
+      - name: Save release build cache
+        if: "!cancelled() && steps.server.outcome == 'success'"
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/release-target
+          key: ${{ steps.release-cache.outputs.cache-primary-key }}
 
       - name: Roll .dev back to ${{ steps.serving.outputs.commit }}
         if: failure() && steps.rollout.outcome != 'skipped' && steps.serving.outputs.image != ''

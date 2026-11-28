@@ -15,38 +15,8 @@ trap 'docker buildx rm "$builder" >/dev/null 2>&1 || true; [ -z "$prebuilt" ] ||
 
 binary_args=()
 if [ -n "$target_cache" ]; then
-  # Reuse the target cache with the Dockerfile's toolchain and source tree.
-  # compile-release-binary.sh explains why the crate version is held fixed.
-  [[ "$target_cache" = /* ]]
-  toolchain="$(awk '$1 == "FROM" && $3 == "AS" && $4 == "chef" { print $2; exit }' "$root/Dockerfile")"
-  [[ "$toolchain" =~ ^lukemathwalker/cargo-chef:[A-Za-z0-9._-]+$ ]]
-  mkdir -p "$target_cache/target" "$target_cache/registry"
   prebuilt="$(mktemp -d)"
-  mkdir -p "$prebuilt/app/bin"
-  mounts=()
-  for path in v2/content v2/content-engine-version.txt v2/card-game \
-    v2/media v2/ai-model-rust v2/rules-rust v2/scripts/build-card-assets.mjs; do
-    mounts+=(--mount "type=bind,src=$root/$path,dst=/app/$path,readonly")
-  done
-  compile() {
-    docker run --rm --platform linux/amd64 "${mounts[@]}" \
-      --mount "type=bind,src=$root/v2/orchestrator-rust,dst=/src,readonly" \
-      --mount "type=bind,src=$root/scripts/compile-release-binary.sh,dst=/usr/local/bin/compile-release-binary,readonly" \
-      --mount "type=bind,src=$root/scripts/release-rustc-wrapper.sh,dst=/usr/local/bin/release-rustc-wrapper,readonly" \
-      --mount "type=bind,src=$target_cache,dst=/cache" \
-      --mount "type=bind,src=$prebuilt/app/bin,dst=/out" \
-      --env "CARGO_BUILD_JOBS=$jobs" --env "OWNER=$(id -u):$(id -g)" \
-      "$toolchain" sh /usr/local/bin/compile-release-binary
-  }
-  if ! compile; then
-    # A damaged or incompatible saved target must not block a deploy.
-    echo "Warm release build failed; retrying from an empty target." >&2
-    rm -rf "$target_cache/target"
-    mkdir -p "$target_cache/target"
-    compile
-  fi
-  test -s "$prebuilt/app/bin/cosyworld-orchestrator"
-  chmod 0755 "$prebuilt/app/bin/cosyworld-orchestrator"
+  bash "$root/scripts/compile-release-server.sh" "$target_cache" "$prebuilt/app/bin"
   binary_args=(--build-arg ORCHESTRATOR_BINARY=orchestrator-prebuilt
     --build-context "orchestrator-prebuilt=$prebuilt")
 fi

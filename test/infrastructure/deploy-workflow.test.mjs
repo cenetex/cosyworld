@@ -204,14 +204,14 @@ describe("deploy workflow", () => {
 
   it("checks main beside the .dev build, without holding the rollout", () => {
     const checks = job("dev-checks", "dev-image");
-    expect(checks).toContain("needs: dev-plan\n    if: needs.dev-plan.outputs.deploy == 'true'");
+    expect(checks).toContain("needs: [dev-plan, dev-checks-base]\n    if: needs.dev-plan.outputs.deploy == 'true'");
     expect(checks).toContain("cancel-in-progress: true");
     expect(checks).toContain("uses: ./.github/workflows/fast-check.yml");
-    expect(checks).toContain("base: ${{ needs.dev-plan.outputs.checks-base }}");
-    expect(job("dev-plan", "dev-checks")).toContain(
-      "checks-base: ${{ steps.checked.outputs.base || steps.impact.outputs.base }}",
-    );
-    expect(job("dev-plan", "dev-checks")).toContain("node scripts/last-dev-rollout.mjs --checked");
+    expect(checks).toContain("base: ${{ needs.dev-checks-base.outputs.base }}");
+    const base = job("dev-checks-base", "dev-checks");
+    expect(base).toContain("base: ${{ steps.checked.outputs.base || needs.dev-plan.outputs.base }}");
+    expect(base).toContain("node scripts/last-dev-rollout.mjs --checked");
+    expect(job("dev-plan", "dev-checks-base")).not.toContain("--checked");
     expect(job("dev-deploy", "deployment-impact")).toContain("needs: [dev-plan, dev-image]");
     const called = readFileSync(
       new URL("../../.github/workflows/fast-check.yml", import.meta.url),
@@ -237,7 +237,7 @@ describe("deploy workflow", () => {
       expect(install).toBeLessThan(devJob.indexOf("scripts/"));
       expect(devJob).toContain("if: runner.environment != 'github-hosted'");
     }
-    expect(workflow.match(/vars\.DEV_DEPLOY_RUNNER/g)).toHaveLength(2);
+    expect(workflow.match(/vars\.DEV_DEPLOY_RUNNER/g)).toHaveLength(3);
   });
 
   it("deploys .dev on a main push, outside the release path", () => {
@@ -299,12 +299,13 @@ describe("deploy workflow", () => {
     const order = [
       "node scripts/fly-machines-serve-commit.mjs cosyworld --serving || true",
       'bash scripts/plan-dev-deploy.sh "${base:-$(node scripts/last-dev-rollout.mjs)}"',
-      'node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA"',
+      'node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA" $SERVING_COMMIT',
       'bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"',
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
       "actions/cache/save@v6",
       "bash scripts/serialize-primary-rollout.sh dev",
       'release="$(node scripts/fly-machines-serve-commit.mjs cosyworld --serving)"',
+      'bash server-source/scripts/compile-release-server.sh "$RUNNER_TEMP/release-target" "$RUNNER_TEMP/server"',
       'bash scripts/stage-dev-release.sh >> "$GITHUB_OUTPUT"',
       'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy "$STRATEGY" --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA" --env "COSYWORLD_IMAGE_COMMIT=$IMAGE_COMMIT"',
       "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
@@ -321,6 +322,10 @@ describe("deploy workflow", () => {
     }
     expect(dev).toContain("needs.dev-plan.outputs.deploy == 'true' && needs.dev-plan.outputs.image == 'true'");
     expect(dev).toContain("(needs.dev-image.result == 'success' || needs.dev-plan.outputs.image != 'true')");
+    expect(dev).toContain("if: steps.serving.outputs.rollout == 'true' && needs.dev-plan.outputs.server == 'build'");
+    expect(dev).toContain("key: release-target-v1-${{ hashFiles('server-source/Dockerfile') }}-${{ github.run_id }}");
+    expect(dev).toContain("needs.dev-plan.outputs.server == 'carry' && 'carry'");
+    expect(dev).toContain('[ "$RUNNER" = fly ] && grep -qx server=build "$RUNNER_TEMP/path"');
     expect(dev).toContain("FAST: ${{ needs.dev-plan.outputs.image != 'true' }}");
     expect(dev).toContain("if: steps.serving.outputs.rollout == 'true' && env.FAST == 'true'");
     expect(dev).toContain("RELEASE_IMAGE: ${{ needs.dev-image.outputs.image || steps.serving.outputs.image }}");

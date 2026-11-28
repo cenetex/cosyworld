@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -30,6 +31,7 @@ const IMAGE = [
   "v2/rules-rust/",
   "v2/orchestrator-rust/",
   "scripts/build-release-image.sh",
+  "scripts/compile-release-server.sh",
   "scripts/compile-release-binary.sh",
   "scripts/release-rustc-wrapper.sh",
 ];
@@ -42,6 +44,9 @@ export function imageInput(file) {
     return false;
   return IMAGE.some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path));
 }
+
+const SERVER = ["v2/ai-model-rust/", "v2/rules-rust/", "v2/orchestrator-rust/"];
+export const serverInput = (file) => imageInput(file) && SERVER.some((dir) => file.startsWith(dir));
 
 const isMedia = (type) =>
   !type.startsWith("image/svg+xml") && /^(image|audio|video)\//.test(type);
@@ -61,7 +66,7 @@ export function neededMedia(assets, serving, changed) {
   return [...new Set(needed.map(({ file, source }) => `v2/card-game/${source || file}`))];
 }
 
-export function pack({ manifest, image, imageDir, serving, servingText, out }) {
+export function pack({ manifest, image, imageDir, serving, servingText, out, server = null, servingServer = "" }) {
   const dirs = Object.fromEntries(Object.keys(manifest.dirs).map((dir) => [dir, dir]));
   const text = `${JSON.stringify({ ...manifest, dirs }, null, 1)}\n`;
   const inImage = new Map();
@@ -95,17 +100,34 @@ export function pack({ manifest, image, imageDir, serving, servingText, out }) {
     }
     writeFileSync(join(work, "tree/manifest.json"), text);
     writeFileSync(join(work, "links"), links.join(""));
-    execFileSync("tar", ["-czf", resolve(out), "-C", work, "tree", "objects", "links"]);
+    if (server) {
+      writeFileSync(join(work, "server"), server.sha);
+      if (server.path && server.sha !== servingServer) {
+        copyFileSync(server.path, join(work, "objects", server.sha));
+        objects += 1;
+      }
+    }
+    const parts = ["tree", "objects", "links", ...(server ? ["server"] : [])];
+    execFileSync("tar", ["-czf", resolve(out), "-C", work, ...parts]);
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
-  return { bytes: statSync(out).size, objects, unchanged: text === servingText };
+  const sameServer = (server?.sha ?? "") === servingServer;
+  return { bytes: statSync(out).size, objects, unchanged: text === servingText && sameServer };
 }
 
 function served(dir) {
   const [imageDir, commit] = readFileSync(join(dir, "serving"), "utf8").split("\n");
   const read = (name) => readFileSync(join(dir, name), "utf8");
-  return { imageDir, commit, image: JSON.parse(read("image.json")), servingText: read("serving.json") };
+  const servingServer = existsSync(join(dir, "server")) ? read("server").trim() : "";
+  return { imageDir, commit, image: JSON.parse(read("image.json")), servingText: read("serving.json"), servingServer };
+}
+
+function serverFor(arg, servingServer) {
+  if (!arg) return null;
+  if (arg !== "carry") return { path: arg, sha: createHash("sha256").update(readFileSync(arg)).digest("hex") };
+  if (!servingServer) throw new Error(".dev serves no server of its own to carry");
+  return { sha: servingServer };
 }
 
 async function materialize(dir, commit) {
@@ -142,22 +164,33 @@ async function materialize(dir, commit) {
 const [command, ...args] = process.argv.slice(2);
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (command === "image-input") {
-    let files = null;
-    try {
-      files = git("diff", "--name-only", "--no-renames", args[0], args[1]).split("\n").filter(Boolean);
-    } catch {}
-    const file = files?.find(imageInput);
+    const diff = (from) => {
+      try {
+        return git("diff", "--name-only", "--no-renames", from, args[1]).split("\n").filter(Boolean);
+      } catch {
+        return null;
+      }
+    };
+    const files = diff(args[0]);
+    const file = files?.find((name) => imageInput(name) && !serverInput(name));
+    const rust = files?.find(serverInput);
     const reason = !files
       ? "no image commit to compare with"
       : file
         ? `${file} is built into the image`
-        : `no image input changed since ${args[0].slice(0, 7)}`;
-    console.log(`image=${!files || Boolean(file)}\nreason=${reason}`);
+        : rust
+          ? `${rust} is built into the server`
+          : `no image input changed since ${args[0].slice(0, 7)}`;
+    const served = args[2] && args[2] !== args[0] ? diff(args[2]) : null;
+    const server = !rust ? "none" : served && !served.some(serverInput) ? "carry" : "build";
+    console.log(`image=${!files || Boolean(file)}\nserver=${files && !file ? server : "none"}\nreason=${reason}`);
   } else if (command === "materialize") {
     await materialize(args[0], args[1]);
   } else if (command === "pack") {
-    const { imageDir, commit, image, servingText } = served(args[0]);
+    const { imageDir, commit, image, servingText, servingServer } = served(args[0]);
     const result = pack({
+      server: serverFor(args[3], servingServer),
+      servingServer,
       manifest: JSON.parse(readFileSync(args[1], "utf8")),
       image,
       imageDir,
@@ -169,7 +202,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     for (const [key, value] of Object.entries(result)) console.log(`${key}=${value}`);
   } else {
     console.error(
-      "Usage: dev-release.mjs image-input <image commit> <commit> | materialize <serving dir> [<commit>] | pack <serving dir> <manifest> <archive> (docs/design/fast-deploys.md)",
+      "Usage: dev-release.mjs image-input <image commit> <commit> [<serving commit>] | materialize <serving dir> [<commit>] | pack <serving dir> <manifest> <archive> [<server>|carry] (docs/design/fast-deploys.md)",
     );
     process.exit(2);
   }

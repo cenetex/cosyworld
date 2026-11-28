@@ -41,6 +41,7 @@ for (const [key, e] of Object.entries(m.files)) {
 console.log(m.sha256);
 `;
 
+const serverOf = { carried: "" };
 let root;
 afterEach(() => root && rmSync(root, { recursive: true, force: true }));
 
@@ -76,7 +77,7 @@ function manifest(files, lie = {}) {
   return `${JSON.stringify({ sha256: sha256(JSON.stringify(entries)), dirs: { "card-game": "card-game" }, files: Object.fromEntries(entries) }, null, 1)}\n`;
 }
 
-function archive({ image, files }, changed, { lie, name } = {}) {
+function archive({ image, files }, changed, { lie, name, server } = {}) {
   const work = mkdtempSync(join(root, "archive-"));
   const all = { ...files, ...changed };
   mkdirSync(join(work, "objects"));
@@ -90,8 +91,13 @@ function archive({ image, files }, changed, { lie, name } = {}) {
     } else symlinkSync(join(image, key), join(work, "tree", key));
   }
   writeFileSync(join(work, "links"), links.map((line) => `${line}\n`).join(""));
-  return spawnSync("tar", ["-czf", "-", "-C", work, "tree", "objects", "links"])
-    .stdout;
+  const parts = ["tree", "objects", "links"];
+  if (server !== undefined) {
+    if (server) writeFileSync(join(work, "objects", sha256(server)), server);
+    writeFileSync(join(work, "server"), sha256(server || serverOf.carried));
+    parts.push("server");
+  }
+  return spawnSync("tar", ["-czf", "-", "-C", work, ...parts]).stdout;
 }
 
 const stage = (store, sha, body) =>
@@ -220,6 +226,35 @@ describe(".dev's release store", () => {
     expect(readFileSync(join(out, "serving"), "utf8")).toBe(`${store.image}\n${commit(2)}\n`);
     expect(readFileSync(join(out, "image.json"), "utf8")).toBe(manifest(store.files));
     expect(JSON.parse(readFileSync(join(out, "serving.json"))).files).toHaveProperty("card-game/b.webp");
+  });
+
+  it("checks a Rust change with the server it brings, keeps it across releases and boots it", () => {
+    const store = volume();
+    const server = checker.replace("\n", '\nif (process.argv[2] === "--flag") { console.log("new server"); process.exit(0); }\n');
+    const broken = "#!/bin/sh\necho broken >&2\nexit 1\n";
+    const refused = stage(store, commit(2), archive(store, {}, { server: broken }));
+    expect(refused.stderr).toContain(`${commit(2)} failed the assets check`);
+    const missing = stage(store, commit(2), archive(store, {}, { server: null }));
+    expect(missing.stderr).toContain("is missing");
+    expect(stage(store, commit(2), archive(store, {}, { server })).stdout).toBe(`staged ${commit(2)}\n`);
+    const release = join(store.store, commit(2));
+    expect(lstatSync(join(release, "server")).mode & 0o777).toBe(0o555);
+    expect(serve(store, commit(2)).stdout.trim()).toBe(release);
+    const out = mkdtempSync(join(root, "serving-"));
+    spawnSync("tar", ["-xzf", "-", "-C", out], { input: store.run(["serving"], { encoding: "buffer" }).stdout });
+    expect(readFileSync(join(out, "server"), "utf8")).toBe(`${sha256(server)}\n`);
+    serverOf.carried = server;
+    expect(stage(store, commit(3), archive(store, { "card-game/b.webp": "b" }, { server: null })).status).toBe(0);
+    expect(statSync(join(store.store, commit(3), "server")).ino).toBe(statSync(join(release, "server")).ino);
+    const bin = mkdtempSync(join(root, "bin-"));
+    writeFileSync(join(bin, "id"), "#!/bin/sh\necho 1000\n");
+    chmodSync(join(bin, "id"), 0o755);
+    const boot = spawnSync("sh", [entrypoint, join(root, "server"), "--flag"], {
+      encoding: "utf8",
+      env: { ...store.env, PATH: `${bin}${delimiter}${process.env.PATH}`, COSYWORLD_SOURCE_COMMIT: commit(3), COSYWORLD_IMAGE_COMMIT: imageCommit },
+    });
+    expect(boot.stdout).toBe("new server\n");
+    serverOf.carried = "";
   });
 
   it("the entrypoint exports the chosen assets and leaves an image without a store alone", () => {

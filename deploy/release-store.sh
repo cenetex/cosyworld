@@ -44,7 +44,8 @@ serving() {
   printf '%s\n%s\n' "$image" "$commit" > "$out/serving"
   cp "$image/manifest.json" "$out/image.json"
   cp "$dir/manifest.json" "$out/serving.json"
-  tar -czf - -C "$out" serving image.json serving.json
+  if [ -f "$dir/server" ]; then sha256sum < "$dir/server" | cut -c1-64; fi > "$out/server"
+  tar -czf - -C "$out" serving image.json serving.json server
 }
 
 stage() {
@@ -74,7 +75,15 @@ stage() {
   while read -r sha key; do
     ln -f "$store/objects/$sha" "$work/tree/$key"
   done < "$work/links"
-  COSYWORLD_ASSETS_DIR="$work/tree" "$binary" --check-assets > /dev/null ||
+  check="$binary"
+  if [ -f "$work/server" ]; then
+    sha="$(cat "$work/server")"
+    [ -f "$store/objects/$sha" ] || fail "server object $sha is missing"
+    chmod 0555 "$store/objects/$sha"
+    ln -f "$store/objects/$sha" "$work/tree/server"
+    check="$work/tree/server"
+  fi
+  COSYWORLD_ASSETS_DIR="$work/tree" "$check" --check-assets > /dev/null ||
     fail "$commit failed the assets check; .dev keeps serving ${current:-the image}"
   echo "$built" > "$work/tree/image"
   stamp > "$work/tree/ready"
