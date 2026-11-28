@@ -210,6 +210,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_hub_idle") => {
             opening_hub_residents::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_second_hub_idle") => {
+            opening_hub_residents::second_projection(request).unwrap_or(Value::Null)
+        }
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
