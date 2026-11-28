@@ -18,7 +18,6 @@ export const willowsMist = (world) => {
 };
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const willows = (file) => `assets/willows/${file}.webp`;
-// The ship shows at the Willows landing only in dark mist.
 const darkMistBackdrops = {
   "willows-landing": willows("landing-ship-night"),
 };
@@ -43,7 +42,7 @@ const nightBackdrops = {
   "greek-ship": art("ship-deck-night"),
   "greek-scylla": art("scylla-deck-night"),
   "greek-road-athens-harbor": art("attic-road-night"),
-  "greek-road-athens-piraeus": art("attic-road-night"),
+  "greek-road-athens-piraeus": art("repertoire-greek-road-athens-piraeus-night"),
   "greek-road-athens-colonus": art("attic-road-night"),
   "greek-road-athens-eleusis": art("sacred-way-dipylon-night"),
   "greek-road-athens-marathon": art("repertoire-greek-road-athens-marathon-night"),
@@ -57,9 +56,9 @@ const nightBackdrops = {
   "greek-thrace": art("thracian-shore-night"),
   "greek-troy-beach": art("homecoming-beach-night"),
   "greek-greek-camp": art("ajax-camp-night"),
-  "greek-ajax-landing": art("ajax-camp-night"),
-  "greek-ajax-household": art("ajax-camp-night"),
-  "greek-ajax-grave": art("ajax-camp-night"),
+  "greek-ajax-landing": art("repertoire-greek-ajax-landing-night"),
+  "greek-ajax-household": art("repertoire-greek-ajax-household-night"),
+  "greek-ajax-grave": art("repertoire-greek-ajax-grave-night"),
 };
 // A docked ship or a place's state backdrop keeps its own night painting.
 const dockedNightBackdrops = {
