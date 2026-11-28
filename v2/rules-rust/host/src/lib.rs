@@ -141,10 +141,12 @@ fn encode_request(
             "move:vale::pond"
                 | "move:vale:lamp:pond"
                 | "move:vale:cloth:pond"
-                | "move:vale::greek-ship"
-                | "move:vale:cloth:greek-ship"
                 | "drop:vale:lamp:pond"
         )
+    );
+    let ship_play = matches!(
+        play,
+        Some("move:vale::greek-ship" | "move:vale:cloth:greek-ship" | "course:vale::greek-harbor")
     );
     let station_play = matches!(
         play,
@@ -191,6 +193,7 @@ fn encode_request(
         )
     ) || attic_play
         || pond_play
+        || ship_play
         || station_play
         || ordered_room;
     let ordered_cards = matches!(

@@ -88,11 +88,21 @@ test("the first Course matches the pinned action and departure", async () => {
         "accept:vale::keeper",
         "move:vale::pond",
         "move:vale::station",
-        "move:vale::pond",
       ])
         world = play(world, action);
+      const lastRoom = seed === 17 && canonical;
+      if (lastRoom)
+        for (const item of ["lamp", "cloth"])
+          world = run({
+            ...seats,
+            op: "hold",
+            world,
+            choice: { item, revision: world.revision },
+          }).world;
+      world = play(world, "move:vale::pond");
       if (canonical) world.actors = sorted(world.actors);
       world = play(world, "drop:vale:lamp:pond");
+      assert.equal(world.items.lamp.fuel, lastRoom ? 4 : 8);
       for (const item of ["", "cloth"]) {
         let boarded = play(
           world,
@@ -140,6 +150,7 @@ test("the first Course matches the pinned action and departure", async () => {
         const course = captured("course");
         const sailed = captured("departed");
         const label = JSON.stringify({ seed, canonical, item });
+        assert.ok(isDeepStrictEqual(wasm(request), reply), `play ${label}`);
         sample = { ...request, op: primary };
         assert.ok(
           isDeepStrictEqual(wasm(sample), { ok: true, world: course }),
