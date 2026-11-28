@@ -76,7 +76,6 @@ function firstArrival(world, location) {
   );
 }
 
-// Which occasions this committed play meets, and who speaks for them.
 export function speechOccasions(world, cast) {
   const actor = currentActor(world);
   const played = playedEntry(world);

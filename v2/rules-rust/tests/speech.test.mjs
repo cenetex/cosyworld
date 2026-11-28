@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { reducers } from "./parity.mjs";
 
 const seat = { actor: "vale", claimed: ["vale"], present: ["vale"] };
@@ -165,6 +166,109 @@ test("speech after the first Drop uses the grounded lamp and keeps the committed
       other.log.find((entry) => entry.verb === "drop").itemId = "cloth";
       assert.equal(wasm(exchange(other)), null);
     }
+  }
+});
+
+test("speech after the second Take keeps Drop speech and resident events", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const [seed, wayfinder, suffix] of [
+    [0, "pond", null],
+    [17, "behind-station", null],
+    [2, "station", "ash"],
+    [4242, "behind-station", "orin"],
+  ]) {
+    for (const mode of ["held", "stowed", "dry"]) {
+      const created = pinned({ op: "create", seed });
+      assert.equal(created.ok, true, created.error);
+      let { world } = created;
+      if (mode === "stowed") {
+        const held = pinned({
+          ...seat,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+        assert.equal(held.ok, true, held.error);
+        world = held.world;
+      }
+      if (mode === "dry")
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      const dropped = pinned({
+        ...seat,
+        op: "play",
+        world,
+        action: "drop:vale:lamp:attic",
+      });
+      assert.equal(dropped.ok, true, dropped.error);
+      for (const prior of [false, true]) {
+        const before = prior ? pinned(exchange(dropped.world)) : dropped;
+        assert.equal(before.ok, true, before.error);
+        const taken = pinned({
+          ...seat,
+          op: "play",
+          world: before.world,
+          action: "take:vale:lamp:",
+        });
+        assert.equal(taken.ok, true, taken.error);
+        assert.equal(taken.world.items["elysium-wayfinder"].holder, wayfinder);
+        assert.deepEqual(taken.world.speechVoices.vale, ["vale"]);
+        assert.equal(taken.events[0].verb, "take");
+        assert.equal(taken.events[1]?.actorId ?? null, suffix);
+        const request = {
+          ...exchange(taken.world),
+          present: prior ? [] : seat.present,
+        };
+        const expected = pinned(request);
+        assert.equal(expected.ok, true, expected.error);
+        const actual = wasm(request);
+        const label = JSON.stringify({ seed, mode, prior });
+        assert.ok(isDeepStrictEqual(actual, expected), label);
+        assert.deepEqual(actual.world.log.slice(0, -2), taken.world.log);
+        assert.equal(actual.lines[0].turn, 2);
+        assert.equal(actual.lines[0].seq, taken.world.eventSeq + 1);
+        assert.equal(actual.lines[0].items[0].holder, "vale");
+        assert.equal(actual.lines[0].light, mode !== "dry");
+        if (wayfinder === "station") {
+          const repeat = { ...request, world: actual.world, lines: [caption] };
+          assert.ok(
+            isDeepStrictEqual(wasm(repeat), pinned(repeat)),
+            `repeat ${label}`,
+          );
+        }
+      }
+    }
+  }
+});
+
+test("station speech after Take requires committed lamp custody and the Vale cue", async () => {
+  const { pinned, wasm } = await reducers();
+  const { world } = pinned({ op: "create", seed: 2 });
+  const dropped = pinned({
+    ...seat,
+    op: "play",
+    world,
+    action: "drop:vale:lamp:attic",
+  });
+  assert.equal(dropped.ok, true, dropped.error);
+  const taken = pinned({
+    ...seat,
+    op: "play",
+    world: dropped.world,
+    action: "take:vale:lamp:",
+  });
+  assert.equal(taken.ok, true, taken.error);
+  assert.equal(taken.world.items["elysium-wayfinder"].holder, "station");
+  for (const change of [
+    (saved) => {
+      saved.speechVoices.vale = [];
+    },
+    (saved) => {
+      saved.items.lamp.history.pop();
+    },
+  ]) {
+    const changed = structuredClone(taken.world);
+    change(changed);
+    assert.equal(wasm(exchange(changed, [caption])), null);
   }
 });
 
