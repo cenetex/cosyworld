@@ -1,4 +1,7 @@
-use super::{create_geography::Geography, opening, opening_play, pack_state::Catalog};
+use super::{
+    create_geography::Geography, initial_wants::People, opening, opening_content, opening_play,
+    opening_stale_wants, pack_state::Catalog,
+};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -95,10 +98,20 @@ fn player_want(want: &Value) -> Option<()> {
 }
 
 pub(super) fn settle_first_wait(world: &mut Value, geo: &Geography) -> Option<()> {
+    settle_with(world, geo, |_| Some(()))
+}
+
+pub(super) fn settle_with(
+    world: &mut Value,
+    geo: &Geography,
+    fade_trust: impl FnOnce(&mut Value) -> Option<()>,
+) -> Option<()> {
     let turn = world["turn"].as_u64()?;
-    if turn != 1
-        || world.get("began").is_some_and(|turn| turn != 0)
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    if began.checked_add(1)? != turn
+        || (began != 0 && geo.files()["v2/card-game/world-history.json"]["turns"] != began)
         || world["actors"]["vale"]["place"] != "attic"
+        || !world["elysiumEncounters"].is_null()
         || world["sharedVersion"] != 1
         || ["heldActors", "presentActors", "controlledActors"]
             .iter()
@@ -151,10 +164,31 @@ pub(super) fn settle_first_wait(world: &mut Value, geo: &Geography) -> Option<()
     for id in retime {
         actors.get_mut(&id)?["want"]["since"] = json!(turn);
     }
+    let people = if began == 0 {
+        None
+    } else {
+        let people = People::new(geo.files(), geo.packs())?;
+        opening_stale_wants::revise(world, geo, &people, turn)?;
+        Some(people)
+    };
+    fade_trust(world)?;
     for id in expired {
-        actors.get_mut(&id)?.as_object_mut()?.remove("offered");
+        world["actors"]
+            .get_mut(&id)?
+            .as_object_mut()?
+            .remove("offered");
     }
-    for actor in actors.values_mut() {
+    if let Some(people) = &people {
+        opening_stale_wants::fill_due(world, geo, people, turn)?;
+        let loss = Loss::new(world, geo)?;
+        for (id, actor) in world["actors"].as_object()? {
+            let want = &actor["want"];
+            if want["since"] == turn && geo.entity_active(world, id)? {
+                loss.check(want)?;
+            }
+        }
+    }
+    for actor in world["actors"].as_object_mut()?.values_mut() {
         if !actor["want"].is_null() {
             actor.as_object_mut()?.remove("content");
         }
@@ -182,12 +216,33 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let mut next = world.clone();
     next["turn"] = json!(1);
     settle_first_wait(&mut next, &geo)?;
-    let wants: Map<_, _> = next["actors"]
+    projected(&next, false)
+}
+
+pub(super) fn history_projection(request: &Value) -> Option<Value> {
+    let files = opening_content::files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let mut next = request.get("world")?.clone();
+    if next.get("began")?.as_u64()? == 0 {
+        return None;
+    }
+    settle_first_wait(&mut next, &geo)?;
+    projected(&next, true)
+}
+
+fn projected(world: &Value, history: bool) -> Option<Value> {
+    let wants: Map<_, _> = world["actors"]
         .as_object()?
         .iter()
         .map(|(id, actor)| {
             let mut projected = Map::new();
-            for field in ["want", "under", "content", "gaveUp", "heardOn", "offered"] {
+            let fields = ["want", "under", "content", "gaveUp", "heardOn", "offered"];
+            let traversal = history
+                .then_some(["visited", "talked"])
+                .into_iter()
+                .flatten();
+            for field in fields.into_iter().chain(traversal) {
                 if let Some(value) = actor.get(field) {
                     projected.insert(field.to_owned(), value.clone());
                 }

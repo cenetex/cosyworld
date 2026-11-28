@@ -36,6 +36,7 @@ mod opening_roster;
 pub mod opening_rumours;
 mod opening_settlement;
 mod opening_speech;
+mod opening_stale_wants;
 mod opening_view;
 mod opening_visitor_routes;
 mod opening_wait;
@@ -156,6 +157,9 @@ pub fn reduce(request: &Value) -> Value {
             opening_place_cards::returned_projection(request).unwrap_or(Value::Null)
         }
         Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
+        Some("opening_history_wants") => {
+            opening_wants::history_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_history_walkers") => {
             opening_history_walkers::projection(request).unwrap_or(Value::Null)
         }

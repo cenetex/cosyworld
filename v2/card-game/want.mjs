@@ -1,5 +1,3 @@
-// One want per avatar: an item, a place or a person. The world rules decide
-// when it is met and award one experience on the play that meets it.
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { controlledByHuman, humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {

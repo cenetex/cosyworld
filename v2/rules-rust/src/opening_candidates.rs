@@ -24,6 +24,12 @@ struct Item<'a> {
 
 type Pool<'a> = Vec<(&'static str, &'a str)>;
 
+enum Draw<'a> {
+    Opening,
+    Due,
+    Stalled(&'a BTreeSet<&'a str>),
+}
+
 fn member(array: &Value, key: &str) -> bool {
     array
         .as_array()
@@ -35,6 +41,35 @@ pub(super) fn fill(
     geo: &Geography,
     people: &People,
     files: &Value,
+) -> Option<()> {
+    choose(world, geo, people, files, Draw::Opening)
+}
+
+pub(super) fn replace(
+    world: &mut Value,
+    geo: &Geography,
+    people: &People,
+    files: &Value,
+    stalled: &BTreeSet<&str>,
+) -> Option<()> {
+    choose(world, geo, people, files, Draw::Stalled(stalled))
+}
+
+pub(super) fn fill_due(
+    world: &mut Value,
+    geo: &Geography,
+    people: &People,
+    files: &Value,
+) -> Option<()> {
+    choose(world, geo, people, files, Draw::Due)
+}
+
+fn choose(
+    world: &mut Value,
+    geo: &Geography,
+    people: &People,
+    files: &Value,
+    draw: Draw<'_>,
 ) -> Option<()> {
     let forest = files.get("v2/card-game/forest.json")?;
     let mut authored = BTreeMap::<_, Vec<_>>::new();
@@ -97,19 +132,46 @@ pub(super) fn fill(
     }
     let turn = world["turn"].as_u64()?;
     for (&id, person) in &people.people {
-        if id == "vale"
-            || person.data["wants"] == false
-            || !context.active.contains(id)
-            || !world["actors"][id]["want"].is_null()
-            || world["actors"][id]["completedQuest"].is_object()
-            || super::elysium::model_waiting(world, id)
-        {
+        if id == "vale" || person.data["wants"] == false || !context.active.contains(id) {
             continue;
         }
-        if let Some(staged) = person.staged(world, id, geo)? {
+        let actor = &world["actors"][id];
+        let replacing = match draw {
+            Draw::Stalled(ids) if ids.contains(id) => true,
+            Draw::Stalled(_) => continue,
+            Draw::Opening | Draw::Due => {
+                if !actor["want"].is_null()
+                    || actor["completedQuest"].is_object()
+                    || (matches!(draw, Draw::Due)
+                        && turn.saturating_sub(actor["metTurn"].as_u64().unwrap_or(0)) < 24)
+                {
+                    continue;
+                }
+                false
+            }
+        };
+        let previous = replacing.then(|| world["actors"][id]["want"].clone());
+        if let Some(previous) = &previous {
+            let target = previous["target"].as_str()?;
+            world["actors"][id]["gaveUp"] = serde_json::json!({"target":target,"turn":turn});
+        }
+        if super::elysium::model_waiting(world, id) {
+            if replacing {
+                world["actors"][id]["want"] = Value::Null;
+            }
+            continue;
+        }
+        if let Some(staged) = person.staged_after(world, id, geo, previous.as_ref())? {
             world["actors"][id]["want"] = staged;
             world["actors"][id].as_object_mut()?.remove("content");
             continue;
+        }
+        if previous
+            .as_ref()
+            .is_some_and(|prior| prior["from"] == "quest:heard")
+            && person.data["want"].is_object()
+        {
+            return None;
         }
         let (range, roams) = resident_range(world, people, id, person, geo)?;
         if let Some(heard) = opening_rumours::heard(
@@ -141,9 +203,9 @@ pub(super) fn fill(
         let (pick, reset) = pick_want(
             world,
             &context,
+            people,
             id,
             person,
-            &here,
             &reaches,
             allowed.as_ref(),
         )?;
@@ -154,6 +216,8 @@ pub(super) fn fill(
         if let Some(want) = pick {
             world["actors"][id]["want"] = want;
             world["actors"][id].as_object_mut()?.remove("content");
+        } else if replacing {
+            world["actors"][id]["want"] = Value::Null;
         }
     }
     Some(())
@@ -254,13 +318,14 @@ fn reachable<'a>(
 fn pick_want<'a>(
     world: &Value,
     context: &Context<'a>,
+    people: &People,
     actor: &str,
     person: &Person,
-    here: &str,
     reach: &BTreeSet<&str>,
     allowed: Option<&BTreeSet<String>>,
 ) -> Option<(Option<Value>, bool)> {
     let me = &world["actors"][actor];
+    let here = me["place"].as_str()?;
     let mut floor = i64::MAX;
     if let Some(items) = context.hands.get(actor) {
         for id in items {
@@ -310,13 +375,26 @@ fn pick_want<'a>(
         if place != here && !reach.contains(place) {
             continue;
         }
-        if kind == "item"
-            && world["items"][id]["holder"] != "vale"
-            && world["actors"]
-                .get(world["items"][id]["holder"].as_str()?)
-                .is_some()
-        {
-            return None;
+        if kind == "item" {
+            let holder = world["items"][id]["holder"].as_str()?;
+            if holder != "vale" && !member(&world["controlledActors"], holder) {
+                if let Some(owner) = people.people.get(holder) {
+                    if context.hands.contains_key(actor)
+                        || world["items"]["cloth"]["holder"] == id
+                        || (owner.pack != "hub" && owner.data["valueRules"].get(id).is_some())
+                    {
+                        return None;
+                    }
+                    let trust = world["actors"][holder]["trust"][actor]
+                        .as_i64()
+                        .unwrap_or(0);
+                    let threshold = if trust > 0 { 6 } else { 3 };
+                    if value_of(world, context, holder, owner, id)? <= threshold {
+                        return None;
+                    }
+                    continue;
+                }
+            }
         }
         if kind == "place" && id == here {
             continue;
