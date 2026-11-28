@@ -52,11 +52,13 @@ test("first-wait want clocks and eligible quest state match the full pinned roun
       assert.equal(result.ok, true, result.error);
       const original = wants(world);
       const after = wants(result.world);
-      assert.ok(
-        Object.keys(after).filter(
-          (id) => original[id].want?.since !== after[id].want?.since,
-        ).length >= 13,
-      );
+      const inactive = "greek-aethra";
+      assert.equal(original[inactive].want.since, world.turn);
+      assert.equal(result.world.turn, world.turn + 1);
+      assert.deepEqual(after[inactive].want, {
+        ...original[inactive].want,
+        since: result.world.turn,
+      });
       assert.deepEqual(wasm({ ...request, op: "opening_wait_wants" }), {
         ok: true,
         wants: after,
@@ -135,12 +137,14 @@ test("history wait refreshes inactive wants and redraws expired wants in pinned 
       { ok: true, wants: settled },
       JSON.stringify(options),
     );
-    assert.equal(
-      Object.values(settled).filter(
-        (actor) => actor.gaveUp?.turn === state.turn,
-      ).length,
-      39,
-    );
+    const elder = "greek-elder";
+    const previous = state.actors[elder].want;
+    assert.deepEqual(settled[elder].gaveUp, {
+      target: previous.target,
+      turn: state.turn,
+    });
+    assert.equal(settled[elder].want.since, state.turn);
+    assert.notEqual(settled[elder].want.target, previous.target);
     assert.deepEqual(settled.moth.want, world.actors.moth.want);
     assert.equal(settled["greek-adrastus"].want.since, state.turn);
     if (options.homecoming)

@@ -190,7 +190,6 @@ describe("selection", () => {
     const bySeed = seeds.map((seed) => pick(seed, 0));
     expect(new Set(bySeed).size).toBe(2);
     expect(seeds.map((seed) => pick(seed, 0))).toEqual(bySeed);
-    // Same day (48 turns): the same pick. Another day can change it.
     expect(seeds.map((seed) => pick(seed, 47))).toEqual(bySeed);
     const days = Array.from({ length: 8 }, (_, d) => pick(3, d * 48));
     expect(new Set(days).size).toBe(2);
