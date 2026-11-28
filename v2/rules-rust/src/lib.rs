@@ -34,6 +34,7 @@ mod opening_place_cards;
 mod opening_play;
 mod opening_pond_ask;
 mod opening_pond_place_returns;
+mod opening_pond_rumours;
 mod opening_pond_view;
 mod opening_quiet_life;
 mod opening_reflection;
@@ -165,6 +166,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_mirror_move") => {
             opening_mirror_move::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_pond_rumours") => {
+            opening_pond_rumours::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_full_move") => opening_full_move::projection(request).unwrap_or(Value::Null),
         Some("opening_pond_ask") => opening_pond_ask::projection(request).unwrap_or(Value::Null),

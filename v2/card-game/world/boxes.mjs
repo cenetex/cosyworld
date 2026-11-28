@@ -1,7 +1,6 @@
 // Boxes (rules 133): one list of every card the rules keep shut. A locked box
-// lies face down in the hand and says what opens it; a lock is a want. Five
-// kinds of fact used to be gathered in four places (sealed ways, sealed
-// residents, locked made things, shut lanes); this module is the one source.
+// lies face down in the hand and says what opens it. A lock is a want.
+// This module brings sealed ways, residents, items and lanes together.
 //
 //   way       a route with `sealed`, or a guarded way: the card beyond it
 //   resident  an avatar with `sealed` and `requires`, drawn where it lies
