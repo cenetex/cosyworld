@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 const VALE: &str = "vale";
 const PIP: &str = "moth";
 const KEEPER: &str = "keeper";
+const RUE: &str = "rue";
 const STATION: &str = "station";
 const POND: &str = "pond";
 const EXITS: [&str; 2] = [POND, "behind-station"];
@@ -50,6 +51,29 @@ fn chronology(world: &Value) -> Option<u64> {
         .then_some(seq)
 }
 
+fn rue_arrived(world: &Value) -> bool {
+    world["turn"] == 2
+        && world["actors"][RUE]["place"] == STATION
+        && world["opening"]["met"][RUE] == 2
+        && world["packs"]["shared-homes"]["met"][RUE] == 2
+}
+
+fn rue_meeting(world: &Value) -> Option<()> {
+    let rue = &world["actors"][RUE];
+    if rue["crossed"] != 1
+        || rue["visited"] != json!(["train", STATION])
+        || rue.get("heldItem") != Some(&Value::Null)
+        || rue["want"]["kind"] != "person"
+        || !matches!(rue["want"]["target"].as_str(), Some(VALE | PIP))
+        || rue["want"]["since"] != 0
+        || rue["want"]["refusals"] != 0
+        || world["items"]["routes"]["holder"] != "train"
+    {
+        return None;
+    }
+    Some(())
+}
+
 fn station_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let files = geo.files();
     let forest = &files["v2/card-game/forest.json"];
@@ -69,18 +93,22 @@ fn station_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
     {
         return None;
     }
+    let rue = rue_arrived(world);
     let mut train = false;
     for pack in geo.packs() {
         if pack["places"].get(STATION).is_some()
             || [VALE, PIP, KEEPER]
                 .iter()
                 .any(|id| pack["avatars"].get(*id).is_some())
+            || (rue && pack["id"] != "shared-homes" && pack["avatars"].get(RUE).is_some())
             || ITEMS.iter().any(|(id, _)| pack["items"].get(*id).is_some())
             || entries(&pack["routes"]).any(|route| route["from"] == STATION)
             || entries(&pack["choices"]).any(|choice| {
                 choice["at"] == STATION
                     || (choice["on"] == "give"
-                        && (choice["subject"] == PIP || choice["subject"] == KEEPER))
+                        && (choice["subject"] == PIP
+                            || choice["subject"] == KEEPER
+                            || (rue && choice["subject"] == RUE)))
             })
             || ["fixtures", "transports"].iter().any(|key| {
                 records(&pack[*key]).any(|entry| {
@@ -166,19 +194,24 @@ fn station_scene<'a>(
     {
         return None;
     }
-    for id in [VALE, PIP, KEEPER] {
-        let actor = actors.get(id)?;
+    let mut cast = vec![VALE, PIP, KEEPER];
+    if rue_arrived(world) {
+        rue_meeting(world)?;
+        cast.push(RUE);
+    }
+    for id in &cast {
+        let actor = actors.get(*id)?;
         if actor["place"] != STATION
             || !actor["sleeping"].is_null()
             || !actor["under"].is_null()
             || !actor["talked"].as_array()?.is_empty()
-            || world["peaceUntil"][id].as_u64()? > turn
+            || world["peaceUntil"][*id].as_u64()? > turn
         {
             return None;
         }
     }
     let known = known_actors(world, geo, actor_order, Some(STATION))?;
-    if known.len() != 3 || [VALE, PIP, KEEPER].iter().any(|id| !known.contains(id)) {
+    if known.len() != cast.len() || cast.iter().any(|id| !known.contains(id)) {
         return None;
     }
     let items = world["items"].as_object()?;
@@ -188,9 +221,11 @@ fn station_scene<'a>(
         }
     }
     for (id, item) in items {
-        if [STATION, VALE, PIP, KEEPER].contains(&root_in(items, id)?)
-            && !ITEMS.iter().any(|(allowed, _)| id == allowed)
-            && !(item["holder"] == STATION && [WAYFINDER, BEANIE].contains(&id.as_str()))
+        let holder = root_in(items, id)?;
+        if (holder == RUE && cast.contains(&RUE))
+            || ((holder == STATION || cast.contains(&holder))
+                && !ITEMS.iter().any(|(allowed, _)| id == allowed)
+                && !(item["holder"] == STATION && [WAYFINDER, BEANIE].contains(&id.as_str())))
         {
             return None;
         }
@@ -243,16 +278,21 @@ fn actions(
     }
     for &other in company {
         let resident = name(other)?;
-        let stake = if other == PIP { "cloth" } else { "oil" };
-        let thing = item_as_named(name(stake)?);
-        let threat = format!("{vale} threatens {resident} over {thing}.");
-        out.push(offer(
-            "threaten",
-            Some(stake),
-            Some(other),
-            threat,
-            &[other],
-        ));
+        let stake = match other {
+            PIP => Some("cloth"),
+            KEEPER => Some("oil"),
+            RUE => None,
+            _ => return None,
+        };
+        let threat = if let Some(id) = stake {
+            format!(
+                "{vale} threatens {resident} over {}.",
+                item_as_named(name(id)?)
+            )
+        } else {
+            format!("{vale} threatens {resident}.")
+        };
+        out.push(offer("threaten", stake, Some(other), threat, &[other]));
         let talk = format!("{vale} has a conversation with {resident}.");
         out.push(offer("talk", None, Some(other), talk, &[other]));
     }
@@ -344,12 +384,23 @@ fn station_projection(
     ))
 }
 
-fn generated_station_line(event: &Value) -> bool {
+fn voices(world: &Value) -> &'static [&'static str] {
+    if rue_arrived(world) {
+        &[VALE, KEEPER, RUE]
+    } else {
+        &[VALE, KEEPER]
+    }
+}
+
+fn generated_station_line(event: &Value, voices: &[&str]) -> bool {
     let voice = &event["actorId"];
-    event["locationId"] == STATION
+    event["generated"] == true
+        && event["locationId"] == STATION
         && event.get("elysiumName").is_none()
         && match event["kind"].as_str() {
-            Some("dialogue") => (voice == VALE || voice == KEEPER) && event["entityId"] == *voice,
+            Some("dialogue") => {
+                event["entityId"] == *voice && voice.as_str().is_some_and(|id| voices.contains(&id))
+            }
             Some("narration") => voice.is_null() && event["entityId"] == STATION,
             _ => false,
         }
@@ -359,27 +410,45 @@ fn arrival_events(world: &Value, before_seq: u64, allow_speech: bool) -> Option<
     let events: Vec<_> = entries(&world["log"])
         .filter(|entry| entry["seq"].as_u64().is_some_and(|seq| seq > before_seq))
         .collect();
-    let follows = events.get(1)?;
-    let mut speech_started = false;
+    let first_line = events
+        .iter()
+        .position(|event| event["generated"] == true)
+        .unwrap_or(events.len());
+    let (committed, lines) = events.split_at(first_line);
+    let follows = committed.get(1)?;
     if !is_move(follows, PIP, POND, STATION)
         || !follows["itemId"].is_null()
         || events.last()?["seq"] != world["eventSeq"]
+        || (!lines.is_empty()
+            && (!allow_speech
+                || !lines
+                    .iter()
+                    .all(|event| generated_station_line(event, voices(world)))))
         || events.iter().enumerate().any(|(index, event)| {
-            if event["seq"].as_u64() != before_seq.checked_add(index as u64 + 1)
+            event["seq"].as_u64() != before_seq.checked_add(index as u64 + 1)
                 || event["turn"] != world["turn"]
-            {
-                return true;
-            }
-            if event["generated"] == true {
-                speech_started = true;
-                !allow_speech || !generated_station_line(event)
-            } else {
-                speech_started
-                    || (index > 1
-                        && (event["locationId"] == STATION || event["fromLocationId"] == STATION))
-            }
         })
     {
+        return None;
+    }
+    let mut local = committed
+        .iter()
+        .skip(2)
+        .filter(|event| event["locationId"] == STATION || event["fromLocationId"] == STATION);
+    if rue_arrived(world) {
+        let enters = local.next()?;
+        let cast = enters["cast"].as_array()?;
+        if !is_move(enters, RUE, "train", STATION)
+            || !enters["itemId"].is_null()
+            || cast.len() != 4
+            || ![VALE, PIP, KEEPER, RUE]
+                .iter()
+                .all(|id| cast.iter().any(|actor| actor == *id))
+        {
+            return None;
+        }
+    }
+    if local.next().is_some() {
         return None;
     }
     Some(events)
@@ -390,7 +459,7 @@ pub(super) fn settled_first_arrival(
     geo: &Geography<'_>,
     order: &[&str],
 ) -> Option<()> {
-    if world["turn"] != 2 {
+    if world["turn"] != 2 || rue_arrived(world) {
         return None;
     }
     arrival_events(world, chronology(world)?.checked_sub(1)?, true)?;
@@ -434,12 +503,13 @@ pub(super) fn completed_station_response_with_profiles(
         .into_iter()
         .cloned()
         .collect::<Vec<_>>();
+    let voices = json!(voices(&world));
     world
         .as_object_mut()?
         .entry("speechVoices")
         .or_insert_with(|| json!({}))
         .as_object_mut()?
-        .insert(VALE.into(), json!([VALE, KEEPER]));
+        .insert(VALE.into(), voices);
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = Value::Array(events);
     Some(response)
@@ -449,7 +519,8 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let world = request.get("world")?;
     if request["claimed"] != json!([VALE])
         || (!present.is_empty() && present != [VALE])
-        || world["speechVoices"][VALE] != json!([VALE, KEEPER])
+        || (rue_arrived(world) && present != [VALE])
+        || world["speechVoices"][VALE] != json!(voices(world))
     {
         return None;
     }
