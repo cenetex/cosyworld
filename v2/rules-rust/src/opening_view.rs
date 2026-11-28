@@ -98,7 +98,7 @@ fn after_play(world: &Value, claimed: &[&str]) -> Option<AtticView> {
         if world["speechVoices"]["vale"] != json!(["vale"]) {
             return None;
         }
-        super::opening_take_response::settled_take(world)?;
+        super::opening_take_response::lamp_take_committed(world)?;
         return Some(AtticView::AfterTake);
     }
     let revision = world["revision"].as_u64()?;

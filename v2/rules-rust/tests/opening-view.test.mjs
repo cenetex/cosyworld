@@ -337,7 +337,7 @@ test("the private view after the first attic Drop projects the grounded lamp", a
   }
 });
 
-test("the private second Take view preserves the carried lamp and earlier Drop", async () => {
+test("the private second Take view preserves carried and stowed lamp saves", async () => {
   const { pinned, wasm } = await reducers();
   for (const seed of [undefined, 2, 17, 42, 4242, 4_294_967_295]) {
     const { world: fresh } = success(pinned, { op: "create", seed });
@@ -370,9 +370,15 @@ test("the private second Take view preserves the carried lamp and earlier Drop",
           { entityId: "attic", text: "The floorboards settle." },
         ],
       });
-      for (const state of [taken.world, spoken.world]) {
+      const originals = [taken.world, spoken.world];
+      for (const state of [
+        ...originals,
+        ...originals.map((save) => stowLamp(pinned, save)),
+      ]) {
         for (const present of [solo.present, []]) {
-          const label = `seed ${seed}, ${lamp} lamp, present ${present}, seq ${state.eventSeq}`;
+          const choice = state.actors.vale.heldItem;
+          const open = lamp === "dry" || choice === null;
+          const label = `seed ${seed}, ${lamp} lamp, selection ${choice}, present ${present}, seq ${state.eventSeq}`;
           const reply = view(
             pinned,
             wasm,
@@ -383,12 +389,14 @@ test("the private second Take view preserves the carried lamp and earlier Drop",
           assert.deepEqual(reply.world.memories.vale, state.memories.vale);
           assert.equal(reply.world.memories.mara.subjects, undefined);
           assert.deepEqual(reply.world.presentActors, present);
-          assert.deepEqual(reply.exits, lamp === "dry" ? ["pond"] : []);
+          assert.equal(reply.world.actors.vale.heldItem, choice);
+          assert.equal(reply.world.items.lamp.holder, "vale");
+          assert.deepEqual(reply.exits, open ? ["pond"] : []);
           assert.equal(
             reply.actions.some(
               (action) => action.key === "move:vale:lamp:pond",
             ),
-            lamp === "dry",
+            open,
           );
           assert.equal(
             reply.actions.some((action) => action.sleep),
