@@ -1,4 +1,9 @@
-use super::{opening_wait, pack_state::Catalog};
+use super::{
+    opening_crossings::{no_attic_crossing_narration, no_crossing_unlocks},
+    opening_wait,
+    pack_state::Catalog,
+    Geography,
+};
 use serde_json::{json, Map, Value};
 
 const ATTIC: &str = "attic";
@@ -137,7 +142,10 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     decay_bell(&mut world)?;
     let voyages = sail_attic_transports(&mut world, &catalog)?;
+    let geography = Geography::new(&files, catalog.packs())?;
+    no_crossing_unlocks(&world, &geography)?;
     reset_away_signals(&mut world, &catalog)?;
+    no_attic_crossing_narration(&request["world"], &world, &geography)?;
     no_item_cycle(&world)?;
     let signals: Map<_, _> = world["crossings"]
         .as_object()?

@@ -469,8 +469,7 @@ export function noteAct(s, a, place, holder, round, senses, log) {
     // No progress lines: a physical manipulation confirms only that manipulation.
   }
 }
-// A physical arrangement can reveal a vessel without a synthetic action.
-// Any resident or player may make it; completed access survives later moves.
+// A resident or player's physical arrangement reveals permanent vessel access.
 export function settleCrossingUnlocks(s, senses, called = () => {}) {
   for (const c of crossings) {
     if (!c.unlockWhen) continue;
