@@ -535,7 +535,6 @@ mod tests {
             engine::version()[16..].parse::<u32>().unwrap() + 1
         );
         let closed = floor::CLOSED;
-        // The release swap: a newer checkpoint, a newer play, a newer upgrade.
         assert_eq!(opened(&next, None).unwrap_err(), engine::UPDATING);
         let play = json!({"op":"release","actor":"mara"});
         assert_eq!(opened(&next, Some(play)).unwrap_err(), engine::UPDATING);
