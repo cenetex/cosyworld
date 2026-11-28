@@ -7,7 +7,8 @@ import { reducers } from "./parity.mjs";
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 
 function captureVisitorPlays(source) {
-  const boundary = "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
+  const boundary =
+    "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
   assert.equal(source.split(boundary).length, 2);
   return source.replace(
     boundary,
@@ -32,18 +33,39 @@ test("second visitor actions preserve pinned quiet arrivals and complete home de
       ["wait:vale::", "wait:vale::"],
       ["drop:vale:lamp:attic", "take:vale:lamp:"],
     ]) {
-      const started = pinned({ ...seats, op: "play", world: created.world, action: first });
+      const started = pinned({
+        ...seats,
+        op: "play",
+        world: created.world,
+        action: first,
+      });
       assert.equal(started.ok, true, started.error);
       reference.visitorPlays = [];
-      const completed = JSON.parse(reference.cardShared(JSON.stringify({
-        ...seats, op: "play", world: started.world, action: second,
-      })));
+      const completed = JSON.parse(
+        reference.cardShared(
+          JSON.stringify({
+            ...seats,
+            op: "play",
+            world: started.world,
+            action: second,
+          }),
+        ),
+      );
       assert.equal(completed.ok, true, completed.error);
       const observed = JSON.parse(JSON.stringify(reference.visitorPlays));
       assert.equal(observed.length, 7);
       for (const { actor, action, before, after } of observed) {
-        const actual = wasm({ op: "opening_visitor_play", world: before, actor });
-        const label = JSON.stringify({ seed, second, actor, action: action.key });
+        const actual = wasm({
+          op: "opening_visitor_play",
+          world: before,
+          actor,
+        });
+        const label = JSON.stringify({
+          seed,
+          second,
+          actor,
+          action: action.key,
+        });
         assert.ok(actual, `unsupported ${label}`);
         assert.ok(isDeepStrictEqual(actual, { ok: true, world: after }), label);
         if (action.kind === "wait") {
@@ -54,13 +76,82 @@ test("second visitor actions preserve pinned quiet arrivals and complete home de
           const event = after.log.at(-1);
           const [, item] = event.witnesses;
           assert.equal(after.items[item].holder, event.fromLocationId);
-          assert.deepEqual(after.items[item].history, before.items[item].history);
+          assert.deepEqual(
+            after.items[item].history,
+            before.items[item].history,
+          );
           assert.equal(after.actors[actor].heldItem, null);
-          assert.equal(after.crossings[`${event.fromLocationId}-${event.locationId}`].discovered, true);
+          assert.equal(
+            after.crossings[`${event.fromLocationId}-${event.locationId}`]
+              .discovered,
+            true,
+          );
           counts.move++;
         }
       }
     }
   }
   assert.deepEqual(counts, { move: 6, wait: 64 });
+});
+
+test("visitor actions after the second pond crossing match pinned working states", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(captureVisitorPlays);
+  const counts = { move: 0, wait: 0 };
+  let request;
+  for (const seed of [undefined, 2, 17, 4242, 4294967295]) {
+    for (const lamp of ["stowed", "held dry"]) {
+      let { world } = pinned({ op: "create", seed });
+      if (lamp === "stowed") {
+        const held = pinned({
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+        assert.equal(held.ok, true, held.error);
+        world = held.world;
+      } else {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      }
+      const first = pinned({
+        ...seats,
+        op: "play",
+        world,
+        action: "wait:vale::",
+      });
+      assert.equal(first.ok, true, first.error);
+      for (const key of ["move:vale::pond", "move:vale:lamp:pond"]) {
+        reference.visitorPlays = [];
+        const moved = JSON.parse(
+          reference.cardShared(
+            JSON.stringify({
+              ...seats,
+              op: "play",
+              world: first.world,
+              action: key,
+            }),
+          ),
+        );
+        assert.equal(moved.ok, true, moved.error);
+        const observed = JSON.parse(JSON.stringify(reference.visitorPlays));
+        assert.equal(observed.length, 7);
+        for (const { actor, action, before, after } of observed) {
+          request = { op: "opening_visitor_play", actor, world: before };
+          const actual = wasm(request);
+          const label = `${seed} ${lamp} ${key} ${action.key}`;
+          assert.ok(
+            isDeepStrictEqual(actual, { ok: true, world: after }),
+            label,
+          );
+          assert.ok(action.kind in counts, label);
+          counts[action.kind]++;
+        }
+      }
+    }
+  }
+  assert.deepEqual(counts, { move: 12, wait: 128 });
+  const forged = structuredClone(request.world);
+  forged.arrival.fromLocationId = "station";
+  assert.equal(wasm({ ...request, world: forged }), null);
 });
