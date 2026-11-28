@@ -2,7 +2,8 @@ use super::{
     authored_order::Order,
     initial_wants, lamp_state,
     opening::{self, MAX_REVISION},
-    opening_content, opening_crossings, opening_play, opening_roster,
+    opening_content, opening_crossings, opening_play, opening_roster, opening_second_attic_tail,
+    opening_second_round, opening_wait,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     Geography, LampPosition,
@@ -19,7 +20,8 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 }
 
 pub(super) fn move_world(request: &Value) -> Option<(&Value, bool)> {
-    let before = opening::supported_world(request)?;
+    let before = opening::supported_world(request)
+        .or_else(|| opening::supported_after_first_turn(request))?;
     let action = &request["action"];
     let carry = match action.as_str().or_else(|| action["key"].as_str())? {
         "move:vale::pond" => false,
@@ -45,7 +47,6 @@ pub(super) fn move_world(request: &Value) -> Option<(&Value, bool)> {
 fn quiet_route(before: &Value, geo: &Geography<'_>) -> Option<()> {
     let files = geo.files();
     let forest = &files["v2/card-game/forest.json"];
-    opening_play::attic_state(before)?;
     opening_play::attic_content(files)?;
     let route = entries(&forest["reflectionRoutes"]).find(|route| route["from"] == ATTIC)?;
     let is_at_route = |place: &Value| place == ATTIC || place == POND;
@@ -75,17 +76,13 @@ fn quiet_route(before: &Value, geo: &Geography<'_>) -> Option<()> {
     opening_crossings::no_crossing_unlocks(before, geo)
 }
 
-fn fresh_traveler(before: &Value, geo: &Geography<'_>) -> Option<()> {
-    let began = opening::unplayed_turn(before)?;
-    if (began != 0 && geo.files()["v2/card-game/world-history.json"]["turns"] != began)
-        || before["log"].as_array()?.len() != 2
-        || before["opening"]["version"] != 1
+fn quiet_traveler(before: &Value, geo: &Geography<'_>) -> Option<()> {
+    if before["opening"]["version"] != 1
         || !before["arrival"].is_null()
         || !before["hidden"].is_null()
         || !before["absent"].is_null()
         || !before["homecoming"].is_null()
         || !before["actors"][VALE]["want"].is_null()
-        || !opening::station_order(before)?.is_empty()
         || !before["stationExitOrder"].as_array()?.is_empty()
         || before["actors"]
             .as_object()?
@@ -108,6 +105,20 @@ fn fresh_traveler(before: &Value, geo: &Geography<'_>) -> Option<()> {
             })
     {
         return None;
+    }
+    if before["turn"] == 1 {
+        opening_wait::after_fresh_wait(before)?;
+        opening_second_round::quiet_start(before)?;
+        opening_second_attic_tail::verify_station(before, geo)?;
+    } else {
+        let began = opening::unplayed_turn(before)?;
+        if (began != 0 && geo.files()["v2/card-game/world-history.json"]["turns"] != began)
+            || before["log"].as_array()?.len() != 2
+            || !opening::station_order(before)?.is_empty()
+        {
+            return None;
+        }
+        opening_play::attic_state(before)?;
     }
     Some(())
 }
@@ -149,7 +160,7 @@ pub(super) fn begin_with<T>(
     carry: bool,
     before_action: impl FnOnce(&Value) -> Option<T>,
 ) -> Option<(Value, T)> {
-    fresh_traveler(before, geo)?;
+    quiet_traveler(before, geo)?;
     quiet_route(before, geo)?;
     let turn = before["turn"].as_u64()?.checked_add(1)?;
     let revision = before["revision"].as_u64()?.checked_add(1)?;
