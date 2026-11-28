@@ -36,7 +36,6 @@ function scatter(id, turn) {
 export function startDwell(s, id) {
   s.actors[id].dwellUntil = s.turn + DWELL_TURNS + scatter(id, s.turn);
 }
-// Still staying: a resident may move on after its saved dwell expires.
 export const dwelling = (s, id) => (s.actors[id]?.dwellUntil ?? 0) > s.turn;
 
 // Courtesy (rules 133): after a human Talks, Asks, Gives, Trades with a

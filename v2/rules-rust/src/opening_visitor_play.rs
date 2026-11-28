@@ -3,6 +3,7 @@ use super::{
     opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
     opening_roster, opening_station_move, opening_visitor_routes,
+    opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     seed, Geography,
@@ -55,6 +56,85 @@ fn room<'a>(geo: &Geography<'a>, id: &str) -> Option<&'a Value> {
         .or_else(|| geo.files()["v2/card-game/forest.json"]["places"].get(id))
 }
 
+fn dwell_until(actor: &str, turn: u64) -> u64 {
+    turn + 24 + u64::from(seed::hash(&format!("{actor}@{turn}")) % 6)
+}
+
+fn quiet_departure_wait(
+    world: &Value,
+    geo: &Geography,
+    order: &[&str],
+    custody: &Custody,
+    actor: &str,
+    home: &str,
+    item: &str,
+) -> Option<()> {
+    let resident = world["actors"].get(actor)?;
+    let here = resident["place"].as_str()?;
+    let want = &resident["want"];
+    if world["turn"] != 3
+        || world["actors"]["vale"]["place"] != "station"
+        || here == "station"
+        || resident["crossed"] != 1
+        || resident["dwellUntil"] != dwell_until(actor, 2)
+        || resident["visited"] != json!([home, here])
+        || !resident["heldItem"].is_null()
+        || !custody.empty(actor)
+        || world["items"][item]["holder"] != home
+        || world["doors"][home] != here
+        || !world["placeCard"][here].is_null()
+        || want["kind"] != "person"
+        || !want["step"].is_null()
+        || !geo.visiting_resident(world, actor)
+        || !geo.entity_active(world, here)?
+        || (room(geo, here)?["sanctuary"] == true && resident["sanctuary"] != here)
+        || geo.packs().any(|pack| {
+            pack["transports"]
+                .as_object()
+                .is_some_and(|ships| ships.values().any(|ship| ship["place"] == here))
+        })
+    {
+        return None;
+    }
+    let target = want["target"].as_str()?;
+    if world["actors"].get(target)?["place"].as_str()? == here
+        && opening_roster::known_actors(world, geo, order, Some(here))?.contains(&target)
+    {
+        return None;
+    }
+    let homes = geo.packs().find(|pack| pack["id"] == "shared-homes")?;
+    let crossing =
+        entries(&homes["crossings"]).find(|edge| edge["from"] == home && edge["to"] == here)?;
+    if world["crossings"][crossing["id"].as_str()?]["discovered"] != true {
+        return None;
+    }
+    let mut plays = entries(&world["log"]).filter(|event| {
+        event["kind"] == "action" && event["actorId"] == actor && event["generated"] != true
+    });
+    let take = plays.next()?;
+    let depart = plays.next()?;
+    let pond = entries(&world["log"]).find(|event| vale_action(event) && event["turn"] == 2)?;
+    let seq = pond["seq"].as_u64()?;
+    if take["turn"] != 1
+        || take["verb"] != "take"
+        || take["itemId"] != item
+        || take["locationId"] != home
+        || take["seq"].as_u64()? >= seq
+        || depart["turn"] != 2
+        || depart["verb"] != "move"
+        || depart["fromLocationId"] != home
+        || depart["locationId"] != here
+        || depart["targetId"] != here
+        || !depart["itemId"].is_null()
+        || depart["seq"].as_u64()? <= seq
+        || depart["seq"].as_u64()? >= world["arrival"]["seq"].as_u64()?
+        || plays.next().is_some()
+    {
+        return None;
+    }
+    opening_crossings::no_crossing_unlocks(world, geo)
+}
+
 pub(super) fn perform(
     world: &mut Value,
     geo: &Geography,
@@ -70,21 +150,27 @@ pub(super) fn perform(
     let home = avatar["home"]["id"].as_str()?;
     let item = avatar["item"]["id"].as_str()?;
     let a = world["actors"].get(actor)?;
-    if a["heldItem"] != item
-        || !entries(&a["visited"]).any(|place| place == home)
+    if !entries(&a["visited"]).any(|place| place == home)
         || ["sleeping", "homeward", "attend", "guarding", "under"]
             .iter()
             .any(|field| !a[*field].is_null())
-        || a["dwellUntil"].as_u64().is_some_and(|until| until > turn)
         || opening_pickups::resting(a, turn)
         || world["peaceUntil"][actor].as_u64()? > turn
         || !world["defeats"][actor].is_null()
-        || !world["placeCard"][home].is_null()
         || entries(&world["memories"][actor]["learning"])
             .next()
             .is_some()
-        || !custody.can_transfer_one(actor, home)
         || !geo.entity_active(world, actor)?
+    {
+        return None;
+    }
+    if a["place"] != home {
+        return quiet_departure_wait(world, geo, order, custody, actor, home, item);
+    }
+    if a["heldItem"] != item
+        || a["dwellUntil"].as_u64().is_some_and(|until| until > turn)
+        || !world["placeCard"][home].is_null()
+        || !custody.can_transfer_one(actor, home)
         || !geo.entity_active(world, item)?
         || opening_pickups::another_way(geo, home)?
         || world["actors"]
@@ -157,7 +243,7 @@ pub(super) fn perform(
     } else {
         ""
     };
-    let dwell = turn + 24 + u64::from(seed::hash(&format!("{actor}@{turn}")) % 6);
+    let dwell = dwell_until(actor, turn);
     custody.transfer_one(actor, home)?;
     world["items"][item]["holder"] = json!(home);
     world["crossings"]

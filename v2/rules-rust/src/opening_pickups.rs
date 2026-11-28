@@ -17,6 +17,10 @@ impl Custody {
         Some(Self(counts))
     }
 
+    pub(super) fn empty(&self, holder: &str) -> bool {
+        !self.0.contains_key(holder)
+    }
+
     pub(super) fn can_transfer_one(&self, from: &str, to: &str) -> bool {
         self.0.get(from) == Some(&1) && !self.0.contains_key(to)
     }
