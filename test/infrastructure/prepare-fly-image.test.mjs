@@ -204,6 +204,7 @@ describe("Fly commit image preparation", () => {
       "v2/card-game",
       "v2/media",
       "v2/ai-model-rust",
+      "v2/rules-rust",
     ])
       expect(run).toContain(
         `type=bind,src=${resolve(path)},dst=/app/${path},readonly`,

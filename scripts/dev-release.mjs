@@ -27,6 +27,7 @@ const IMAGE = [
   "deploy/",
   "models/card-policy/",
   "v2/ai-model-rust/",
+  "v2/rules-rust/",
   "v2/orchestrator-rust/",
   "scripts/build-release-image.sh",
   "scripts/compile-release-binary.sh",

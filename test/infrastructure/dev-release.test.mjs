@@ -34,6 +34,7 @@ describe("a .dev release without an image", () => {
       "v2/orchestrator-rust/src/card_shared/engine.rs",
       "v2/orchestrator-rust/src/card_narrative/authored.rs",
       "v2/orchestrator-rust/src/card_shared/seat_guard.rs",
+      "v2/rules-rust/host/Cargo.toml",
       "models/card-policy/incumbent.cwrank",
       "scripts/compile-release-binary.sh",
     ])

@@ -1133,6 +1133,7 @@ describe("deploy workflow", () => {
     );
 
     expect(build).toContain("COPY v2/ai-model-rust /app/v2/ai-model-rust");
+    expect(build).toContain("COPY v2/rules-rust /app/v2/rules-rust");
     for (const dir of ["v2/card-game", "v2/content", "v2/media"])
       expect(build).not.toContain(`COPY ${dir} `);
   });
