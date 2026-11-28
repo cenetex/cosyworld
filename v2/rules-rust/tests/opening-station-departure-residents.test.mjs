@@ -115,10 +115,12 @@ test("the ordinary residents wait after both first quiet Station departures", as
           isDeepStrictEqual(actual, { ok: true, world: settled }),
           label,
         );
-        if (seed === 4242) sample = request;
+        if (seed === 42) sample = request;
       }
     }
   }
+  assert.equal(sample.world.actors.tavi.place, "forest-oak");
+  assert.ok(sample.world.actors.tavi.dwellUntil > sample.world.turn);
   for (const mutate of [
     (world) => {
       world.actors.moth.dwellUntil = world.turn;
@@ -127,7 +129,7 @@ test("the ordinary residents wait after both first quiet Station departures", as
       world.actors.keeper.want.step.verb = "bring";
     },
     (world) => {
-      world.actors.orin.dwellUntil = world.turn;
+      world.actors.tavi.dwellUntil = world.turn;
     },
     (world) => {
       world.arrival.seq -= 1;

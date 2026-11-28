@@ -80,7 +80,6 @@ describe("resident levels earned at a fixed home", () => {
     expect(wantAPI(s).home(resident)).toBe(home);
     s = decodeSave(encodeSave(s));
     expect(levelOf(s, resident)).toBe(1);
-    // Home is a move like any other (rules 133): it waits out its dwell.
     expect(plan(s, resident).action.kind).toBe("wait");
     // Two moves, each after a stay: wait for her, not for a count of turns.
     for (let i = 0; i < 200 && s.actors[resident].place !== home; i++) act();
