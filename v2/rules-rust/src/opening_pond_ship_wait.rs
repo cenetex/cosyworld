@@ -3,7 +3,7 @@ use super::{
     opening::{self, MAX_REVISION},
     opening_content,
     opening_full_wait::visible_items,
-    opening_pond_ship_course, opening_roster,
+    opening_pond_ship_course, opening_roster, opening_settlement,
     opening_station_move::{departure_witnesses, quiet_opening},
     opening_wait_response::vale_action,
     pack_state::Catalog,
@@ -101,6 +101,11 @@ pub(super) fn begin_with<T>(
         || !before["standoffs"].as_array()?.is_empty()
         || !before["conversations"].as_array()?.is_empty()
         || !actor["sleeping"].is_null()
+        || before["memories"][VALE]["learning"]
+            .as_array()
+            .is_some_and(|trials| !trials.is_empty())
+        || before["stationExitOrder"]
+            != json!(super::create::station_order(before, geo.files(), geo)?)
         || actor["heldItem"] != CLOTH
         || before["items"][CLOTH]["holder"] != VALE
         || actor["waitSpeech"] != json!({"place":SHIP,"turn":null})
@@ -168,6 +173,76 @@ pub(super) fn wait_event(world: &Value) -> Option<&Value> {
     .then_some(event)
 }
 
+pub(super) fn docking_event(world: &Value) -> Option<&Value> {
+    let seq = wait_event(world)?["seq"].as_u64()?.checked_add(1)?;
+    let event = world["log"]
+        .as_array()?
+        .iter()
+        .rfind(|event| event["seq"] == seq)?;
+    let state = &world["transports"][SHIP];
+    (event["turn"] == 10
+        && event["kind"] == "narration"
+        && event["locationId"] == SHIP
+        && event["actorId"].is_null()
+        && event["generated"] != true
+        && state["phase"] == "arrived"
+        && state["dock"] == HARBOR
+        && state["since"] == 10)
+        .then_some(event)
+}
+
+pub(super) fn dock(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    catalog: &Catalog,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+) -> Option<()> {
+    let wait = wait_event(world)?;
+    if wait["seq"] != world["eventSeq"] || world["transports"][SHIP] != sailing() {
+        return None;
+    }
+    let transport = geo.packs().find_map(|pack| pack["transports"].get(SHIP))?;
+    let lane = json!({"from":"pond","to":HARBOR});
+    if transport["place"] != SHIP
+        || !transport["lanes"].as_array()?.contains(&lane)
+        || !geo.entity_active(world, HARBOR)?
+    {
+        return None;
+    }
+    let aboard = riders(world, geo)?;
+    let knowledge = world["routeKnowledge"].as_object_mut()?;
+    let edges = json!([
+        ["sea:greek-harbor", "sea:pond"],
+        ["sea:pond", "sea:greek-harbor"]
+    ]);
+    for id in &aboard {
+        if knowledge.get(*id).is_some_and(|known| known != &json!([])) {
+            return None;
+        }
+        knowledge.insert((*id).into(), edges.clone());
+    }
+    if opening_settlement::sail_arrival(world, catalog, SHIP, &aboard)?
+        != [json!({"id":SHIP,"kind":"arrive","from":"pond","dock":HARBOR,"riders":aboard})]
+        || riders(world, geo)? != aboard
+    {
+        return None;
+    }
+    let cast = room(world, geo, authored, order)?;
+    let ship = evidence.profile(SHIP)?["name"].as_str()?;
+    let harbor = evidence.profile(HARBOR)?["name"].as_str()?;
+    evidence.narrate(
+        world,
+        &cast,
+        &[CLOTH],
+        SHIP,
+        &format!("{ship} docks at {harbor}."),
+    )?;
+    docking_event(world)?;
+    Some(())
+}
+
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let before = request.get("world")?;
     let order = opening_roster::actor_order(request, before)?;
@@ -175,13 +250,20 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let evidence = ResidentEvidence::new(&files)?;
-    let (world, ()) = begin_with(
-        wait_world(request)?,
-        &geo,
-        &authored,
-        &order,
-        &evidence,
-        |_| Some(()),
-    )?;
+    let world = if request["op"] == "opening_pond_ship_wait" {
+        begin_with(
+            wait_world(request)?,
+            &geo,
+            &authored,
+            &order,
+            &evidence,
+            |_| Some(()),
+        )?
+        .0
+    } else {
+        let mut world = before.clone();
+        dock(&mut world, &geo, &catalog, &authored, &order, &evidence)?;
+        world
+    };
     Some(json!({"ok":true,"world":world}))
 }

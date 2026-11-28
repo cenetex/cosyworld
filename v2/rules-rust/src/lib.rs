@@ -248,7 +248,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_pond_ship_course" | "opening_pond_ship_course_depart") => {
             opening_pond_ship_course::projection(request).unwrap_or(Value::Null)
         }
-        Some("opening_pond_ship_wait") => {
+        Some("opening_pond_ship_wait" | "opening_pond_ship_dock") => {
             opening_pond_ship_wait::projection(request).unwrap_or(Value::Null)
         }
         Some(

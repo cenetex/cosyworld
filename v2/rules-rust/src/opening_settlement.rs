@@ -37,18 +37,38 @@ pub(super) fn sail_transports(
     catalog: &Catalog,
     waited_at: Option<&str>,
 ) -> Option<Vec<Value>> {
-    sail_with_course(world, catalog, waited_at, None)
+    sail_with_step(world, catalog, waited_at, None)
 }
 
 pub(super) fn sail_course(world: &mut Value, catalog: &Catalog, ship: &str) -> Option<Vec<Value>> {
-    sail_with_course(world, catalog, None, Some(ship))
+    sail_with_step(world, catalog, None, Some(VoyageStep::Course(ship)))
 }
 
-fn sail_with_course(
+pub(super) fn sail_arrival(
+    world: &mut Value,
+    catalog: &Catalog,
+    ship: &str,
+    passengers: &[&str],
+) -> Option<Vec<Value>> {
+    sail_with_step(
+        world,
+        catalog,
+        Some(ship),
+        Some(VoyageStep::Arrive(ship, passengers)),
+    )
+}
+
+#[derive(Clone, Copy)]
+enum VoyageStep<'a> {
+    Course(&'a str),
+    Arrive(&'a str, &'a [&'a str]),
+}
+
+fn sail_with_step(
     world: &mut Value,
     catalog: &Catalog,
     waited_at: Option<&str>,
-    course: Option<&str>,
+    step: Option<VoyageStep<'_>>,
 ) -> Option<Vec<Value>> {
     let actors = world.get("actors")?.as_object()?;
     let states = world.get("transports")?.as_object()?;
@@ -76,7 +96,7 @@ fn sail_with_course(
             match state["phase"].as_str()? {
                 "docked" if riders.is_empty() && state["destination"].is_null() => {}
                 "course"
-                    if course == Some(id)
+                    if matches!(step, Some(VoyageStep::Course(ship)) if ship == id)
                         && riders.is_empty()
                         && state["recall"].is_null()
                         && docks.contains(&state["destination"])
@@ -102,7 +122,24 @@ fn sail_with_course(
                         && actors.values().all(|actor| actor["place"] != place) =>
                 {
                     let (next, voyage) =
-                        empty_arrival(id, transport, state, world["turn"].as_u64()?)?;
+                        arrival_from_sea(id, transport, state, world["turn"].as_u64()?, &[])?;
+                    changes.push((id, next));
+                    voyages.push(voyage);
+                }
+                "sea" if riders.is_empty() && state["recall"].is_null() => {
+                    let Some(VoyageStep::Arrive(ship, passengers)) = step else {
+                        return None;
+                    };
+                    if ship != id || passengers.is_empty() {
+                        return None;
+                    }
+                    let (next, voyage) = arrival_from_sea(
+                        id,
+                        transport,
+                        state,
+                        world["turn"].as_u64()?,
+                        passengers,
+                    )?;
                     changes.push((id, next));
                     voyages.push(voyage);
                 }
@@ -117,7 +154,13 @@ fn sail_with_course(
     Some(voyages)
 }
 
-fn empty_arrival(id: &str, transport: &Value, state: &Value, turn: u64) -> Option<(Value, Value)> {
+fn arrival_from_sea(
+    id: &str,
+    transport: &Value,
+    state: &Value,
+    turn: u64,
+    passengers: &[&str],
+) -> Option<(Value, Value)> {
     let from = state["dock"].as_str()?;
     let destination = state["destination"].as_str()?;
     let dock = state["recall"].as_str().unwrap_or(destination);
@@ -132,12 +175,17 @@ fn empty_arrival(id: &str, transport: &Value, state: &Value, turn: u64) -> Optio
     if lane_between(dock).is_some_and(|lane| lane["spends"] == true) {
         return None;
     }
+    let phase = if passengers.is_empty() {
+        "docked"
+    } else {
+        "arrived"
+    };
     Some((
         json!({
-            "version":3, "phase":"docked", "dock":dock, "destination":null,
-            "riders":[], "since":turn, "recall":null,
+            "version":3, "phase":phase, "dock":dock, "destination":null,
+            "riders":passengers, "since":turn, "recall":null,
         }),
-        json!({"id":id, "kind":"arrive", "from":from, "dock":dock, "riders":[]}),
+        json!({"id":id, "kind":"arrive", "from":from, "dock":dock, "riders":passengers}),
     ))
 }
 
