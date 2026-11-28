@@ -38,6 +38,7 @@ mod opening_place_cards;
 mod opening_play;
 mod opening_pond_ask;
 mod opening_pond_place_returns;
+mod opening_pond_return_view;
 mod opening_pond_rumours;
 mod opening_pond_view;
 mod opening_quiet_life;
@@ -211,6 +212,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_behind_station_view") => {
             opening_behind_station_view::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_pond_return_view") => {
+            opening_pond_return_view::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_historic_awake_station_view") => {
             opening_station_view::historic_awake_projection(request).unwrap_or(Value::Null)

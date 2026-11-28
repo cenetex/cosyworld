@@ -63,7 +63,7 @@ fn records(value: &Value) -> impl Iterator<Item = &Value> {
         .flat_map(serde_json::Map::values)
 }
 
-fn abandon_offer(text: String) -> Value {
+pub(super) fn abandon_offer(text: String) -> Value {
     let mut action = offer("drop", None, None, text, &[]);
     action["quest"] = json!(0);
     action["key"] = json!(ABANDON_QUEST);
@@ -122,15 +122,20 @@ fn settled_first_read(world: &Value) -> Option<[&Value; 2]> {
         && wait["generated"] != true
         && wait["witnesses"] == read["witnesses"]
         && wait["cast"] == read["cast"]
-        && *learned
-            == json!({
-                "kind":"read","teller":null,"eventSeq":seq,"learnedTurn":3,"book":"keeper-log"
-            }))
+        && *learned == keeper_read_fact(seq))
     .then_some([read, wait])
+}
+
+fn keeper_read_fact(seq: u64) -> Value {
+    json!({"kind":"read","teller":null,"eventSeq":seq,"learnedTurn":3,"book":"keeper-log"})
 }
 
 pub(super) fn keeper_want(world: &Value, geo: &Geography) -> Option<Value> {
     let [read, _] = settled_first_read(world)?;
+    keeper_want_from_read(world, geo, read["seq"].as_u64()?)
+}
+
+pub(super) fn keeper_want_from_read(world: &Value, geo: &Geography, seq: u64) -> Option<Value> {
     let claim = keeper_book_claim(world, geo)?;
     let id = format!("claim:hub:keeper-log:{}", claim["id"].as_str()?);
     let forest = &geo.files()["v2/card-game/forest.json"];
@@ -144,6 +149,7 @@ pub(super) fn keeper_want(world: &Value, geo: &Geography) -> Option<Value> {
     let known = &world["knowledge"]["known"][VALE];
     if world["knowledge"]["version"] != 1
         || !world["knowledge"]["pending"].as_array()?.is_empty()
+        || known[KEEPER_QUEST] != keeper_read_fact(seq)
         || facts[KEEPER_QUEST]
             != json!({
                 "id":KEEPER_QUEST,"text":format!("{keeper} wants you to {goal}."),"source":{
@@ -155,7 +161,7 @@ pub(super) fn keeper_want(world: &Value, geo: &Geography) -> Option<Value> {
         || facts[&id]
             != json!({
                 "id":id,"text":claim["text"],"source":{
-                    "kind":"claim","eventSeq":read["seq"],"turn":3,"actorId":VALE,
+                    "kind":"claim","eventSeq":seq,"turn":3,"actorId":VALE,
                     "locationId":STATION,"witnesses":[VALE],"topic":null,"book":"keeper-log",
                     "claim":claim["id"],"author":KEEPER,"about":claim["about"],
                 },
@@ -164,7 +170,7 @@ pub(super) fn keeper_want(world: &Value, geo: &Geography) -> Option<Value> {
         return None;
     }
     let mut want = forest["people"][KEEPER]["want"].clone();
-    want["since"] = world["turn"].clone();
+    want["since"] = json!(3);
     want["refusals"] = json!(0);
     want["from"] = json!(KEEPER_FROM);
     Some(want)

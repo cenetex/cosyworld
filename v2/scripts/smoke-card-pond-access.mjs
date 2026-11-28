@@ -271,7 +271,6 @@ try {
     await page.locator("#card-actions .card-primary").click();
     await ready();
     await page.keyboard.press("Escape");
-    // Held lit at the pond, the lamp brought Vale back into its light.
     assert.equal((await state()).actors.vale.place, "attic");
     assert.equal(
       await card("attic").locator(".name").textContent(),
