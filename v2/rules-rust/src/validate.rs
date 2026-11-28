@@ -121,10 +121,12 @@ fn validate_context(request: &Value, world: &Value) -> Result<bool, &'static str
 
 fn verified_opening(saved: &Value, files: &Value) -> Option<Value> {
     opening::unplayed_turn(saved)?;
-    if saved.get("run").is_some() {
-        return None;
-    }
-    let created = super::create::fresh(files, None, saved.get("began").is_some())?;
+    let seed = if saved.get("run").is_some() {
+        Some(super::seed::run_seed(saved)?)
+    } else {
+        None
+    };
+    let created = super::create::fresh(files, seed, saved.get("began").is_some())?;
     let initial = opening::stored_world(created)?;
     let steps = saved["revision"]
         .as_u64()?
