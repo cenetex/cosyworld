@@ -160,6 +160,7 @@ fn encode_request(
             "opening_wait_roster"
                 | "opening_mirror_move"
                 | "opening_station_move"
+                | "opening_historic_awake_station_view"
                 | "opening_pond_ask"
                 | "opening_station_residents"
                 | "opening_pond_place_returns"

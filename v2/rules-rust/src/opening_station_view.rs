@@ -176,6 +176,20 @@ fn historic_sleepers(world: &Value, geo: &Geography<'_>) -> Option<()> {
         .then_some(())
 }
 
+fn historic_awake_residents(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let pip = &world["actors"][PIP];
+    let keeper = &world["actors"][KEEPER];
+    (geo.files()["v2/card-game/world-history.json"]["turns"] == world["began"]
+        && pip["visited"] == json!([POND, STATION])
+        && pip["heldItem"] == "cloth"
+        && pip["lastTalk"] == 481
+        && pip["want"] == json!({"kind":"item","target":LAMP,"since":0,"refusals":1,"lit":true})
+        && keeper["heldItem"] == "oil"
+        && keeper["want"]["step"]["verb"] == "call"
+        && world["items"]["bell"]["ringing"] == 0)
+        .then_some(())
+}
+
 fn rue_meeting(world: &Value) -> Option<()> {
     let rue = &world["actors"][RUE];
     if rue["crossed"] != 1
@@ -280,6 +294,7 @@ fn station_scene<'a>(
     geo: &Geography<'_>,
     actor_order: &[&'a str],
     train_accepted: bool,
+    awake_historic: bool,
 ) -> Option<Vec<&'a str>> {
     let turn = world["turn"].as_u64()?;
     let met_keeper = world["opening"]["met"][KEEPER].as_u64()?;
@@ -293,6 +308,7 @@ fn station_scene<'a>(
     if world["schema"] != 8
         || world["sharedVersion"] != 1
         || (world.get("began").is_some() && !historic)
+        || (awake_historic && (!historic || rue_arrived(world)))
         || !(turn..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
         || world["opening"]["crossed"] != true
         || (met_keeper != arrival_turn && !after_read)
@@ -334,7 +350,10 @@ fn station_scene<'a>(
         return None;
     }
     let mut cast = vec![VALE, KEEPER];
-    if historic {
+    if awake_historic {
+        historic_awake_residents(world, geo)?;
+        cast.push(PIP);
+    } else if historic {
         historic_sleepers(world, geo)?;
     } else {
         cast.push(PIP);
@@ -346,7 +365,7 @@ fn station_scene<'a>(
     for id in &cast {
         let actor = actors.get(*id)?;
         if actor["place"] != STATION
-            || (!actor["sleeping"].is_null() && !(historic && *id == KEEPER))
+            || (!actor["sleeping"].is_null() && !(historic && !awake_historic && *id == KEEPER))
             || !actor["under"].is_null()
             || !actor["talked"].as_array()?.is_empty()
             || world["peaceUntil"][*id].as_u64()? > turn
@@ -539,9 +558,10 @@ fn station_projection(
     authored: &Order,
     actor_order: &[&str],
     train_accepted: bool,
+    awake_historic: bool,
     profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<(Vec<Value>, Value)> {
-    let company = station_scene(world, geo, actor_order, train_accepted)?;
+    let company = station_scene(world, geo, actor_order, train_accepted, awake_historic)?;
     station_paths(world, geo)?;
     let profiles = profile_source()?;
     let mut plans = actions(world, geo, authored, &profiles, &company, train_accepted)?;
@@ -589,7 +609,53 @@ fn generated_station_line(event: &Value, voices: &[&str]) -> bool {
         }
 }
 
-fn arrival_events(world: &Value, before_seq: u64, allow_speech: bool) -> Option<Vec<&Value>> {
+fn awake_arrival_events(world: &Value, committed: &[&Value]) -> Option<()> {
+    let [primary, follow, offstage @ .., wake] = committed else {
+        return None;
+    };
+    if !is_move(primary, VALE, POND, STATION)
+        || follow["seq"].as_u64()? != opening_station_move::historic_follow(world)?
+        || follow["witnesses"] != json!([PIP, "ratiradio-station-key", "cloth"])
+        || ![VALE, PIP, "cloth"]
+            .iter()
+            .all(|id| entries(&primary["witnesses"]).any(|witness| witness == *id))
+        || wake["kind"] != "narration"
+        || wake["speaker"] != "World"
+        || wake["actorId"] != KEEPER
+        || wake["locationId"] != STATION
+        || wake["text"] != "The keeper wakes."
+        || ["verb", "witnesses", "fromLocationId", "itemId", "targetId"]
+            .iter()
+            .any(|key| !wake[*key].is_null())
+        || wake["cast"] != follow["cast"]
+        || wake["cast"].as_array()?.len() != 3
+        || ![VALE, PIP, KEEPER]
+            .iter()
+            .all(|id| entries(&wake["cast"]).any(|actor| actor == *id))
+        || wake["items"] != follow["items"]
+        || wake["light"] != false
+    {
+        return None;
+    }
+    match offstage {
+        [] => Some(()),
+        [entry] if is_move(entry, "orin", "pavilion", "willows-bank") => (entry["itemId"]
+            .is_null()
+            && entry["cast"] == json!(["orin"])
+            && entry["witnesses"] == json!(["orin", "board"])
+            && world["actors"]["orin"]["place"] == "willows-bank"
+            && world["items"]["board"]["holder"] == "pavilion")
+            .then_some(()),
+        _ => None,
+    }
+}
+
+fn arrival_events(
+    world: &Value,
+    before_seq: u64,
+    allow_speech: bool,
+    awake_historic: bool,
+) -> Option<Vec<&Value>> {
     let events: Vec<_> = entries(&world["log"])
         .filter(|entry| entry["seq"].as_u64().is_some_and(|seq| seq > before_seq))
         .collect();
@@ -612,6 +678,10 @@ fn arrival_events(world: &Value, before_seq: u64, allow_speech: bool) -> Option<
         return None;
     }
     if historic_station(world) {
+        if awake_historic {
+            awake_arrival_events(world, committed)?;
+            return Some(events);
+        }
         let [move_event] = committed else {
             return None;
         };
@@ -665,7 +735,12 @@ pub(super) fn settled_speech_voices(
     if world["turn"] != 2 && !historic_station(world) {
         return None;
     }
-    let events = arrival_events(world, response_chronology(world)?.checked_sub(1)?, true)?;
+    let events = arrival_events(
+        world,
+        response_chronology(world)?.checked_sub(1)?,
+        true,
+        false,
+    )?;
     let named = voices(world);
     if named.contains(&RUE)
         && !events.iter().any(|entry| {
@@ -676,7 +751,7 @@ pub(super) fn settled_speech_voices(
     {
         return None;
     }
-    station_scene(world, geo, order, false)?;
+    station_scene(world, geo, order, false, false)?;
     station_paths(world, geo)?;
     Some(named)
 }
@@ -701,7 +776,7 @@ pub fn completed_station_response(
 }
 
 pub(super) fn completed_station_response_with_profiles(
-    mut world: Value,
+    world: Value,
     geo: &Geography<'_>,
     authored: &Order,
     before_seq: u64,
@@ -709,12 +784,40 @@ pub(super) fn completed_station_response_with_profiles(
     present: &[&str],
     profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<Value> {
-    if present != [VALE] || response_chronology(&world)? != before_seq.checked_add(1)? {
+    (present == [VALE]).then_some(())?;
+    completed_arrival(
+        world,
+        geo,
+        authored,
+        before_seq,
+        actor_order,
+        false,
+        profile_source,
+    )
+}
+
+pub(super) fn completed_arrival(
+    mut world: Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    before_seq: u64,
+    actor_order: &[&str],
+    awake_historic: bool,
+    profile_source: impl FnOnce() -> Option<Value>,
+) -> Option<Value> {
+    if response_chronology(&world)? != before_seq.checked_add(1)? {
         return None;
     }
-    let (plans, profiles) =
-        station_projection(&world, geo, authored, actor_order, false, profile_source)?;
-    let events = arrival_events(&world, before_seq, false)?
+    let (plans, profiles) = station_projection(
+        &world,
+        geo,
+        authored,
+        actor_order,
+        false,
+        awake_historic,
+        profile_source,
+    )?;
+    let events = arrival_events(&world, before_seq, false, awake_historic)?
         .into_iter()
         .cloned()
         .collect::<Vec<_>>();
@@ -743,8 +846,15 @@ pub(super) fn completed_read_response(
         return None;
     }
     let events = vec![read.clone(), wait.clone()];
-    let (plans, profiles) =
-        station_projection(&world, geo, authored, actor_order, false, profile_source)?;
+    let (plans, profiles) = station_projection(
+        &world,
+        geo,
+        authored,
+        actor_order,
+        false,
+        false,
+        profile_source,
+    )?;
     world["speechVoices"][VALE] = json!([]);
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = Value::Array(events);
@@ -805,9 +915,10 @@ pub(super) fn accept_keeper(request: &Value) -> Option<Value> {
     vale.remove("content");
     vale.insert("want".into(), want);
     world["revision"] = revision.into();
-    let (plans, profiles) = station_projection(&world, &geo, &authored, &order, false, || {
-        profiles::project(geo.files())
-    })?;
+    let (plans, profiles) =
+        station_projection(&world, &geo, &authored, &order, false, false, || {
+            profiles::project(geo.files())
+        })?;
     super::opening_held_items::settle(&mut world, &geo, None)?;
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = json!([]);
@@ -828,6 +939,7 @@ pub(super) fn accept_train(request: &Value) -> Option<Value> {
         world,
         chronology(world)?.checked_sub(1)?,
         world["turn"] == 2,
+        false,
     )?;
     let order = super::opening_roster::actor_order(request, world)?;
     let (files, authored) = opening_content::wait_files(request)?;
@@ -838,9 +950,10 @@ pub(super) fn accept_train(request: &Value) -> Option<Value> {
     vale.remove("content");
     vale.insert("want".into(), train_want(turn));
     world["revision"] = revision.into();
-    let (plans, profiles) = station_projection(&world, &geo, &authored, &order, true, || {
-        profiles::project(geo.files())
-    })?;
+    let (plans, profiles) =
+        station_projection(&world, &geo, &authored, &order, true, false, || {
+            profiles::project(geo.files())
+        })?;
     super::opening_held_items::settle(&mut world, &geo, None)?;
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = json!([]);
@@ -885,14 +998,20 @@ pub(super) fn abandon_train(request: &Value) -> Option<Value> {
     if revision <= turn || revision > opening::MAX_REVISION {
         return None;
     }
-    arrival_events(before, chronology(before)?.checked_sub(1)?, turn == 3)?;
+    arrival_events(
+        before,
+        chronology(before)?.checked_sub(1)?,
+        turn == 3,
+        false,
+    )?;
     let order = opening_roster::actor_order(request, before)?;
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    let (mut plans, profiles) = station_projection(before, &geo, &authored, &order, true, || {
-        profiles::project(&files)
-    })?;
+    let (mut plans, profiles) =
+        station_projection(before, &geo, &authored, &order, true, false, || {
+            profiles::project(&files)
+        })?;
     let abandon = plans.pop()?;
     if abandon["key"] != ABANDON_QUEST
         || before["actors"][KEEPER]["want"]["step"]["verb"] != "call"
@@ -982,6 +1101,10 @@ pub(super) fn abandon_train(request: &Value) -> Option<Value> {
 }
 
 pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
+    project_private(request, present, false)
+}
+
+fn project_private(request: &Value, present: &[&str], awake_historic: bool) -> Option<Value> {
     let world = request.get("world")?;
     let train_accepted = world["actors"][VALE]["want"]["from"] == "quest:box:train";
     let abandoned = train_abandoned(world);
@@ -1008,22 +1131,56 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
             world,
             response_chronology(world)?.checked_sub(1)?,
             world["turn"] == 2 || historic_station(world),
+            awake_historic,
         )?;
     }
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let actor_order = super::opening_roster::actor_order(request, world)?;
-    let (plans, profiles) =
-        station_projection(world, &geo, &authored, &actor_order, train_accepted, || {
-            profiles::project(geo.files())
-        })?;
+    let (plans, profiles) = station_projection(
+        world,
+        &geo,
+        &authored,
+        &actor_order,
+        train_accepted,
+        awake_historic,
+        || profiles::project(geo.files()),
+    )?;
     let projected = opening_view::private_world(world, request)?;
     Some(station_response(
         json!({"ok":true,"world":projected}),
         plans,
         profiles,
     ))
+}
+
+pub(super) fn historic_awake_projection(request: &Value) -> Option<Value> {
+    if request["actor"] != VALE || opening::seats(&request["claimed"])? != [VALE] {
+        return None;
+    }
+    let present = opening::seats(&request["present"])?;
+    match request["phase"].as_str()? {
+        "private" => project_private(request, &present, true),
+        "complete" if present == [VALE] => {
+            let world = request.get("world")?;
+            let order = opening_roster::actor_order(request, world)?;
+            let (files, authored) = opening_content::wait_files(request)?;
+            let catalog = Catalog::from_files(&files)?;
+            let geo = Geography::new(&files, catalog.packs())?;
+            let before_seq = request["beforeSeq"].as_u64()?;
+            completed_arrival(
+                world.clone(),
+                &geo,
+                &authored,
+                before_seq,
+                &order,
+                true,
+                || profiles::project(&files),
+            )
+        }
+        _ => None,
+    }
 }
 
 fn station_response(mut response: Value, plans: Vec<Value>, profiles: Value) -> Value {

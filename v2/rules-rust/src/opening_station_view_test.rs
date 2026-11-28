@@ -93,7 +93,7 @@ for (const [seed, second, dry, sorted, carry, history] of [...quiet, ...rue, ...
             row["label"]
         );
         assert!(
-            station_scene(&world, &geo, &order, false).is_some(),
+            station_scene(&world, &geo, &order, false, false).is_some(),
             "scene {}",
             row["label"]
         );
