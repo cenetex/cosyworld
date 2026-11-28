@@ -40,24 +40,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     {
         return None;
     }
-    let quest = world["actors"]["vale"].get("want")?;
-    let mirror = if world["items"]["lamp"]["lit"] == true {
-        let quest_accepted = *quest == opening_play::pond_quest(world);
-        if !quest.is_null() && !quest_accepted {
-            return None;
-        }
-        Mirror::Shut { quest_accepted }
-    } else {
-        if !quest.is_null()
-            || world["actors"]["vale"].get("heldItem") != Some(&Value::Null)
-            || world["opened"]["pond"] != json!(["vale"])
-        {
-            return None;
-        }
-        Mirror::Open {
-            pond_available: !pond_at_capacity(world, request)?,
-        }
-    };
+    let mirror = attic_mirror(world, &opening::seats(&request["present"])?)?;
     let files = opening_play::attic_files(world, request)?;
     if other_attic_content(&files)? {
         return None;
@@ -66,16 +49,34 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     opening_play::attic_response(json!({"ok":true,"world":projected}), &files, mirror)
 }
 
-fn pond_at_capacity(world: &Value, request: &Value) -> Option<bool> {
-    let present = opening::seats(&request["present"])?;
-    Some(
-        present.contains(&"vale")
-            && present
-                .iter()
-                .filter(|&&id| world["actors"][id]["place"] == "pond")
-                .count()
-                >= 4,
-    )
+pub(super) fn attic_mirror(world: &Value, present: &[&str]) -> Option<Mirror> {
+    let quest = world["actors"]["vale"].get("want")?;
+    if world["items"]["lamp"]["lit"] == true {
+        let quest_accepted = *quest == opening_play::pond_quest(world);
+        if !quest.is_null() && !quest_accepted {
+            return None;
+        }
+        Some(Mirror::Shut { quest_accepted })
+    } else {
+        if !quest.is_null()
+            || world["actors"]["vale"].get("heldItem") != Some(&Value::Null)
+            || world["opened"]["pond"] != json!(["vale"])
+        {
+            return None;
+        }
+        Some(Mirror::Open {
+            pond_available: !pond_at_capacity(world, present),
+        })
+    }
+}
+
+fn pond_at_capacity(world: &Value, present: &[&str]) -> bool {
+    present.contains(&"vale")
+        && present
+            .iter()
+            .filter(|&&id| world["actors"][id]["place"] == "pond")
+            .count()
+            >= 4
 }
 
 fn private_world(world: &Value, request: &Value) -> Option<Value> {
@@ -100,7 +101,7 @@ fn private_world(world: &Value, request: &Value) -> Option<Value> {
     Some(world)
 }
 
-fn other_attic_content(files: &Value) -> Option<bool> {
+pub(super) fn other_attic_content(files: &Value) -> Option<bool> {
     let forest = &files["v2/card-game/forest.json"];
     let packs = files["v2/card-game/packs.json"]["packs"].as_array()?;
     let specials = files.get("v2/card-game/boardyai.json")?;

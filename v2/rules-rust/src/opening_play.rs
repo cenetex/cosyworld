@@ -101,6 +101,14 @@ pub(super) fn attic_files(world: &Value, request: &Value) -> Option<Value> {
 }
 
 pub(super) fn attic_state(world: &Value) -> Option<()> {
+    quiet_attic(world)?;
+    (!world["log"].as_array()?.iter().any(|entry| {
+        entry["kind"] == "action" && entry["actorId"] == "vale" && entry["generated"] != true
+    }))
+    .then_some(())
+}
+
+pub(super) fn quiet_attic(world: &Value) -> Option<()> {
     let vale = world["actors"]["vale"].as_object()?;
     if world["items"]["lamp"]["holder"] != "vale"
         || ["arcana", "closed", "sleeping", "under"]
@@ -116,9 +124,6 @@ pub(super) fn attic_state(world: &Value) -> Option<()> {
             .values()
             .any(|place| place == "attic")
         || !world["standoffs"].as_array().is_some_and(Vec::is_empty)
-        || world["log"].as_array()?.iter().any(|entry| {
-            entry["kind"] == "action" && entry["actorId"] == "vale" && entry["generated"] != true
-        })
         || world["actors"]
             .as_object()?
             .iter()
