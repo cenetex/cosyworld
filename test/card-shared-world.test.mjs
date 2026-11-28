@@ -300,7 +300,6 @@ describe("the full world shared by human avatars", () => {
           (a) => (a.kind === "take" && a.item === "mask") || aimed(a),
         ),
       ).toBe(false);
-    // Vale's plays let the resident Mara act on her own wants.
     let next = world;
     for (let i = 0; i < 6; i++) {
       const own = ask(next, "view", "vale", { present: ["vale"] }).actions;
