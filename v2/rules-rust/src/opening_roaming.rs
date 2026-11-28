@@ -1,7 +1,7 @@
 use super::{
     create, create_geography::Geography, opening, opening_content, opening_play,
-    opening_resident_sleep, opening_station_read, opening_visitor_routes, pack_state::Catalog,
-    seed,
+    opening_resident_sleep, opening_station_move, opening_station_read, opening_visitor_routes,
+    pack_state::Catalog, seed,
 };
 use serde_json::{json, Value};
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
@@ -230,13 +230,24 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
     let historic = world.get("began").is_some_and(|began| began != 0);
     let prior = match (historic, turn, world["actors"]["vale"]["place"].as_str()?) {
         (true, 482, "station") => {
-            opening_resident_sleep::historic_station(world, geo)?;
+            if let Some(head) = opening_station_move::historic_resident_moves(world) {
+                if world["eventSeq"] != head
+                    || world["log"].as_array()?.last()?["seq"] != head
+                    || world["actors"]["keeper"]["sleeping"]
+                        != json!({"since":481,"place":"station","until":482})
+                    || geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
+                {
+                    return None;
+                }
+            } else {
+                opening_resident_sleep::historic_station(world, geo)?;
+            }
             only_bard_roams(world, geo)?;
             turn.checked_sub(1)?
         }
         (false, 2..=4, "station") => {
-            if super::opening_station_move::arrival(world)
-                .or_else(|| super::opening_station_move::abandoned_train_arrival(world))
+            if opening_station_move::arrival(world)
+                .or_else(|| opening_station_move::abandoned_train_arrival(world))
                 .is_none()
             {
                 opening_station_read::after_first_log(world)?;

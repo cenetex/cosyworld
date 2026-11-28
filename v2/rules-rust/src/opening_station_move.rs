@@ -94,6 +94,29 @@ pub(super) fn historic_follow(world: &Value) -> Option<u64> {
     .then_some(seq)
 }
 
+pub(super) fn historic_resident_moves(world: &Value) -> Option<u64> {
+    let follow = historic_follow(world)?;
+    let after = follow.checked_add(1)?;
+    let cass = world["log"]
+        .as_array()?
+        .iter()
+        .find(|event| event["seq"] == after && event["actorId"] == "orin");
+    let Some(cass) = cass else {
+        return Some(follow);
+    };
+    let actor = &world["actors"]["orin"];
+    (actor["place"] == "willows-bank"
+        && actor["visited"] == json!(["pavilion", "willows-bank"])
+        && actor["heldItem"].is_null()
+        && world["items"]["board"]["holder"] == "pavilion"
+        && cass["kind"] == "action"
+        && cass["generated"] != true
+        && cass["itemId"].is_null()
+        && cass["witnesses"] == json!(["orin", "board"])
+        && move_event(cass, 482, "pavilion", "willows-bank"))
+    .then_some(after)
+}
+
 pub(super) fn abandoned_train_arrival(world: &Value) -> Option<u64> {
     let prior = world["turn"].as_u64()?.checked_sub(1)?;
     (matches!(prior, 2 | 3)

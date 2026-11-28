@@ -17,8 +17,7 @@
 // off (test/helpers/no-dwell.mjs). The rules never change it.
 export const dwellRule = { on: true };
 
-// The least a resident stays after arriving: half the 48-turn day, so it
-// makes at most two moves of its own a day (owner, 2026-11-11).
+// A resident dwells at least half the 48-turn day (owner, 2026-11-11).
 export const DWELL_TURNS = 24;
 export const DWELL_SPREAD = 6;
 export const MAX_DWELL = DWELL_TURNS + DWELL_SPREAD - 1;
