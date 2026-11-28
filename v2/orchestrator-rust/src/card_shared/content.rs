@@ -37,7 +37,6 @@ pub(super) fn text(pack: &str) -> Result<Arc<str>> {
         .cloned()
         .ok_or_else(|| MISSING.into())
 }
-/// Store the current revision before a journal row names it.
 pub(super) fn save(c: &Connection) -> Result<()> {
     c.execute(
         "INSERT OR IGNORE INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
