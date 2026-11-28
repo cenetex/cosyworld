@@ -586,7 +586,30 @@ fn verify_keeper_quest_ship_course(
     board: &str,
     carried: Option<&str>,
 ) -> Result<()> {
-    let (mut c, mut state, mut calls, boarded) =
+    let (mut c, state, calls, course_reply) =
+        commit_keeper_quest_ship_course(id, seed, visitors, board, carried)?;
+    verify_opening_journal(&mut c, id, &calls)?;
+    let view = seated_reload(&c, id, &state, "greek-ship", &[], 15)?;
+    let world = &state.game;
+    assert_eq!(view["actions"], course_reply["actions"]);
+    assert_eq!(view["world"]["speechVoices"], world["speechVoices"]);
+    assert_eq!(view["world"]["transports"], world["transports"]);
+    assert_eq!(
+        view["world"]["log"].as_array().unwrap().last(),
+        course_reply["events"].as_array().unwrap().last()
+    );
+    assert!(view["world"]["memories"]["ada"].get("subjects").is_none());
+    Ok(())
+}
+
+fn commit_keeper_quest_ship_course(
+    id: &str,
+    seed: Option<u32>,
+    visitors: &[(&str, &str, &str, &str)],
+    board: &str,
+    carried: Option<&str>,
+) -> Result<(Connection, World, Vec<&'static str>, Value)> {
+    let (c, mut state, mut calls, boarded) =
         commit_keeper_quest_ship_boarding(id, seed, visitors, board, carried)?;
     let course_key = "course:vale::greek-harbor";
     let seq = state.game["eventSeq"]
@@ -655,16 +678,153 @@ fn verify_keeper_quest_ship_course(
     actions.retain(|action| action["key"] != course_key);
     assert_eq!(course_reply["actions"], json!(actions));
     assert_eq!(world["speechVoices"]["vale"], json!(["vale"]));
-
     assert_eq!(calls.len(), 13);
+    Ok((c, state, calls, course_reply))
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_first_ship_docking() -> Result<()> {
+    verify_keeper_quest_ship_docking(
+        "first-ship-docking",
+        Some(17),
+        &[],
+        "move:vale::greek-ship",
+        None,
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_first_ship_docking_with_sage() -> Result<()> {
+    verify_keeper_quest_ship_docking(
+        "first-ship-docking-with-sage",
+        None,
+        SHIP_CALL_VISITORS,
+        "move:vale:cloth:greek-ship",
+        Some("cloth"),
+    )
+}
+
+fn verify_keeper_quest_ship_docking(
+    id: &str,
+    seed: Option<u32>,
+    visitors: &[(&str, &str, &str, &str)],
+    board: &str,
+    carried: Option<&str>,
+) -> Result<()> {
+    let (mut c, mut state, mut calls, course_reply) =
+        commit_keeper_quest_ship_course(id, seed, visitors, board, carried)?;
+    let seq = state.game["eventSeq"]
+        .as_u64()
+        .ok_or("Missing event sequence.")?;
+    let arrival = state.game["arrival"].clone();
+    let items = state.game["items"].clone();
+    let mut routes = state.game["routeKnowledge"].clone();
+    let with_sage = !visitors.is_empty();
+    let riders = if with_sage {
+        vec!["ada", "vale"]
+    } else {
+        vec!["vale"]
+    };
+    let edges = json!([
+        ["sea:greek-harbor", "sea:pond"],
+        ["sea:pond", "sea:greek-harbor"]
+    ]);
+    for rider in &riders {
+        routes[*rider] = edges.clone();
+    }
+
+    let reply = commit_keeper_play(&c, id, &mut state, &mut calls, WAIT.0, 15)?;
+    let [wait, docked] = reply["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected Vale's Wait followed by the ship docking");
+    };
+    let course = &course_reply["events"][0];
+    assert_eq!(
+        wait,
+        &json!({
+            "seq":seq+1, "turn":10, "speaker":"World", "kind":"action", "actorId":"vale",
+            "text":"Vale waits one turn.", "locationId":"greek-ship", "verb":"wait",
+            "witnesses":course["witnesses"], "cast":riders, "items":course["items"], "light":false,
+        })
+    );
+    assert_eq!(
+        docked,
+        &json!({
+            "seq":seq+2, "turn":10, "speaker":"World", "kind":"narration", "actorId":null,
+            "text":"The Charybdis docks at The Wine-Dark Harbor.", "locationId":"greek-ship",
+            "cast":riders, "items":course["items"], "light":false,
+        })
+    );
+    let world = &state.game;
+    assert_eq!(world["turn"], 10);
+    assert_eq!(world["eventSeq"], seq + 2);
+    assert_eq!(world["log"].as_array().unwrap().last(), Some(docked));
+    assert_eq!(world["arrival"], arrival);
+    assert_eq!(world["items"], items);
+    assert_eq!(world["routeKnowledge"], routes);
+    for rider in &riders {
+        assert_eq!(world["actors"][*rider]["place"], "greek-ship");
+    }
+    assert_eq!(
+        world["actors"]["ada"]["place"],
+        if with_sage { "greek-ship" } else { "loft" }
+    );
+    assert_eq!(
+        world["actors"]["tavi"]["place"],
+        if with_sage { "forest-oak" } else { "hill" }
+    );
+    assert_eq!(
+        world["actors"]["vale"]["waitSpeech"],
+        json!({"place":"greek-ship","turn":10})
+    );
+    assert_eq!(
+        world["actors"]["keeper"]["contact"],
+        json!({"moth":[10,0],"vale":[7,0]})
+    );
+    assert_eq!(
+        world["transports"]["greek-ship"],
+        json!({
+            "version":3, "phase":"arrived", "dock":"greek-harbor", "destination":null,
+            "riders":riders, "since":10, "recall":null,
+        })
+    );
+    let exits = ["greek-harbor", "pond"];
+    assert_eq!(reply["room"], "greek-ship");
+    assert_eq!(reply["exits"], json!(exits));
+    let mut keys = vec![WAIT.0];
+    if with_sage {
+        keys.push("accompany:vale::ada:greek-harbor");
+    }
+    keys.extend([
+        "move:vale::greek-harbor",
+        "move:vale:cloth:greek-harbor",
+        "course:vale::pond",
+    ]);
+    if with_sage {
+        keys.extend(["threaten:vale::ada", "talk:vale::ada"]);
+    }
+    keys.push("drop:vale:cloth:greek-ship");
+    if with_sage {
+        keys.push("give:vale:cloth:ada");
+    }
+    keys.extend(["accept:vale::box:greek-piraeus", "accept:vale::box:loft"]);
+    let actual_keys: Vec<_> = reply["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|action| action["key"].as_str().unwrap())
+        .collect();
+    assert_eq!(actual_keys, keys);
+
+    assert_eq!(calls.len(), 14);
     verify_opening_journal(&mut c, id, &calls)?;
-    let view = seated_reload(&c, id, &state, "greek-ship", &[], 15)?;
-    assert_eq!(view["actions"], course_reply["actions"]);
-    assert_eq!(view["world"]["speechVoices"], world["speechVoices"]);
+    let view = seated_reload(&c, id, &state, "greek-ship", &exits, 16)?;
+    assert_eq!(view["actions"], reply["actions"]);
+    assert_eq!(view["world"]["routeKnowledge"], world["routeKnowledge"]);
     assert_eq!(view["world"]["transports"], world["transports"]);
+    assert_eq!(view["world"]["speechVoices"], json!({"vale":["vale"]}));
     assert_eq!(
         view["world"]["log"].as_array().unwrap().last(),
-        Some(castoff)
+        Some(docked)
     );
     assert!(view["world"]["memories"]["ada"].get("subjects").is_none());
     Ok(())

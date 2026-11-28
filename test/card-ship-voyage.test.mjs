@@ -153,7 +153,6 @@ describe("a real voyage", () => {
     const play = cardPlay(ask(s, "vale").world, ["greek-harbor"]).action;
     expect(play.kind).toBe("course");
     expect(playLabel(play)).toBe("Set course");
-    // A companion can still board while the ship is at its harbour.
     s = act(s, "mara", "move", "greek-ship");
     s = act(s, "vale", "course", "greek-harbor");
     expect(state(s)).toMatchObject({
