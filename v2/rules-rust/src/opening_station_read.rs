@@ -91,7 +91,7 @@ pub(super) fn after_first_log(world: &Value) -> Option<u64> {
     .then_some(read_seq)
 }
 
-fn claim<'a>(world: &Value, geo: &Geography<'a>) -> Option<&'a Value> {
+pub(super) fn keeper_book_claim<'a>(world: &Value, geo: &Geography<'a>) -> Option<&'a Value> {
     let forest = &geo.files()["v2/card-game/forest.json"];
     let book = &forest["things"][BOOK];
     let [claim] = book["claims"].as_array()?.as_slice() else {
@@ -204,7 +204,7 @@ pub fn begin_station_log_read(
 ) -> Option<Value> {
     let saved = read_world(request)?;
     settled_first_arrival(saved, geo, actor_order)?;
-    let claim = claim(saved, geo)?;
+    let claim = keeper_book_claim(saved, geo)?;
     let next_revision = saved["revision"].as_u64()?.checked_add(1)?;
     if next_revision > MAX_REVISION {
         return None;

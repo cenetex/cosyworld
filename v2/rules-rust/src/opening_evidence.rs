@@ -275,6 +275,10 @@ fn trim_subjects(subjects: &mut Map<String, Value>) {
     }
 }
 
+pub(super) fn keeper_call_goal(cloth: &str, pond: &str, lamp: &str) -> String {
+    format!("call the ship: hold {cloth} at {pond} while {lamp} burns on the ground there")
+}
+
 fn call_lead(want: &Value, forest: &Value, place: &str, knowledge: &mut Value) -> Option<Value> {
     let target = want["target"].as_str()?;
     let who = forest["people"][KEEPER]["name"].as_str()?;
@@ -282,7 +286,8 @@ fn call_lead(want: &Value, forest: &Value, place: &str, knowledge: &mut Value) -
     let lamp = forest["things"]["lamp"]["name"].as_str()?;
     let pond = forest["places"][target]["name"].as_str()?;
     let id = format!("quest:{KEEPER}:{target}");
-    let text = format!("{who} wants you to call the ship: hold {cloth} at {pond} while {lamp} burns on the ground there.");
+    let goal = keeper_call_goal(cloth, pond, lamp);
+    let text = format!("{who} wants you to {goal}.");
     knowledge["facts"][&id] = json!({
         "id":id,"text":text,"source":{
             "kind":"quest","eventSeq":2,"turn":0,"actorId":KEEPER,

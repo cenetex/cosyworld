@@ -17,7 +17,10 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if key == Some(opening_station_view::ACCEPT_TRAIN) {
         return opening_station_view::accept_train(request);
     }
-    if key == Some(opening_station_view::ABANDON_TRAIN)
+    if key == Some(opening_station_view::ACCEPT_KEEPER) {
+        return opening_station_view::accept_keeper(request);
+    }
+    if key == Some(opening_station_view::ABANDON_QUEST)
         && request["world"]["actors"]["vale"]["place"] == "station"
     {
         return opening_station_view::abandon_train(request);

@@ -56,6 +56,7 @@ export function browserRules(bytes) {
         (key === "move:vale::station" ||
           key === "move:vale:lamp:station" ||
           key === "accept:vale::box:train" ||
+          key === "accept:vale::keeper" ||
           key === "drop:vale:::0" ||
           key === "read:vale:keeper-log:");
       const place = request.world?.actors?.vale?.place;
