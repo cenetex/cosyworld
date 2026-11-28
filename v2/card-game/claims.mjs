@@ -1,6 +1,6 @@
 import {
   choiceText,
-  committedChoiceText,
+  recordedChoiceLine,
   conditionsMet,
   entityActive,
   packDefinition,
@@ -68,10 +68,9 @@ const recordClaims = (s, packId, book) => {
   const pack = packDefinition(packId);
   if (!pack) return [];
   return recorded(s, packId, book)
-    .map((id) => record(packId, book, id, () => {
-      const said = committedChoiceText(s, pack, pack.choices.find((c) => c.id === id));
-      return said.match(/^.*?[.!?]["'’”]?(?=\s|$)/u)?.[0] ?? said;
-    }))
+    .map((id) => record(packId, book, id, () =>
+      recordedChoiceLine(s, pack, pack.choices.find((c) => c.id === id)),
+    ))
     .filter((claim) => validFactText(claim.text));
 };
 export const authoredClaim = (id) =>

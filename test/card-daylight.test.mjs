@@ -114,7 +114,8 @@ describe("day and night in Greece", () => {
     ["greek-road-athens-eleusis", "sacred-way-dipylon", "on the Sacred Way"],
     ["greek-marathon", "open-door-marathon", "at Marathon Altar"],
     ["greek-ship", "ship-deck", "aboard the Charybdis"],
-    ["greek-scylla", "ship-deck", "aboard the Scylla"],
+    ["greek-pagasae", "pagasae-anchorage", "at Pagasae Anchorage"],
+    ["greek-scylla", "scylla-deck", "aboard the Scylla"],
   ])(
     "gives %s its own night painting and place facts",
     (place, file, where) => {
@@ -133,15 +134,15 @@ describe("day and night in Greece", () => {
     },
   );
 
-  it("uses Scylla’s open-water deck paintings while she is at sea", () => {
+  it("keeps Scylla’s own deck paintings while she is at sea", () => {
     const world = createWorld();
     world.transports["greek-scylla"].phase = "sea";
     expect(backdrop("greek-scylla", world)).toBe(
-      "./assets/greek-drama/ship-deck-at-sea-day.webp",
+      "./assets/greek-drama/scylla-deck.webp",
     );
     world.turn = DAYLIGHT_TURNS;
     expect(backdrop("greek-scylla", world)).toBe(
-      "./assets/greek-drama/ship-deck-at-sea-night.webp",
+      "./assets/greek-drama/scylla-deck-night.webp",
     );
   });
 

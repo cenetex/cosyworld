@@ -113,10 +113,9 @@
       "transport": "greek-scylla",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Scylla waits at the camp landing.",
-        "closed": "The Scylla is sailing elsewhere. The camp landing waits for its return.",
+        "open": "The path from the landing leads up to the Greek camp.",
         "cardName": "The Scylla",
-        "cardArt": "assets/greek-drama/ship-card.webp",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
         "backdrop": "assets/greek-drama/ajax-landing-ship-at-berth.webp",
         "focus": {
           "x": 80,
@@ -134,8 +133,7 @@
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Charybdis waits at the end of the jetty.",
-        "closed": "The Charybdis is sailing elsewhere. The jetty points out over open water.",
+        "open": "Mooring posts stand at the end of the jetty.",
         "cardName": "The Charybdis",
         "cardArt": "assets/greek-drama/ship-card.webp",
         "backdrop": "assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
@@ -171,10 +169,9 @@
       "transport": "greek-scylla",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Scylla waits where the road from Pherae meets the sea.",
-        "closed": "The Scylla is sailing elsewhere. The mooring stones stand empty.",
+        "open": "The path from Pherae ends at the mooring stones.",
         "cardName": "The Scylla",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "cardArt": "assets/greek-drama/scylla-card.webp"
       }
     },
     {
@@ -186,10 +183,9 @@
       "requires": [],
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Scylla waits below the cave.",
-        "closed": "The Scylla is sailing elsewhere. The shore waits beside open water.",
+        "open": "The mooring lies below Philoctetes’s cave.",
         "cardName": "The Scylla",
-        "cardArt": "assets/greek-drama/ship-card.webp",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
         "backdrop": "assets/greek-drama/lemnian-cave-day.webp"
       },
       "transport": "greek-scylla"
@@ -203,10 +199,9 @@
       "requires": [],
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Scylla waits off the Thracian shore.",
-        "closed": "The Scylla is sailing elsewhere. The shore waits beside open water.",
+        "open": "The landing is below the shore where Hecuba keeps watch.",
         "cardName": "The Scylla",
-        "cardArt": "assets/greek-drama/ship-card.webp",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
         "backdrop": "assets/greek-drama/thracian-shore-day.webp"
       },
       "transport": "greek-scylla"
@@ -221,10 +216,9 @@
       "transport": "greek-scylla",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Scylla waits off the shore below Proteus's tomb.",
-        "closed": "The Scylla is sailing elsewhere. Water laps against the empty berth.",
+        "open": "The path from the landing climbs to Proteus’s tomb.",
         "cardName": "The Scylla",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "cardArt": "assets/greek-drama/scylla-card.webp"
       }
     },
     {
@@ -236,10 +230,9 @@
       "requires": [],
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Scylla waits below the Taurian temple.",
-        "closed": "The Scylla is sailing elsewhere. The shore waits beside open water.",
+        "open": "The Scythian Coast Road climbs inland from the landing.",
         "cardName": "The Scylla",
-        "cardArt": "assets/greek-drama/ship-card.webp",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
         "backdrop": "assets/greek-drama/tauris-shore-scene.webp"
       },
       "transport": "greek-scylla"
@@ -253,10 +246,9 @@
       "requires": [],
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Scylla waits offshore from the Sicilian cave.",
-        "closed": "The Scylla is sailing elsewhere. The shore waits beside open water.",
+        "open": "The mooring lies below Polyphemus’s cave.",
         "cardName": "The Scylla",
-        "cardArt": "assets/greek-drama/ship-card.webp",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
         "backdrop": "assets/greek-drama/book-three-lemnos-day.webp"
       },
       "transport": "greek-scylla"

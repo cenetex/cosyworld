@@ -609,6 +609,7 @@ function choiceFeasible(
   mode = null,
   turn = world.turn,
   offered = null,
+  { allowFullHands = false } = {},
 ) {
   const atTurn = turn === world.turn ? world : { ...world, turn };
   const state = packState(world, pack.id);
@@ -643,7 +644,8 @@ function choiceFeasible(
     const presents = choice.effects.filter(({ kind }) => kind === "give_item");
     if (
       presents.some(({ item }) => !entityActive(atTurn, item)) ||
-      !hasSpaceForItems(world, actor, presents.map(({ item }) => item))
+      (!allowFullHands &&
+        !hasSpaceForItems(world, actor, presents.map(({ item }) => item)))
     )
       return false;
   }
@@ -735,6 +737,18 @@ export const heldSlots = (requires = []) =>
     )
     .filter((slot) => slot.length)
     .map((slot) => slot.map((r) => r.item));
+const labelledGiftTargets = new Set(
+  packDefinitions.flatMap((pack) =>
+    (pack.choices || [])
+      .filter((c) => c.on === "give" && c.label)
+      .map((c) => c.subject),
+  ),
+);
+export function packGiveLabel(world, action) {
+  return labelledGiftTargets.has(action.target)
+    ? packGiveChoice(world, action)?.label
+    : undefined;
+}
 // Choices marked "on": "give" are the effect of giving their subject the
 // item the choice needs the actor to hold. They are never offered as cards.
 export function packGiveChoice(world, action) {
@@ -754,6 +768,7 @@ export function packGiveChoice(world, action) {
           choiceId: c.id,
           actor: action.actor,
           item: action.item,
+          ...(c.label && { label: c.label }),
         };
   return null;
 }
@@ -867,20 +882,49 @@ export function applyDeparture(world, actor, to) {
   for (const item of Object.values(world.items))
     if (item.holder === actor) item.holder = world.actors[actor].place;
 }
+function encounterRecap(world, pack, choice, actor) {
+  const { record, answers } = choice.recap;
+  const receipts = packState(world, pack.id).receipts;
+  const answer = answers.find((id) => owns(receipts, id));
+  if (!answer) return choiceText(choice, actor);
+  if (!entityActive(world, record)) return null;
+  const line =
+    pack.items[record].recordText?.[answer] ??
+    recordedChoiceLine(world, pack, pack.choices.find((c) => c.id === answer));
+  return `${nameOf(choice.subject)} points to ${theName(record)}. ${line}`;
+}
 // A Talk choice linked to an authored topic waits for that topic to be spoken.
 // Other Talk choices are the action itself. Neither is offered as a card.
 export function packTalkChoice(world, action, { turn = world.turn, topicId } = {}) {
   if (!controlledByHuman(world, action.actor)) return null;
   const atTurn = turn === world.turn ? world : { ...world, turn };
-  let response = null;
+  let response = null,
+    fullHands = null,
+    recap = null;
   for (const pack of packDefinitions)
     for (const c of pack.choices || []) {
-      if (
-        c.on !== "talk" ||
-        c.subject !== action.target ||
-        !choiceFeasible(atTurn, pack, c, action.actor, "talk")
-      )
+      if (c.on !== "talk" || c.subject !== action.target) continue;
+      if (c.recap && owns(packState(world, pack.id)?.receipts, c.id)) {
+        if (
+          topicId === undefined &&
+          !recap &&
+          choiceFeasible(atTurn, pack, { ...c, repeats: true }, action.actor, "talk")
+        )
+          recap = { pack, choice: c };
         continue;
+      }
+      if (!choiceFeasible(atTurn, pack, c, action.actor, "talk")) {
+        if (
+          topicId === undefined &&
+          !fullHands &&
+          c.fullHandsText &&
+          choiceFeasible(atTurn, pack, c, action.actor, "talk", turn, null, {
+            allowFullHands: true,
+          })
+        )
+          fullHands = { replyText: c.fullHandsText };
+        continue;
+      }
       const choice = { packId: pack.id, choiceId: c.id, actor: action.actor };
       const topics = (pack.topics || []).filter((t) => t.choiceId === c.id);
       if (topics.length || topicId !== undefined) {
@@ -894,7 +938,9 @@ export function packTalkChoice(world, action, { turn = world.turn, topicId } = {
       if (c.effects.length) return choice;
       response ??= choice;
     }
-  return response;
+  if (response || fullHands || !recap) return response ?? fullHands;
+  const text = encounterRecap(atTurn, recap.pack, recap.choice, action.actor);
+  return text ? { replyText: text } : null;
 }
 export function applyPackChoice(
   world,
@@ -1022,6 +1068,10 @@ export function committedChoiceText(world, pack, choice) {
     )?.actorId ||
     null;
   return choiceText(choice, actor);
+}
+export function recordedChoiceLine(world, pack, choice) {
+  const said = committedChoiceText(world, pack, choice);
+  return said.match(/^.*?[.!?]["'’”]?(?=\s|$)/u)?.[0] ?? said;
 }
 
 export function packFacts(world, id, known = () => true) {

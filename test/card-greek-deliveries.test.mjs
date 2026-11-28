@@ -57,6 +57,11 @@ function prepareHandoff(t, stem, response) {
   expect(t.hands()).toHaveLength(3);
   expect(packTalkChoice(t.s, talk)?.choiceId).not.toBe(response);
   t.talk(resident);
+  expect(
+    t.s.log.findLast(
+      (entry) => entry.verb === "talk" && entry.actorId === "vale",
+    ).text,
+  ).toBe("You can carry three items. Put one down, then speak again.");
   expect(receipts(t)[response]).toBeUndefined();
   expect(t.s.items[item].holder).toBe(place);
 

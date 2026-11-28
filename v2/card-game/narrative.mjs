@@ -1,6 +1,6 @@
 import { learningFacts } from "./learning.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
-import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
+import { knowledgeDisclosures, knowledgeFacts, nativeDisclosure } from "./knowledge.mjs";
 import {
   elysiumTalk,
   isElysiumModel,
@@ -413,6 +413,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       (entry) =>
         entry.turn === world.turn &&
         !entry.generated &&
+        !nativeDisclosure(entry) &&
         (!entry.consequence ||
           entry.witnesses?.includes(currentActor(world))) &&
         (entry.locationId === location ||

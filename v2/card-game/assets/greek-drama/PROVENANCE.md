@@ -5,6 +5,13 @@ painted settings, item sprites and character portraits. The repository's existin
 [MIT license](../../../../LICENSE) applies. No image, illustration, character
 design, or page asset from the Greek Drama Reader is reproduced.
 
+## Pagasae and the Scylla
+
+Pagasae Anchorage and the Scylla each have day and night paintings. The
+Scylla’s travel card uses the same indigo hull and cream wave pattern as her
+deck paintings. All five images were generated with `image_gen` on 2026-11-27.
+See the [prompts and checksums](scylla-art-provenance.json).
+
 ## Chthonic character portraits
 
 The fifteen `chthonic-*.png` portraits were generated with the built-in

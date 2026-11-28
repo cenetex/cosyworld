@@ -1,0 +1,54 @@
+{
+  "tool": "image_gen",
+  "date": "2026-11-27",
+  "encoding": "WebP quality 94, native dimensions",
+  "images": [
+    {
+      "file": "pagasae-anchorage.webp",
+      "generatedImage": "exec-af28f65e-c613-45a8-95e1-9ad0d95d60c6.png",
+      "prompt": "Create an original wide 16:9 matte painting for the Pagasae Anchorage stage in the historically grounded CosyWorld Greek-drama card game. The place is an intimate working Thessalian anchorage in the sheltered Pagasetic Gulf in antiquity. A weathered oblique pale stone mole enters from lower left, three squared limestone mooring posts and one coil of flax rope define the empty berth on the left, a reddish clay-tiled boathouse with dark cypress trees on the right across the water, Mount Pelion's long blue wooded ridge in distance. A walkable foreground of weathered pale stone and dune grass at the bottom center, enough open uncluttered foreground to stage the player and two character cutouts. Daylight, still shallow teal water, muted gold limestone, naturalistic and painterly aging wood, like a hand-painted classical Mediterranean adventure stage with realistic material detail. Period-appropriate unornamented tools. The berth is EMPTY; no ships or people. Avoid large temples, oversized plazas, text, borders, typographic marks and film crops. Wide native canvas 1672 by 941 if available. High environmental detail along the edges with supported warm lighting and a readable place to stand.",
+      "width": 1672,
+      "height": 941,
+      "sourceSha256": "d12e6c6922642328e56b25971c2e1d3ec8e7cf263cbd647063db0979a46629bf",
+      "webpSha256": "cb3bb2ce7101ddf11d31b144678fb2514dd5619621cc50beb443e64baf28712d"
+    },
+    {
+      "file": "pagasae-anchorage-night.webp",
+      "generatedImage": "exec-be0bd12e-a862-4171-8c97-059226891345.png",
+      "reference": "pagasae-anchorage.webp",
+      "prompt": "Create the nighttime counterpart of this exact CosyWorld Greek drama game background, 1672 by 941 approximately 16:9. Change time of day to late moonlit blue hour. Preserve viewpoint, framing, the low stone mole with its fixed bollards and coils, olive branches at left, calm inlet, exact mountains, small fishing shed at right, foreground usable space, and natural historical materials. Illuminate shed from within with a single warm oil lamp and a modest ochre reflection. Cool blue readable shadows and fine pale moonlight to keep the quay legible behind collectible cards overlay. Same detailed historical painted realism. No lettering, labels, people, vessels, modern fixtures, or border.",
+      "width": 1672,
+      "height": 941,
+      "sourceSha256": "0e927d1a475951c9ff46068cdf669e80b3f676e3642a9c13ef410cb326e9c04d",
+      "webpSha256": "61fc916c1848a2bb61c499d77ec4d268cb30308fbe4ed1a3476e8dcf469ab6aa"
+    },
+    {
+      "file": "scylla-deck.webp",
+      "generatedImage": "exec-512204d3-02c1-49aa-a1b7-501832693f20.png",
+      "prompt": "Create an original photorealistic-painterly 16:9 gameplay backdrop looking from aboard the distinctive ancient Greek ship Scylla, a compact sturdy seagoing penteconter. Low first-person-to-wide game-stage camera at lower stern deck, center framing the forward deck. A distinctive narrow indigo-blue painted inner gunwale with a quiet cream wave border, realistic dark stained cedar planks, forward upright mast, dark reddish clay sail tightly furled on the upper crossbeam to leave the sky visible, simple Greek timber and flax-rope joinery. Small rolled dark bronze textiles and ropes along the deck edges alone, open complete walkable deck in the lower half for character sprites. Beyond the rail are low neutral islands and the blue Greek sea under slightly hazy late-afternoon sun, open-water vantage usable when underway and docked. Visible edge silhouette and coherent midground balance. No people, monsters, swords, furniture, frames, lettering or inscriptions. This is realistic, naturalistic period scenery, tactile classical Greek original concept, with earth and Mediterranean blue palette. Render wide 1672 by 941 if available.",
+      "width": 1672,
+      "height": 941,
+      "sourceSha256": "da2d5bfab3f2f6545281b2a9569a031cfdfb69cdc2894f17233a4fad7b81f120",
+      "webpSha256": "594f95ebe5461a937ef676545358ea1eea12bc3cd1c1b0be934c368f6e2ad12d"
+    },
+    {
+      "file": "scylla-deck-night.webp",
+      "generatedImage": "exec-2236e949-f198-419e-b8ec-947951aeab5d.png",
+      "reference": "scylla-deck.webp",
+      "prompt": "Create the nighttime counterpart of this exact CosyWorld Greek drama game background, 1672 by 941 approximately 16:9. Change only lighting to navigable clear moonlit blue hour. Preserve horizontal framing and eye level, same centered low wooden working deck, central mast and brick-red bundled sail above, shape of the long narrow hull, distinctive blue-and-cream wave paint along both low gunwales, the existing ropes/cargo, silhouette of the same coast and same horizon. Plausible moonlight just strong enough to read the deck and a modest amber oil lamp low in foreground beside the mast, same detailed historical painted realism. Preserve open central space for collectible cards overlay. No lettering, people, monsters, border, modern fixtures or ships.",
+      "width": 1672,
+      "height": 941,
+      "sourceSha256": "71b3a1af24f3ab4a24f3c70b6f8170c8393d23be1b20b531f2545adc8de2ee11",
+      "webpSha256": "d6f64e727023668f748f020a4b48cb78c4bc698272b1483673fea4e6cc23c9c8"
+    },
+    {
+      "file": "scylla-card.webp",
+      "generatedImage": "exec-85bc9ea3-d5d7-4408-b5e4-f21979c9dbc6.png",
+      "prompt": "An original painted game location card illustration of the Scylla, a distinctive ancient Greek merchant and expedition galley out of Thessaly. Show its full clean side and bow three-quarter profile on calm Aegean seawater, navy indigo hull, conspicuous but restrained cream wave border along the gunwale, dark cedar oars and crimson-brown square sail, low hornlike wooden prow. Endearing practical proportions, materials and rigging should read as historical rather than a sailboat from later centuries. Fine hand-painted details, naturalistic painted dusk gold horizon, desaturated indigo turquoise, period simplicity. The ship silhouette has to stay immediately recognizable at a small mobile card size. Framed full-bleed square or portrait-friendly scene, unobstructed profile centered, no card border, letters, numbers, frame, humans or other named ships. Original asset for the CosyWorld Greek drama pack.",
+      "width": 1254,
+      "height": 1254,
+      "sourceSha256": "d83a291eeacfce09b4f8579ad8869ec63bd3d782b92ecccda55de3a1e10771ef",
+      "webpSha256": "e7f5c934cb5f507dd2ea43c6bb7f6ce72cd95e48e9c27d26f624fc31e0a7e120"
+    }
+  ]
+}

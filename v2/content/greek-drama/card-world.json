@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 44,
+  "revision": 45,
   "name": "The Wine-Dark Sea",
   "description": "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -37,6 +37,7 @@
   "places": {
     "greek-harbor": {
       "name": "The Wine-Dark Harbor",
+      "text": "Follow the Theban Harbor Road to the city, or take the Argolid Crossroads toward Argos and Corinth.",
       "exits": ["greek-road-thebes", "greek-argolid-road"],
       "backdrop": "assets/greek-drama/harbor-open-berth.webp",
       "seed": "The Charybdis serves Black Pond and Piraeus, while the harbor roads lead inland toward the Scylla’s berth at Pagasae."
@@ -116,6 +117,7 @@
     },
     "greek-athens": {
       "name": "Athenian Agora",
+      "text": "The Long Walls lead to the quays at Piraeus. Take the Road to Delphi to continue inland toward Pagasae.",
       "exits": [
         "greek-assembly",
         "greek-acropolis",
@@ -192,6 +194,7 @@
     },
     "greek-eleusis": {
       "name": "Eleusinian Sanctuary",
+      "text": "Take the Sacred Way to the Athenian Agora. The Cithaeron Road leads back toward Thebes.",
       "exits": [
         "greek-colonus",
         "greek-marathon",
@@ -351,31 +354,36 @@
     },
     "greek-delphi": {
       "name": "Delphic Temple",
+      "text": "The Oeta Road crosses the pass toward Trachis and Pherae. The south road returns to the Athenian Agora.",
       "exits": ["greek-road-sacred-way", "greek-oeta", "greek-ion-court"],
       "backdrop": "assets/greek-drama/palace.svg"
     },
     "greek-trachis": {
       "name": "House at Trachis",
+      "text": "Follow the road down to Pherae for the coast. The Oeta Road climbs back to Delphi.",
       "exits": ["greek-oeta", "greek-pherae"],
       "backdrop": "assets/greek-drama/book-two-trachis-day.webp",
       "seed": "The conflict of Women of Trachis is unfolding here."
     },
     "greek-oeta": {
       "name": "The Oeta Road",
+      "text": "The pass links Delphi and Trachis. Continue through Trachis for Pherae and the coast.",
       "exits": ["greek-delphi", "greek-trachis"],
       "backdrop": "assets/greek-drama/oeta-road.svg",
       "road": ["greek-delphi", "greek-trachis"]
     },
     "greek-pherae": {
       "name": "The House of Admetus at Pherae",
+      "text": "The shore path leads to Pagasae Anchorage. The road back toward Delphi passes through Trachis.",
       "exits": ["greek-trachis", "greek-thetis", "greek-pagasae"],
       "backdrop": "assets/greek-drama/book-two-pherae-day.webp",
       "seed": "The conflict of Alcestis is unfolding here."
     },
     "greek-pagasae": {
       "name": "Pagasae Anchorage",
+      "text": "Ask Philon about the Scylla’s courses at the mooring stones. The shore path leads back to Pherae.",
       "exits": ["greek-pherae"],
-      "backdrop": "assets/greek-drama/aulis-anchorage-day.webp",
+      "backdrop": "assets/greek-drama/pagasae-anchorage.webp",
       "seed": "At the Scylla’s home berth, Philon tells travelers from Pherae how to reach Lemnos and Sicily."
     },
     "greek-thetis": {
@@ -545,38 +553,8 @@
       "name": "The Scylla",
       "seed": "The Scylla sails to the farther shores from Pagasae, with berths in Egypt and Troy when their accounts open.",
       "exits": [],
-      "backdrop": "assets/greek-drama/ship-deck.webp",
-      "art": "assets/greek-drama/ship-card.webp",
-      "backdrops": [
-        {
-          "backdrop": "assets/greek-drama/ship-deck-at-sea-night.webp",
-          "requires": [
-            {
-              "kind": "ship_at",
-              "transport": "greek-scylla",
-              "dock": "@sea"
-            },
-            {
-              "kind": "daylight",
-              "phase": "night"
-            }
-          ]
-        },
-        {
-          "backdrop": "assets/greek-drama/ship-deck-at-sea-day.webp",
-          "requires": [
-            {
-              "kind": "ship_at",
-              "transport": "greek-scylla",
-              "dock": "@sea"
-            },
-            {
-              "kind": "daylight",
-              "phase": "day"
-            }
-          ]
-        }
-      ]
+      "backdrop": "assets/greek-drama/scylla-deck.webp",
+      "art": "assets/greek-drama/scylla-card.webp"
     },
     "greek-athens-harbor": {
       "name": "Athens Harbor",
@@ -2790,7 +2768,7 @@
       "standoffs": false,
       "personalQuests": false,
       "seed": "Electra asks for help with the dispute at The Jury Yard of Argos.",
-      "text": "I have sat with my brother since he killed our mother, and today Argos votes on both our lives. Our grandfather Tyndareus calls for judgment while I wait at the yard with a written appeal for time to speak.",
+      "text": "I have sat with my brother since he killed our mother. Our grandfather Tyndareus calls for judgment, and I am here with a written appeal for time to speak before Argos votes.",
       "tastes": {
         "likes": "a traveler who hears both sides",
         "sore": "a promise without a deed"
@@ -8508,7 +8486,7 @@
       "author": "Euripides",
       "title": "Helen",
       "era": "homecomings",
-      "placeIds": ["greek-egypt-tomb"],
+      "placeIds": ["greek-egypt-tomb", "greek-troy-beach"],
       "premise": "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -8570,10 +8548,6 @@
         "author": "Euripides",
         "work": "Orestes",
         "adaptation": "An original playable intervention among the characters at the play’s own location."
-      },
-      "branch": {
-        "key": "greek-atreid-account",
-        "value": "aeschylus"
       }
     },
     {

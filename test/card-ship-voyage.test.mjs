@@ -5,6 +5,8 @@ import {
   encodeSave,
   decodeSave,
   legalActions,
+  nameOf,
+  placeText,
   plan,
   play,
 } from "../v2/card-game/world.mjs";
@@ -17,6 +19,7 @@ import {
   lanesFrom,
   summonTransport,
   transportExits,
+  transportScenery,
 } from "../v2/card-game/pack-transport.mjs";
 import { laneProblems, MAX_LANES } from "../v2/card-game/pack-schema.mjs";
 import { transports } from "../v2/card-game/pack-registry.mjs";
@@ -25,6 +28,7 @@ import {
   cardPlay,
   lockWords,
   playLabel,
+  restPlays,
 } from "../v2/card-game/cards.mjs";
 import bridge from "../v2/worlds/greek-drama/card-bridge.json" with { type: "json" };
 import { stowProvisions } from "./helpers/provisions.mjs";
@@ -377,6 +381,59 @@ describe("calling the empty ship", () => {
     }
   });
 
+  it("names the call, reports each approaching sea leg, and keeps Sleep separate", () => {
+    const tauris = "greek-tauris", scylla = "greek-scylla";
+    let s = setup("greek-harbor");
+    s.actors.vale.place = tauris;
+    const view = () => ask(s, "vale");
+    const nextWait = () => view().actions.find((a) => a.kind === "wait" && !a.sleep);
+    for (const [distance, dock] of [
+      [3, "greek-lemnos"],
+      [2, "greek-thrace"],
+      [1, tauris],
+    ]) {
+      const words = `${distance} sea ${distance === 1 ? "leg" : "legs"} away`;
+      expect(placeText(view().world, tauris)).toContain(words);
+      expect(playLabel(nextWait())).toBe("Wait for Scylla");
+      if (distance < 3)
+        expect(restPlays(view().world, [nextWait()], true, ["vale"]).map((a) => playLabel(a)))
+          .toEqual(["Wait for Scylla", "Sleep"]);
+      expect(targets(s, "vale", "move")).not.toContain(scylla);
+      s = act(s, "vale", "wait");
+      expect(s.transports[scylla].dock).toBe(dock);
+      expect(s.log.findLast((entry) => entry.kind === "narration" && entry.locationId === tauris)?.text)
+        .toContain(distance === 1 ? "has reached the berth" : `${distance - 1} sea leg`);
+    }
+    expect(playLabel(nextWait())).toBe("Wait");
+    expect(placeText(view().world, tauris)).toContain("The Scylla is at the berth");
+    expect(targets(s, "vale", "move")).not.toContain(scylla);
+    expect(transportScenery(s, "greek-egypt-tomb", nameOf)).toEqual([]);
+    expect(transportScenery(s, "greek-ajax-landing", nameOf)).toEqual([]);
+  });
+
+  it("says when a shared ship is occupied or underway without naming its destination ashore", () => {
+    const tauris = "greek-tauris", pagasae = "greek-pagasae";
+    const lemnos = "greek-lemnos", scylla = "greek-scylla";
+    let s = setup("greek-harbor");
+    s.actors.vale.place = tauris;
+    s.actors.mara.place = pagasae;
+    learnLane(s, "mara", pagasae, lemnos);
+    s = act(s, "mara", "move", scylla);
+    expect(placeText(s, tauris)).toContain("has passengers aboard and cannot answer a call");
+    const wait = () => ask(s, "vale").actions.find((a) => a.kind === "wait" && !a.sleep);
+    expect(playLabel(wait())).toBe("Wait");
+    s = act(s, "mara", "course", lemnos);
+    expect(placeText(s, tauris)).toContain("is underway and cannot answer a call");
+    expect(placeText(s, tauris)).not.toContain("Lemnian Cave");
+    expect(playLabel(wait())).toBe("Wait");
+    s = act(s, "vale", "wait");
+    expect(placeText(s, lemnos)).toContain("has arrived at the berth");
+    expect(playLabel(wait())).toBe("Wait");
+    s = act(s, "mara", "move", lemnos);
+    expect(placeText(s, tauris)).toContain("2 sea legs away");
+    expect(playLabel(wait())).toBe("Wait for Scylla");
+  });
+
   it("keeps the provisions course and unmarked cargo recalls gated", () => {
     const harbor = setup("greek-harbor");
     let aboard = act(harbor, "vale", "move", "greek-ship");
@@ -390,6 +447,7 @@ describe("calling the empty ship", () => {
     for (const id of players) harbor.actors[id].place = "hoppycat-signal-jetty";
     const waiting = act(harbor, "vale", "wait");
     expect(state(waiting).dock).toBe("greek-harbor");
+    expect(placeText(waiting, "hoppycat-signal-jetty")).toContain("cannot be called from this berth");
   });
 
   it("lets a boarder step ashore while their only course still needs cargo", () => {

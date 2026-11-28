@@ -157,6 +157,7 @@ import {
   applyMeetingChoices,
   applyHoldChoices,
   packGiveChoice,
+  packGiveLabel,
   makerChoice,
   packWaitChoice,
   applyDeparture,
@@ -208,6 +209,7 @@ import { canBorrowPondLamp, owedPondLamp, pipWaitsForLamp, returnsPondLamp, vali
 import {
   installTransports,
   moveTransport,
+  transportWait,
   waitForTransport,
   transportArrival,
   isCourse,
@@ -1242,8 +1244,7 @@ export function legalActions(s, actor = currentActor(s)) {
   const known = knownActors(s, here);
   const company = known.filter((id) => id !== actor);
   const payments = ids.filter((id) => s.items[id].holder === actor);
-  // Sleep is a Wait that lasts until something changes. A sleeper may sleep
-  // on or choose any other play, which wakes it first.
+  // Sleep lasts until something changes. Any different play wakes the sleeper.
   const asleep = Boolean(s.actors[actor].sleeping),
     sleep = {
       ...offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, []),
@@ -1253,7 +1254,7 @@ export function legalActions(s, actor = currentActor(s)) {
     };
   const out = [
     ...(asleep ? [sleep] : []),
-    offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
+    transportWait(s, offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, [])),
     ...packChoices(s, actor),
   ];
   const conflict = standoffFor(s, actor);
@@ -1526,7 +1527,8 @@ export function legalActions(s, actor = currentActor(s)) {
         const words = returning ? "returns" : "gives";
         const gift = offer("give", actor, id, other,
           `${nameOf(actor)} ${words} ${theName(id)} to ${nameOf(other)}.`, [id, other]);
-        if (returning) gift.label = "Return Lamp";
+        const label = returning ? "Return Lamp" : packGiveLabel(s, gift);
+        if (label) gift.label = label;
         out.push(gift);
       }
     } else if (
@@ -2344,8 +2346,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     case "drop":
       transfer(s, a.item, here, a.text);
       break;
-    // Eaten or drunk, a thing goes home: locked if it is made, else ready
-    // again. A companion shares it only if it agrees (rules 102).
     case "eat":
       if (a.target) {
         requestAccepted = shareDecision(s, a.actor, a.target);
@@ -2409,10 +2409,10 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       remember(s, "bell", a.text);
       break;
     case "talk": {
-      // Keep a committed Talk valid when its turn crosses the subject's clock.
       const turn = s.turn - 1,
         told = packTalkChoice(s, a, { turn });
       if (told?.topicId) topicChoice = told;
+      else if (told?.replyText) text = told.replyText;
       else if (told)
         text = choiceText(
           applyPackChoice(s, told, { mode: "talk", turn }),
@@ -2501,7 +2501,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
   if (a.kind === "threaten")
     standoffFor(s, a.actor).sourceSeq = s.log.at(-1).seq;
   recordConversation(s, s.log.at(-1));
-  // A gift in person to an aggrieved recipient is a repair all present see.
   const answer = repairAnswer(
     s,
     a,
@@ -2525,8 +2524,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     );
   if (repair) closeRepaired(s, repair);
   settleCompany(s, entityActive);
-  if (a.kind === "talk") talkKnowledge(s, a, event, topicChoice);
-  // A human's first Talk with the world's hidden avatar unlocks it (#1936).
+  if (a.kind === "talk") talkKnowledge(s, a, event, topicChoice, addLog);
   const met = meetHidden(s, a, controlledByHuman(s, a.actor));
   if (met)
     addLog(s, "World", `${nameOf(a.target)} remembers ${who}.`, {
@@ -3259,9 +3257,11 @@ export function play(
       }),
   });
   if (unmetAt(next, next.actors[currentActor(next)]?.place)) meetCast(next);
-  // Sleeping at a dock calls no ship: only the Wait before it does.
+  const worldLine = (text, locationId) =>
+    addLog(next, "World", text, { kind: "narration", locationId });
+  // Only a Wait without Sleep calls the ferry.
   if (exact.kind === "wait" && !exact.sleep)
-    waitForTransport(next, next.actors[actor].place, actor);
+    waitForTransport(next, next.actors[actor].place, actor, worldLine);
   const voyages = sailTransports(next);
   for (const voyage of voyages) {
     const ship = transports[voyage.id].place;
@@ -3274,8 +3274,6 @@ export function play(
       { locationId: ship },
     );
   }
-  const worldLine = (text, locationId) =>
-    addLog(next, "World", text, { kind: "narration", locationId });
   settleVoyageCargo(next, voyages, nameOf, worldLine);
   settleHeldItems(next, handSnapshot(s));
   settleLamp(next);

@@ -266,7 +266,7 @@ export async function checkAjax(browser, origin) {
           // afresh so each wait is one turn.
           const wait = page
             .locator("#card-actions")
-            .getByRole("button", { name: "Wait", exact: true });
+            .getByRole("button", { name: /^Wait(?: for .+)?$/u });
           if (kind === "wait" && !(await wait.count()))
             for (let n = 0; n < 2; n++)
               await selectCard(page, action.cards?.[0] || "vale", {

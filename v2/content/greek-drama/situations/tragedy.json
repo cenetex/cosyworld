@@ -174,11 +174,13 @@
       "author": "greek-story-aeschylus-eumenides-first",
       "records": [
         "greek-areopagus-file-atreid-evidence",
-        "greek-areopagus-admit-atreid-witnesses"
+        "greek-areopagus-admit-atreid-witnesses",
+        "greek-areopagus-open-witness-bench"
       ],
       "recordText": {
         "greek-areopagus-file-atreid-evidence": "Athena filed the Argive evidence and asked travelers to escort Cilissa from Agamemnon’s tomb to testify in Orestes’s case.",
-        "greek-areopagus-admit-atreid-witnesses": "The Furies’ leader admitted the named household witnesses to the court’s waiting stones and reserved the first bench for them."
+        "greek-areopagus-admit-atreid-witnesses": "The Furies’ leader admitted the named household witnesses to the court’s waiting stones and reserved the first bench for them.",
+        "greek-areopagus-open-witness-bench": "After Cilissa testified about the voices at the palace door, the Furies’ leader opened the witness bench for their own accounts and provided water for those waiting."
       }
     },
     "greek-ajax-appeal-witness-seal": {
@@ -528,6 +530,79 @@
           "level": 2
         }
       ]
+    },
+    {
+      "id": "greek-areopagus-explain-household-proof",
+      "subject": "greek-story-aeschylus-eumenides-first",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "Athena says, “Bring me Electra’s tablet from Agamemnon’s tomb, or tell me what you read there. I can also enter a record from the Argive Palace Threshold. An account of another household will not answer for this one.”",
+      "requires": [
+        { "kind": "choice", "key": "greek-atreid-account", "value": "aeschylus" },
+        { "kind": "flag", "key": "greek-story-aeschylus-eumenides-heard", "value": true },
+        { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": false }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-areopagus-question-from-tomb",
+      "subject": "greek-story-aeschylus-eumenides-first",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "Athena says, “Electra’s tablet tells who met at the tomb. It leaves the palace summons unanswered. Read my Witness Order, then ask Cilissa who sent her for Aegisthus.”",
+      "requires": [
+        { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": true },
+        { "kind": "flag", "key": "greek-areopagus-cilissa-heard", "value": false },
+        {
+          "kind": "any",
+          "conditions": [
+            { "kind": "holding", "item": "greek-tomb-testimony", "role": "actor" },
+            { "kind": "knows", "topic": "claim:greek-drama:greek-tomb-testimony:meeting", "role": "actor" },
+            { "kind": "knows", "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing", "role": "actor" },
+            { "kind": "knows", "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal", "role": "actor" }
+          ]
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-areopagus-question-from-palace",
+      "subject": "greek-story-aeschylus-eumenides-second",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "The Furies’ leader says, “Your palace account concerns Agamemnon’s welcome. Cilissa can tell us what happened later at that same door. Read Athena’s order and ask Cilissa what the women there told her to change.”",
+      "requires": [
+        { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": true },
+        { "kind": "flag", "key": "greek-areopagus-cilissa-heard", "value": false },
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "any",
+              "conditions": [
+                { "kind": "holding", "item": "greek-aeschylean-welcome-seal", "role": "actor" },
+                { "kind": "holding", "item": "greek-aeschylean-cassandra-deposition", "role": "actor" }
+              ]
+            },
+            {
+              "kind": "any",
+              "conditions": [
+                { "kind": "knows", "topic": "claim:greek-drama:greek-aeschylean-welcome-seal:welcome", "role": "actor" },
+                { "kind": "knows", "topic": "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning", "role": "actor" },
+                { "kind": "knows", "topic": "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer", "role": "actor" },
+                { "kind": "knows", "topic": "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer", "role": "actor" }
+              ]
+            }
+          ]
+        }
+      ],
+      "effects": []
     }
   ]
 }

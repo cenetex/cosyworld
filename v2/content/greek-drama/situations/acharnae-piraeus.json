@@ -24,12 +24,13 @@
       "name": "Acharnae Orders in the Quay Ledger",
       "holder": "greek-piraeus",
       "art": "assets/greek-drama/burial-account.webp",
-      "seed": "Thaleia’s entry names the agreement or the household that backed her order.",
+      "seed": "Thaleia’s ledger names who backs an order and what she sets out for it.",
       "lifecycle": "fixed",
       "author": "greek-quay-host",
       "records": [
         "greek-acharnae-accept-public-order",
-        "greek-acharnae-accept-private-order"
+        "greek-acharnae-accept-private-order",
+        "greek-acharnae-quay-travel-credit"
       ],
       "requires": [
         {
@@ -127,7 +128,7 @@
       "on": "give",
       "humanOnly": true,
       "workId": "aristophanes-acharnians",
-      "text": "Thaleia files the bond under Dicaeopolis’s name and shares a cup of her own wine with its bearer at the quay.",
+      "text": "Thaleia files the bond under Dicaeopolis’s name and shares a cup of her own wine with its bearer at the quay. “Read my entry, then ask me for Travel Provisions. I can put one basket on his account.”",
       "requires": [
         {
           "kind": "choice",
@@ -154,6 +155,63 @@
         },
         { "kind": "trust", "level": 2 }
       ]
+    },
+    {
+      "id": "greek-acharnae-quay-travel-credit",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "label": "Ask for Travel Provisions",
+      "text": "Thaleia sends her dockhands to set out one basket of Travel Provisions on Dicaeopolis’s credit. “Tell him I put the fish on top.”",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-acharnae-quay-order",
+          "value": "private"
+        },
+        { "kind": "trusted", "actor": "greek-quay-host", "min": 2 },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order",
+          "role": "actor"
+        }
+      ],
+      "effects": [{ "kind": "drop_item", "item": "greek-provisions" }]
+    },
+    {
+      "id": "greek-acharnae-quay-travel-credit-waiting",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "Thaleia says, “Dicaeopolis’s credit is good. I have no Travel Provisions to set out just now.”",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-acharnae-quay-order",
+          "value": "private"
+        },
+        { "kind": "trusted", "actor": "greek-quay-host", "min": 2 },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order",
+          "role": "actor"
+        },
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "receipt",
+            "choiceId": "greek-acharnae-quay-travel-credit"
+          }
+        },
+        {
+          "kind": "not",
+          "condition": { "kind": "item_used_up", "item": "greek-provisions" }
+        }
+      ],
+      "effects": []
     },
     {
       "id": "greek-acharnae-quay-needs-proof",
@@ -241,7 +299,7 @@
       "on": "talk",
       "humanOnly": true,
       "workId": "aristophanes-acharnians",
-      "text": "Thaleia says, “The Bread has been set out. That order has had its one allotment.”",
+      "text": "Thaleia says, “The Bread has been set out. That order has had its one allotment. When the Bread is gone, bring me Water and I can bake another loaf here.”",
       "requires": [
         {
           "kind": "choice",

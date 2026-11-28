@@ -68,8 +68,11 @@ and the proposed Scylla. [Rules 94 route design](https://github.com/cenetex/cosy
 New encounters use original dialogue and practical choices. The traveler
 brings an object to a person involved, and the action changes who can use it
 or what can happen there. At Acharnae the public truce opens a market stall
-and puts salt bread on the table. The private sale supplies Dicaeopolis’s
-household. Local agreements remember the outcome. The places keep the
+and puts salt bread on the table. Thaleia can then bake more Bread from Water
+once the shared loaf is spent. The private sale backs one basket of Travel
+Provisions through Dicaeopolis’s bond and Thaleia’s personal trust. On the
+Areopagus, a traveler can read Cilissa’s posted testimony and ask the Furies’
+leader to open a bench for the palace-door witnesses. The places keep the
 generations of their plays, including the reign of Oedipus, the siege of
 Thebes and the later burial.
 

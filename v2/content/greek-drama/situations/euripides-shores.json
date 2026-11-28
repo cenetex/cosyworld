@@ -280,6 +280,7 @@
       "on": "talk",
       "humanOnly": true,
       "text": "Iphigenia takes her letter from the altar step and puts it in your hands. Give it to her sister Electra at the Jury Yard of Argos so the household will know Orestes left the altar alive.",
+      "fullHandsText": "You can carry three items. Put one down, then speak again.",
       "requires": [
         {
           "kind": "choice",

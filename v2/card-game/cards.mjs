@@ -576,9 +576,12 @@ export function restPlays(world, actions, again, cards = []) {
     (asleep ? !cards.length : again) &&
     actions.some(plainWait) &&
     legalActions(world).find((a) => a.sleep);
-  return actions.map((a) =>
-    shownPlay(world, sleep && plainWait(a) ? sleep : a, cards),
-  );
+  return actions.flatMap((a) => {
+    const shown = shownPlay(world, a, cards);
+    if (!sleep || !plainWait(a)) return [shown];
+    const rest = shownPlay(world, sleep, cards);
+    return a.label && !asleep ? [shown, rest] : [rest];
+  });
 }
 
 export function cardObservation(world, id) {

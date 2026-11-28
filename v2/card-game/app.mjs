@@ -1546,8 +1546,7 @@ const narrator = createNarrator({
 function loadTurnLines({ pending = false } = {}) {
   const lines = shownWorld().log.filter(
     (entry) =>
-      entry.generated &&
-      isSceneText(entry) &&
+      isSceneText(entry, false, currentActor(world)) &&
       entry.turn === world.turn &&
       entry.locationId === world.actors[currentActor(world)].place &&
       // The dreamer says nothing on waking: the dream is the beat.
@@ -2816,7 +2815,7 @@ function renderActions() {
   const crowded =
     !rested && !closed && hint === TOO_MANY_ITEMS && selected.find((id) => things[id]);
   const crowdedWords =
-    crowded && `You have too many items to take ${theName(crowded).toLowerCase()}`;
+    crowded && `You can carry three items. Put one down to take ${theName(crowded).toLowerCase()}.`;
   const noPlay =
     !rested && !closed && !questOpen && !rowCollapsed && !actions.length &&
     !asleep && !crowded && !clientText && selected.length > 0 &&
@@ -5667,8 +5666,7 @@ pauseSpeech();
 function hasCurrentWords() {
   return world.log.some(
     (entry) =>
-      entry.generated &&
-      isSceneText(entry) &&
+      isSceneText(entry, false, currentActor(world)) &&
       entry.turn === world.turn &&
       entry.locationId === world.actors[currentActor(world)].place,
   );
@@ -5740,8 +5738,8 @@ function resumeScene({ otherTab = false } = {}) {
   }
   if (!saveBlocked && hasCurrentWords()) {
     const saved = readingPosition();
-    const lines = shownWorld().log.filter((entry) => entry.generated &&
-      isSceneText(entry) && entry.turn === world.turn &&
+    const lines = shownWorld().log.filter((entry) =>
+      isSceneText(entry, false, currentActor(world)) && entry.turn === world.turn &&
       entry.locationId === world.actors[currentActor(world)].place && !sleepView.hidesLine(entry));
     const index = saved ? lines.findIndex((entry) => entry.seq >= saved.seq) : -1;
     const remaining = index >= 0 ? lines.slice(index) : [];
@@ -5991,7 +5989,7 @@ function syncSharedLine() {
   if (!live && after !== null) return;
   const entry = shownWorld().log.findLast(
     (entry) =>
-      entry.generated && isSceneText(entry, true) &&
+      isSceneText(entry, true, currentActor(world)) &&
       entry.locationId === room &&
       (live?.seq
         ? entry.seq === live.seq

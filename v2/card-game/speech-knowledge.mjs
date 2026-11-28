@@ -13,6 +13,7 @@ import {
   rootHolder,
 } from "./world.mjs";
 import { questsOf } from "./want.mjs";
+import { nativeDisclosure } from "./knowledge.mjs";
 import { found } from "./world/found.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
 
@@ -203,10 +204,11 @@ export function coveredTextReader(world, isCovered) {
     world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
   );
   const blur = blurrer(names, shown, short);
-  const known = world.knowledge?.known?.[currentActor(world)];
+  const actor = currentActor(world);
+  const known = world.knowledge?.known?.[actor];
   return (text, line) => {
     const factId = line?.disclosedFactId;
-    const clue = line?.generated && line.kind === "dialogue" && line.text === text &&
+    const clue = (line?.generated || nativeDisclosure(line, actor)) && line.kind === "dialogue" && line.text === text &&
       factId && known && Object.hasOwn(known, factId)
       ? world.knowledge.facts[factId]?.text : null;
     const caption = blur(text, clue);

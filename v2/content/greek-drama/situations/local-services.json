@@ -62,6 +62,7 @@
       "on": "talk",
       "humanOnly": true,
       "text": "Jocasta hears the shepherd behind the court doors. She entrusts the summons to you so it stays out of the herald’s hands.",
+      "fullHandsText": "You can carry three items. Put one down, then speak again.",
       "requires": [
         {
           "kind": "choice",

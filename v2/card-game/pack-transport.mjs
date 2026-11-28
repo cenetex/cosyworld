@@ -350,34 +350,69 @@ export function courseToward(s, place, target, actor = null) {
   return lanePath(s, found[0], dock, target, actor)?.[1] ?? null;
 }
 
+const transportName = (t) => packPlaces[t.place].name;
+const berthsAt = (s, place) =>
+  Object.entries(transports).filter(([id, t]) =>
+    t.docks.includes(place) && transportUnlocked(s, id) &&
+    entityActive(s, t.place) && entityActive(s, place),
+  );
+
+function callPath(s, id, place, turn) {
+  const state = read(s, id);
+  if (
+    !transportUnlocked(s, id) ||
+    state.phase !== "docked" ||
+    state.dock === place ||
+    (state.since === turn && turn > 0) ||
+    passengers(s, id).length
+  )
+    return null;
+  return lanePath(s, id, state.dock, place, null, { emptyRecall: true });
+}
+
+const approachText = (name, remaining) =>
+  `${name} is ${remaining} sea ${remaining === 1 ? "leg" : "legs"} away.`;
+
+export function transportWait(s, action) {
+  if (!controlledByHuman(s, action.actor)) return action;
+  const place = s.actors[action.actor].place;
+  const berth = berthsAt(s, place).find(([id]) =>
+    callPath(s, id, place, s.turn + 1),
+  );
+  if (!berth) return action;
+  const name = transportName(berth[1]).replace(/^The /u, "");
+  return { ...action, label: `Wait for ${name}` };
+}
+
 // An empty docked ship comes one lane closer to a human waiting at a port.
-export function waitForTransport(s, place, actor) {
-  if (controlledByHuman(s, actor)) callTransport(s, place);
+export function waitForTransport(s, place, actor, log = null) {
+  if (!controlledByHuman(s, actor)) return;
+  callTransport(s, place, false, (t, remaining) => {
+    const name = transportName(t);
+    const text = remaining
+      ? approachText(name, remaining)
+      : `${name} has reached the berth.`;
+    log?.(text, place);
+  });
 }
 
 // A traveller waiting to board brings the empty ship one lane closer. The
 // ship moves at most one lane in a world round, however many people wait.
 // A resident's call never takes the ship away from a human at its dock.
-export function callTransport(s, place, resident = false) {
+export function callTransport(s, place, resident = false, onApproach = null) {
   for (const [id, t] of Object.entries(transports)) {
     if (!t.docks.includes(place)) continue;
     const state = own(s, id);
     if (
-      (resident &&
-        Object.entries(s.actors).some(
-          ([who, a]) => a.place === state.dock && controlledByHuman(s, who),
-        )) ||
-      !transportUnlocked(s, id) ||
-      state.phase !== "docked" ||
-      state.dock === place ||
-      (state.since === s.turn && s.turn > 0) ||
-      passengers(s, id).length
+      resident && Object.entries(s.actors).some(
+        ([who, a]) => a.place === state.dock && controlledByHuman(s, who),
+      )
     )
       continue;
-    const path = lanePath(s, id, state.dock, place, null, {
-      emptyRecall: true,
-    });
-    if (path) Object.assign(state, { dock: path[1], since: s.turn });
+    const path = callPath(s, id, place, s.turn);
+    if (!path) continue;
+    Object.assign(state, { dock: path[1], since: s.turn });
+    onApproach?.(t, path.length - 2);
   }
 }
 
@@ -544,7 +579,22 @@ export function transportCrossing(s, from, to) {
 // Talk and the place card describe where the ship is.
 export function transportScenery(s, place, nameOf) {
   const found = shipAt(place);
-  if (!found) return [];
+  if (!found) {
+    return berthsAt(s, place).map(([id, t]) => {
+      const state = read(s, id), name = transportName(t);
+      if (!atBerth(state)) return `${name} is underway and cannot answer a call.`;
+      if (state.dock === place)
+        return state.phase === "arrived"
+          ? `${name} has arrived at the berth.`
+          : `${name} is at the berth.`;
+      if (passengers(s, id).length)
+        return `${name} has passengers aboard and cannot answer a call.`;
+      const path = callPath(s, id, place, s.turn + 1);
+      return path
+        ? `${approachText(name, path.length - 1)} Wait here to bring it closer.`
+        : `${name} cannot be called from this berth right now.`;
+    });
+  }
   const state = read(s, found[0]);
   if (state.phase === "sea")
     return [`The ship is at sea, bound for ${nameOf(state.destination)}.`];

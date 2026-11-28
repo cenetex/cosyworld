@@ -139,29 +139,29 @@ describe("knowing a lane is personal", () => {
     expect(talk).toBeDefined();
     const played = ask(s, "vale", "play", { action: talk });
     expect(played.ok, played.error).toBe(true);
-    expect(knowsLane(played.world, "vale", pagasae, lemnos)).toBe(false);
-    const context = sharedContext({
-      world: played.world,
-      actor: "vale",
-      claimed: players,
-      present: players,
-      action: talk,
+    const clue = played.events.find((e) => e.disclosedFactId);
+    expect(clue).toMatchObject({
+      text: "Ships for The Lemnian Cave leave from Pagasae Anchorage.",
+      disclosedFactId: `lane:${pagasae}>${lemnos}`,
+      actorId: pilot,
+      targetId: "vale",
+      witnesses: [pilot, "vale"],
     });
-    const [offer] = context.disclosures;
-    expect(offer).toMatchObject({
-      factId: `lane:${pagasae}>${lemnos}`,
-      speaker: pilot,
-      listener: "vale",
-      deferred: true,
-    });
-    const { factId, speaker, listener, eventSeq, text } = offer;
-    const spoken = ask(played.world, "vale", "speech", {
-      room: context.location,
-      lines: [{ actorId: speaker, text, disclosed: { factId, speaker, listener, eventSeq } }],
-    });
-    expect(spoken.ok, spoken.error).toBe(true);
-    s = reload(spoken.world);
+    expect(clue.generated).toBeUndefined();
+    s = reload(played.world);
     expect(knowsLane(s, "vale", pagasae, lemnos)).toBe(true);
+    expect(knowsLane(s, "vale", lemnos, pagasae)).toBe(true);
+    expect(knowsFact(s, "mara", clue.disclosedFactId)).toBe(false);
+    const chart = act(s, "vale", "talk", pilot);
+    expect(knowsLane(chart, "vale", pagasae, "greek-sicily")).toBe(true);
+    const outOfDirections = act(chart, "vale", "talk", pilot);
+    expect(outOfDirections.log.filter((line) => line.actorId === pilot && line.disclosedFactId)
+      .map((line) => line.disclosedFactId)).toEqual([
+      `lane:${pagasae}>${lemnos}`,
+      `lane:${pagasae}>greek-sicily`,
+    ]);
+    expect(knowsLane(outOfDirections, "vale", pagasae, "greek-egypt-tomb")).toBe(false);
+    expect(knowsLane(outOfDirections, "vale", "greek-harbor", "greek-piraeus")).toBe(false);
     learnLane(s, "mara", pagasae, "greek-sicily");
     expect(knowsLane(s, "mara", pagasae, lemnos)).toBe(false);
     expect(ask(s, "vale").exits).not.toContain("greek-ship");

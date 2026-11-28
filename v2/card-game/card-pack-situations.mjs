@@ -32,11 +32,13 @@ function encounterChoices(catalog, file) {
       scene.outcomes.length !== 2 ||
       !scene.outcomes.every(
         (entry) =>
-          hasOnly(entry, direct ? ["text", "label"] : ["text", "spend"]) &&
+          hasOnly(
+            entry,
+            direct ? ["text", "label"] : ["text", "spend", "label"],
+          ) &&
           isText(entry.text) &&
-          (direct
-            ? isText(entry.label)
-            : entry.spend === undefined || entry.spend === true),
+          (isText(entry.label) || (!direct && entry.label === undefined)) &&
+          (entry.spend === undefined || entry.spend === true),
       ) ||
       scene.outcomes[0].text === scene.outcomes[1].text
     )
@@ -56,6 +58,10 @@ function encounterChoices(catalog, file) {
       on: "talk",
       requires: [],
       effects: [{ kind: "set_flag", key: heard.key, value: true }],
+      recap: {
+        record: `${stem}-record`,
+        answers: [`${stem}-first-answer`, `${stem}-second-answer`],
+      },
     };
     const answers = ["first", "second"].map((answer, index) => {
       const { text, spend, label } = scene.outcomes[index];
@@ -68,7 +74,8 @@ function encounterChoices(catalog, file) {
         subject: `${stem}-${answer}`,
         at,
         workId,
-        ...(direct ? { label } : { on: "give" }),
+        ...(!direct && { on: "give" }),
+        ...(label && { label }),
         humanOnly: true,
         text,
         requires: [

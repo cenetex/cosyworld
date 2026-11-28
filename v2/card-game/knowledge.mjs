@@ -99,6 +99,9 @@ export const newKnowledge = () => ({
 });
 export const knowsFact = (world, actor, id) =>
   owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
+export const nativeDisclosure = (entry, viewer) =>
+  entry?.kind === "dialogue" && !entry.generated && !!entry.disclosedFactId &&
+  (viewer === undefined || entry.witnesses?.includes(viewer));
 const compareFacts = (a, b) =>
   b.source.turn - a.source.turn ||
   b.source.eventSeq - a.source.eventSeq ||

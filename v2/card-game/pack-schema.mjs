@@ -1,12 +1,10 @@
-// The closed vocabulary for card-table world packs and their bridges.
-// The build script and the browser registry both use this one validator, so
-// an authored pack either loads exactly as checked or does not load at all.
 import { distinctQuestStages, safeId, stagedQuestFactId, validFactText } from "./knowledge.mjs";
 import { BOOK_KEYS, bookProblems, knowledgeAuthor } from "./book-schema.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { RARITY_WEIGHTS } from "./pack-specials.mjs";
 import { ITEM_IDENTITY_FIELDS, forGoodWarnings, itemCycleProblems, itemPlacementEffect } from "./pack-items-schema.mjs";
+import { choicePresentationProblems } from "./pack-choice-schema.mjs";
 import { laneProblems } from "./pack-transport-schema.mjs";
 
 export { laneProblems, MAX_LANES } from "./pack-transport-schema.mjs";
@@ -14,8 +12,6 @@ export { laneProblems, MAX_LANES } from "./pack-transport-schema.mjs";
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
 
-// Mounted packs keep distinct public identities. The topic budget leaves room
-// for witnessed events in the shared knowledge store.
 export function packCompositionProblems(packs) {
   const problems = [],
     seen = new Map(),
@@ -60,8 +56,6 @@ export const SIGNAL_VERBS = [
   "talk",
   "move",
 ];
-// Conditions a crossing can require. Each kind is evaluated by pack-rules.mjs
-// from the shared world state; add a kind there, here, and in a test together.
 export const CONDITION_KINDS = [
   "sound",
   "light",
@@ -1180,7 +1174,7 @@ export function packProblems(
         check(
           !persistent ||
             savedCondition(c, scope) ||
-            (scope === "traveler" && c?.kind === "trusted"),
+            ((scope === "traveler" || scope === "humanChoice") && c?.kind === "trusted"),
           `${what} must use saved state or human presence conditions`,
         );
       });
@@ -1399,6 +1393,8 @@ export function packProblems(
         "repeats",
         "archived",
         "humanOnly",
+        "recap",
+        "fullHandsText",
       ]) &&
         idOk(c.id) &&
         (c.on === undefined ||
@@ -1435,7 +1431,8 @@ export function packProblems(
       `choice ${c.id} is invalid`,
     );
     choiceIds.add(c.id);
-    requirements(c.requires, `choice ${c.id} requires`);
+    problems.push(...choicePresentationProblems(pack, c, items, choices, keysOk, textOk));
+    requirements(c.requires, `choice ${c.id} requires`, true, c.humanOnly ? "humanChoice" : undefined);
     for (const e of c.effects) {
       let valid = false;
       if (e.kind === "choose") {

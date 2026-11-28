@@ -32,6 +32,12 @@ const ORDER_CLAIM = `claim:${PACK}:${ORDER}:${FILED}`;
 const CONSENT = "greek-cilissa-agrees-to-testify";
 const TESTIFY = "greek-areopagus-hear-cilissa";
 const TESTIMONY = "greek-areopagus-cilissa-testimony";
+const BENCH = "greek-areopagus-open-witness-bench";
+const WATER = "greek-areopagus-witness-water";
+const ISMENE = "greek-ismene";
+const ELECTRA = "greek-electra-aeschylus";
+const TOMB_QUESTION = "greek-areopagus-question-from-tomb";
+const PALACE_QUESTION = "greek-areopagus-question-from-palace";
 const PATH = [
   TOMB,
   "greek-argolid-road",
@@ -51,6 +57,10 @@ const PATH = [
 const receipts = ({ s }) => s.packs[PACK].receipts;
 const ballot = ({ s }) => s.packs[PACK].choices[VERDICT];
 const progress = ({ s }) => s.journeyProgress[CILISSA];
+const talkChoice = ({ s }, target) =>
+  packTalkChoice(s, { actor: "vale", target })?.choiceId;
+const lastTalk = (s, targetId, actor = "vale") =>
+  s.log.findLast((e) => e.verb === "talk" && e.targetId === targetId && e.actorId === actor)?.text;
 const invitations = ({ s }) =>
   legalActions(s)
     .filter((a) => a.kind === "accompany" && a.target === CILISSA)
@@ -84,17 +94,27 @@ function accompany(t, step) {
   expect(progress(t)).toEqual({ agreement: CONSENT, step });
 }
 
-it("escorts Cilissa only with evidence and consent, resumes after a detour, and posts her testimony independently of the ballot", () => {
-  expect(packPeople[CILISSA].journey.path).toEqual(PATH);
-  const t = traveler(greekStart())
+function aeschyleanAccount() {
+  return traveler(greekStart())
     .move("harbor", "argolid-road")
     .take("atreid-record")
     .move("sanctuary")
-    .waitFor("ismene")
-    .give("atreid-record", "ismene")
-    .move("argolid-road", TOMB)
-    .talk("electra-aeschylus")
-    .take("tomb-testimony");
+    .waitFor(ISMENE)
+    .give("atreid-record", ISMENE);
+}
+
+it("finds the Argive testimony, escorts Cilissa, and lets a late arrival open the witness bench independently of the ballot", () => {
+  expect(packPeople[CILISSA].journey.path).toEqual(PATH);
+  const t = aeschyleanAccount();
+  for (const _ of [1, 2]) {
+    t.act("talk", { target: ISMENE });
+    expect(lastTalk(t.s, ISMENE)).toContain("Meet Electra at Agamemnon’s tomb");
+  }
+  t.move("argolid-road", TOMB).talk(ELECTRA);
+  t.act("talk", { target: ELECTRA });
+  expect(lastTalk(t.s, ELECTRA)).toContain("Eleusis");
+  expect(lastTalk(t.s, ELECTRA)).toContain("Ask for Athena at the Areopagus");
+  t.take("tomb-testimony");
   expect(entityActive(t.s, CILISSA)).toBe(false);
   expect(entityActive(t.s, TESTIMONY)).toBe(false);
   expect(invitations(t)).toEqual([]);
@@ -103,6 +123,13 @@ it("escorts Cilissa only with evidence and consent, resumes after a detour, and 
   expect(receipts(t)[FILED]).toBe(t.s.turn);
   expect(entityActive(t.s, TESTIMONY)).toBe(false);
   expect(knowsFact(t.s, "vale", ORDER_CLAIM)).toBe(false);
+  expect(entityActive(t.s, WATER)).toBe(false);
+  expect(talkChoice(t, ATHENA)).toBe(TOMB_QUESTION);
+  expect(talkChoice(t, FURY)).not.toBe(PALACE_QUESTION);
+  t.act("talk", { target: ATHENA });
+  expect(lastTalk(t.s, ATHENA)).toContain(
+    "ask Cilissa who sent her for Aegisthus",
+  );
   expect(ballot(t.fork().take(BALLOT).give(BALLOT, ATHENA))).toBe("first");
   t.act("read", { item: ORDER });
   t.move(...PATH.slice(0, -1).reverse());
@@ -155,36 +182,88 @@ it("escorts Cilissa only with evidence and consent, resumes after a detour, and 
   const [claim] = claimsIn(TESTIMONY, t.s);
   expect(claim).toMatchObject({ author: CILISSA, claim: TESTIFY });
   expect(ballot(t)).toBeUndefined();
-  t.take(BALLOT).give(BALLOT, FURY);
-  expect(ballot(t)).toBe("second");
+  expect(ballot(t.fork().take(BALLOT).give(BALLOT, FURY))).toBe("second");
+  expect(entityActive(t.s, WATER)).toBe(false);
 
   const shared = dispatchShared({ op: "create", save: encodeSave(t.s) });
   expect(shared.ok, shared.error).toBe(true);
-  shared.world.actors.mara.place = COURT;
-  const request = {
-    actor: "mara",
-    world: shared.world,
-    claimed: ["vale", "mara"],
-    present: ["vale", "mara"],
+  let world = shared.world;
+  world.actors.mara.place = "greek-harbor";
+  const seats = ["vale", "mara"];
+  const act = (kind, fields, actor = "mara") => {
+    const request = { actor, world, claimed: seats, present: seats };
+    const view = dispatchShared({ ...request, op: "view" });
+    const action = view.actions.find(
+      (a) =>
+        a.kind === kind &&
+        Object.entries(fields).every(([key, value]) => a[key] === value),
+    );
+    expect(action, `${kind} ${JSON.stringify(fields)}`).toBeDefined();
+    const result = dispatchShared({ ...request, op: "play", action });
+    expect(result.ok, result.error).toBe(true);
+    world = result.world;
   };
-  expect(knowsFact(shared.world, "mara", claim.id)).toBe(false);
-  const view = dispatchShared({ ...request, op: "view" });
-  const order = view.actions.find((a) => a.kind === "read" && a.item === ORDER);
-  const lateReader = dispatchShared({ ...request, op: "play", action: order });
-  expect(lateReader.ok, lateReader.error).toBe(true);
-  expect(
-    readPage(lateReader.world, "mara", shared.world.eventSeq)?.claims[0],
-  ).toContain("escort Cilissa from Agamemnon’s tomb");
-  const nextRequest = { ...request, world: lateReader.world };
-  const action = dispatchShared({ ...nextRequest, op: "view" }).actions.find(
-    (a) => a.kind === "read" && a.item === TESTIMONY,
+  for (const target of PATH.slice(3)) act("move", { target });
+  expect(knowsFact(world, "mara", claim.id)).toBe(false);
+  act("talk", { target: FURY });
+  expect(lastTalk(world, FURY, "mara")).toContain("Read what the nurse actually heard");
+  expect(receipts({ s: world })[BENCH]).toBeUndefined();
+
+  const beforeOrder = world.eventSeq;
+  act("read", { item: ORDER });
+  expect(readPage(world, "mara", beforeOrder)?.claims[0]).toContain(
+    "escort Cilissa from Agamemnon’s tomb",
   );
-  expect(action).toBeDefined();
-  const read = dispatchShared({ ...nextRequest, op: "play", action });
-  expect(read.ok, read.error).toBe(true);
-  expect(read.world.knowledge.known.mara[claim.id]).toMatchObject({
+  act("talk", { target: FURY });
+  expect(receipts({ s: world })[BENCH]).toBeUndefined();
+  act("read", { item: TESTIMONY });
+  expect(world.knowledge.known.mara[claim.id]).toMatchObject({
     kind: "read",
     book: TESTIMONY,
   });
-  expect(read.world.packs[PACK].choices[VERDICT]).toBe("second");
+  act("talk", { target: FURY });
+  const opened = receipts({ s: world })[BENCH];
+  expect(opened).toBe(world.turn);
+  expect(world.items[WATER].holder).toBe(COURT);
+  expect(entityActive(world, WATER)).toBe(true);
+  expect(claimsIn(ORDER, world)).toContainEqual(
+    expect.objectContaining({ claim: BENCH }),
+  );
+  expect(ballot({ s: world })).toBeUndefined();
+
+  act("take", { item: WATER });
+  act("eat", { item: WATER, target: null });
+  expect(world.items[WATER].holder).toBe(COURT);
+  act("talk", { target: FURY }, "vale");
+  expect(lastTalk(world, FURY)).toContain("Anyone may use the water");
+  expect(receipts({ s: world })[BENCH]).toBe(opened);
+  act("take", { item: BALLOT });
+  act("give", { item: BALLOT, target: FURY });
+  expect(ballot({ s: world })).toBe("second");
+  expect(decodeSave(encodeSave(world)).packs[PACK].receipts[BENCH]).toBe(
+    opened,
+  );
+}, 60_000);
+
+it("asks a different follow-up after reading the Agamemnon palace settlement", () => {
+  const agamemnon = "greek-story-aeschylus-agamemnon";
+  const t = aeschyleanAccount()
+    .move("argolid-road", TOMB, "argos-palace")
+    .talk(`${agamemnon}-first`)
+    .take(`${agamemnon}-object`)
+    .give(`${agamemnon}-object`, `${agamemnon}-second`)
+    .act("read", { item: `${agamemnon}-record` })
+    .move(TOMB, "argolid-road");
+  expect(t.hands()).not.toContain("greek-tomb-testimony");
+  expect(t.hands()).not.toContain("greek-aeschylean-cassandra-deposition");
+  fileEvidence(t);
+  expect(receipts(t)[FILED]).toBe(t.s.turn);
+  expect(talkChoice(t, ATHENA)).not.toBe(TOMB_QUESTION);
+  expect(talkChoice(t, FURY)).toBe(PALACE_QUESTION);
+  t.act("talk", { target: FURY });
+  expect(lastTalk(t.s, FURY)).toContain(
+    "ask Cilissa what the women there told her to change",
+  );
+  expect(entityActive(t.s, WATER)).toBe(false);
+  expect(ballot(t)).toBeUndefined();
 }, 60_000);

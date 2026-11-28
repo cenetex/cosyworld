@@ -22,6 +22,7 @@ import { variantOf, crossingOpen, conditionMet } from "./pack-rules.mjs";
 import { guardOf, isGuardable } from "./resident-guard.mjs";
 import { locationWeather } from "./weather.mjs";
 import { expressionOf } from "./expression.mjs";
+import { nativeDisclosure } from "./knowledge.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { sleepingPortrait } from "./sleep-portraits.mjs";
@@ -920,12 +921,12 @@ export function isSignalEcho(entry) {
       signal.echo.speaker === entry.speaker && signal.echo.text === entry.text);
 }
 
-export function isSceneText(entry, shared = false) {
+export function isSceneText(entry, shared = false, viewer) {
+  if (nativeDisclosure(entry)) return nativeDisclosure(entry, viewer);
   return Boolean(
-    entry && !isSignalEcho(entry) && !isLegacyElysiumLine(entry) &&
+    entry?.generated && !isSignalEcho(entry) && !isLegacyElysiumLine(entry) &&
       (entry.kind === "dialogue" ||
-        (entry.generated === true &&
-          entry.kind === "narration" &&
+        (entry.kind === "narration" &&
           (shared || expressionOf(people[entry.actorId]) === "movement"))),
   );
 }

@@ -3,12 +3,15 @@ import {
   transports,
   entityActive,
   packDefinitions,
+  conditionsMet,
 } from "../pack-registry.mjs";
 import {
   laneEdges,
   laneOfEdge,
   knowsLane,
   laneConditions,
+  laneBetween,
+  lanesFrom,
 } from "../pack-transport.mjs";
 import { nameOf } from "./catalog.mjs";
 
@@ -18,6 +21,24 @@ export const atPort = (s, actor) =>
       t.place === s.actors[actor].place ||
       t.docks.includes(s.actors[actor].place),
   );
+
+export const scyllaPilot = (actor) =>
+  transports["greek-scylla"]?.shipmaster === actor;
+
+export function scyllaDirections(world, speaker, listener) {
+  const ship = transports["greek-scylla"];
+  const from = world.actors[speaker]?.place;
+  if (!scyllaPilot(speaker) || !ship.docks.includes(from) || !entityActive(world, from))
+    return null;
+  const to = lanesFrom(ship, from).find((to) =>
+    entityActive(world, to) &&
+    knowsLane(world, speaker, from, to) &&
+    !knowsLane(world, listener, from, to) &&
+    conditionsMet(world, ship.packId, laneBetween(ship, from, to).opensWith),
+  );
+  return to ? laneFact(from, to) : null;
+}
+
 // A lane the speaker knows and the listener does not, nearest first.
 export function laneToTell(s, speaker, listener) {
   const here = s.actors[speaker].place;

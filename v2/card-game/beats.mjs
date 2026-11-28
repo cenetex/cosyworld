@@ -307,10 +307,9 @@ function witnessedHere(entry, { viewer, here }) {
 
 const speakerOf = (line) => line.entityId || line.actorId || line.locationId;
 
-function isSpeech(entry, { here, shared }) {
+function isSpeech(entry, { here, shared, viewer }) {
   return (
-    entry.generated === true &&
-    isSceneText(entry, shared) &&
+    isSceneText(entry, shared, viewer) &&
     (!entry.locationId || entry.locationId === here)
   );
 }
@@ -364,7 +363,7 @@ export function groupBeats(
     (entry) => arrivalOf(entry, viewer) && entry.locationId === here,
   );
   for (const entry of entries) {
-    if (!isSpeech(entry, { here, shared }) || hiddenSpeech(entry)) continue;
+    if (!isSpeech(entry, { here, shared, viewer }) || hiddenSpeech(entry)) continue;
     const speakerId = speakerOf(entry);
     const beat = {
       key: `s:${entry.seq}`,

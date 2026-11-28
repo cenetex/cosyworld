@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { playLabel } from "../v2/card-game/cards.mjs";
+import { cardPlay, playLabel } from "../v2/card-game/cards.mjs";
 import { claimsIn } from "../v2/card-game/claims.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import {
@@ -14,6 +14,7 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { greekStart, landRoad, traveler } from "./helpers/open-door.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 import "./helpers/still-cast.mjs";
 
 const PACK = "greek-drama";
@@ -32,12 +33,16 @@ const HOST = "greek-quay-host";
 const ORDER = "greek-acharnae-quay-order";
 const PUBLIC = "greek-acharnae-accept-public-order";
 const PRIVATE = "greek-acharnae-accept-private-order";
+const CREDIT = "greek-acharnae-quay-travel-credit";
+const CREDIT_WAITING = "greek-acharnae-quay-travel-credit-waiting";
 const BOND = "greek-acharnae-household-bond";
 const LEDGER = "greek-acharnae-quay-ledger";
 const BREAD = "greek-bread";
 const PUBLIC_STALL = "greek-acharnae-trader-loaf-supply";
 const PRIVATE_PANTRY = "greek-acharnae-private-loaf-supply";
 const QUAY_SUPPLY = "greek-acharnae-quay-bread-supply";
+const QUAY_BAKE = "greek-piraeus-bake-bread";
+const WATER = "greek-water-jar";
 const WINE = "greek-wine-skin";
 const OLD_QUAY_WINE = "greek-acharnae-quay-wine";
 const PROVISIONS = "greek-provisions";
@@ -151,11 +156,18 @@ describe("Acharnae orders at Piraeus", () => {
   });
 
   it("honors the public agreement after a Read with the wheat still at Dione’s", () => {
-    const t = traveler(marketAfterRecovery)
-      .talk(DICAEOPOLIS)
-      .take(SEAL)
-      .give(SEAL, MEGARIAN)
-      .act("talk", { target: MEGARIAN });
+    const t = traveler(marketAfterRecovery).talk(DICAEOPOLIS).take(SEAL);
+    expect(playLabel(cardPlay(t.s, [SEAL, MEGARIAN]).action)).toBe(
+      "Open the Megarian’s stall",
+    );
+    t.give(SEAL, MEGARIAN);
+    expect(
+      t.s.log.findLast((e) => e.verb === "give" && e.itemId === SEAL).text,
+    ).toContain("Tell Thaleia at Piraeus what the market agreed.");
+    expect(
+      packState(t.s).receipts["greek-acharnae-hear-quay-invitation"],
+    ).toBeUndefined();
+    t.act("talk", { target: MEGARIAN });
     expect(packState(t.s).receipts["greek-acharnae-hear-quay-invitation"]).toBe(
       t.s.turn,
     );
@@ -227,6 +239,21 @@ describe("Acharnae orders at Piraeus", () => {
     );
     expect(eat).toBeDefined();
     expect(playLabel(eat)).toBe("Eat");
+    const refill = t.fork();
+    refill.s.items[WATER].holder = "vale";
+    const waterPlay = () => cardPlay(refill.s, [WATER, HOST]).action;
+    expect(waterPlay()?.label).not.toBe("Bring Water for Bread");
+    for (let i = 0; i < 2; i++) {
+      refill.act("eat", { item: BREAD, target: null });
+      expect(playLabel(waterPlay())).toBe("Bring Water for Bread");
+      refill.give(WATER, HOST);
+      expect(refill.s.items[WATER].holder).toBe("greek-well");
+      expect(refill.s.items[BREAD].holder).toBe(PIREAUS);
+      expect(packState(refill.s).receipts[QUAY_BAKE]).toBe(refill.s.turn);
+      refill.s = reload(refill.s);
+      refill.take(BREAD);
+      refill.s.items[WATER].holder = "vale";
+    }
     t.act("talk", { target: HOST });
     expectReply(t.s, SET_OUT_REPLY, "The Bread has been set out");
     expect(packState(t.s).receipts[PUBLIC]).toBe(reportedAt);
@@ -236,17 +263,22 @@ describe("Acharnae orders at Piraeus", () => {
     expect(supplier(legalActions(t.s), QUAY_SUPPLY)).toBeUndefined();
     t.act("read", { item: LEDGER });
     const [ledger] = claimsIn(LEDGER, t.s);
+    expect(supplier(legalActions(t.s), CREDIT)).toBeUndefined();
     expect(reload(t.s).knowledge.known.vale[ledger.id]).toMatchObject({
       kind: "read",
       book: LEDGER,
     });
   });
 
-  it("files Dicaeopolis’s signed bond with the wheat still at Dione’s", () => {
-    const t = traveler(marketAfterRecovery)
-      .talk(DICAEOPOLIS)
-      .take(SEAL)
-      .give(SEAL, DICAEOPOLIS);
+  it("honors the signed bond and provides one basket on personal credit", () => {
+    const t = traveler(marketAfterRecovery).talk(DICAEOPOLIS).take(SEAL);
+    expect(playLabel(cardPlay(t.s, [SEAL, DICAEOPOLIS]).action)).toBe(
+      "Seal the household sale",
+    );
+    t.give(SEAL, DICAEOPOLIS);
+    expect(
+      t.s.log.findLast((e) => e.verb === "give" && e.itemId === SEAL).text,
+    ).toContain("Take it to Thaleia at Piraeus.");
     expect(entityActive(t.s, BOND)).toBe(false);
     expect(supplier(legalActions(t.s), PRIVATE_PANTRY)).toBeDefined();
     const withoutBond = walkToQuay(t.fork()).act("talk", { target: HOST });
@@ -287,6 +319,77 @@ describe("Acharnae orders at Piraeus", () => {
     );
     const withoutHandoff = decodeSave(JSON.stringify(old));
     expect(withoutHandoff.actors[HOST].trust.vale).toBe(oldTrust);
+
+    // The bond establishes the relationship. Reading its entry supplies proof.
+    expect(supplier(legalActions(t.s), CREDIT)).toBeUndefined();
+    const [privateEntry] = claimsIn(LEDGER, t.s);
+    t.act("read", { item: LEDGER });
+    expect(knowsFact(t.s, "vale", privateEntry.id)).toBe(true);
+    const noTrust = t.fork();
+    noTrust.s.actors[HOST].trust.vale = 1;
+    expect(supplier(legalActions(noTrust.s), CREDIT)).toBeUndefined();
+
+    const shared = dispatchShared({ op: "create", save: encodeSave(t.s) });
+    expect(shared.ok, shared.error).toBe(true);
+    shared.world.actors.mara.place = PIREAUS;
+    const people = ["vale", "mara"];
+    const guest = { actor: "mara", claimed: people, present: people };
+    const arrival = dispatchShared({
+      ...guest,
+      op: "view",
+      world: shared.world,
+    });
+    expect(arrival.ok, arrival.error).toBe(true);
+    const read = arrival.actions.find(
+      (a) => a.kind === "read" && a.item === LEDGER,
+    );
+    expect(read).toBeDefined();
+    const guestProof = dispatchShared({
+      ...guest,
+      op: "play",
+      world: arrival.world,
+      action: read,
+    });
+    expect(guestProof.ok, guestProof.error).toBe(true);
+    expect(knowsFact(guestProof.world, "mara", privateEntry.id)).toBe(true);
+    expect(
+      supplier(legalActions(guestProof.world, "mara"), CREDIT),
+    ).toBeUndefined();
+    expect(
+      supplier(legalActions(guestProof.world, "vale"), CREDIT),
+    ).toBeDefined();
+
+    const suppliedShip = t.fork();
+    stowProvisions(suppliedShip.s, "greek-ship");
+    expect(supplier(legalActions(suppliedShip.s), CREDIT)).toBeUndefined();
+    suppliedShip.act("talk", { target: HOST });
+    expectReply(
+      suppliedShip.s,
+      CREDIT_WAITING,
+      "Dicaeopolis’s credit is good. I have no Travel Provisions to set out just now.",
+    );
+    expect(suppliedShip.s.items[PROVISIONS].holder).toBe("greek-ship");
+
+    const { action } = cardPlay(t.s, [HOST]);
+    expect(action).toMatchObject({
+      kind: "choose",
+      choiceId: CREDIT,
+      label: "Ask for Travel Provisions",
+    });
+    t.act("choose", { choiceId: CREDIT });
+    const issuedAt = t.s.turn;
+    expect(t.s.items[PROVISIONS].holder).toBe(PIREAUS);
+    expect(t.s.usedUp).not.toContain(PROVISIONS);
+    expect(t.s.items[BREAD]).toEqual(saved.items[BREAD]);
+    expect(claimsIn(LEDGER, t.s).map(({ claim }) => claim)).toEqual([
+      PRIVATE,
+      CREDIT,
+    ]);
+    t.take(PROVISIONS).act("eat", { item: PROVISIONS, target: null });
+    t.s = reload(t.s);
+    expect(t.s.usedUp).toContain(PROVISIONS);
+    expect(packState(t.s).receipts[CREDIT]).toBe(issuedAt);
+    expect(supplier(legalActions(t.s), CREDIT)).toBeUndefined();
   });
 
   it("does not offer an order to a late shared arrival without the agreement", () => {

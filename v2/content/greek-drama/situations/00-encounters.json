@@ -325,11 +325,13 @@
       "opening": "Athens is still at war, and my truce covers only my house. The Megarian at the rope has salt for our unsalted bread, and the charcoal burners are waiting to see who I let through. Give Dicaeopolis the seal for a household sale. Give the Megarian the seal to open the stall.",
       "outcomes": [
         {
-          "text": "Dicaeopolis seals the private sale and buys salt for his table, while the charcoal burners go home with their bread unsalted.",
+          "label": "Seal the household sale",
+          "text": "Dicaeopolis seals the private sale and buys salt for his table, while the charcoal burners go home with their bread unsalted. “Talk to me for a household bond,” he adds. “Take it to Thaleia at Piraeus. She trusts my name farther than the Assembly trusts my salt.”",
           "spend": true
         },
         {
-          "text": "The Megarian lays the seal beside the scales and drops the rope, so the charcoal burners trade their bread for salt in the open market."
+          "label": "Open the Megarian’s stall",
+          "text": "The Megarian lays the seal beside the scales and drops the rope, so the charcoal burners trade their bread for salt in the open market. “Read our agreement here before you go,” he says. “Tell Thaleia at Piraeus what the market agreed.”"
         }
       ]
     },

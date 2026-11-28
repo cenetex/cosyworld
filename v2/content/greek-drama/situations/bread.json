@@ -1,4 +1,24 @@
 {
+  "choices": [
+    {
+      "id": "greek-piraeus-bake-bread",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "on": "give",
+      "humanOnly": true,
+      "repeats": true,
+      "label": "Bring Water for Bread",
+      "text": "Thaleia mixes the Water with flour from the quay stores and sets out Bread beside the ledger.",
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-acharnae-quay-bread-supply" },
+        { "kind": "holding", "item": "greek-water-jar", "role": "actor" }
+      ],
+      "effects": [
+        { "kind": "retire_item", "item": "greek-water-jar" },
+        { "kind": "drop_item", "item": "greek-bread" }
+      ]
+    }
+  ],
   "supplies": {
     "greek-acharnae-trader-loaf-supply": {
       "item": "greek-bread",
