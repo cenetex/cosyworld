@@ -44,7 +44,8 @@ pub(super) fn settle_course_after_sailing(
     geo: &Geography<'_>,
     evidence: &ResidentEvidence,
 ) -> Option<()> {
-    let boarding = opening_pond_ship_board::arrival(before)?;
+    let boarding = opening_pond_ship_board::arrival_event(before)?;
+    let before_seq = before["eventSeq"].as_u64()?;
     let course = opening_pond_ship_course::event(world)?;
     let log = world["log"].as_array()?;
     let [.., previous, selected, castoff] = log.as_slice() else {
@@ -53,9 +54,12 @@ pub(super) fn settle_course_after_sailing(
     let ship = world.get("transports")?.get("greek-ship")?;
     let ship_name = evidence.profile("greek-ship")?["name"].as_str()?;
     let harbor = evidence.profile("greek-harbor")?["name"].as_str()?;
-    let castoff_seq = boarding.checked_add(2)?;
-    if course != selected
-        || course["seq"] != boarding.checked_add(1)?
+    let course_seq = before_seq.checked_add(1)?;
+    let castoff_seq = course_seq.checked_add(1)?;
+    if before_seq < boarding["seq"].as_u64()?
+        || previous["seq"] != before_seq
+        || course != selected
+        || course["seq"] != course_seq
         || world["eventSeq"] != castoff["seq"]
         || previous != before["log"].as_array()?.last()?
         || world["revision"] != before["revision"].as_u64()?.checked_add(1)?
