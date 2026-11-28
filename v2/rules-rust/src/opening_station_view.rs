@@ -252,6 +252,7 @@ fn station_scene<'a>(
     let historic = historic_station(world);
     let actors = world["actors"].as_object()?;
     let vale = actors.get(VALE)?;
+    let changed_hand = returned && (vale["heldItem"].is_null() || vale["heldItem"] == LAMP);
     let lamp = &world["items"][LAMP];
     let fuel = lamp_state(lamp).ok()?;
     if world["schema"] != 8
@@ -273,11 +274,11 @@ fn station_scene<'a>(
         || vale["waitSpeech"] != json!({"place":STATION,"turn":null})
         || !vale["arcana"].is_null()
         || (!vale["closed"].is_null() && !train_abandoned(world) && !after_gift)
-        || lamp["lit"] != false
+        || (!changed_hand && lamp["lit"] != false)
         || fuel.fuel_place != STATION
         || lamp["fuel"] != fuel.fuel_rooms * 4
         || !(if after_gift {
-            vale["heldItem"] == "cloth" && actors.get(PIP)?["heldItem"].is_null()
+            (changed_hand || vale["heldItem"] == "cloth") && actors.get(PIP)?["heldItem"].is_null()
         } else {
             vale["heldItem"].is_null() || (vale["heldItem"] == LAMP && fuel.fuel_rooms == 0)
         })
@@ -1348,7 +1349,7 @@ fn project_private(request: &Value, present: &[&str], awake_historic: bool) -> O
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     if returned {
-        keeper_return::events(world, &geo)?;
+        keeper_return::private_scene(world, &geo)?;
     } else if after_gift {
         keeper_abandon_events(world, &geo)?;
     }

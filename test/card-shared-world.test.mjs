@@ -121,7 +121,6 @@ describe("the full world shared by human avatars", () => {
     expect(result.world.log).toEqual(old.log);
     const { boardyai: boardy, ...others } = result.world.actors;
     const { boardyai: oldBoardy, ...oldOthers } = old.actors;
-    // An explicit empty hand stays empty, even when it owns a home item.
     expect(others).toEqual(oldOthers);
     expect(boardy).toEqual(oldBoardy);
   });
