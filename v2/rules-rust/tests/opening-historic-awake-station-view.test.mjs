@@ -13,7 +13,7 @@ function exact(actual, expected, label) {
   assert.ok(isDeepStrictEqual(actual, expected), `${label} ${field ?? ""}`);
 }
 
-test("awake historic Station projections keep the witnessed arrival and seat scope", async () => {
+test("awake historic Station speech and reloads keep the witnessed arrival", async () => {
   const { pinned, wasm } = await reducers();
   const run = (request) => {
     const reply = pinned(request);
@@ -22,6 +22,7 @@ test("awake historic Station projections keep the witnessed arrival and seat sco
   };
   let complete;
   let reload;
+  let speech;
   for (const seed of [17, 99]) {
     const fresh = run({ op: "create", history: true, seed }).world;
     const reopened = run({ op: "create", save: JSON.stringify(fresh) }).world;
@@ -72,7 +73,7 @@ test("awake historic Station projections keep the witnessed arrival and seat sco
         };
         exact(wasm(complete), expected, label);
         assert.equal(wasm(request), null);
-        const spoken = run({
+        speech = {
           ...seats,
           op: "speech",
           room: "station",
@@ -82,9 +83,30 @@ test("awake historic Station projections keep the witnessed arrival and seat sco
             { actorId: "keeper", text: "The trains are late." },
             { entityId: "station", text: "A clock ticks." },
           ],
-        }).world;
-        assert.equal(spoken.eventSeq, expected.world.eventSeq + 3);
-        for (const saved of [expected.world, spoken]) {
+        };
+        const spoken = wasm(speech);
+        exact(spoken, run(speech), `speech ${label}`);
+        assert.equal(spoken.world.eventSeq, expected.world.eventSeq + 3);
+        const cast = sorted
+          ? ["keeper", "moth", "vale"]
+          : ["vale", "moth", "keeper"];
+        assert.ok(
+          spoken.lines.every((line) => isDeepStrictEqual(line.cast, cast)),
+          label,
+        );
+        const repeat = {
+          ...speech,
+          world: spoken.world,
+          lines: [speech.lines[1]],
+          present: [],
+        };
+        const repeated = wasm(repeat);
+        exact(repeated, run(repeat), `repeat ${label}`);
+        assert.deepEqual(
+          repeated.world.memories.moth.learning,
+          expected.world.memories.moth.learning,
+        );
+        for (const saved of [expected.world, spoken.world, repeated.world]) {
           for (const present of [seats.present, []]) {
             const view = { ...seats, op: "view", world: saved, present };
             reload = { ...view, op, phase: "private" };
@@ -101,7 +123,11 @@ test("awake historic Station projections keep the witnessed arrival and seat sco
             assert.deepEqual(actual.world.memories.vale, saved.memories.vale);
             assert.equal(actual.world.memories.moth.learning, undefined);
             assert.ok(!Object.hasOwn(actual, "events"));
-            assert.equal(wasm(view), null);
+            exact(
+              wasm(view),
+              run(view),
+              `normal view ${label} present ${present.length}`,
+            );
           }
         }
       }
@@ -109,6 +135,18 @@ test("awake historic Station projections keep the witnessed arrival and seat sco
   }
   assert.equal(wasm({ ...complete, beforeSeq: complete.beforeSeq - 1 }), null);
   assert.equal(wasm({ ...complete, present: [] }), null);
+  for (const lines of [
+    [{ actorId: "moth", text: "Wait for me." }],
+    [speech.lines[1], speech.lines[1]],
+  ]) {
+    const invalid = { ...speech, lines };
+    assert.equal(pinned(invalid).ok, false);
+    assert.equal(wasm(invalid), null);
+  }
+  const wrongSeed = structuredClone(reload.world);
+  wrongSeed.run.seed = 18;
+  assert.equal(wasm({ ...speech, world: wrongSeed }), null);
+  assert.equal(wasm({ ...reload, op: "view", world: wrongSeed }), null);
   for (const corrupt of [
     (world) => {
       world.actors.mara.place = "station";
@@ -130,5 +168,7 @@ test("awake historic Station projections keep the witnessed arrival and seat sco
     const world = structuredClone(reload.world);
     corrupt(world);
     assert.equal(wasm({ ...reload, world }), null);
+    assert.equal(wasm({ ...reload, op: "view", world }), null);
+    assert.equal(wasm({ ...speech, world }), null);
   }
 });
