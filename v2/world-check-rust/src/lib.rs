@@ -11,7 +11,8 @@ use std::{
 mod release;
 #[allow(dead_code)]
 mod schema;
-use schema::{Bridge, Crossing, Pack, Table};
+mod topology;
+use schema::{Bridge, Pack, Table};
 
 fn load<T: DeserializeOwned>(path: &Path) -> Result<T, String> {
     let bytes = fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
@@ -83,6 +84,7 @@ fn check_worlds(v2: &Path) -> Result<usize, String> {
             "card-table.json: expected version 1, distinct pack ids and a hub start place".into(),
         );
     }
+    topology::check_groups(&table)?;
 
     let packs = table
         .packs
@@ -98,17 +100,7 @@ fn check_worlds(v2: &Path) -> Result<usize, String> {
                 .is_some_and(|(pack, _)| released(pack, place))
         }
     };
-    let mut crossings = BTreeMap::<&str, &Crossing>::new();
-    for (id, (_, bridge)) in &packs {
-        for crossing in &bridge.crossings {
-            if !valid_id(&crossing.id) || crossings.insert(&crossing.id, crossing).is_some() {
-                return Err(format!(
-                    "{id}: invalid or duplicate crossing {}",
-                    crossing.id
-                ));
-            }
-        }
-    }
+    let crossings = topology::crossings(&table.hub, &packs)?;
     for (id, (_, bridge)) in &packs {
         for entry in &bridge.entries {
             let joins_places = crossings.get(entry.via.as_str()).is_some_and(|crossing| {
