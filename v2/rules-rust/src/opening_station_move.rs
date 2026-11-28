@@ -511,6 +511,7 @@ fn departure_witnesses<'a>(
     Some(witnesses)
 }
 
+#[derive(Clone, Copy)]
 pub(super) enum CarriedItem {
     Lamp,
     Cloth,

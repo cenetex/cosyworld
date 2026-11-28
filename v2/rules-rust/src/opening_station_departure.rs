@@ -8,25 +8,30 @@ use super::{
 use serde_json::{json, Value};
 
 enum Destination {
-    Behind,
-    Pond,
+    Behind(bool),
+    Pond(bool),
+    PondWithCloth(Option<opening_station_move::CarriedItem>),
 }
 
 impl Destination {
     fn room(&self) -> &'static str {
         match self {
-            Self::Behind => "behind-station",
-            Self::Pond => "pond",
+            Self::Behind(_) => "behind-station",
+            Self::Pond(_) | Self::PondWithCloth(_) => "pond",
         }
     }
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
-    let (before, carry, destination) = opening_station_move::behind_world(request)
-        .map(|(world, carry)| (world, carry, Destination::Behind))
+    let (before, destination) = opening_station_move::behind_world(request)
+        .map(|(world, carry)| (world, Destination::Behind(carry)))
+        .or_else(|| {
+            opening_station_move::cloth_return_world(request)
+                .map(|(world, carry)| (world, Destination::PondWithCloth(carry)))
+        })
         .or_else(|| {
             opening_station_move::return_world(request)
-                .map(|(world, carry)| (world, carry, Destination::Pond))
+                .map(|(world, carry)| (world, Destination::Pond(carry)))
         })?;
     let before_seq = before["eventSeq"].as_u64()?;
     let order = opening_roster::actor_order(request, before)?;
@@ -39,10 +44,13 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         opening_roster::residents(world, &geo, &known, "vale")
     };
     let (mut world, residents) = match destination {
-        Destination::Behind => opening_station_move::begin_behind_with(
+        Destination::Behind(carry) => opening_station_move::begin_behind_with(
             before, &geo, &authored, &order, &evidence, carry, prepare,
         ),
-        Destination::Pond => opening_station_move::begin_return_with(
+        Destination::Pond(carry) => opening_station_move::begin_return_with(
+            before, &geo, &authored, &order, &evidence, carry, prepare,
+        ),
+        Destination::PondWithCloth(carry) => opening_station_move::begin_cloth_return_with(
             before, &geo, &authored, &order, &evidence, carry, prepare,
         ),
     }?;
@@ -71,10 +79,10 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     opening_second_attic_tail::settle_station_departure_after_wants(before, &mut world, &geo)?;
     let profiles = || Some(evidence.into_profiles());
     match destination {
-        Destination::Behind => {
+        Destination::Behind(_) => {
             opening_behind_station_view::completed_response(world, &geo, before_seq, profiles)
         }
-        Destination::Pond => {
+        Destination::Pond(_) | Destination::PondWithCloth(_) => {
             opening_pond_return_view::completed_response(world, &geo, before_seq, profiles)
         }
     }

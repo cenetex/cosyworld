@@ -243,7 +243,6 @@ describe("rest and sanctuary", () => {
       s.turn = s.revision = turn;
       return s;
     };
-    // Someone leaves.
     let s = seat(["mara", "nell"]);
     s.actors.mara.place = s.actors.nell.place = "clearing";
     s = act(

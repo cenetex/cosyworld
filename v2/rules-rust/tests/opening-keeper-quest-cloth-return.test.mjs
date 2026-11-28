@@ -127,6 +127,7 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
         reference.cardShared(JSON.stringify(request)),
       );
       assert.equal(completed.ok, true, completed.error);
+      assert.deepEqual(wasm(request), completed, `${seed} ${key} full reply`);
       const expected = JSON.parse(JSON.stringify(reference.clothReturn));
       const actual = wasm({ ...request, op });
       const label = `${seed} ${key}`;
