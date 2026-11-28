@@ -86,13 +86,22 @@ pub(super) fn mount_catalog(world: &mut Value, files: &Value, catalog: &Catalog)
     for avatar in files["v2/card-game/shared-cast.json"]["avatars"].as_array()? {
         core.insert(avatar["id"].as_str()?);
     }
-    let ids: Vec<_> = mounted.actors.keys().cloned().collect();
+    let mut ids: Vec<_> = mounted.actors.keys().cloned().collect();
+    ids.sort_unstable();
+    let core_ids: Vec<_> = ids
+        .iter()
+        .filter(|id| core.contains(id.as_str()))
+        .cloned()
+        .collect();
     for (id, actor) in &mut mounted.actors {
         let trust = actor.get_mut("trust")?.as_object_mut()?;
-        for other in ids.iter().filter(|other| {
-            *other != id && (core.contains(id.as_str()) || core.contains(other.as_str()))
-        }) {
-            trust.entry(other).or_insert_with(|| json!(0));
+        let peers = if core.contains(id.as_str()) {
+            &ids
+        } else {
+            &core_ids
+        };
+        for other in peers.iter().filter(|other| *other != id) {
+            trust.entry(other).or_insert_with(|| Value::from(0));
         }
     }
     for pack in catalog.packs() {

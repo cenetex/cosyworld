@@ -99,18 +99,93 @@ test("definite validate refusals match pinned JavaScript", async () => {
   }
 });
 
-test("current saves requiring complete validation stay outside the refusal slice", async () => {
-  const { pinned, wasm } = await reducers();
-  const { world } = pinned({ op: "create", seed: 4242, history: true });
-  const request = {
-    op: "validate",
+const seat = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+
+function hold(pinned, world, item) {
+  const result = pinned({
+    op: "hold",
     world,
-    actor: "vale",
-    claimed: ["vale"],
-    present: ["vale"],
-  };
-  assert.equal(pinned(request).ok, true);
-  assert.equal(wasm(request), null);
+    ...seat,
+    choice: { item, revision: world.revision },
+  });
+  assert.equal(result.ok, true);
+  return result.world;
+}
+
+test("unseeded opening saves validate after exact reconstruction and quiet holds", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const history of [false, true]) {
+    const fresh = pinned({ op: "create", history });
+    assert.equal(fresh.ok, true);
+    const initial = fresh.world;
+    const compare = (world) => {
+      const request = { op: "validate", world, ...seat };
+      const expected = pinned(request);
+      assert.equal(expected.ok, true);
+      assert.deepEqual(
+        wasm(request),
+        expected,
+        `history ${history} revision ${world.revision} held ${world.actors.vale.heldItem}`,
+      );
+    };
+    compare(initial);
+    for (const item of [null, "lamp"]) {
+      const once = hold(pinned, initial, item);
+      compare(once);
+      compare(hold(pinned, once, "lamp"));
+    }
+  }
+});
+
+test("validation leaves changes outside the reconstructed save unsupported", async () => {
+  const { pinned, wasm } = await reducers();
+  const { world } = pinned({ op: "create", history: true });
+  for (const mutate of [
+    (save) => (save.actors.mara.place = "unknown-room"),
+    (save) => (save.items.cloth.holder = "unavailable-holder"),
+    (save) => (save.memories.vale.events = "not events"),
+    (save) => (save.knowledge.facts = []),
+    (save) => (save.log[0].text = "Different remembered wording."),
+    (save) => (save.usedUp = ["a-missing-item"]),
+    (save) => (save.run = { seed: 17 }),
+  ]) {
+    const altered = structuredClone(world);
+    mutate(altered);
+    assert.equal(wasm({ op: "validate", world: altered, ...seat }), null);
+  }
+  const later = [null, "lamp", null].reduce(
+    (save, item) => hold(pinned, save, item),
+    world,
+  );
+  const late = { op: "validate", world: later, ...seat };
+  assert.equal(pinned(late).ok, true);
+  assert.equal(wasm(late), null);
+  const other = { op: "validate", world, actor: "mara", claimed: ["mara"] };
+  assert.equal(pinned(other).ok, true);
+  assert.equal(wasm(other), null);
+});
+
+test("opening validation uses a saved u32 seed for exact reconstruction", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [0, 4242, 0xffffffff]) {
+    for (const history of [false, true]) {
+      const { world } = pinned({ op: "create", seed, history });
+      for (const saved of [world, hold(pinned, world, null)]) {
+        assert.equal(saved.run.seed, seed);
+        const request = { op: "validate", world: saved, ...seat };
+        const expected = pinned(request);
+        assert.equal(expected.ok, true);
+        assert.deepEqual(
+          wasm(request),
+          expected,
+          `seed ${seed}, history ${history}`,
+        );
+      }
+    }
+  }
+  const { world } = pinned({ op: "create", seed: 4242, history: true });
+  world.run = { seed: 0x100000000 };
+  assert.equal(wasm({ op: "validate", world, ...seat }), null);
 });
 
 test("import preflight refuses definite shape and save header failures", async () => {
@@ -145,9 +220,54 @@ test("import preflight refuses definite shape and save header failures", async (
     );
   }
 
-  const { world } = pinned({ op: "create", seed: 4242, history: true });
-  const request = { op: "create", save: JSON.stringify(world), seed: 4321 };
-  assert.equal(pinned(request).ok, true);
-  assert.equal(wasm(request), null);
-  assert.equal(wasm({ ...request, save: "not-json" }), null);
+  assert.equal(wasm({ op: "create", save: "not-json" }), null);
+});
+
+test("pristine opening imports retain the complete pinned response and saved seed", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [undefined, 0, 4242, 0xffffffff]) {
+    for (const history of [false, true]) {
+      const fresh = pinned({ op: "create", seed, history });
+      const save = structuredClone(fresh.world);
+      save.sharedMigration = { recovery: "untrusted" };
+      save.controlledActors = ["mara"];
+      save.playerActorId = "mara";
+      save.present = ["mara"];
+      save.actors.vale.upgrades = ["ember-script"];
+      for (const input of [save, JSON.stringify(save)]) {
+        const request = {
+          op: "create",
+          save: input,
+          history: !history,
+          seed: seed === undefined ? undefined : 4321,
+        };
+        const expected = pinned(request);
+        assert.deepEqual(
+          expected,
+          fresh,
+          `pinned seed ${seed} history ${history}`,
+        );
+        assert.deepEqual(
+          wasm(request),
+          expected,
+          `seed ${seed} history ${history}`,
+        );
+      }
+    }
+  }
+});
+
+test("opening import defers modified worlds and newly assigned seeds", async () => {
+  const { pinned, wasm } = await reducers();
+  const { world } = pinned({ op: "create", history: true });
+  const seeded = { op: "create", save: world, seed: 4242 };
+  assert.equal(pinned(seeded).world.run.seed, 4242);
+  assert.equal(wasm(seeded), null);
+  const modified = hold(pinned, world, "lamp");
+  const imported = { op: "create", save: modified };
+  assert.equal(pinned(imported).ok, true);
+  assert.equal(wasm(imported), null);
+  const invalid = structuredClone(world);
+  invalid.actors.vale.visited.push("attic");
+  assert.equal(wasm({ op: "create", save: invalid }), null);
 });

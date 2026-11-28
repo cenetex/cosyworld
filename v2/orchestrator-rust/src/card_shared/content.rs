@@ -1,7 +1,4 @@
-//! Pack content revisions for shared rules that take content as input.
-//!
-//! Each `globalThis.cardContent` revision is stored by SHA-256 in
-//! `card_full_packs` before any reference and verified on replay.
+//! Save `globalThis.cardContent` revisions in `card_full_packs` before use and verify SHA-256 on replay.
 use super::store::{sql_error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest, Sha256};
@@ -15,7 +12,6 @@ const MISSING: &str = "This world's pack content needs recovery.";
 pub(super) fn hash(text: &str) -> String {
     format!("{:x}", Sha256::digest(text.as_bytes()))
 }
-/// The content revision this binary was built with.
 pub(super) fn current() -> &'static str {
     static HASH: OnceLock<String> = OnceLock::new();
     HASH.get_or_init(|| hash(current_text()))
@@ -23,7 +19,6 @@ pub(super) fn current() -> &'static str {
 pub(super) fn current_text() -> &'static str {
     cosyworld_orchestrator::card_assets::text("card_shared/content.json")
 }
-/// The package version that built the current revision, for people.
 pub(super) const REVISION: &str = env!("CARGO_PKG_VERSION");
 fn loaded() -> &'static Mutex<HashMap<String, Arc<str>>> {
     static LOADED: OnceLock<Mutex<HashMap<String, Arc<str>>>> = OnceLock::new();

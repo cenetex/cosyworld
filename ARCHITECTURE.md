@@ -36,9 +36,13 @@ Production dialogue goes out through the model gateway configured for [lonelyfor
 
 Each shared world is a SQLite journal. Writers for one database take a single turn, then the rules and the Rust session guard accept or refuse the command. Replaying the journal rebuilds the world. The world stores the rules version it was written with. Released bundles from `full-card-world/133` onward stay available to the server, so an old journal still reduces on the rules that wrote it. A rules change mints the next bundle (`npm run v2:card:shared:next`). Released bundle bytes stay fixed. The active deployment reports its rules version in `/meta`. [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
 
-The Rust rules candidate in `v2/rules-rust` covers lamp fuel, grounded station-door admission, and selected opening journal commands, including claims, resets, lamp holds, and accepting the mirror quest. It also handles Vale's private attic view with the lamp held or stowed and replays bounded recorded speech and reflections. The opening fixtures include worlds seeded with resident history. CI compares complete supported WASM responses with pinned JavaScript through the browser interface and with QuickJS through Wasmi in read-only SQLite replay. Wasmi limits memory, tables, and execution fuel for each server-side call.
+The Rust rules candidate in `v2/rules-rust` covers lamp fuel, grounded station-door admission, and selected opening journal commands, including claims, resets, lamp holds, and accepting the mirror quest. It also handles Vale's private attic view with the lamp held or stowed and replays bounded recorded speech and reflections. The opening fixtures include worlds seeded with resident history. Opening stage fixtures compare the first attic Wait and resident belongings pickups with the pinned events, counters, custody and witness memories. CI compares complete supported WASM responses with pinned JavaScript through the browser interface and with QuickJS through Wasmi in read-only SQLite replay. Wasmi limits memory, tables, and execution fuel for each server-side call.
 
 The candidate reproduces save validation refusals for unsupported schemas, incomplete saves, invalid seats, and malformed lamp metadata. The import preflight also refuses definite shape and save header failures in object and string saves. Direct parity removes the recognized four-frame JavaScript diagnostic suffix for each save entry point and compares every remaining field.
+
+The Rust validator rebuilds a Vale opening save from the authored pack data, using the saved seed and opening history when present. It can also reconstruct the first two quiet lamp holds. Every saved field must match the rebuilt state.
+
+Import can reopen a pristine shared Vale opening from an object or JSON string. It discards account context and upgrades, checks the complete saved state, and keeps the save's original seed.
 
 Replay passes the original, hash-verified pack JSON to the candidate as `packContentJson`. The guest receives these exact bytes in a JSON string, preserving author order for reducers that need it.
 
@@ -49,12 +53,14 @@ artifact="$(node v2/scripts/build-rust-rules.mjs)"
 COSYWORLD_RULES_WASM="$artifact" node --test v2/rules-rust/tests/*.test.mjs
 COSYWORLD_RULES_WASM="$artifact" cargo test --locked \
   --manifest-path v2/orchestrator-rust/Cargo.toml --features rules-wasm \
-  --bin cosyworld-orchestrator sqlite_rules_wasm_parity -- --nocapture
+  --bin cosyworld-orchestrator sqlite_rules_wasm_parity -- --nocapture --test-threads=1
 ```
 
 Set `COSYWORLD_REPLAY_DB` to a consistent, anonymized SQLite copy. Select a world with `COSYWORLD_REPLAY_WORLD`, or use `COSYWORLD_REPLAY_ALL=1` to check every active world in one read-only transaction. The verifier replays from each seed with pinned rules and content, checks its stored checkpoint against the rebuilt head, and reports unsupported calls by operation. `COSYWORLD_REQUIRE_FULL_REPLAY=1` requires all selected heads to use current rules and content, every current rules call to match, and at least one observed comparison across the selected worlds. Reverify the journal heads when writing a future epoch checkpoint.
 
 The same test exercises fresh and imported creation, a claimed seat's view, valid and malformed saves, and plays refused for absence, a stale revision, or an unavailable card. It compares the complete reply to the pinned QuickJS bundle. Ordinary runs report unsupported direct fixtures. Strict mode requires a match on each one.
+
+Synthetic SQLite journals also replay accepted opening actions. One records a quest acceptance. Another records a claim with carried progress, entering, two lamp holds, leaving and returning, and a reset that clears progress and leaves the lit lamp in the attic.
 
 A journal claim requests `join_state` with the authenticated seat and any passkey progress. The QuickJS adapter projects the pinned `join` response to the complete journal result of `ok` and `world`. The view endpoint serves legal actions separately. The WASM candidate handles opening claims, including the arrival of absent avatars and the merge of progress earned in other worlds.
 
@@ -64,7 +70,7 @@ The browser follows a bounded, hashed chain of changes to that player's view. Th
 
 ## Opening history
 
-The Rust candidate creates fresh Vale openings from authored content with optional run seeds and resident history. A fresh world's seed chooses its home doors, pack specials, cross-world keepsakes, and Wayfinder landing from the mounted data. The Rust seed stage applies these choices before resident history.
+The Rust candidate creates fresh Vale openings from authored content with optional run seeds, resident history, hidden and absent visitors, and homecoming. A fresh world's seed chooses its home doors, pack specials, cross-world keepsakes, and Wayfinder landing from the mounted data. The Rust seed stage applies these choices before resident history.
 
 A new shared world is created with `history: true`. The rules then apply the checked-in patch in `v2/card-game/world-history.json`.
 

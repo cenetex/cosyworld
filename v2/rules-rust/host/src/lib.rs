@@ -7,6 +7,7 @@ use wasmi::{Config, Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuild
 const MAX_MODULE_BYTES: usize = 2 * 1024 * 1024;
 const MEMORY_BYTES: usize = 96 * 1024 * 1024;
 const FUEL: u64 = 200_000_000;
+const RECONSTRUCTION_FUEL: u64 = 320_000_000;
 
 pub struct Rules {
     engine: Engine,
@@ -29,7 +30,7 @@ impl Rules {
     }
 
     pub fn reduce(&self, request: &Value) -> Result<Option<Value>, String> {
-        self.reduce_input(&encode_request(request, None)?)
+        self.reduce_input(&encode_request(request, None)?, FUEL)
     }
 
     pub fn reduce_with_pack(
@@ -37,10 +38,14 @@ impl Rules {
         request: &Value,
         pack_json: &str,
     ) -> Result<Option<Value>, String> {
-        self.reduce_input(&encode_request(request, Some(pack_json))?)
+        let fuel = match request["op"].as_str() {
+            Some("create" | "validate") => RECONSTRUCTION_FUEL,
+            _ => FUEL,
+        };
+        self.reduce_input(&encode_request(request, Some(pack_json))?, fuel)
     }
 
-    fn reduce_input(&self, input: &[u8]) -> Result<Option<Value>, String> {
+    fn reduce_input(&self, input: &[u8], fuel: u64) -> Result<Option<Value>, String> {
         let limits = StoreLimitsBuilder::new()
             .memory_size(MEMORY_BYTES)
             .table_elements(4096)
@@ -51,7 +56,7 @@ impl Rules {
             .build();
         let mut store = Store::new(&self.engine, limits);
         store.limiter(|limits| limits);
-        store.set_fuel(FUEL).map_err(wasm_error)?;
+        store.set_fuel(fuel).map_err(wasm_error)?;
         let instance = Linker::<StoreLimits>::new(&self.engine)
             .instantiate(&mut store, &self.module)
             .map_err(wasm_error)?
@@ -109,6 +114,16 @@ fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, S
         .as_object()
         .ok_or("Rules Wasm needs a request object with pack content.")?
         .clone();
+    request.remove("actorOrder");
+    if request.get("op").and_then(Value::as_str) == Some("opening_wait_roster") {
+        if let Some(actors) = request
+            .get("world")
+            .and_then(|world| world["actors"].as_object())
+        {
+            let order = actors.keys().cloned().map(Value::String).collect();
+            request.insert("actorOrder".into(), Value::Array(order));
+        }
+    }
     request.insert("packContentJson".into(), Value::String(pack_json.into()));
     let input = serde_json::to_vec(&request).map_err(wasm_error)?;
     if input.len() > MAX_WIRE_BYTES {
@@ -157,11 +172,21 @@ mod tests {
     #[test]
     fn preserves_raw_pack_content_and_checks_request_and_pack_sizes() {
         let pack = "{\n  \"z\": \"étang\", \"a\": 1\n}\n";
-        let input = encode_request(&json!({"op":"view"}), Some(pack)).unwrap();
+        let input =
+            encode_request(&json!({"op":"view","actorOrder":["vale"]}), Some(pack)).unwrap();
         assert_eq!(
             serde_json::from_slice::<Value>(&input).unwrap(),
             json!({"op":"view", "packContentJson":pack})
         );
+        let roster = json!({"op":"opening_wait_roster", "world":{"actors":{"vale":{},"ada":{}}},"actorOrder":["vale","ada"]});
+        let input = encode_request(&roster, Some(pack)).unwrap();
+        let encoded: Value = serde_json::from_slice(&input).unwrap();
+        let keys: Vec<_> = roster["world"]["actors"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect();
+        assert_eq!(encoded["actorOrder"], json!(keys));
         let long = "x".repeat(MAX_JSON_BYTES + 1);
         assert!(encode_request(&json!({"op":"view"}), Some(&long)).is_err());
         assert!(encode_request(&json!({"op":"view", "world":long}), Some(pack)).is_err());
@@ -171,6 +196,10 @@ mod tests {
     fn stops_a_guest_that_runs_out_of_fuel() {
         let rules = guest(1, "(loop br 0) i32.const 4");
         let error = rules.reduce(&json!({})).unwrap_err();
+        assert!(error.contains("fuel"), "{error}");
+        let error = rules
+            .reduce_with_pack(&json!({"op":"create"}), "{}")
+            .unwrap_err();
         assert!(error.contains("fuel"), "{error}");
     }
 }

@@ -8,22 +8,38 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+pub mod authored_order;
 mod create;
 mod create_geography;
+mod elysium;
 mod initial_wants;
 mod join;
 mod opening;
+mod opening_attic_rest;
 mod opening_candidates;
+mod opening_content;
+mod opening_crossings;
 pub mod opening_evidence;
 pub mod opening_history;
+mod opening_hub_residents;
+mod opening_pickups;
+mod opening_place_cards;
 mod opening_play;
 mod opening_reflection;
+mod opening_roaming;
+mod opening_roster;
 pub mod opening_rumours;
+mod opening_settlement;
 mod opening_speech;
 mod opening_view;
+mod opening_visitor_routes;
+mod opening_wait;
+mod opening_wait_response;
+mod opening_wants;
 mod pack_state;
 mod profiles;
 mod reset;
+pub mod resident_evidence;
 mod seed;
 mod seed_arrivals;
 mod seed_packs;
@@ -33,6 +49,7 @@ mod validate;
 
 pub use create_geography::Geography;
 pub use opening_view::create_response;
+pub use opening_wait_response::completed_wait_response;
 
 pub const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_WIRE_BYTES: usize = 3 * MAX_JSON_BYTES + 64;
@@ -115,7 +132,25 @@ pub fn reduce(request: &Value) -> Value {
         Some("seed_specials") => seed::specials_projection(request).unwrap_or(Value::Null),
         Some("seed_opening") => seed::opening_projection(request).unwrap_or(Value::Null),
         Some("seed_arrivals") => seed_arrivals::projection(request).unwrap_or(Value::Null),
+        Some("visitor_reach") => opening_visitor_routes::projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
+        Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
+        Some("opening_attic_rest") => {
+            opening_attic_rest::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_wait_roster") => opening_roster::projection(request).unwrap_or(Value::Null),
+        Some("opening_bard_move") => opening_roaming::projection(request).unwrap_or(Value::Null),
+        Some("opening_wait_settlement") => {
+            opening_settlement::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_pickups") => opening_pickups::projection(request).unwrap_or(Value::Null),
+        Some("opening_place_cards") => {
+            opening_place_cards::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
+        Some("opening_hub_idle") => {
+            opening_hub_residents::projection(request).unwrap_or(Value::Null)
+        }
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),

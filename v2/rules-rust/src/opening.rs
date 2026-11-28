@@ -27,8 +27,7 @@ pub(super) fn unplayed_turn(world: &Value) -> Option<u64> {
     (turn == began).then_some(turn)
 }
 
-struct Opening<'a> {
-    world: &'a Value,
+struct Opening {
     lamp: Lamp,
     held: bool,
     grounded: bool,
@@ -36,12 +35,16 @@ struct Opening<'a> {
     station: Vec<&'static str>,
 }
 
-impl<'a> Opening<'a> {
-    fn supported(request: &'a Value) -> Option<Self> {
+impl Opening {
+    fn supported(request: &Value) -> Option<(&Value, Self)> {
         let world = &request["world"];
         let actor = request["actor"].as_str()?;
         let claimed = seats(&request["claimed"])?;
         let present = seats(&request["present"])?;
+        Some((world, Self::with_seats(world, actor, &claimed, &present)?))
+    }
+
+    fn with_seats(world: &Value, actor: &str, claimed: &[&str], present: &[&str]) -> Option<Self> {
         let actors = world["actors"].as_object()?;
         let items = world["items"].as_object()?;
         let vale = actors.get("vale")?;
@@ -81,7 +84,6 @@ impl<'a> Opening<'a> {
             return None;
         }
         Some(Self {
-            world,
             lamp,
             held,
             grounded,
@@ -90,7 +92,7 @@ impl<'a> Opening<'a> {
         })
     }
 
-    fn respond(self, mut world: Value, held: bool) -> Option<Value> {
+    fn settle(self, mut world: Value, held: bool) -> Value {
         self.lamp
             .settle(LampPosition {
                 place: "attic".into(),
@@ -99,7 +101,11 @@ impl<'a> Opening<'a> {
             })
             .write(&mut world["items"]["lamp"]);
         world["stationExitOrder"] = json!(self.station);
-        stored_response(world)
+        world
+    }
+
+    fn respond(self, world: Value, held: bool) -> Option<Value> {
+        stored_response(self.settle(world, held))
     }
 }
 
@@ -149,7 +155,7 @@ fn holds_lamp(item: &Value) -> Option<bool> {
     }
 }
 
-pub(super) fn stored_response(mut world: Value) -> Option<Value> {
+pub(super) fn stored_world(mut world: Value) -> Option<Value> {
     let fields = world.as_object_mut()?;
     for transient in [
         "playerActorId",
@@ -159,29 +165,32 @@ pub(super) fn stored_response(mut world: Value) -> Option<Value> {
     ] {
         fields.remove(transient);
     }
+    Some(world)
+}
+
+pub(super) fn stored_response(world: Value) -> Option<Value> {
     let mut response = serde_json::Map::new();
     response.insert("ok".into(), Value::Bool(true));
-    response.insert("world".into(), world);
+    response.insert("world".into(), stored_world(world)?);
     Some(Value::Object(response))
 }
 
 pub(super) fn presence(request: &Value) -> Option<Value> {
-    let opening = Opening::supported(request)?;
+    let (world, opening) = Opening::supported(request)?;
     let held = opening.held;
-    let world = opening.world.clone();
-    opening.respond(world, held)
+    opening.respond(world.clone(), held)
 }
 
 pub(super) fn join_state(request: &Value) -> Option<Value> {
-    let opening = Opening::supported(request)?;
-    let mut world = opening.world.clone();
+    let (world, opening) = Opening::supported(request)?;
+    let mut world = world.clone();
     super::join::apply(&mut world, request["actor"].as_str()?, &request["progress"])?;
     let held = opening.held;
     opening.respond(world, held)
 }
 
 pub(super) fn supported_world(request: &Value) -> Option<&Value> {
-    Some(Opening::supported(request)?.world)
+    Some(Opening::supported(request)?.0)
 }
 
 pub(super) fn hold(request: &Value) -> Option<Value> {
@@ -190,44 +199,69 @@ pub(super) fn hold(request: &Value) -> Option<Value> {
     if !present.iter().any(|id| id == actor) {
         return None;
     }
-    let opening = Opening::supported(request)?;
+    let (world, opening) = Opening::supported(request)?;
     let choice = request["choice"].as_object()?;
-    if choice.len() != 2
-        || choice.get("revision")?.as_u64()? != opening.revision
-        || opening.revision == MAX_REVISION
-    {
+    if choice.len() != 2 || choice.get("revision")?.as_u64()? != opening.revision {
         return None;
     }
     let item = choice.get("item")?;
-    let world = opening.world;
-    if world["actors"]["vale"]["visited"] != json!(["attic"])
-        || world["items"]["oil"]["holder"] != "keeper"
-        || world["items"]
-            .as_object()?
-            .values()
-            .any(|item| item["holder"] == "lamp")
-        || world["actors"]
-            .as_object()?
-            .values()
-            .any(|actor| actor.get("arcana").is_some())
-        || world
-            .get("opened")
-            .is_some_and(|opened| *opened != json!({"pond": ["vale"]}))
-    {
-        return None;
+    let hold = Hold::planned(world, opening, actor, item)?;
+    stored_response(hold.apply(world.clone(), actor, item))
+}
+
+pub(super) fn hold_solo_vale(world: Value, item: &Value) -> Option<Value> {
+    let opening = Opening::with_seats(&world, "vale", &["vale"], &["vale"])?;
+    let hold = Hold::planned(&world, opening, "vale", item)?;
+    Some(hold.apply(world, "vale", item))
+}
+
+struct Hold {
+    opening: Opening,
+    held: bool,
+    opens_pond: bool,
+}
+
+impl Hold {
+    fn planned(world: &Value, opening: Opening, actor: &str, item: &Value) -> Option<Self> {
+        if opening.revision == MAX_REVISION
+            || world["actors"]["vale"]["visited"] != json!(["attic"])
+            || world["items"]["oil"]["holder"] != "keeper"
+            || world["items"]
+                .as_object()?
+                .values()
+                .any(|item| item["holder"] == "lamp")
+            || world["actors"]
+                .as_object()?
+                .values()
+                .any(|actor| actor.get("arcana").is_some())
+            || world
+                .get("opened")
+                .is_some_and(|opened| *opened != json!({"pond": ["vale"]}))
+        {
+            return None;
+        }
+        let held = if actor == "vale" && !opening.grounded {
+            holds_lamp(item)?
+        } else if item.is_null() && world["actors"][actor].get("heldItem") == Some(item) {
+            opening.held
+        } else {
+            return None;
+        };
+        let opens_pond =
+            opening.held && !held && opening.lamp.fuel_rooms > 0 && world.get("opened").is_none();
+        Some(Self {
+            opening,
+            held,
+            opens_pond,
+        })
     }
-    let held = if actor == "vale" && !opening.grounded {
-        holds_lamp(item)?
-    } else if item.is_null() && world["actors"][actor].get("heldItem") == Some(item) {
-        opening.held
-    } else {
-        return None;
-    };
-    let mut next = world.clone();
-    if opening.held && !held && opening.lamp.fuel_rooms > 0 && world.get("opened").is_none() {
-        next["opened"] = json!({"pond": ["vale"]});
+
+    fn apply(self, mut world: Value, actor: &str, item: &Value) -> Value {
+        if self.opens_pond {
+            world["opened"] = json!({"pond": ["vale"]});
+        }
+        world["actors"][actor]["heldItem"] = item.clone();
+        world["revision"] = json!(self.opening.revision + 1);
+        self.opening.settle(world, self.held)
     }
-    next["actors"][actor]["heldItem"] = item.clone();
-    next["revision"] = json!(opening.revision + 1);
-    opening.respond(next, held)
 }

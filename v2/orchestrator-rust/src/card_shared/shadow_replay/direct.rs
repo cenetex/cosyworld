@@ -97,7 +97,7 @@ pub(super) fn verify(
             ));
         }
         match candidate(version, pack, &request)
-            .map_err(|_| format!("Candidate failed for direct fixture {name}"))?
+            .map_err(|error| format!("Candidate failed for direct fixture {name}: {error}"))?
         {
             Some(actual) if same_reply(&request, &actual, &reference) => report.matched += 1,
             Some(_) => return Err(format!("Reducer output differs for direct fixture {name}")),
@@ -106,16 +106,42 @@ pub(super) fn verify(
         Ok(reference)
     };
 
-    check(
+    let unseeded = check(
         "create-fresh-unseeded",
         json!({"op":"create","save":null}),
         true,
     )?;
-    let _unseeded = check(
+    let unseeded_history = check(
         "create-fresh-unseeded-history",
         json!({"op":"create","save":null,"history":true}),
         true,
     )?;
+    let mut held = unseeded_history["world"].clone();
+    for _ in 0..2 {
+        let reply = engine::reduce_pack(
+            version,
+            pack,
+            json!({
+                "op":"hold", "world":held, "actor":"vale", "claimed":["vale"], "present":["vale"],
+                "choice":{"item":"lamp","revision":held["revision"]}
+            }),
+        )?;
+        held = reply["world"].clone();
+    }
+    for (name, world) in [
+        ("validate-unseeded", &unseeded["world"]),
+        ("validate-unseeded-history", &unseeded_history["world"]),
+        ("validate-unseeded-held-twice", &held),
+    ] {
+        check(
+            name,
+            json!({
+                "op":"validate", "world":world, "actor":"vale",
+                "claimed":["vale"], "present":["vale"]
+            }),
+            true,
+        )?;
+    }
     let fresh = check(
         "create-fresh",
         json!({"op":"create","save":null,"seed":4242,"history":true}),
@@ -163,7 +189,7 @@ fn requires_each_fixture_in_full_coverage_mode() -> Result<()> {
         engine::reduce_pack_envelope(version, pack, request.clone()).map(Some)
     };
     let report = verify(equal)?;
-    assert_eq!(report.matched, 12);
+    assert_eq!(report.matched, 15);
     report.require_coverage(true)?;
 
     let report = verify(|version, pack, request| {
@@ -172,7 +198,7 @@ fn requires_each_fixture_in_full_coverage_mode() -> Result<()> {
         }
         equal(version, pack, request)
     })?;
-    assert_eq!(report.matched, 11);
+    assert_eq!(report.matched, 14);
     assert_eq!(report.unsupported, ["validate-malformed"]);
     assert!(report.require_coverage(false).is_ok());
     assert!(report.require_coverage(true).is_err());

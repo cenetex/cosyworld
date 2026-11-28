@@ -34,7 +34,15 @@ export function browserRules(bytes) {
         Array.isArray(request)
       )
         throw new Error("Invalid rules WASM pack content or request");
-      input = encoder.encode(JSON.stringify({ ...request, packContentJson }));
+      const actors =
+        request.op === "opening_wait_roster" ? request.world?.actors : null;
+      const actorOrder =
+        actors && typeof actors === "object" && !Array.isArray(actors)
+          ? Object.keys(actors)
+          : undefined;
+      input = encoder.encode(
+        JSON.stringify({ ...request, packContentJson, actorOrder }),
+      );
       if (input.length > MAX_WIRE_BYTES)
         throw new Error("Rules WASM input is too large");
     }

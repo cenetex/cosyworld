@@ -1,6 +1,5 @@
 // One want per avatar: an item, a place or a person. The world rules decide
-// when it is met and what it earns: one experience, paid on the play that
-// meets it. `actor.want` is that want.
+// when it is met and award one experience on the play that meets it.
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { controlledByHuman, humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
@@ -51,13 +50,11 @@ const SAVED_STEP_VERBS = ["threaten", "attack"];
 
 // A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
-// A rest lasts a few turns after a want is met, wherever it was met.
 export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
 export const REST_TURNS = 3;
 export const CONTENT_TURNS = 24;
 
-// A pack's residents become known once the player has found a way in.
 export function knownActors(s, place) {
   const discovered = new Map();
   const ids = new Set([
@@ -373,9 +370,8 @@ export function installWants(s) {
   }
 }
 
-// Candidates: items held by others that the actor values above the least
-// valued thing it carries and could get by gift or trade, known places it has
-// not visited, and known people it has not talked with. An item nobody would
+// Candidates: obtainable held items worth more than the least valuable
+// carried item, unvisited places, and people the actor has not talked with. An item nobody would
 // part with stays out of the near pool, so an empty-handed avatar's curiosity
 // can run dry and start over instead of circling a hoard (#1781). `api` supplies world reads owned by world.mjs.
 // With `wide`, nothing near is left, so anyone known and anything they hold
@@ -672,8 +668,7 @@ export const resting = (s, actor) => {
   );
 };
 
-// Record what each participant saw and said, then commit the wants, held
-// quests and known cards the play meets. A player who meets another's want helps.
+// Record observations and commit met wants, held quests, and known cards.
 export function settleWants(s, actors, api, action = null, stale = []) {
   const talk =
     action?.kind === "talk"

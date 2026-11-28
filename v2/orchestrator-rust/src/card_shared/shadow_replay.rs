@@ -8,6 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 mod direct;
 #[cfg(feature = "rules-wasm")]
 mod opening_quest;
+#[cfg(feature = "rules-wasm")]
+mod opening_seat;
 mod proof;
 
 #[derive(Debug, Default, PartialEq)]

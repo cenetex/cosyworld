@@ -157,8 +157,7 @@ impl World {
                 next.present[a] = 0;
                 (SeatAction::Release, json!({}))
             }
-            // The owner's delete: the avatar starts over (#1825). Rules that
-            // predate it refuse the request, so it is never journaled for them.
+            // Reset starts the avatar over. Older rules refuse it before journaling (#1825).
             "reset" => {
                 let result = reduce(
                     &self.version,
@@ -195,7 +194,6 @@ impl World {
                 next.game = result["world"].clone();
                 (SeatAction::Play, result)
             }
-            // "+ Find Mara": the quest to talk to the hidden avatar (#1936).
             "seek" => {
                 let result = reduce(&self.version, self.pack.as_deref(), self.request("seek", a))?;
                 next.game = result["world"].clone();
@@ -213,7 +211,6 @@ impl World {
                 *self = next;
                 return Ok(result);
             }
-            // A reflection can arrive after its speaker leaves (#2016).
             "reflect" => {
                 let mut request = self.request("reflect", a);
                 for key in ["turn", "resting", "rest", "entries"] {

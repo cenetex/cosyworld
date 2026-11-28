@@ -5,6 +5,8 @@ pub struct Geography<'a> {
     files: &'a Value,
     packs: Vec<&'a Value>,
     entities: BTreeMap<&'a str, (&'a Value, &'a Value)>,
+    released: BTreeMap<&'a str, BTreeSet<&'a str>>,
+    section_requirements: BTreeMap<(&'a str, &'a str), &'a Value>,
     humans: Vec<&'a str>,
 }
 
@@ -13,6 +15,7 @@ struct ConditionContext<'a> {
     world: &'a Value,
     pack: &'a str,
     actor: Option<&'a str>,
+    senses: bool,
 }
 
 const MAX_DEPTH: u8 = 32;
@@ -23,11 +26,30 @@ impl<'a> Geography<'a> {
     pub fn new(files: &'a Value, packs: impl Iterator<Item = &'a Value>) -> Option<Self> {
         let packs: Vec<_> = packs.collect();
         let mut entities = BTreeMap::new();
-        for pack in &packs {
+        let mut released = BTreeMap::new();
+        let mut section_requirements = BTreeMap::new();
+        for &pack in &packs {
+            let pack_id = pack["id"].as_str()?;
+            let release = &pack["release"];
+            if release.is_object() {
+                let known = ["places", "avatars", "items"]
+                    .iter()
+                    .flat_map(|field| array(&release[*field]))
+                    .map(Value::as_str)
+                    .collect::<Option<BTreeSet<_>>>()?;
+                released.insert(pack_id, known);
+            }
+            for section in array(&pack["sections"]) {
+                for place in array(&section["places"]) {
+                    section_requirements
+                        .entry((pack_id, place.as_str()?))
+                        .or_insert(&section["requires"]);
+                }
+            }
             for field in ["places", "avatars", "items", "fixtures"] {
                 if let Some(entries) = pack.get(field) {
                     for (id, entry) in entries.as_object()? {
-                        entities.insert(id.as_str(), (*pack, entry));
+                        entities.insert(id.as_str(), (pack, entry));
                     }
                 }
             }
@@ -41,6 +63,8 @@ impl<'a> Geography<'a> {
             files,
             packs,
             entities,
+            released,
+            section_requirements,
             humans,
         })
     }
@@ -90,6 +114,7 @@ impl<'a> Geography<'a> {
                     world,
                     pack: "",
                     actor: None,
+                    senses: false,
                 },
                 &person["appearsWhen"],
                 depth,
@@ -102,6 +127,9 @@ impl<'a> Geography<'a> {
         }
         if let Some(home) = entity["home"].as_str() {
             let waits_at_home = world["items"][id]["holder"] == home
+                && state["receipts"]
+                    .as_object()
+                    .is_some_and(|receipts| !receipts.is_empty())
                 && array(&pack["choices"]).any(|choice| {
                     choice["id"]
                         .as_str()
@@ -120,6 +148,7 @@ impl<'a> Geography<'a> {
             world,
             pack: pack_id,
             actor: None,
+            senses: false,
         };
         if !self.all(ctx, &entity["requires"], depth)?
             || !self.all(ctx, &entity["appearsWhen"], depth)?
@@ -128,10 +157,10 @@ impl<'a> Geography<'a> {
         }
         let place = section_place(pack, id);
         if state["scope"] != "full" {
-            if let Some(section) = array(&pack["sections"])
-                .find(|section| place.is_some_and(|place| contains(&section["places"], place)))
+            if let Some(requires) =
+                place.and_then(|place| self.section_requirements.get(&(pack_id, place)))
             {
-                if !self.all(ctx, &section["requires"], depth)? {
+                if !self.all(ctx, requires, depth)? {
                     return Some(false);
                 }
             }
@@ -161,9 +190,9 @@ impl<'a> Geography<'a> {
             return self.enabled(world, world["actors"][id]["place"].as_str()?, depth);
         }
         Some(
-            ["places", "avatars", "items"]
-                .iter()
-                .any(|field| contains(&pack["release"][*field], id)),
+            self.released
+                .get(pack_id)
+                .is_some_and(|release| release.contains(id)),
         )
     }
 
@@ -196,11 +225,7 @@ impl<'a> Geography<'a> {
     }
 
     fn human_available(&self, world: &Value, id: &str) -> bool {
-        !self.humans.contains(&id)
-            || present(world, id)
-            || (world["sharedVersion"] == 1
-                && !controlled(world, id)
-                && !contains(&world["absent"], id))
+        !self.humans.contains(&id) || present(world, id) || self.visiting_resident(world, id)
     }
 
     fn humans_present(&self, world: &Value) -> usize {
@@ -218,10 +243,44 @@ impl<'a> Geography<'a> {
         actor: Option<&str>,
     ) -> Option<bool> {
         self.pack_conditions(
-            ConditionContext { world, pack, actor },
+            ConditionContext {
+                world,
+                pack,
+                actor,
+                senses: false,
+            },
             conditions,
             MAX_DEPTH,
         )
+    }
+
+    pub(super) fn crossing_conditions(
+        &self,
+        world: &Value,
+        pack: &str,
+        conditions: &Value,
+        actor: Option<&str>,
+    ) -> Option<bool> {
+        self.all(
+            ConditionContext {
+                world,
+                pack,
+                actor,
+                senses: true,
+            },
+            conditions,
+            MAX_DEPTH,
+        )
+    }
+
+    pub(super) fn reflection_open(&self, world: &Value, route: &Value) -> Option<bool> {
+        let ctx = ConditionContext {
+            world,
+            pack: "",
+            actor: None,
+            senses: false,
+        };
+        self.all(ctx, &route["requires"], MAX_DEPTH)
     }
 
     fn pack_conditions(
@@ -254,6 +313,16 @@ impl<'a> Geography<'a> {
         let item_live = |id| !contains(&world["usedUp"], id);
         Some(match condition["kind"].as_str()? {
             "not" => !self.condition(ctx, &condition["condition"], depth)?,
+            "sound" => ctx.senses && self.sound_at(world, &condition["at"], depth)?,
+            "tag_held" => self.tag_held(world, condition, depth)?,
+            "daylight" => {
+                let phase = if (world["turn"].as_u64()? / DAYLIGHT_TURNS).is_multiple_of(2) {
+                    "day"
+                } else {
+                    "night"
+                };
+                condition["phase"] == phase
+            }
             "any" => {
                 for option in array(&condition["conditions"]) {
                     if self.condition(ctx, option, depth)? {
@@ -277,6 +346,7 @@ impl<'a> Geography<'a> {
             "drawn" => contains(&state["specials"], condition["id"].as_str()?),
             "met" => state["met"].get(condition["actor"].as_str()?).is_some(),
             "shared_world" => world["sharedVersion"] == 1,
+            "home_door" => world["doors"][condition["home"].as_str()?] == condition["place"],
             "arcana_called" => self.arcana_called(world)?,
             "connected_humans" => {
                 self.humans_present(world) >= condition["minimum"].as_u64()? as usize
@@ -337,6 +407,74 @@ impl<'a> Geography<'a> {
 
     pub fn packs(&self) -> impl Iterator<Item = &'a Value> + Clone + '_ {
         self.packs.iter().copied()
+    }
+
+    pub(super) fn resident_pack(&self, id: &str) -> Option<&'a Value> {
+        let &(pack, _) = self.entities.get(id)?;
+        (!self.humans.contains(&id) && pack["avatars"].get(id).is_some()).then_some(pack)
+    }
+
+    pub(super) fn files(&self) -> &'a Value {
+        self.files
+    }
+
+    pub(super) fn human_present(&self, world: &Value, id: &str) -> bool {
+        self.humans.contains(&id) && present(world, id)
+    }
+
+    pub(super) fn visiting_resident(&self, world: &Value, id: &str) -> bool {
+        world["sharedVersion"] == 1
+            && self.humans.contains(&id)
+            && !controlled(world, id)
+            && !contains(&world["absent"], id)
+    }
+
+    fn sound_at(&self, world: &Value, places: &Value, depth: u8) -> Option<bool> {
+        if world["items"]["bell"]["ringing"].as_u64().unwrap_or(0) > 0
+            && self.active(world, "bell", depth)?
+            && contains(places, item_place(world, root_holder(world, "bell")?))
+        {
+            return Some(true);
+        }
+        let turn = world["turn"].as_u64()?;
+        for pack in self.packs() {
+            let pack_id = pack["id"].as_str()?;
+            for (id, fixture) in pack["fixtures"].as_object().into_iter().flatten() {
+                if contains(places, fixture["at"].as_str()?)
+                    && world["packs"][pack_id]["sounds"][id].as_u64().unwrap_or(0) > turn
+                {
+                    return Some(true);
+                }
+            }
+        }
+        Some(false)
+    }
+
+    fn tag_held(&self, world: &Value, condition: &Value, depth: u8) -> Option<bool> {
+        let tag = condition["tag"].as_str()?;
+        let here = condition["place"].as_str()?;
+        let actors = world["actors"].as_object()?;
+        let available = |id: &str| {
+            world["actors"][id]["place"] == here && (!controlled(world, id) || present(world, id))
+        };
+        if actors
+            .iter()
+            .any(|(id, actor)| available(id) && contains(&actor["upgrades"], tag))
+        {
+            return Some(true);
+        }
+        for (id, item) in world["items"].as_object()? {
+            if self
+                .entities
+                .get(id.as_str())
+                .is_some_and(|(pack, _)| contains(&pack["items"][id]["tags"], tag))
+                && available(item["holder"].as_str()?)
+                && self.active(world, id, depth)?
+            {
+                return Some(true);
+            }
+        }
+        Some(false)
     }
 
     fn arcana_called(&self, world: &Value) -> Option<bool> {

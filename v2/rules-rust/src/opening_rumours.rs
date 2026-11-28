@@ -21,6 +21,14 @@ pub fn heard(
     let actors = world["actors"].as_object()?;
     let items = world["items"].as_object()?;
     let actor = actors.get(id)?;
+    if !actor["trust"]
+        .as_object()
+        .into_iter()
+        .flat_map(Map::values)
+        .any(|trust| trust.as_i64().is_some_and(|trust| trust > 0))
+    {
+        return Some(None);
+    }
     let turn = world["turn"].as_u64()?;
     let day = turn / TURNS_PER_DAY;
     let seed = world["run"]["seed"].as_u64().unwrap_or_default();

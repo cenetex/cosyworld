@@ -91,30 +91,49 @@ pub(super) fn arrivals(
     Some(())
 }
 
+#[derive(Default)]
+pub(super) struct ArrivalOptions<'a> {
+    pub(super) hidden: Option<&'a str>,
+    pub(super) absent: Vec<&'a str>,
+    pub(super) homecoming: Option<&'a str>,
+}
+
+impl<'a> ArrivalOptions<'a> {
+    pub(super) fn parse(request: &'a Value) -> Option<Self> {
+        let optional = |name| match request.get(name) {
+            None | Some(Value::Null) => Some(None),
+            Some(value) => Some(Some(value.as_str()?)),
+        };
+        let absent = match request.get("absent") {
+            None | Some(Value::Null) => Vec::new(),
+            Some(value) => value
+                .as_array()?
+                .iter()
+                .map(Value::as_str)
+                .collect::<Option<_>>()?,
+        };
+        Some(Self {
+            hidden: optional("hidden")?,
+            absent,
+            homecoming: optional("homecoming")?,
+        })
+    }
+
+    pub(super) fn is_empty(&self) -> bool {
+        self.hidden.is_none() && self.absent.is_empty() && self.homecoming.is_none()
+    }
+
+    pub(super) fn apply(&self, world: &mut Value, files: &Value) -> Option<()> {
+        arrivals(world, files, self.hidden, &self.absent, self.homecoming)
+    }
+}
+
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
     if content["schema"] != 1 {
         return None;
     }
-    let optional = |name| match request.get(name) {
-        None | Some(Value::Null) => Some(None),
-        Some(value) => Some(Some(value.as_str()?)),
-    };
-    let absent = match request.get("absent") {
-        None | Some(Value::Null) => Vec::new(),
-        Some(value) => value
-            .as_array()?
-            .iter()
-            .map(Value::as_str)
-            .collect::<Option<_>>()?,
-    };
     let mut world = request.get("world")?.clone();
-    arrivals(
-        &mut world,
-        content.get("files")?,
-        optional("hidden")?,
-        &absent,
-        optional("homecoming")?,
-    )?;
+    ArrivalOptions::parse(request)?.apply(&mut world, content.get("files")?)?;
     Some(json!({"ok": true, "world": world}))
 }
