@@ -21,6 +21,7 @@ mod opening_content;
 mod opening_crossings;
 pub mod opening_evidence;
 pub mod opening_history;
+mod opening_hub_residents;
 mod opening_pickups;
 mod opening_place_cards;
 mod opening_play;
@@ -147,6 +148,9 @@ pub fn reduce(request: &Value) -> Value {
             opening_place_cards::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
+        Some("opening_hub_idle") => {
+            opening_hub_residents::projection(request).unwrap_or(Value::Null)
+        }
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
