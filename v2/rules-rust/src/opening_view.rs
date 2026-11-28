@@ -97,7 +97,7 @@ fn after_play_sleep(world: &Value, claimed: &[&str]) -> Option<bool> {
     Some(waited)
 }
 
-fn first_lamp_drop(world: &Value) -> Option<()> {
+pub(super) fn first_lamp_drop(world: &Value) -> Option<()> {
     let vale = &world["actors"]["vale"];
     if world["schema"] != 8
         || world["sharedVersion"] != 1

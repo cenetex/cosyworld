@@ -99,6 +99,75 @@ test("the historic first Wait publishes both voices with the Wayfinder at the st
   assert.equal(wasm(exchange(other)), null);
 });
 
+test("speech after the first Drop uses the grounded lamp and keeps the committed events", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [undefined, 17, 42]) {
+    for (const lamp of ["held", "stowed", "dry"]) {
+      const created = pinned({ op: "create", seed });
+      assert.equal(created.ok, true, created.error);
+      let { world } = created;
+      if (lamp === "stowed") {
+        const held = pinned({
+          ...seat,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+        assert.equal(held.ok, true, held.error);
+        world = held.world;
+      }
+      if (lamp === "dry")
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      const dropped = pinned({
+        ...seat,
+        op: "play",
+        world,
+        action: "drop:vale:lamp:attic",
+      });
+      assert.equal(dropped.ok, true, dropped.error);
+      assert.deepEqual(dropped.world.speechVoices.vale, ["vale"]);
+      assert.equal(
+        dropped.events.some(
+          (entry) =>
+            entry.text === "The attic mirror's path to the pond closes.",
+        ),
+        lamp === "stowed",
+      );
+      for (const present of [seat.present, []]) {
+        const request = { ...exchange(dropped.world), present };
+        const expected = pinned(request);
+        assert.equal(expected.ok, true, expected.error);
+        const actual = wasm(request);
+        assert.deepEqual(
+          actual,
+          expected,
+          `seed ${seed}, lamp ${lamp}, present ${present}`,
+        );
+        assert.deepEqual(
+          actual.lines.map((line) => line.entityId),
+          ["vale", "attic"],
+        );
+        for (const line of actual.lines) {
+          assert.deepEqual(
+            line.items.map((item) => [item.id, item.holder]),
+            [["lamp", "attic"]],
+          );
+          assert.equal(line.light, lamp !== "dry");
+        }
+        assert.deepEqual(
+          actual.world.log.filter((entry) => !entry.generated),
+          dropped.world.log,
+        );
+        const repeat = { ...exchange(actual.world, [caption]), present };
+        assert.deepEqual(wasm(repeat), pinned(repeat));
+      }
+      const other = structuredClone(dropped.world);
+      other.log.find((entry) => entry.verb === "drop").itemId = "cloth";
+      assert.equal(wasm(exchange(other)), null);
+    }
+  }
+});
+
 test("generated speech keeps its own retention window", async () => {
   const { pinned, wasm } = await reducers();
   const world = waitInAttic(pinned, 19);
