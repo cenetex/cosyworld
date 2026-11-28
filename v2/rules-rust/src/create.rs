@@ -334,6 +334,11 @@ fn settle_hands_and_lamp(world: &mut Value, geo: &Geography) -> Option<()> {
 }
 
 fn settle_station(world: &mut Value, files: &Value, geo: &Geography) -> Option<()> {
+    world["stationExitOrder"] = Value::Array(station_order(world, files, geo)?);
+    Some(())
+}
+
+pub(super) fn station_order(world: &Value, files: &Value, geo: &Geography) -> Option<Vec<Value>> {
     let station = "station";
     let forest = &files["v2/card-game/forest.json"];
     if forest["reflectionRoutes"]
@@ -406,6 +411,5 @@ fn settle_station(world: &mut Value, files: &Value, geo: &Geography) -> Option<(
             order.push(json!(new));
         }
     }
-    world["stationExitOrder"] = Value::Array(order);
-    Some(())
+    Some(order)
 }
