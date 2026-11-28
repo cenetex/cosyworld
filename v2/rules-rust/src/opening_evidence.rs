@@ -116,7 +116,9 @@ pub(super) fn remember_for_seats(
     if text.encode_utf16().count() > 650 {
         return None;
     }
-    let moment = json!({"seq":seq,"turn":turn,"kind":"event","text":text});
+    let generated = entry["generated"] == true;
+    let moment_kind = if generated { "expression" } else { "event" };
+    let moment = json!({"seq":seq,"turn":turn,"kind":moment_kind,"text":text});
     let related = std::iter::once(place)
         .chain(keys.into_iter().filter_map(|key| entry[key].as_str()))
         .chain(witnesses.iter().copied())
@@ -154,6 +156,9 @@ pub(super) fn remember_for_seats(
                     memory["seen"][*other] = json!({"place":place,"turn":turn,"seq":seq});
                 }
             }
+        }
+        if generated {
+            continue;
         }
         let subjects = memory["subjects"].as_object_mut()?;
         if known(place) && (visible || mine) {

@@ -37,7 +37,6 @@ export function playedEntry(world) {
   );
 }
 
-// The occasions on which a play speaks, in the order they are checked.
 // speech.json names who speaks on each; every other play is silent and its
 // action caption carries the beat.
 export const SPEECH_OCCASIONS = [

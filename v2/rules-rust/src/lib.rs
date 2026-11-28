@@ -36,6 +36,7 @@ mod opening_play;
 mod opening_pond_ask;
 mod opening_pond_place_returns;
 mod opening_pond_rumours;
+mod opening_pond_speech;
 mod opening_pond_view;
 mod opening_quiet_life;
 mod opening_reflection;

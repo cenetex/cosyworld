@@ -169,6 +169,10 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<bool> {
     pond_sleeping(world, geo, began, turn)
 }
 
+pub(super) fn settled_second_move(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    (second_fresh_move(world) && !quiet_pond(world, geo)?).then_some(())
+}
+
 fn pond_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let files = geo.files();

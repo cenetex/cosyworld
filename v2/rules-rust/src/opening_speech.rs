@@ -70,6 +70,9 @@ fn speech_world(request: &Value) -> Option<&Value> {
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
+    if request["world"]["actors"][ACTOR]["place"] == "pond" {
+        return super::opening_pond_speech::reduce(request);
+    }
     let world = speech_world(request)?;
     if request["room"] != ROOM
         || !(request["entries"].is_null()

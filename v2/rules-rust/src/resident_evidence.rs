@@ -60,6 +60,18 @@ impl ResidentEvidence {
         self.stamp(world, cast, visible_items, detail, true)
     }
 
+    pub(super) fn publish(
+        &self,
+        world: &mut Value,
+        cast: &[&str],
+        visible_items: &[&str],
+        mut detail: Value,
+    ) -> Option<Value> {
+        detail["generated"] = json!(true);
+        self.stamp(world, cast, visible_items, detail, true)?;
+        world["log"].as_array()?.last().cloned()
+    }
+
     fn stamp(
         &self,
         world: &mut Value,
