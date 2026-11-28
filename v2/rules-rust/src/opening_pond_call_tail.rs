@@ -1,7 +1,7 @@
 use super::{
     authored_order::Order,
     opening_attic_rest, opening_content, opening_crossings, opening_full_move, opening_held_items,
-    opening_pond_call_view::{cloth_arrival, completion_owners},
+    opening_pond_call_view::{cloth_arrival, completion_owners, drop_receipt},
     opening_pond_lamp_drop::quiet_items,
     opening_quiet_life, opening_roaming, opening_second_attic_tail as tail, opening_settlement,
     opening_wants,
@@ -23,6 +23,7 @@ fn receipt(before: &Value, world: &Value) -> Option<bool> {
         || world["turn"] != 7
         || world["revision"].as_u64()? != before["revision"].as_u64()?.checked_add(1)?
         || cloth_arrival(before, false)? != cloth_arrival(world, true)?
+        || before["eventSeq"].as_u64()?.checked_add(1)? != drop_receipt(world)?
         || [before, world]
             .iter()
             .any(|save| save["actors"][VALE]["place"] != POND)

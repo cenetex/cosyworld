@@ -1,7 +1,7 @@
 use super::{
     authored_order::Order, lamp_state, opening, opening_content, opening_crossings,
     opening_drop::ground_lamp, opening_full_wait::visible_items, opening_held_items,
-    opening_pickups::item_as_named, opening_pond_call_view::cloth_arrival,
+    opening_pickups::item_as_named, opening_pond_call_view::before_drop,
     opening_pond_view::pond_paths, opening_station_read::keeper_want_from_read,
     pack_state::Catalog, resident_evidence::ResidentEvidence, Geography,
 };
@@ -81,7 +81,7 @@ pub(super) fn quiet_items<'a>(
 }
 
 pub(super) fn ground(before: &Value, geo: &Geography<'_>, authored: &Order) -> Option<Value> {
-    let (arrival, read) = cloth_arrival(before, false)?;
+    let (head, read) = before_drop(before)?;
     let lamp = &before["items"][LAMP];
     let fuel = lamp_state(lamp).ok()?;
     if before["turn"] != 6
@@ -99,7 +99,7 @@ pub(super) fn ground(before: &Value, geo: &Geography<'_>, authored: &Order) -> O
     if revision > opening::MAX_REVISION {
         return None;
     }
-    quiet_cloth(before, geo, arrival)?;
+    quiet_cloth(before, geo, head)?;
     quiet_items(before, geo, authored)?;
     pond_paths(before, geo)?;
     opening_crossings::no_crossing_unlocks(before, geo)?;
@@ -125,8 +125,8 @@ pub(super) fn record(
     authored: &Order,
     evidence: &ResidentEvidence,
 ) -> Option<()> {
-    let (arrival, read) = cloth_arrival(world, false)?;
-    quiet_cloth(world, geo, arrival)?;
+    let (head, read) = before_drop(world)?;
+    quiet_cloth(world, geo, head)?;
     let lamp = &world["items"][LAMP];
     let lit = lamp["lit"].as_bool()?;
     let room_fuel = if lit { 2 } else { 0 };

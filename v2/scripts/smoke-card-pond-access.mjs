@@ -152,8 +152,6 @@ try {
       await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
-    // Pip wants the lamp and keeps it at home on the pond. A lit lamp on the
-    // shore keeps the pond side of the mirror open.
     const waitHere = async () => {
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();

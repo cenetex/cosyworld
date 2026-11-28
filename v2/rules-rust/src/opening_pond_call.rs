@@ -3,7 +3,7 @@ use super::{
     opening::MAX_REVISION,
     opening_content,
     opening_crossings::no_crossing_unlocks_except,
-    opening_pond_call_view::{cloth_arrival, completion_owners},
+    opening_pond_call_view::{before_drop, cloth_arrival, completion_owners, drop_receipt},
     opening_pond_lamp_drop::{quiet_cloth, quiet_items},
     opening_roster::actor_order,
     opening_station_read::keeper_want_from_read,
@@ -111,8 +111,8 @@ fn ready_wants(world: &Value, geo: &Geography<'_>, read: u64) -> Option<()> {
 }
 
 pub(super) fn settle(world: &mut Value, geo: &Geography<'_>, order: &[&str]) -> Option<Vec<Value>> {
-    let (arrival, read) = cloth_arrival(world, false)?;
-    quiet_cloth(world, geo, arrival)?;
+    let (head, read) = before_drop(world)?;
+    quiet_cloth(world, geo, head)?;
     if world["turn"] != 7
         || world["playerActorId"] != VALE
         || ["heldActors", "controlledActors", "presentActors"]
@@ -211,8 +211,8 @@ pub(super) fn narrate(
     evidence: &ResidentEvidence,
     pending: &[Value],
 ) -> Option<()> {
-    let (arrival, read) = cloth_arrival(world, true)?;
-    let drop_seq = arrival.checked_add(1)?;
+    let (_, read) = cloth_arrival(world, true)?;
+    let drop_seq = drop_receipt(world)?;
     let drop = world["log"].as_array()?.last()?;
     let lamp = &world["items"]["lamp"];
     let lit = lamp["lit"].as_bool()?;

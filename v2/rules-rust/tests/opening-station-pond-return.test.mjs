@@ -214,6 +214,40 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
           isDeepStrictEqual(wasm(drop), called),
           `completed Drop ${label}`,
         );
+        if (seed === 2) {
+          const spoken = run({
+            ...seats,
+            op: "speech",
+            world: ready,
+            room: "pond",
+            lines: [
+              { actorId: "vale", text: "This is where I can signal." },
+              { entityId: "pond", text: "The water holds the sky." },
+            ],
+          });
+          const published = run({
+            ...seats,
+            claimed: [],
+            present: [],
+            op: "speech",
+            world: spoken,
+            lines: [{ entityId: "pond", text: "The reeds whisper." }],
+          });
+          const captionDrop = {
+            ...drop,
+            world: published,
+            revision: published.revision,
+          };
+          const expected = pinned(captionDrop);
+          assert.equal(expected.ok, true, expected.error);
+          assert.equal(expected.events[0].seq, ready.eventSeq + 4);
+          assert.ok(
+            isDeepStrictEqual(wasm(captionDrop), expected),
+            "published Pond speech",
+          );
+          published.log.at(-1).cast.push("moth");
+          assert.equal(wasm(captionDrop), null);
+        }
         const op = "opening_pond_lamp_drop";
         const cut = (phase) => JSON.parse(JSON.stringify(reference[phase]));
         const grounded = wasm({ ...drop, op, phase: "ground" });
