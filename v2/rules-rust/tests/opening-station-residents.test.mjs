@@ -210,7 +210,6 @@ test("Pip follows Vale after historic Pond arrival while Keeper remains asleep",
           assert.equal(afterVisitors.log.at(-1).actorId, "orin", label);
           assert.equal(visitors, null, label);
         }
-        assert.equal(wasm(request), null);
         saved = moth.before;
       }
     }

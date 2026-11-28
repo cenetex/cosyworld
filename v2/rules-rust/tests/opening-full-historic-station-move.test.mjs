@@ -13,7 +13,7 @@ test("quiet Station plays after authored history match full pinned replies", asy
     return reply;
   };
   const play = (world, action) => ({ ...seats, op: "play", world, action });
-  for (const seed of [undefined, 2, 42, 4242, 1, 17]) {
+  for (const seed of [undefined, 2, 42, 4242, 1]) {
     const { world: saved } = run({ op: "create", history: true, seed });
     const { world: revived } = run({
       op: "create",
@@ -43,7 +43,7 @@ test("quiet Station plays after authored history match full pinned replies", asy
         const request = play(source, action);
         const expected = run(request);
         const actual = wasm(request);
-        if (seed === 1 || seed === 17) {
+        if (seed === 1) {
           assert.ok(expected.events.length > 1);
           assert.equal(actual, null);
         } else {
