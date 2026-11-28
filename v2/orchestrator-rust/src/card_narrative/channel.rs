@@ -503,17 +503,13 @@ fn thread(notes: &Notes) -> Vec<String> {
 }
 
 fn present(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Vec<String> {
-    let resident_of = |name: &str| cast.iter().find(|r| r.id == name).map(|r| r.id.clone());
-    let mut here: Vec<String> = Vec::new();
+    let heard = |id: &str| cast_scope::heard_as(id, resident, cast);
     let spoken = request.messages.iter().rev().map(|m| match &m.resident {
-        Some(id) => id.clone(),
+        Some(id) => heard(id),
         None => label(m.author.as_deref().unwrap_or_default()),
     });
-    let active = request
-        .channel
-        .active
-        .iter()
-        .map(|name| resident_of(name.as_str()).unwrap_or_else(|| label(name)));
+    let active = request.channel.active.iter().map(|name| heard(name));
+    let mut here: Vec<String> = Vec::new();
     for id in spoken.chain(active) {
         if id != resident.id && id != "Someone" && !here.contains(&id) && here.len() < 8 {
             here.push(id);
@@ -537,25 +533,25 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
     }
     let view = request.view.as_ref();
     let (own, outcome) = talk(resident, &request.pack, view);
-    facts.extend(own);
+    facts.extend(own.into_iter().chain(cast_scope::chosen_fact(resident)));
     let at = standing(resident, view);
     for line in view
         .and_then(|seen| seen["lines"].as_array())
         .into_iter()
         .flatten()
     {
-        let (speaker, said) = (line["speaker"].as_str(), line["text"].as_str());
-        let said = format!("{}: {}", speaker.unwrap_or("Someone"), said.unwrap_or("…"));
+        let speaker = cast_scope::called(line["speaker"].as_str().unwrap_or("Someone"), cast);
+        let said = format!("{speaker}: {}", line["text"].as_str().unwrap_or("…"));
         let text: String = said.chars().take(400).collect();
         memories.push(json!({"turn": 1, "kind": "event", "text": text}));
     }
     let conversation: Vec<Value> = messages[start..]
         .iter()
         .map(|m| {
-            let actor = m
-                .resident
-                .clone()
-                .unwrap_or_else(|| label(m.author.as_deref().unwrap_or_default()));
+            let actor = m.resident.as_deref().map_or_else(
+                || label(m.author.as_deref().unwrap_or_default()),
+                |id| cast_scope::heard_as(id, resident, cast),
+            );
             let text = shown(&m.text, &m.images).unwrap_or_default();
             json!({"witnesses": [&resident.id], "actorId": actor, "text": text})
         })
