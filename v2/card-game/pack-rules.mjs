@@ -54,7 +54,6 @@ const fill = (template, values) =>
   template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
 const crossingState = (s, id) => s.crossings?.[id];
 
-// --- State -------------------------------------------------------------
 
 export const newCrossingState = (c) =>
   c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };

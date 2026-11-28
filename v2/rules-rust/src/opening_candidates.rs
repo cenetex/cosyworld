@@ -14,7 +14,7 @@ struct Context<'a> {
     hands: BTreeMap<String, Vec<&'a str>>,
     pack_values: BTreeMap<&'a str, &'a Value>,
     authored: BTreeMap<&'a str, Vec<(&'a str, bool)>>,
-    active_people: Vec<&'a str>,
+    active_people: Vec<(&'a str, Option<String>)>,
     carried_items: Vec<&'a str>,
     current_places: BTreeMap<&'a str, String>,
 }
@@ -117,10 +117,13 @@ fn prepare<'a>(world: &Value, geo: &Geography<'a>, people: &People<'a>) -> Optio
         context.pack_values.insert(pack, &region["values"]);
         for field in ["things", "items", "places"] {
             for (id, definition) in region[field].as_object().into_iter().flatten() {
-                if field != "places" {
-                    let root = initial_wants::root(world, id)?.to_owned();
-                    if context.regions.contains_key(root.as_str()) {
-                        context.hands.entry(root.clone()).or_default().push(id);
+                let active = if field == "places" {
+                    geo.entity_active(world, id)?
+                } else {
+                    let root = initial_wants::root(world, id)?;
+                    let active = geo.item_active_at_root(world, id, root)?;
+                    if context.regions.contains_key(root) {
+                        context.hands.entry(root.to_owned()).or_default().push(id);
                     }
                     let reserved = &definition["reservedUntil"];
                     let reserved = if reserved.as_array().is_some_and(|terms| !terms.is_empty()) {
@@ -137,13 +140,14 @@ fn prepare<'a>(world: &Value, geo: &Geography<'a>, people: &People<'a>) -> Optio
                     context.items.insert(
                         id,
                         Item {
-                            root,
+                            root: root.to_owned(),
                             rules,
                             reserved,
                         },
                     );
-                }
-                if geo.entity_active(world, id)? {
+                    active
+                };
+                if active {
                     context.active.insert(id);
                 }
             }
@@ -154,6 +158,7 @@ fn prepare<'a>(world: &Value, geo: &Geography<'a>, people: &People<'a>) -> Optio
         .keys()
         .copied()
         .filter(|id| context.active.contains(id))
+        .map(|id| (id, context.current_places.get(id).cloned()))
         .collect();
     context.carried_items = context
         .items
@@ -294,16 +299,16 @@ fn resident_range(
 }
 
 impl<'a> Context<'a> {
-    fn places_within(&self, from: &str, limit: u64) -> BTreeSet<String> {
-        let mut found = BTreeSet::from([from.to_owned()]);
-        let mut queue = VecDeque::from([(from.to_owned(), 0)]);
+    fn places_within<'b>(&'b self, from: &'b str, limit: u64) -> BTreeSet<&'b str> {
+        let mut found = BTreeSet::from([from]);
+        let mut queue = VecDeque::from([(from, 0)]);
         while let Some((here, distance)) = queue.pop_front() {
             if distance == limit {
                 continue;
             }
-            for &(end, _) in self.authored.get(here.as_str()).into_iter().flatten() {
-                if found.insert(end.into()) {
-                    queue.push_back((end.into(), distance + 1));
+            for &(end, _) in self.authored.get(here).into_iter().flatten() {
+                if found.insert(end) {
+                    queue.push_back((end, distance + 1));
                 }
             }
         }
@@ -317,7 +322,7 @@ fn reachable<'a>(
     context: &Context<'a>,
     actor: &str,
     here: &str,
-    allowed: Option<&BTreeSet<String>>,
+    allowed: Option<&BTreeSet<&str>>,
 ) -> Option<BTreeSet<&'a str>> {
     let mut found = BTreeSet::new();
     let mut queue = VecDeque::from([here]);
@@ -365,7 +370,7 @@ fn pick_want<'a>(
     actor: &str,
     person: &Person,
     reach: &BTreeSet<&str>,
-    allowed: Option<&BTreeSet<String>>,
+    allowed: Option<&BTreeSet<&str>>,
 ) -> Option<(Option<Value>, bool)> {
     let actors = world["actors"].as_object()?;
     let me = actors.get(actor)?;
@@ -388,7 +393,8 @@ fn pick_want<'a>(
     };
     let is_person = |id: &str| id != actor && context.regions.contains_key(id);
     let is_place = |id: &str| reach.contains(id) && context.active.contains(id);
-    let mut range = Pool::new();
+    let mut range =
+        Vec::with_capacity(context.carried_items.len() + context.active_people.len() + reach.len());
     for &id in &context.carried_items {
         let holder = context.items.get(id)?.root.as_str();
         if holder == actor || blocked == Some(id) || is_person(id) || is_place(id) {
@@ -398,36 +404,32 @@ fn pick_want<'a>(
         if (other_want["kind"] != "item" || other_want["target"] != id)
             && value_of(world, context, actor, person, id)? > floor
         {
-            range.push(("item", id));
+            range.push((
+                "item",
+                id,
+                context.current_places.get(holder).map(String::as_str),
+            ));
         }
     }
     range.extend(
         context
             .active_people
             .iter()
-            .copied()
-            .filter(|id| *id != actor && blocked != Some(*id))
-            .map(|id| ("person", id)),
+            .filter(|(id, _)| *id != actor && blocked != Some(*id))
+            .map(|(id, place)| ("person", *id, place.as_deref())),
     );
     range.extend(
         reach
             .iter()
             .copied()
             .filter(|id| blocked != Some(*id) && !is_person(id) && context.active.contains(id))
-            .map(|id| ("place", id)),
+            .map(|id| ("place", id, Some(id))),
     );
     let mut near = Pool::new();
     let mut refreshed = Pool::new();
     let mut wide = Pool::new();
-    for &(kind, id) in &range {
-        let place = match kind {
-            "person" => context.current_places.get(id)?.as_str(),
-            "item" => context
-                .current_places
-                .get(context.items.get(id)?.root.as_str())?
-                .as_str(),
-            _ => id,
-        };
+    for &(kind, id, place) in &range {
+        let place = place?;
         if allowed.is_some_and(|a| !a.contains(place)) {
             continue;
         }
@@ -467,15 +469,21 @@ fn pick_want<'a>(
         }
     }
     let reset = near.is_empty();
-    let pool = [near, refreshed, wide, range]
+    let narrowed = [near, refreshed, wide]
         .into_iter()
         .find(|pool| !pool.is_empty());
-    let Some(pool) = pool else {
+    let size = narrowed.as_ref().map_or(range.len(), Vec::len);
+    if size == 0 {
         return Some((None, reset));
-    };
+    }
     let roll = initial_wants::run_hash(world, &format!("want:{actor}:{turn}"));
-    let index = roll as usize % pool.len();
-    let (kind, target) = pool[index];
+    let index = roll as usize % size;
+    let (kind, target) = if let Some(pool) = narrowed {
+        pool[index]
+    } else {
+        let (kind, target, _) = range[index];
+        (kind, target)
+    };
     Some((Some(initial_wants::simple_want(kind, target, turn)), reset))
 }
 
