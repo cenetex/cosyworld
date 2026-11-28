@@ -172,10 +172,10 @@ fn scene(world: &Value, geo: &Geography<'_>) -> Option<bool> {
     Some(ada)
 }
 
-fn event<'a>(
+fn event<'a, 'name>(
     world: &'a Value,
     ada: bool,
-    profiles: &Value,
+    name: impl Fn(&str) -> Option<&'name str>,
     allow_speech: bool,
 ) -> Option<&'a Value> {
     let primary = arrival_event(world)?;
@@ -187,9 +187,9 @@ fn event<'a>(
     let drop = shore
         .iter()
         .rfind(|entry| entry["verb"] == "drop" && entry["turn"] == 7)?;
-    let vale = profiles[VALE]["name"].as_str()?;
-    let ship = profiles[SHIP]["name"].as_str()?;
-    let cloth = item_as_named(profiles[CLOTH]["name"].as_str()?);
+    let vale = name(VALE)?;
+    let ship = name(SHIP)?;
+    let cloth = item_as_named(name(CLOTH)?);
     let text = if primary["itemId"] == CLOTH {
         format!("{vale} carries {cloth} aboard {ship}.")
     } else {
@@ -227,7 +227,7 @@ fn event<'a>(
         if !(voice == VALE || voice == SHIP || (ada && voice == ADA))
             || (voice == SHIP && line["kind"] != "narration")
             || line["entityId"] != voice
-            || line["speaker"] != profiles[voice]["name"]
+            || line["speaker"] != name(voice)?
             || line["seq"].as_u64()? != seq.checked_add(i as u64 + 1)?
             || line["turn"] != 8
             || line["locationId"] != SHIP
@@ -283,12 +283,26 @@ fn reply(mut response: Value, profiles: Value, ada: bool) -> Option<Value> {
     Some(response)
 }
 
-fn voices(ada: bool) -> Value {
+fn voices(ada: bool) -> &'static [&'static str] {
     if ada {
-        json!([VALE, ADA])
+        &[VALE, ADA]
     } else {
-        json!([VALE])
+        &[VALE]
     }
+}
+
+pub(super) fn settled_speakers<'name>(
+    world: &Value,
+    geo: &Geography<'_>,
+    name: impl Fn(&str) -> Option<&'name str>,
+) -> Option<&'static [&'static str]> {
+    let ada = scene(world, geo)?;
+    let speakers = voices(ada);
+    if world["speechVoices"][VALE] != json!(speakers) {
+        return None;
+    }
+    event(world, ada, name, true)?;
+    Some(speakers)
 }
 
 pub(super) fn completed_response(
@@ -299,14 +313,14 @@ pub(super) fn completed_response(
 ) -> Option<Value> {
     let ada = scene(&world, geo)?;
     let profiles = profile_source()?;
-    let movement = event(&world, ada, &profiles, false)?;
+    let movement = event(&world, ada, |id| profiles[id]["name"].as_str(), false)?;
     if movement["seq"] != before_seq.checked_add(1)? {
         return None;
     }
     let movement = movement.clone();
     world["speechVoices"]
         .as_object_mut()?
-        .insert(VALE.into(), voices(ada));
+        .insert(VALE.into(), json!(voices(ada)));
     let mut response = opening::stored_response(world)?;
     response["events"] = Value::Array(vec![movement]);
     reply(response, profiles, ada)
@@ -338,12 +352,8 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    let ada = scene(world, &geo)?;
-    if world["speechVoices"][VALE] != voices(ada) {
-        return None;
-    }
     let profiles = profiles::project(&files)?;
-    event(world, ada, &profiles, true)?;
+    let ada = settled_speakers(world, &geo, |id| profiles[id]["name"].as_str())?.contains(&ADA);
     let mut response = json!({"ok":true});
     response["world"] = opening_view::private_world(world, request)?;
     reply(response, profiles, ada)

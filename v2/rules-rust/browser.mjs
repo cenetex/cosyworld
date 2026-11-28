@@ -67,7 +67,9 @@ export function browserRules(bytes) {
       const place = request.world?.actors?.vale?.place;
       const orderedRoom =
         (request.op === "speech" &&
-          (place === "pond" || place === "station")) ||
+          (place === "pond" ||
+            place === "station" ||
+            place === "greek-ship")) ||
         (request.op === "view" && place === "station");
       const ordered =
         [

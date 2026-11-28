@@ -2,7 +2,7 @@ use super::{
     opening::{self, MAX_REVISION},
     opening_content,
     opening_full_wait::visible_items,
-    opening_pond_call_view, opening_pond_return_view, opening_pond_view,
+    opening_pond_call_view, opening_pond_return_view, opening_pond_ship_view, opening_pond_view,
     opening_reflection::{trim_text, valid_text},
     opening_roster, opening_station_view,
     pack_state::Catalog,
@@ -16,6 +16,7 @@ const VALE: &str = "vale";
 const PIP: &str = "moth";
 const POND: &str = "pond";
 const STATION: &str = "station";
+const SHIP: &str = "greek-ship";
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     let saved = request.get("world")?;
@@ -23,11 +24,13 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     let present = opening::seats(&request["present"])?;
     let room = saved["actors"][VALE]["place"].as_str()?;
     let later_pond = room == POND && matches!(saved["turn"].as_u64(), Some(6 | 7));
+    let boarded = room == SHIP && saved["turn"] == 8;
     if !(saved["turn"] == 2
         || later_pond
+        || boarded
         || (room == STATION && opening_station_view::historic_station(saved)))
         || request["actor"] != VALE
-        || (claimed != [VALE] && !(later_pond && claimed.is_empty()))
+        || (claimed != [VALE] && !((later_pond || boarded) && claimed.is_empty()))
         || (!present.is_empty() && present != [VALE])
         || !present.iter().all(|id| claimed.contains(id))
         || (!request["room"].is_null() && request["room"] != room)
@@ -68,6 +71,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
             &[VALE, PIP]
         }
         STATION => opening_station_view::settled_speech_voices(&world, &geo, &order)?,
+        SHIP => opening_pond_ship_view::settled_speakers(&world, &geo, |id| {
+            evidence.profile(id)?["name"].as_str()
+        })?,
         _ => return None,
     };
     if lines.len() > voices.len() + 1
@@ -77,7 +83,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         return None;
     }
     let cast = opening_roster::known_actors(&world, &geo, &order, Some(room))?;
-    if (room == POND && cast.len() != voices.len()) || voices.iter().any(|id| !cast.contains(id)) {
+    if (matches!(room, POND | SHIP) && cast.len() != voices.len())
+        || voices.iter().any(|id| !cast.contains(id))
+    {
         return None;
     }
     let items = visible_items(&world, &geo, &authored, room)?;
@@ -96,7 +104,12 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
             return None;
         }
         let (name, kind, actor) = if voice == room && line["actorId"].is_null() {
-            (forest["places"][room]["name"].as_str()?, "narration", None)
+            let place = if room == SHIP {
+                evidence.profile(room)?
+            } else {
+                &forest["places"][room]
+            };
+            (place["name"].as_str()?, "narration", None)
         } else if voices.contains(&voice) {
             let profile = evidence.profile(voice)?;
             if profile["kind"] != "avatar"

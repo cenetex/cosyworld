@@ -72,7 +72,7 @@ fn speech_world(request: &Value) -> Option<&Value> {
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     if matches!(
         request["world"]["actors"][ACTOR]["place"].as_str(),
-        Some("pond" | "station")
+        Some("pond" | "station" | "greek-ship")
     ) {
         return super::opening_room_speech::reduce(request);
     }

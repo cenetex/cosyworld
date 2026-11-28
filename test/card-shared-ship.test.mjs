@@ -122,7 +122,6 @@ describe("shared ship boarding", () => {
       s = course(s, "vale", destination);
       expect(s.transports["greek-ship"].phase).toBe("sea");
       expect(ask(s, "mara", "play", { action: staleCourse }).ok).toBe(false);
-      // At sea the ship has left the shore.
       expect(availableCards(ask(s, "ash").world)).not.toContain("greek-ship");
       if (origin === "greek-harbor")
         expect(backdrop(origin, ask(s, "ash").world)).toContain(
