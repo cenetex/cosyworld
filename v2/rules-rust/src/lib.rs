@@ -18,6 +18,7 @@ mod opening_view;
 mod pack_state;
 mod profiles;
 mod reset;
+mod seed;
 mod validate;
 
 pub use opening_view::create_response;
@@ -99,6 +100,7 @@ pub fn reduce(request: &Value) -> Value {
         },
         Some("presence") => opening::presence(request).unwrap_or(Value::Null),
         Some("hold") => opening::hold(request).unwrap_or(Value::Null),
+        Some("seed_doors") => seed::door_projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
