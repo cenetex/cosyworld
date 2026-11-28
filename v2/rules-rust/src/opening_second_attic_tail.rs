@@ -125,6 +125,7 @@ pub(super) fn verify_stops(world: &Value, geo: &Geography) -> Option<()> {
         }
     }
     let forest = &geo.files()["v2/card-game/forest.json"];
+    let rue = scene == STATION && opening_station_move::rue_arrived(world);
     (forest["people"]["vale"]["stops"].is_null()
         && geo.packs().all(|pack| {
             pack["avatars"].get("vale").is_none()
@@ -136,6 +137,7 @@ pub(super) fn verify_stops(world: &Value, geo: &Geography) -> Option<()> {
             id == "vale"
                 || actor["place"] != scene
                 || residents.contains(&id.as_str())
+                || (rue && id == "rue")
                 || (!residents.is_empty() && geo.entity_active(world, id) == Some(false))
         }))
     .then_some(())

@@ -199,6 +199,9 @@ pub(super) fn perform(
     custody: &mut Custody,
     actor: &str,
 ) -> Option<()> {
+    let station_meeting = actor == "rue"
+        && world["turn"] == 2
+        && super::opening_station_move::arrival(world).is_some();
     perform_visitor(
         world,
         geo,
@@ -208,7 +211,7 @@ pub(super) fn perform(
         custody,
         Visitor {
             actor,
-            station_meeting: false,
+            station_meeting,
         },
     )
 }

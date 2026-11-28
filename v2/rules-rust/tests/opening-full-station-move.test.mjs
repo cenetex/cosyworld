@@ -14,8 +14,10 @@ test("quiet Pond-to-Station plays return the complete pinned reply", async () =>
   };
   const play = (world, action) => ({ ...seats, op: "play", world, action });
   let sample;
-  for (const seed of [undefined, 0, 2, 17, 42, 4242, 4_294_967_295]) {
+  for (const seed of [undefined, 0, 2, 7, 17, 42, 99, 4242, 4_294_967_295]) {
     for (const waited of [false, true]) {
+      const rueArrives = seed === 7 || seed === 99;
+      if (rueArrives && waited) continue;
       for (const stowed of [false, true]) {
         let world = run({ op: "create", seed });
         if (stowed) {
@@ -45,7 +47,7 @@ test("quiet Pond-to-Station plays return the complete pinned reply", async () =>
           ["move:vale::station", world],
           ["move:vale:lamp:station", spoken],
         ]) {
-          const sorted = seed === 2 || seed === 4242;
+          const sorted = seed === 2 || seed === 99 || seed === 4242;
           const actors = sorted
             ? Object.fromEntries(Object.entries(prior.actors).toSorted())
             : prior.actors;
@@ -66,6 +68,14 @@ test("quiet Pond-to-Station plays return the complete pinned reply", async () =>
             isDeepStrictEqual(actual, expected),
             `${label} ${field} ${part}`,
           );
+          if (rueArrives) {
+            assert.deepEqual(actual.world.speechVoices.vale, [
+              "vale",
+              "keeper",
+              "rue",
+            ]);
+            assert.equal(actual.world.packs["shared-homes"].met.rue, 2);
+          }
           sample = request;
         }
       }

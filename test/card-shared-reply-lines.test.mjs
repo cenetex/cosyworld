@@ -65,7 +65,6 @@ describe("shared speech from an occasion's own voices", () => {
         ]),
       ).lines,
     ).toHaveLength(2);
-    // Talk voices Rue and Pip.
     expect(
       dispatchShared(
         request(played(scene(), "talk", "moth"), [
