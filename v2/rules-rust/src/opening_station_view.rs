@@ -1,8 +1,8 @@
 use super::{
     authored_order::Order, initial_wants::root_in, lamp_state, opening, opening_content,
     opening_pickups::item_as_named, opening_pond_view::offer, opening_roster::known_actors,
-    opening_view, opening_visitor_routes, opening_wait_response::ordinary_attic_wait,
-    pack_state::Catalog, profiles, Geography,
+    opening_station_move, opening_view, opening_visitor_routes, pack_state::Catalog, profiles,
+    Geography,
 };
 use serde_json::{json, Value};
 
@@ -45,27 +45,9 @@ fn is_move(event: &Value, actor: &str, from: &str, to: &str) -> bool {
 }
 
 fn chronology(world: &Value) -> Option<u64> {
-    let turn = world["turn"].as_u64()?;
-    let mut plays = entries(&world["log"]).filter(|event| {
-        event["actorId"] == VALE && event["kind"] == "action" && event["generated"] != true
-    });
-    let first = plays.next()?;
-    let pond = match turn {
-        2 => first,
-        3 if ordinary_attic_wait(first) && first["turn"] == 1 => plays.next()?,
-        _ => return None,
-    };
-    let station = plays.next()?;
-    let seq = station["seq"].as_u64()?;
-    (plays.next().is_none()
-        && is_move(pond, VALE, "attic", POND)
-        && pond["turn"] == turn - 1
-        && pond["seq"].as_u64()? < seq
-        && is_move(station, VALE, POND, STATION)
-        && station["turn"] == turn
-        && (station["itemId"].is_null() || station["itemId"] == LAMP)
-        && world["arrival"] == json!({"seq":seq,"fromLocationId":POND,"locationId":STATION}))
-    .then_some(seq)
+    let seq = opening_station_move::arrival(world)?;
+    (world["arrival"] == json!({"seq":seq,"fromLocationId":POND,"locationId":STATION}))
+        .then_some(seq)
 }
 
 fn station_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {

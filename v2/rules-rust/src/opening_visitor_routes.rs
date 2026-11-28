@@ -301,7 +301,11 @@ pub(super) fn person_step<'a>(
     geo: &Geography<'a>,
     actor: &str,
 ) -> Option<Option<&'a str>> {
-    Some(person_routes(world, geo, actor)?.direct)
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    if began.checked_add(2)? != world["turn"].as_u64()? {
+        return None;
+    }
+    Some(home_person_routes(world, geo, actor)?.direct)
 }
 
 #[derive(Default)]
@@ -311,21 +315,18 @@ pub(super) struct PersonRoutes<'a> {
     pub(super) pond: Option<&'a str>,
 }
 
-pub(super) fn person_routes<'a>(
+pub(super) fn home_person_routes<'a>(
     world: &mut Value,
     geo: &Geography<'a>,
     actor: &str,
 ) -> Option<PersonRoutes<'a>> {
-    let turn = world["turn"].as_u64()?;
-    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
     let avatar = entries(&geo.files()["v2/card-game/shared-cast.json"]["avatars"])
         .find(|avatar| avatar["id"] == actor)?;
     let record = world["actors"].get(actor)?;
     let want = &record["want"];
     let from = record["place"].as_str()?.to_owned();
     let item = avatar["item"]["id"].as_str()?;
-    if began.checked_add(2)? != turn
-        || from != avatar["home"]["id"].as_str()?
+    if from != avatar["home"]["id"].as_str()?
         || !geo.visiting_resident(world, actor)
         || entries(&world["heldActors"]).any(|id| id == actor)
         || world["hidden"]["actor"] == actor

@@ -7,6 +7,7 @@ use super::{
     opening_held_items,
     opening_pickups::item_as_named,
     opening_pond_view, opening_roster, opening_second_attic_tail,
+    opening_wait_response::{ordinary_attic_wait, vale_action},
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     Geography, LampPosition,
@@ -43,20 +44,82 @@ pub(super) fn move_world(request: &Value) -> Option<(&Value, bool)> {
     Some((before, carry))
 }
 
+fn quiet_opening(world: &Value) -> bool {
+    [
+        "hidden",
+        "absent",
+        "homecoming",
+        "gone",
+        "invitedPlaces",
+        "sharedMigration",
+    ]
+    .iter()
+    .all(|field| world[*field].is_null())
+}
+
+fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool {
+    event["turn"] == turn
+        && event["verb"] == "move"
+        && event["fromLocationId"] == from
+        && event["locationId"] == to
+        && event["targetId"] == to
+        && (event["itemId"].is_null() || event["itemId"] == LAMP)
+}
+
+pub(super) fn arrival(world: &Value) -> Option<u64> {
+    let turn = world["turn"].as_u64()?;
+    let receipt = &world["arrival"];
+    let seq = receipt["seq"].as_u64()?;
+    let vale = &world["actors"][VALE];
+    if !matches!(turn, 2 | 3)
+        || world.get("began").is_some()
+        || !quiet_opening(world)
+        || world["schema"] != 8
+        || world["sharedVersion"] != 1
+        || world["opening"]["version"] != 1
+        || world["opening"]["crossed"] != true
+        || world["locations"]["attic"]["anchored"] != true
+        || world["opening"]["met"]["moth"] != turn - 1
+        || world["opening"]["met"][KEEPER] != turn
+        || vale["place"] != STATION
+        || vale["crossed"] != 1
+        || receipt["fromLocationId"] != POND
+        || receipt["locationId"] != STATION
+        || world["eventSeq"].as_u64()? < seq
+    {
+        return None;
+    }
+    let mut actions = world["log"]
+        .as_array()?
+        .iter()
+        .filter(|event| vale_action(event));
+    let first = actions.next()?;
+    let pond = if turn == 3 {
+        if !ordinary_attic_wait(first) || first["turn"] != 1 {
+            return None;
+        }
+        let pond = actions.next()?;
+        if first["seq"].as_u64()? >= pond["seq"].as_u64()? {
+            return None;
+        }
+        pond
+    } else {
+        first
+    };
+    let station = actions.next()?;
+    (move_event(pond, turn - 1, "attic", POND)
+        && pond["seq"].as_u64()? < seq
+        && move_event(station, turn, POND, STATION)
+        && station["seq"] == seq
+        && actions.next().is_none())
+    .then_some(seq)
+}
+
 fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let forest = &geo.files()["v2/card-game/forest.json"];
     if !matches!(world["turn"].as_u64()?, 1 | 2)
         || world.get("began").is_some()
-        || [
-            "hidden",
-            "absent",
-            "homecoming",
-            "gone",
-            "invitedPlaces",
-            "sharedMigration",
-        ]
-        .iter()
-        .any(|field| !world[*field].is_null())
+        || !quiet_opening(world)
         || world["actors"][VALE]["crossed"] != 1
         || forest["homeGates"][POND]["opening"] == true
         || world["actors"][KEEPER]["place"] != STATION

@@ -1,7 +1,8 @@
 use super::{
     authored_order::Order, opening_content, opening_crossings, opening_full_wait,
-    opening_hub_residents, opening_pickups, opening_roster, opening_wait_response,
-    pack_state::Catalog, resident_evidence::ResidentEvidence, seed, Geography,
+    opening_hub_residents, opening_pickups, opening_roster, opening_station_move,
+    opening_wait_response, pack_state::Catalog, resident_evidence::ResidentEvidence, seed,
+    Geography,
 };
 use serde_json::{json, Value};
 
@@ -16,60 +17,32 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
 }
 
-fn travel(entry: &Value, turn: u64, from: &str, to: &str) -> bool {
-    entry["verb"] == "move"
-        && entry["turn"] == turn
-        && entry["fromLocationId"] == from
-        && entry["locationId"] == to
-        && entry["targetId"] == to
-        && (entry["itemId"].is_null() || entry["itemId"] == "lamp")
-}
-
 fn after_vale(world: &Value) -> Option<u64> {
+    let seq = opening_station_move::arrival(world)?;
     let turn = world["turn"].as_u64()?;
     let log = world["log"].as_array()?;
     let primary = log.last()?;
-    let seq = primary["seq"].as_u64()?;
-    if !matches!(turn, 2 | 3)
-        || world["schema"] != 8
-        || world["sharedVersion"] != 1
-        || world.get("began").is_some_and(|began| began != 0)
-        || world["opening"]["crossed"] != true
-        || world["opening"]["met"][PIP] != turn - 1
-        || world["opening"]["met"][KEEPER] != turn
-        || world["playerActorId"] != VALE
+    if world["playerActorId"] != VALE
         || ["heldActors", "controlledActors", "presentActors"]
             .iter()
             .any(|key| world[*key] != json!([VALE]))
-        || world["actors"][VALE]["place"] != STATION
         || world["actors"][VALE]["visited"] != json!(["attic", POND, STATION])
         || !world["standoffs"].as_array()?.is_empty()
         || !world["conversations"].as_array()?.is_empty()
-        || ["hidden", "absent", "gone", "disabledPacks", "invitedPlaces"]
-            .iter()
-            .any(|key| !world[*key].is_null())
+        || !world["disabledPacks"].is_null()
         || world["eventSeq"] != seq
-        || world["arrival"] != json!({"seq":seq,"fromLocationId":POND,"locationId":STATION})
+        || primary["seq"] != seq
         || !opening_wait_response::vale_action(primary)
-        || !travel(primary, turn, POND, STATION)
+        || world["arrival"] != json!({"seq":seq,"fromLocationId":POND,"locationId":STATION})
     {
         return None;
     }
-    let mut plays = log
+    let landing_seq = log
         .iter()
-        .filter(|entry| opening_wait_response::vale_action(entry));
-    if turn == 3 {
-        let wait = plays.next()?;
-        if !opening_wait_response::ordinary_attic_wait(wait) || wait["turn"] != 1 {
-            return None;
-        }
-    }
-    let landing = plays.next()?;
-    let landing_seq = landing["seq"].as_u64()?;
-    if !travel(landing, turn - 1, "attic", POND)
-        || plays.next()? != primary
-        || plays.next().is_some()
-        || !log.iter().any(|entry| {
+        .find(|entry| opening_wait_response::vale_action(entry) && entry["verb"] == "move")?["seq"]
+        .as_u64()?;
+    log.iter()
+        .any(|entry| {
             entry["turn"] == turn - 1
                 && entry["seq"]
                     .as_u64()
@@ -81,10 +54,7 @@ fn after_vale(world: &Value) -> Option<u64> {
                 && entry["targetId"] == VALE
                 && entry["accepted"] == false
         })
-    {
-        return None;
-    }
-    Some(turn)
+        .then_some(turn)
 }
 
 fn quiet_residents(world: &Value, geo: &Geography, turn: u64) -> Option<()> {
