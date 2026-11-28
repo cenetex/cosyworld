@@ -1,4 +1,5 @@
 use serde_json::{json, Map, Value};
+use std::collections::BTreeSet;
 
 pub(super) struct Catalog<'a> {
     compiled: &'a [Value],
@@ -77,10 +78,20 @@ pub(super) fn mount_catalog(world: &mut Value, files: &Value, catalog: &Catalog)
         mounted.add_pack(pack)?;
     }
 
+    let mut core: BTreeSet<_> = forest["people"]
+        .as_object()?
+        .keys()
+        .map(String::as_str)
+        .collect();
+    for avatar in files["v2/card-game/shared-cast.json"]["avatars"].as_array()? {
+        core.insert(avatar["id"].as_str()?);
+    }
     let ids: Vec<_> = mounted.actors.keys().cloned().collect();
     for (id, actor) in &mut mounted.actors {
         let trust = actor.get_mut("trust")?.as_object_mut()?;
-        for other in ids.iter().filter(|other| *other != id) {
+        for other in ids.iter().filter(|other| {
+            *other != id && (core.contains(id.as_str()) || core.contains(other.as_str()))
+        }) {
             trust.entry(other).or_insert_with(|| json!(0));
         }
     }
@@ -95,8 +106,8 @@ pub(super) fn mount_catalog(world: &mut Value, files: &Value, catalog: &Catalog)
                 .get_mut("trust")?
                 .as_object_mut()?;
             for (other, bond) in bonds {
-                if let Some(value) = trust.get_mut(other) {
-                    *value = bond.clone();
+                if id != other && ids.binary_search(other).is_ok() {
+                    trust.insert(other.clone(), bond.clone());
                 }
             }
         }
