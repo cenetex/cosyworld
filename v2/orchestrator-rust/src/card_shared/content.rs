@@ -88,6 +88,14 @@ pub(super) fn preload(c: &Connection, pack: &str) -> Result<()> {
 }
 
 #[cfg(test)]
+pub(super) fn verify_stored(c: &Connection, pack: &str) -> Result<()> {
+    match stored(c, pack)? {
+        Some(text) if hash(&text) == pack => Ok(()),
+        _ => Err(MISSING.into()),
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

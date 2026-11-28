@@ -60,6 +60,8 @@ mod rules_agree_tests;
 #[cfg(test)]
 mod sea_steps;
 mod seat_guard;
+#[cfg(test)]
+mod shadow_replay;
 mod store;
 mod sync;
 #[cfg(test)]

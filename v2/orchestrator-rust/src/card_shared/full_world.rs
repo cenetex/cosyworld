@@ -93,11 +93,19 @@ impl World {
     // Every journal command uses the same seat guard and versioned rules.
     // AI text is appended by the authored speech reducer.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
+        self.apply_with(command, &mut engine::reduce_pack)
+    }
+
+    pub(super) fn apply_with(
+        &mut self,
+        command: &Value,
+        reduce: &mut impl FnMut(&str, Option<&str>, Value) -> Result<Value>,
+    ) -> Result<Value> {
         if engine::newer(&self.version) {
             return Err(engine::UPDATING.into());
         }
         if command["op"] == "repack" {
-            return self.repack(command);
+            return self.repack(command, reduce);
         }
         if command["op"] == "upgrade" {
             let target = command["to"]
@@ -128,7 +136,7 @@ impl World {
                     .ok_or("Choose the upgrade's pack content.")?,
             );
             // Recorded upgrades retain their released target transformation.
-            let result = engine::reduce_pack(target, pack, request)?;
+            let result = reduce(target, pack, request)?;
             self.game = result["world"].clone();
             self.version = target.into();
             self.pack = pack.map(String::from);
@@ -147,7 +155,7 @@ impl World {
                 if !command["progress"].is_null() {
                     request["progress"] = command["progress"].clone();
                 }
-                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                let result = reduce(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 next.claimed[a] = 1;
                 (SeatAction::Claim, result)
@@ -160,7 +168,7 @@ impl World {
             // The owner's delete: the avatar starts over (#1825). Rules that
             // predate it refuse the request, so it is never journaled for them.
             "reset" => {
-                let result = engine::reduce_pack(
+                let result = reduce(
                     &self.version,
                     self.pack.as_deref(),
                     self.request("reset", a),
@@ -181,7 +189,7 @@ impl World {
             "hold" => {
                 let mut request = self.request("hold", a);
                 request["choice"] = command["choice"].clone();
-                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                let result = reduce(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 (SeatAction::Play, result)
             }
@@ -191,17 +199,13 @@ impl World {
                 if let Some(portraits) = command.get("elysiumPortraits") {
                     request["elysiumPortraits"] = portraits.clone();
                 }
-                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                let result = reduce(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 (SeatAction::Play, result)
             }
             // "+ Find Mara": the quest to talk to the hidden avatar (#1936).
             "seek" => {
-                let result = engine::reduce_pack(
-                    &self.version,
-                    self.pack.as_deref(),
-                    self.request("seek", a),
-                )?;
+                let result = reduce(&self.version, self.pack.as_deref(), self.request("seek", a))?;
                 next.game = result["world"].clone();
                 (SeatAction::Play, result)
             }
@@ -211,7 +215,7 @@ impl World {
                 request["room"] = command["room"].clone();
                 request["entries"] = command["entries"].clone();
                 request["disclosures"] = command["disclosures"].clone();
-                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                let result = reduce(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 // Committed text can finish after its speaker disconnects.
                 self.guard(&next, SeatAction::Text, a)?;
@@ -225,7 +229,7 @@ impl World {
                 for key in ["turn", "resting", "rest", "entries"] {
                     request[key] = command[key].clone();
                 }
-                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                let result = reduce(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 self.guard(&next, SeatAction::Text, a)?;
                 *self = next;
@@ -235,7 +239,7 @@ impl World {
         };
         // Station admission is journaled with presence, not with a later GET.
         if matches!(op, "enter" | "leave" | "release" | "reset") {
-            let settled = engine::reduce_pack(
+            let settled = reduce(
                 &next.version,
                 next.pack.as_deref(),
                 next.request("presence", a),
@@ -247,7 +251,11 @@ impl World {
         Ok(result)
     }
     // Move the world onto another pack content revision under the same rules.
-    fn repack(&mut self, command: &Value) -> Result<Value> {
+    fn repack(
+        &mut self,
+        command: &Value,
+        reduce: &mut impl FnMut(&str, Option<&str>, Value) -> Result<Value>,
+    ) -> Result<Value> {
         let to = command["to"]
             .as_str()
             .ok_or("Choose a pack content revision.")?;
@@ -257,7 +265,7 @@ impl World {
         let mut request = self.request("upgrade", 0);
         request["from"] = json!(self.version);
         request["to"] = json!(self.version);
-        let result = engine::reduce_pack(&self.version, Some(to), request)?;
+        let result = reduce(&self.version, Some(to), request)?;
         self.game = result["world"].clone();
         self.pack = Some(to.into());
         Ok(result)
