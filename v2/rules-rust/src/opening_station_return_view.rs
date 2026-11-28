@@ -21,6 +21,37 @@ pub(super) fn read_seq(world: &Value) -> Option<u64> {
     read["seq"].as_u64()
 }
 
+pub(crate) fn gift_head(world: &Value) -> Option<u64> {
+    let seq = world["arrival"]["seq"].as_u64()?;
+    let head = seq.checked_add(1)?;
+    let [.., back, gift] = world["log"].as_array()?.as_slice() else {
+        return None;
+    };
+    (active(world)
+        && world.get("began").is_none()
+        && quiet_opening(world)
+        && world["actors"][VALE]["place"] == STATION
+        && world["arrival"] == json!({"seq":seq,"fromLocationId":POND,"locationId":STATION})
+        && back["seq"] == seq
+        && back["kind"] == "action"
+        && back["actorId"] == VALE
+        && back["generated"] != true
+        && move_event(back, 5, POND, STATION)
+        && gift["seq"] == head
+        && gift["turn"] == 5
+        && gift["kind"] == "action"
+        && gift["generated"] != true
+        && gift["actorId"] == PIP
+        && gift["locationId"] == STATION
+        && gift["verb"] == "give"
+        && gift["itemId"] == "cloth"
+        && gift["targetId"] == VALE
+        && gift["accepted"] == true
+        && world["items"]["cloth"]["holder"] == VALE
+        && world["eventSeq"] == head)
+        .then_some(head)
+}
+
 pub(super) fn witnessed_gift(
     gift: &Value,
     wait: &Value,
@@ -55,13 +86,12 @@ pub(super) fn witnessed_gift(
 }
 
 pub(super) fn events<'a>(world: &'a Value, geo: &Geography<'_>) -> Option<&'a [Value]> {
+    let head = gift_head(world)?;
     let log = world["log"].as_array()?;
     let [.., read, wait, departure, back, gift] = log.as_slice() else {
         return None;
     };
     let (left, read_seq) = keeper_read_departure(world, Some(back))?;
-    let seq = left.checked_add(1)?;
-    let head = seq.checked_add(1)?;
     let vale = &world["actors"][VALE];
     let forest = &geo.files()["v2/card-game/forest.json"];
     let name = forest["people"][VALE]["name"].as_str()?;
@@ -72,24 +102,17 @@ pub(super) fn events<'a>(world: &'a Value, geo: &Geography<'_>) -> Option<&'a [V
     } else {
         format!("{name} goes to {station}.")
     };
-    if !active(world)
-        || world.get("began").is_some()
-        || !quiet_opening(world)
-        || vale["visited"] != json!(["attic", POND, STATION])
+    if vale["visited"] != json!(["attic", POND, STATION])
         || vale["crossed"] != 1
         || ["closed", "gaveUp"].iter().any(|key| !vale[*key].is_null())
         || world["speechVoices"][VALE] != json!([VALE])
-        || world["arrival"] != json!({"seq":seq,"fromLocationId":POND,"locationId":STATION})
         || departure["seq"] != left
         || departure["witnesses"] != wait["witnesses"]
-        || back["seq"] != seq
-        || !move_event(back, 5, POND, STATION)
+        || left.checked_add(2)? != head
         || back["speaker"] != "World"
         || back["text"] != move_text
         || back["cast"] != gift["cast"]
         || back["light"] != false
-        || gift["seq"] != head
-        || world["eventSeq"] != head
     {
         return None;
     }

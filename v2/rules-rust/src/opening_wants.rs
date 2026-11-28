@@ -380,6 +380,16 @@ pub(super) fn settle_station_read(world: &mut Value, geo: &Geography<'_>) -> Opt
     settle_wants(world, geo, 3, true, false, opening_company::fade_trust)
 }
 
+pub(super) fn settle_keeper_return(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    let head = opening_station_view::keeper_return::gift_head(world)?;
+    let want = opening_station_read::keeper_want_from_read(world, geo, head.checked_sub(4)?)?;
+    station_wants_state(world, "station", &want)?;
+    if !pip_wants_lamp(world) || !world["actors"]["moth"]["sleeping"].is_null() {
+        return None;
+    }
+    settle_wants(world, geo, 5, true, false, opening_company::fade_trust)
+}
+
 pub(super) fn station_departure_turn(
     before: &Value,
     world: &Value,

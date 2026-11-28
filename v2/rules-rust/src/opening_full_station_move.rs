@@ -1,8 +1,9 @@
 use super::{
     opening_attic_rest, opening_content, opening_full_move, opening_held_items,
-    opening_history_walkers, opening_place_cards::Deck, opening_quiet_life, opening_resident_sleep,
-    opening_roaming, opening_roster, opening_second_attic_lamp, opening_second_attic_tail,
-    opening_second_round, opening_settlement, opening_station_move, opening_station_residents,
+    opening_history_walkers, opening_hub_residents, opening_place_cards::Deck, opening_quiet_life,
+    opening_resident_sleep, opening_roaming, opening_roster, opening_second_attic_lamp,
+    opening_second_attic_tail, opening_second_round, opening_settlement,
+    opening_station_keeper_gift, opening_station_move, opening_station_residents,
     opening_station_view, opening_wants, pack_state::Catalog, resident_evidence::ResidentEvidence,
     Geography,
 };
@@ -10,6 +11,10 @@ use serde_json::{json, Value};
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     let (before, carry) = opening_station_move::move_world(request)?;
+    let vale = &before["actors"]["vale"];
+    let returning = before["turn"] == 4
+        && vale["place"] == "pond"
+        && vale["want"]["from"] == "quest:from:keeper";
     let historic = before["began"] == 480;
     let awake = historic && before["actors"]["moth"]["sleeping"].is_null();
     let before_seq = before["eventSeq"].as_u64()?;
@@ -18,18 +23,53 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let evidence = ResidentEvidence::new(&files)?;
-    let (mut world, residents) = opening_station_move::begin_with(
+    let begin = if returning {
+        opening_station_move::begin_quest_return_with
+    } else {
+        opening_station_move::begin_with
+    };
+    let (mut world, residents) = begin(
         before,
         &geo,
         &authored,
         &order,
         &evidence,
         carry,
-        |world| {
+        |world: &Value| {
             let known = opening_roster::known_actors(world, &geo, &order, None)?;
             opening_roster::residents(world, &geo, &known, "vale")
         },
     )?;
+    if returning {
+        let deck = Deck::new(&world, &geo)?;
+        deck.settle(&mut world, &geo, None)?;
+        let mut world = opening_station_keeper_gift::settle_keeper_return_gift(
+            world, &geo, &authored, &order, &evidence,
+        )?;
+        opening_hub_residents::at_home(&world, &geo, "keeper", "oil")?;
+        opening_second_round::settle_visitors(
+            &mut world, &geo, &authored, &order, &evidence, &deck, &residents,
+        )?;
+        if opening_station_view::keeper_return::gift_head(&world)? != before_seq.checked_add(2)?
+            || world["placeCard"] != before["placeCard"]
+            || world["items"]["bell"]["ringing"] != 0
+        {
+            return None;
+        }
+        opening_second_attic_tail::settle_quiet_station_before_wants(
+            before, &mut world, &geo, &catalog,
+        )?;
+        opening_wants::settle_keeper_return(&mut world, &geo)?;
+        opening_second_attic_tail::settle_quiet_station_after_wants(before, &mut world, &geo)?;
+        return opening_station_view::keeper_return::completed(
+            world,
+            &geo,
+            &authored,
+            &order,
+            before_seq,
+            evidence.into_profiles(),
+        );
+    }
     let visits = &mut world["actors"]["vale"]["visited"];
     if *visits != json!(["attic", "pond"])
         || files["v2/card-game/forest.json"]["places"]["station"]["sanctuary"] == true
