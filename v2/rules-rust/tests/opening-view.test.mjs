@@ -204,3 +204,78 @@ test("pond capacity depends on whether Vale is present", async () => {
   );
   assert.deepEqual(away.exits, ["pond"]);
 });
+
+test("the first historic Wait view keeps Sleep before and after published speech", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const { seed, full, hidden } of [
+    { seed: 0 },
+    { seed: 42 },
+    { seed: 17, hidden: "mara" },
+    { seed: 4_294_967_295, full: true },
+  ]) {
+    for (const stowed of [false, true]) {
+      let { world } = success(pinned, {
+        op: "create",
+        seed,
+        history: true,
+        ...(hidden && { hidden, absent: ["ash"] }),
+      });
+      const pond = full ? ["mara", "ash", "nell", "tavi"] : [];
+      for (const id of pond) world.actors[id].place = "pond";
+      const claimed = ["vale", ...pond];
+      const seats = { actor: "vale", claimed, present: claimed };
+      if (stowed)
+        world = success(pinned, {
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        }).world;
+      const waited = success(pinned, {
+        ...seats,
+        op: "play",
+        world,
+        action: "wait:vale::",
+      });
+      assert.equal(waited.world.turn, 481);
+      assert.deepEqual(waited.world.speechVoices.vale, ["vale"]);
+      if (seed === 42)
+        assert.ok(waited.events.some((entry) => entry.verb === "want_met"));
+      const spoken = success(pinned, {
+        ...seats,
+        op: "speech",
+        room: "attic",
+        world: waited.world,
+        lines: [
+          { actorId: "vale", text: "I can hear the wind." },
+          { entityId: "attic", text: "The shutters stir." },
+        ],
+      });
+      for (const state of [waited.world, spoken.world]) {
+        for (const present of [claimed, pond]) {
+          const title = `seed ${seed}, stowed ${stowed}, seats ${present}, seq ${state.eventSeq}`;
+          const reply = view(
+            pinned,
+            wasm,
+            {
+              ...seats,
+              present,
+              op: "view",
+              world: state,
+            },
+            title,
+          );
+          assert.deepEqual(reply.world.presentActors, present);
+          assert.equal(reply.actions[1].key, "sleep:vale::");
+          assert.deepEqual(reply.world.speechVoices.vale, ["vale"]);
+          assert.equal(reply.world.memories.mara.subjects, undefined);
+          const open = stowed && (!full || !present.includes("vale"));
+          assert.deepEqual(reply.exits, open ? ["pond"] : []);
+        }
+      }
+      const unsupported = structuredClone(waited.world);
+      unsupported.log.find((entry) => entry.verb === "wait").sleep = true;
+      assert.equal(wasm({ ...seats, op: "view", world: unsupported }), null);
+    }
+  }
+});

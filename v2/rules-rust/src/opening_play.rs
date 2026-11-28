@@ -92,6 +92,10 @@ pub(super) fn pond_quest(world: &Value) -> Value {
 
 pub(super) fn attic_files(world: &Value, request: &Value) -> Option<Value> {
     attic_state(world)?;
+    attic_content_files(request)
+}
+
+pub(super) fn attic_content_files(request: &Value) -> Option<Value> {
     let mut content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
     if content["schema"] != 1 {
         return None;
@@ -179,6 +183,20 @@ pub(super) fn attic_response(mut response: Value, files: &Value, mirror: Mirror)
     };
     response["actions"] = actions(&files["v2/card-game/forest.json"], mirror)?;
     response["profiles"] = profiles::project(files)?;
+    Some(response)
+}
+
+pub(super) fn after_wait_response(response: Value, files: &Value, mirror: Mirror) -> Option<Value> {
+    let mut response = attic_response(response, files, mirror)?;
+    let name = files["v2/card-game/forest.json"]["people"]["vale"]["name"].as_str()?;
+    response["actions"].as_array_mut()?.insert(
+        1,
+        json!({
+            "kind":"wait", "actor":"vale", "item":null, "target":null,
+            "text":format!("{name} sleeps."), "cards":[],
+            "key":"sleep:vale::", "label":"Sleep", "sleep":true
+        }),
+    );
     Some(response)
 }
 
