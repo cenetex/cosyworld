@@ -176,7 +176,7 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
     return result.world;
   }
 
-  let verified, away;
+  let verified, away, meeting;
   for (const seed of [undefined, 2, 5, 7, 17, 99, 4242, 4_294_967_295]) {
     for (const mode of ["stowed", "dry"]) {
       let { world } = pinned({ op: "create", seed });
@@ -227,7 +227,22 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
             }
             if (seed === 5) away = request;
           } else if (action.key === `move:${actor}::station`) {
-            assert.equal(actual, null, label);
+            assert.ok(
+              isDeepStrictEqual(actual, { ok: true, world: after }),
+              label,
+            );
+            assert.equal(actual.world.opening.met[actor], before.turn);
+            assert.equal(
+              actual.world.packs["shared-homes"].met[actor],
+              before.turn,
+            );
+            assert.deepEqual(actual.world.log.at(-1).cast, [
+              "vale",
+              "moth",
+              "keeper",
+              actor,
+            ]);
+            meeting = request;
             counts.station++;
           } else if (before.conversations.length) {
             assert.equal(actual, null, label);
@@ -304,5 +319,21 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
     const world = structuredClone(away.world);
     corrupt(world);
     assert.equal(wasm({ ...away, world }), null);
+  }
+  assert.ok(meeting);
+  for (const corrupt of [
+    (world) => {
+      world.actors.moth.place = "pond";
+    },
+    (world) => {
+      world.actors.ash.place = "station";
+    },
+    (world) => {
+      world.packs["shared-homes"].met[meeting.actor] = 1;
+    },
+  ]) {
+    const world = structuredClone(meeting.world);
+    corrupt(world);
+    assert.equal(wasm({ ...meeting, world }), null);
   }
 });

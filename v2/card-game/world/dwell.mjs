@@ -20,7 +20,6 @@ export const dwellRule = { on: true };
 // The least a resident stays after arriving: half the 48-turn day, so it
 // makes at most two moves of its own a day (owner, 2026-11-11).
 export const DWELL_TURNS = 24;
-// The offset is 0 to DWELL_SPREAD - 1 more, so a stay is 24 to 29 turns.
 export const DWELL_SPREAD = 6;
 export const MAX_DWELL = DWELL_TURNS + DWELL_SPREAD - 1;
 
