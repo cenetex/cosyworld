@@ -1,8 +1,9 @@
 use super::{
-    lamp_state, opening_content, opening_held_items, opening_play, opening_pond_call_view,
-    opening_pond_return_view, opening_roster, opening_second_attic_lamp, opening_second_attic_tail,
-    opening_station_move, opening_station_view, opening_take_response, opening_wait_response,
-    pack_state::Catalog, Geography, Lamp, LampPosition,
+    lamp_state, opening_content, opening_greek_harbor_view, opening_held_items, opening_play,
+    opening_pond_call_view, opening_pond_return_view, opening_pond_ship_view, opening_roster,
+    opening_second_attic_lamp, opening_second_attic_tail, opening_station_move,
+    opening_station_view, opening_take_response, opening_wait_response, pack_state::Catalog,
+    profiles, Geography, Lamp, LampPosition,
 };
 use serde_json::{json, Value};
 
@@ -238,11 +239,13 @@ pub(super) fn presence(request: &Value) -> Option<Value> {
         return opening.respond(world.clone(), held);
     }
     let before = request.get("world")?;
-    if before["actors"]["vale"]["place"] == "pond" && matches!(before["turn"].as_u64(), Some(6 | 7))
-    {
-        return keeper_pond_presence(request, before);
+    let place = before["actors"]["vale"]["place"].as_str()?;
+    match (place, before["turn"].as_u64()?) {
+        ("pond", 6 | 7) | ("greek-ship", 8..=10) | ("greek-harbor", 11) => {
+            settled_presence(request, before, place)
+        }
+        _ => station_presence(request),
     }
-    station_presence(request)
 }
 
 fn presence_seats(request: &Value) -> Option<(Vec<&str>, Vec<&str>)> {
@@ -279,9 +282,9 @@ fn station_presence(request: &Value) -> Option<Value> {
     stored_response(world)
 }
 
-fn keeper_pond_presence(request: &Value, before: &Value) -> Option<Value> {
+fn settled_presence(request: &Value, before: &Value, place: &str) -> Option<Value> {
     let (claimed, present) = presence_seats(request)?;
-    let (files, _) = opening_content::wait_files(request)?;
+    let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = before.clone();
@@ -289,12 +292,40 @@ fn keeper_pond_presence(request: &Value, before: &Value) -> Option<Value> {
     world["heldActors"] = json!(claimed);
     world["controlledActors"] = json!(present);
     world["presentActors"] = json!(present);
-    if world["turn"] == 6 {
-        opening_pond_return_view::verify_cloth_arrival(&world, &geo)?;
-    } else if world["items"]["lamp"]["lit"] == true {
-        opening_pond_call_view::settled_speech(&world, &geo)?;
-    } else {
-        opening_pond_call_view::settled_dry(&world, &geo)?;
+    match place {
+        "pond" if world["turn"] == 6 => {
+            opening_pond_return_view::verify_cloth_arrival(&world, &geo)?;
+        }
+        "pond" if world["items"]["lamp"]["lit"] == true => {
+            opening_pond_call_view::settled_speech(&world, &geo)?;
+        }
+        "pond" => opening_pond_call_view::settled_dry(&world, &geo)?,
+        "greek-ship" | "greek-harbor" => {
+            if world.get("pondLampLoan").is_some() {
+                return None;
+            }
+            opening_second_attic_tail::guards_stable(&world, &geo)?;
+            let profiles = profiles::project(&files)?;
+            let name = |id: &str| profiles[id]["name"].as_str();
+            if place == "greek-ship" {
+                opening_pond_ship_view::settled_speakers(&world, &geo, name)?;
+            } else {
+                opening_greek_harbor_view::settled_speech(&world, &geo, &authored, name)?;
+            }
+            let lamp = &mut world["items"]["lamp"];
+            lamp_state(lamp)
+                .ok()?
+                .settle(LampPosition {
+                    place: "pond".into(),
+                    held: false,
+                    grounded: true,
+                })
+                .write(lamp);
+            if *lamp != before["items"]["lamp"] || lamp["lit"] != true {
+                return None;
+            }
+        }
+        _ => return None,
     }
     opening_second_attic_tail::verify_wayfinder_placement(&world, &geo)?;
     opening_second_attic_tail::verify_station_order(&world, &geo)?;
