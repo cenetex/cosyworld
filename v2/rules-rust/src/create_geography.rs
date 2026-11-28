@@ -17,6 +17,7 @@ struct ConditionContext<'a> {
 
 const MAX_DEPTH: u8 = 32;
 const DAYLIGHT_TURNS: u64 = 24;
+const ARCANA_LEVEL_CAP: u64 = 21;
 
 impl<'a> Geography<'a> {
     pub fn new(files: &'a Value, packs: impl Iterator<Item = &'a Value>) -> Option<Self> {
@@ -74,6 +75,15 @@ impl<'a> Geography<'a> {
             return Some(false);
         }
         let Some(&(pack, entity)) = self.entities.get(id) else {
+            let hub = &self.files["v2/card-game/packs.json"]["hub"];
+            if !self.humans.contains(&id)
+                && ["places", "avatars", "items"]
+                    .iter()
+                    .any(|field| contains(&hub[*field], id))
+                && self.pack_disabled(world, "hub")
+            {
+                return Some(false);
+            }
             let person = &self.files["v2/card-game/forest.json"]["people"][id];
             return self.all(
                 ConditionContext {
@@ -89,6 +99,22 @@ impl<'a> Geography<'a> {
         let state = &world["packs"][pack_id];
         if state.is_null() || self.pack_disabled(world, pack_id) || self.retired(pack, id) {
             return Some(false);
+        }
+        if let Some(home) = entity["home"].as_str() {
+            let waits_at_home = world["items"][id]["holder"] == home
+                && array(&pack["choices"]).any(|choice| {
+                    choice["id"]
+                        .as_str()
+                        .is_some_and(|key| state["receipts"].get(key).is_some())
+                        && array(&choice["effects"]).any(|effect| {
+                            effect["kind"] == "retire_item"
+                                && effect["item"] == id
+                                && effect["waitAtHome"] == true
+                        })
+                });
+            if waits_at_home && !self.enabled(world, home, depth)? {
+                return Some(false);
+            }
         }
         let ctx = ConditionContext {
             world,
@@ -251,6 +277,7 @@ impl<'a> Geography<'a> {
             "drawn" => contains(&state["specials"], condition["id"].as_str()?),
             "met" => state["met"].get(condition["actor"].as_str()?).is_some(),
             "shared_world" => world["sharedVersion"] == 1,
+            "arcana_called" => self.arcana_called(world)?,
             "connected_humans" => {
                 self.humans_present(world) >= condition["minimum"].as_u64()? as usize
             }
@@ -312,6 +339,33 @@ impl<'a> Geography<'a> {
         self.packs.iter().copied()
     }
 
+    fn arcana_called(&self, world: &Value) -> Option<bool> {
+        let arcana = &self.files["v2/card-game/arcana.json"];
+        let calls = arcana["calls"].as_u64()?;
+        let starter = arcana["starterId"].as_str()?;
+        Some(world["actors"].as_object()?.iter().any(|(id, actor)| {
+            let record = &actor["arcana"];
+            let spread = &record["spread"];
+            if !present(world, id) || array(spread).any(|card| card["face"] == "reward") {
+                return false;
+            }
+            if let Some(offer) = record["offer"].as_str().filter(|offer| !offer.is_empty()) {
+                return actor["place"] == offer;
+            }
+            let level = record["level"]
+                .as_u64()
+                .unwrap_or_else(|| array(&record["proved"]).count() as u64);
+            let dealt_starter = level == 0
+                && contains(&record["need"], starter)
+                && array(spread).any(|card| card["card"] == starter && card["face"] == "down");
+            record["paid"] != true
+                && (record["sale"] == true
+                    || (record["calls"].as_u64().unwrap_or(0) >= calls
+                        && level < ARCANA_LEVEL_CAP
+                        && !dealt_starter))
+        }))
+    }
+
     pub fn base_exits(&self, place: &str) -> Option<&'a [Value]> {
         let forest = &self.files["v2/card-game/forest.json"];
         let definition = self
@@ -319,6 +373,47 @@ impl<'a> Geography<'a> {
             .get(place)
             .map_or(&forest["places"][place], |(_, place)| place);
         Some(definition["exits"].as_array()?)
+    }
+
+    pub fn pack_route_open(&self, world: &Value, from: &str, to: &str) -> Option<bool> {
+        for pack in self.packs() {
+            let pack_id = pack["id"].as_str()?;
+            for route in
+                array(&pack["routes"]).filter(|route| route["from"] == from && route["to"] == to)
+            {
+                if self.route_open(world, pack_id, route)? {
+                    return Some(true);
+                }
+            }
+        }
+        Some(false)
+    }
+
+    pub fn route_open(&self, world: &Value, pack_id: &str, route: &Value) -> Option<bool> {
+        let to = route["to"].as_str()?;
+        if world["elysiumCoordinates"].get(to).is_some()
+            && self.packs().any(|pack| {
+                pack["id"] == "elysium"
+                    && array(&pack["routes"]).any(|candidate| {
+                        candidate["from"] == route["from"]
+                            && candidate["to"] == to
+                            && [
+                                "elysium-ring-outer",
+                                "elysium-ring-middle",
+                                "elysium-ring-inner",
+                            ]
+                            .iter()
+                            .all(|id| {
+                                array(&candidate["requires"]).any(|condition| {
+                                    condition["kind"] == "item_at" && condition["item"] == *id
+                                })
+                            })
+                    })
+            })
+        {
+            return Some(true);
+        }
+        self.conditions_met(world, pack_id, &route["requires"], None)
     }
 }
 
@@ -393,4 +488,32 @@ fn array(value: &Value) -> impl Iterator<Item = &Value> {
 
 fn contains(value: &Value, id: &str) -> bool {
     array(value).any(|entry| entry == id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn an_opening_listener_requires_a_present_traveller_who_has_called() {
+        let content: Value = serde_json::from_str(include_str!(
+            "../../orchestrator-rust/src/card_shared/content.json"
+        ))
+        .unwrap();
+        let files = &content["files"];
+        let geo = Geography::new(files, std::iter::empty()).unwrap();
+        let arcana = &files["v2/card-game/arcana.json"];
+        let mut world = json!({"actors": {"vale": {"place": "attic"}}});
+        assert_eq!(geo.entity_active(&world, "listener"), Some(false));
+        world["actors"]["vale"]["arcana"] = json!({"calls": arcana["calls"]});
+        assert_eq!(geo.entity_active(&world, "listener"), Some(true));
+        world["actors"]["vale"]["arcana"]["spread"] = json!([
+            {"card": arcana["starterId"], "face": "reward"}
+        ]);
+        assert_eq!(geo.entity_active(&world, "listener"), Some(false));
+        world["actors"]["vale"]["arcana"] = json!({"calls": arcana["calls"]});
+        world["presentActors"] = json!([]);
+        assert_eq!(geo.entity_active(&world, "listener"), Some(false));
+    }
 }
