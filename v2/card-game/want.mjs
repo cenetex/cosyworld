@@ -897,8 +897,7 @@ function sawLost(s, id, lost, action, api) {
     ? by
     : null;
 }
-// A resident's want left empty is drawn after a short rest. A player is never
-// drawn one: it takes its quests by a tap.
+// Empty resident wants refill after a rest. Players take quests by tapping.
 export function fillWants(s, api, now = false) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (a.want) delete a.content;

@@ -189,6 +189,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_history_wants") => {
             opening_wants::history_projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_second_attic_wants") => {
+            opening_wants::second_attic_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_history_walkers") => {
             opening_history_walkers::projection(request).unwrap_or(Value::Null)
         }
