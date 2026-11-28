@@ -436,10 +436,8 @@ function rootOf(world, id) {
   }
   return holder;
 }
-// A lock view (boxes, rules 133) asks whether the card is in the world at
-// all, leaving out only its own conditions: `requires`, `appearsWhen` and its
-// section. What it lets through is never enterable; `entityActive` still
-// rules over every exit, play and resident.
+// A lock view shows cards without evaluating their own requires, appearance
+// or section conditions. Exits, residents and plays still use entityActive.
 function entityLive(world, id, lockView) {
   if (world.items?.[id]) {
     const holder = rootOf(world, id);
