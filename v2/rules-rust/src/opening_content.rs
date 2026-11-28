@@ -1,10 +1,14 @@
-use serde::de::{IgnoredAny, MapAccess, Visitor};
+use super::authored_order::Order;
+use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::{json, Map, Value};
 use std::fmt;
 
 const PACKS: &str = "v2/card-game/packs.json";
 const HISTORY: &str = "v2/card-game/world-history.json";
+const FOREST: &str = "v2/card-game/forest.json";
+const BOARDY: &str = "v2/card-game/boardyai.json";
+const SHARED: &str = "v2/card-game/shared-cast.json";
 
 #[derive(Deserialize)]
 struct Document<const FULL_CATALOG: bool> {
@@ -17,7 +21,7 @@ struct HistoryClock {
     turns: Option<u64>,
 }
 
-struct Files<const FULL_CATALOG: bool>(Value);
+struct Files<const FULL_CATALOG: bool>(Value, Option<Order>);
 
 impl<'de, const FULL_CATALOG: bool> Deserialize<'de> for Files<FULL_CATALOG> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -36,24 +40,69 @@ impl<'de, const FULL_CATALOG: bool> Visitor<'de> for FilesVisitor<FULL_CATALOG> 
 
     fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
         let mut files = Map::new();
+        let mut compiled = None;
+        let mut forest = None;
+        let mut boardy = None;
         while let Some(file) = map.next_key::<String>()? {
-            if !FULL_CATALOG && file == HISTORY {
-                let clock: HistoryClock = map.next_value()?;
-                files.insert(file, json!({"turns": clock.turns}));
-                continue;
+            if !FULL_CATALOG
+                && matches!(file.as_str(), FOREST | PACKS | BOARDY | SHARED)
+                && files.contains_key(&file)
+            {
+                return Err(serde::de::Error::custom("duplicate authored catalog file"));
             }
-            let content = if file == PACKS {
-                map.next_value::<PackFile<FULL_CATALOG>>()?.0
-            } else {
-                map.next_value()?
+            let content = match file.as_str() {
+                HISTORY if !FULL_CATALOG => {
+                    let clock: HistoryClock = map.next_value()?;
+                    json!({"turns": clock.turns})
+                }
+                PACKS => {
+                    let PackFile(content, keys) = map.next_value::<PackFile<FULL_CATALOG>>()?;
+                    compiled = Some(keys);
+                    content
+                }
+                FOREST | BOARDY if !FULL_CATALOG => {
+                    let inner = if file == FOREST {
+                        PackVisitor::<false>::standalone("people", "things")
+                    } else {
+                        PackVisitor::<false>::standalone("avatars", "items")
+                    };
+                    let Pack(content, keys) = map.next_value_seed(inner)?;
+                    if file == FOREST {
+                        forest = Some(keys);
+                    } else {
+                        boardy = Some(keys);
+                    }
+                    content
+                }
+                _ => map.next_value()?,
             };
             files.insert(file, content);
         }
-        Ok(Files(Value::Object(files)))
+        let order = match (forest, compiled, boardy) {
+            (Some(forest), Some(compiled), Some(boardy)) => {
+                let shared = files.get(SHARED).and_then(shared_order);
+                shared.map(|shared| Order::assemble(forest, compiled, shared, boardy))
+            }
+            _ => None,
+        };
+        Ok(Files(Value::Object(files), order))
     }
 }
 
-struct PackFile<const FULL_CATALOG: bool>(Value);
+fn shared_order(content: &Value) -> Option<Order> {
+    let mut order = Order::default();
+    for avatar in content["avatars"].as_array()? {
+        let id = avatar["id"].as_str()?;
+        let item = avatar["item"]["id"].as_str()?;
+        if id != "vale" {
+            order.actors.push(id.into());
+            order.items.push(item.into());
+        }
+    }
+    Some(order)
+}
+
+struct PackFile<const FULL_CATALOG: bool>(Value, Order);
 
 impl<'de, const FULL_CATALOG: bool> Deserialize<'de> for PackFile<FULL_CATALOG> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -72,28 +121,63 @@ impl<'de, const FULL_CATALOG: bool> Visitor<'de> for PackFileVisitor<FULL_CATALO
 
     fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
         let mut fields = Map::new();
+        let mut order = Order::default();
         while let Some(field) = map.next_key::<String>()? {
             let content = if field == "packs" {
+                if !FULL_CATALOG && fields.contains_key("packs") {
+                    return Err(serde::de::Error::duplicate_field("packs"));
+                }
                 let packs: Vec<Pack<FULL_CATALOG>> = map.next_value()?;
-                Value::Array(packs.into_iter().map(|pack| pack.0).collect())
+                let mut values = Vec::with_capacity(packs.len());
+                for Pack(content, keys) in packs {
+                    values.push(content);
+                    order.extend(keys);
+                }
+                Value::Array(values)
             } else {
                 map.next_value()?
             };
             fields.insert(field, content);
         }
-        Ok(PackFile(Value::Object(fields)))
+        Ok(PackFile(Value::Object(fields), order))
     }
 }
 
-struct Pack<const FULL_CATALOG: bool>(Value);
+struct Pack<const FULL_CATALOG: bool>(Value, Order);
 
 impl<'de, const FULL_CATALOG: bool> Deserialize<'de> for Pack<FULL_CATALOG> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_map(PackVisitor::<FULL_CATALOG>)
+        deserializer.deserialize_map(PackVisitor::<FULL_CATALOG> {
+            actors: "avatars",
+            items: "items",
+            compiled: true,
+        })
     }
 }
 
-struct PackVisitor<const FULL_CATALOG: bool>;
+struct PackVisitor<const FULL_CATALOG: bool> {
+    actors: &'static str,
+    items: &'static str,
+    compiled: bool,
+}
+
+impl<const FULL_CATALOG: bool> PackVisitor<FULL_CATALOG> {
+    fn standalone(actors: &'static str, items: &'static str) -> Self {
+        Self {
+            actors,
+            items,
+            compiled: false,
+        }
+    }
+}
+
+impl<'de, const FULL_CATALOG: bool> DeserializeSeed<'de> for PackVisitor<FULL_CATALOG> {
+    type Value = Pack<FULL_CATALOG>;
+
+    fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
+        deserializer.deserialize_map(self)
+    }
+}
 
 impl<'de, const FULL_CATALOG: bool> Visitor<'de> for PackVisitor<FULL_CATALOG> {
     type Value = Pack<FULL_CATALOG>;
@@ -104,50 +188,93 @@ impl<'de, const FULL_CATALOG: bool> Visitor<'de> for PackVisitor<FULL_CATALOG> {
 
     fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
         let mut fields = Map::new();
+        let mut order = Order::default();
         while let Some(field) = map.next_key::<String>()? {
             match field.as_str() {
-                "works" => {
+                "works" if self.compiled => {
                     map.next_value::<IgnoredAny>()?;
                 }
-                "choices" => {
+                "choices" if self.compiled => {
                     let choices = map.next_value::<Option<Vec<Choice>>>()?;
                     fields.insert(field, choices.map_or(Value::Null, project_choices));
                 }
-                "places" | "avatars" | "items" if !FULL_CATALOG => {
-                    fields.insert(field, map.next_value::<WaitCatalog>()?.0);
+                "places" if self.compiled && !FULL_CATALOG => {
+                    let (content, _) = map.next_value_seed(Entities {
+                        project: true,
+                        keep_order: false,
+                    })?;
+                    fields.insert(field, content);
+                }
+                collection
+                    if !FULL_CATALOG && (collection == self.actors || collection == self.items) =>
+                {
+                    if fields.contains_key(collection) {
+                        return Err(serde::de::Error::custom(
+                            "duplicate authored entity collection",
+                        ));
+                    }
+                    let (content, keys) = map.next_value_seed(Entities {
+                        project: self.compiled,
+                        keep_order: true,
+                    })?;
+                    if collection == self.actors {
+                        order.actors = keys;
+                    } else {
+                        order.items = keys;
+                    }
+                    fields.insert(field, content);
                 }
                 _ => {
                     fields.insert(field, map.next_value()?);
                 }
             }
         }
-        Ok(Pack(Value::Object(fields)))
+        if !self.compiled && self.actors == "people" {
+            for field in [self.actors, self.items] {
+                if !fields.contains_key(field) {
+                    return Err(serde::de::Error::missing_field(field));
+                }
+            }
+        }
+        Ok(Pack(Value::Object(fields), order))
     }
 }
 
-struct WaitCatalog(Value);
+struct Entities {
+    project: bool,
+    keep_order: bool,
+}
 
-impl<'de> Deserialize<'de> for WaitCatalog {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct CatalogVisitor;
+impl<'de> DeserializeSeed<'de> for Entities {
+    type Value = (Value, Vec<String>);
 
-        impl<'de> Visitor<'de> for CatalogVisitor {
-            type Value = WaitCatalog;
+    fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
+        deserializer.deserialize_map(self)
+    }
+}
 
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("an authored entity catalog")
+impl<'de> Visitor<'de> for Entities {
+    type Value = (Value, Vec<String>);
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("an authored entity catalog")
+    }
+
+    fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
+        let mut entities = Map::new();
+        let mut order = Vec::new();
+        while let Some(id) = map.next_key::<String>()? {
+            if self.keep_order {
+                order.push(id.clone());
             }
-
-            fn visit_map<M: MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
-                let mut entities = Map::new();
-                while let Some((id, entity)) = map.next_entry::<String, WaitEntity>()? {
-                    entities.insert(id, entity.0);
-                }
-                Ok(WaitCatalog(Value::Object(entities)))
-            }
+            let entity = if self.project {
+                map.next_value::<WaitEntity>()?.0
+            } else {
+                map.next_value()?
+            };
+            entities.insert(id, entity);
         }
-
-        deserializer.deserialize_map(CatalogVisitor)
+        Ok((Value::Object(entities), order))
     }
 }
 
@@ -241,17 +368,18 @@ fn project_choice(choice: Choice) -> Option<Value> {
 }
 
 pub(super) fn files(request: &Value) -> Option<Value> {
-    projected_files::<true>(request)
+    Some(projected_files::<true>(request)?.0)
 }
 
-pub(super) fn wait_files(request: &Value) -> Option<Value> {
-    projected_files::<false>(request)
+pub(super) fn wait_files(request: &Value) -> Option<(Value, Order)> {
+    let Files(content, order) = projected_files::<false>(request)?;
+    Some((content, order?))
 }
 
-fn projected_files<const FULL_CATALOG: bool>(request: &Value) -> Option<Value> {
+fn projected_files<const FULL_CATALOG: bool>(request: &Value) -> Option<Files<FULL_CATALOG>> {
     let document: Document<FULL_CATALOG> =
         serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
-    (document.schema == 1).then_some(document.files.0)
+    (document.schema == 1).then_some(document.files)
 }
 
 #[cfg(test)]
@@ -292,7 +420,7 @@ mod tests {
             full[PACKS]["packs"][0]["places"],
             input["files"][PACKS]["packs"][0]["places"]
         );
-        let actual = wait_files(&request);
+        let actual = projected_files::<false>(&request).map(|files| files.0);
         assert_eq!(
             actual,
             Some(json!({

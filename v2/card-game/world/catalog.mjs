@@ -1,4 +1,3 @@
-// Authored game entities shared by the browser and server rules (#1390).
 import arcana from "../arcana.json" with { type: "json" };
 import forest from "../forest.json" with { type: "json" };
 import {
