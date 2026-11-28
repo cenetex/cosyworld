@@ -9,8 +9,6 @@ import { isNight } from "../v2/card-game/daylight.mjs";
 // The otter and the boatman appear at the Willows landing by chance (#1626).
 describe("the chance condition", () => {
   const otter = { kind: "chance", key: "otter", odds: 12, lasts: 2 };
-  const at = (turn, seed) =>
-    Object.assign(createWorld(), { turn, run: { seed } });
   // The window test reads thousands of turns; a chance reads only the turn
   // and the run seed, so one world serves them all.
   const base = createWorld();
@@ -40,7 +38,7 @@ describe("the chance condition", () => {
   it("shows the otter and the boatman at the landing by day only", () => {
     const seen = new Set();
     for (let turn = 0; turn < 600; turn++) {
-      const world = at(turn, 7);
+      const world = tick(turn, 7);
       const art = backdrop("willows-landing", world);
       seen.add(art);
       if (isNight(world)) expect(art).not.toMatch(/otter|boatman/);

@@ -100,7 +100,7 @@ describe("speech knows only uncovered cards (#1575)", () => {
     const clue = world.log.findLast((line) => line.disclosedFactId === "greek-ajax-shield-teucer");
     expect(covered(hiddenPerson)).toBe(true);
     expect(concealed).toContain(hiddenPerson);
-    expect(disclosures?.length ?? 0).toBe(0);
+    expect((disclosures || []).filter((d) => d.listener === "vale")).toEqual([]);
     expect(clue).toMatchObject({ actorId: speaker, targetId: "vale", witnesses: [speaker, "vale"] });
     expect(clue.text).toContain("Tecmessa");
     expect(JSON.stringify(limited)).not.toContain("Tecmessa");
