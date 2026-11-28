@@ -112,3 +112,20 @@ test("fresh mounts derive hub overlays, traveller lives and routes from authored
   assert.equal(actual.actors.vale.place, reference.actors.vale.place);
   assert.equal(actual.items.lamp.holder, reference.items.lamp.holder);
 });
+
+test("fresh mounts initialize authored resident wants and starting experience", async () => {
+  const { pinned, wasm } = await reducers();
+  const { world: reference } = pinned({ op: "create" });
+  const { world } = wasm({ op: "mount_packs" });
+  for (const [id, actual] of Object.entries(world.actors)) {
+    const expected = reference.actors[id];
+    assert.equal(actual.xp, expected.xp, id);
+    assert.equal(actual.level, expected.level, id);
+    assert.deepEqual(actual.visited, expected.visited, id);
+    assert.deepEqual(actual.talked, expected.talked, id);
+    if (actual.want !== null) assert.deepEqual(actual.want, expected.want, id);
+  }
+  for (const id of ["moth", "keeper", "greek-guard", "ratiradio-rati", "boardyai"]) {
+    assert.deepEqual(world.actors[id].want, reference.actors[id].want, id);
+  }
+});
