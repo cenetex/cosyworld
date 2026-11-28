@@ -7,6 +7,8 @@ import { reducers } from "./parity.mjs";
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const op = "opening_station_move";
 const residentsOp = "opening_station_departure_residents";
+const bardOp = "opening_bard_dwell";
+const lampOp = "opening_second_attic_lamp";
 
 function tracePrimary(source) {
   const marker =
@@ -16,7 +18,7 @@ function tracePrimary(source) {
     "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
   for (const cut of [marker, after, plan])
     assert.equal(source.split(cut).length, 2);
-  return source
+  source = source
     .replace(
       marker,
       `${marker}
@@ -33,6 +35,23 @@ function tracePrimary(source) {
       if (next.turn === 6) globalThis.residentPlans.push([id, chosen.key]);
       perform(next, chosen, round2, residents2);`,
     );
+  for (const [name, cut] of [
+    ["beforeBard", "    for (const id of roamingActors) {"],
+    [
+      "afterBard",
+      "    const cast = [actor, respondent, ...residents2].filter(Boolean);",
+    ],
+    ["beforeTravel", "    const worldLine = (text2, locationId) =>"],
+    ["afterTravel", "    wakeSleepers(next, s, voyages);"],
+    ["afterCycle", "    reviseStalledWants(\n      next,"],
+  ]) {
+    assert.equal(source.split(cut).length, 2, name);
+    source = source.replace(
+      cut,
+      `    if (next.turn === 6) globalThis.${name} = structuredClone(next);\n${cut}`,
+    );
+  }
+  return source;
 }
 
 test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async () => {
@@ -44,8 +63,10 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
     return reply.world;
   };
   const play = (world, action) => run({ ...seats, op: "play", world, action });
+  const captured = (name) => JSON.parse(JSON.stringify(reference[name]));
   let sample;
   let dwelling;
+  let travel;
   for (const [seed, dry, spoken, sorted] of [
     [undefined, false, false, false],
     [0, true, false, true],
@@ -154,6 +175,39 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
         isDeepStrictEqual(residents, { ok: true, world: settled }),
         `${label} residents`,
       );
+      const beforeBard = captured("beforeBard");
+      const afterBard = captured("afterBard");
+      assert.ok(isDeepStrictEqual(beforeBard, settled), `${label} bell`);
+      assert.ok(
+        isDeepStrictEqual(afterBard, beforeBard),
+        `${label} Bard waits`,
+      );
+      assert.ok(
+        isDeepStrictEqual(wasm({ op: bardOp, world: beforeBard }), {
+          ok: true,
+          world: afterBard,
+        }),
+        `${label} Bard`,
+      );
+      const beforeTravel = captured("beforeTravel");
+      const afterTravel = captured("afterTravel");
+      assert.ok(
+        isDeepStrictEqual(beforeTravel, afterBard),
+        `${label} life and stops`,
+      );
+      assert.ok(
+        isDeepStrictEqual(afterTravel, beforeTravel),
+        `${label} travel is stable`,
+      );
+      assert.ok(
+        isDeepStrictEqual(captured("afterCycle"), afterTravel),
+        `${label} wake and items`,
+      );
+      travel = { op: lampOp, before: world, world: beforeTravel };
+      assert.ok(
+        isDeepStrictEqual(wasm(travel), { ok: true, world: afterTravel }),
+        `${label} lamp and hands`,
+      );
       if (seed === 42) dwelling = expected;
       sample = { ...request, op };
     }
@@ -196,4 +250,13 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
     mutate(world);
     assert.equal(wasm({ op: residentsOp, world }), null);
   }
+  const restless = structuredClone(travel.world);
+  restless.actors["greek-rhapsode"].dwellUntil = restless.turn;
+  assert.equal(wasm({ op: bardOp, world: restless }), null);
+  const forged = structuredClone(travel);
+  forged.world.items.cloth.holder = "pond";
+  assert.equal(wasm(forged), null);
+  forged.world.items.cloth.holder = "vale";
+  forged.before.eventSeq -= 1;
+  assert.equal(wasm(forged), null);
 });

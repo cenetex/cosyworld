@@ -207,7 +207,6 @@ describe("selection", () => {
     stage(item("greek-figs"), item("greek-shovel"), item("greek-wine-skin"));
     const s = world();
     const first = s.actors[R].want;
-    // Meet it: the thing is in her hands.
     s.items[first.target].holder = R;
     settleWants(s, [R], wantAPI(s));
     const next = s.actors[R].want;

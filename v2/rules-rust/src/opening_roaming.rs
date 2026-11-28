@@ -1,7 +1,8 @@
 use super::{
     create, create_geography::Geography, opening, opening_content, opening_play,
-    opening_resident_sleep, opening_station_move, opening_station_read, opening_station_view,
-    opening_visitor_routes, opening_wait_response::vale_action, pack_state::Catalog, seed,
+    opening_pond_call_view, opening_resident_sleep, opening_station_move, opening_station_read,
+    opening_station_view, opening_visitor_routes, opening_wait_response::vale_action,
+    pack_state::Catalog, seed,
 };
 use serde_json::{json, Value};
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
@@ -338,7 +339,8 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
     let place = world["actors"]["vale"]["place"].as_str()?;
     let departure = matches!((turn, place), (3, "behind-station") | (4, "pond"));
     let return_to_station = (turn, place) == (5, "station");
-    let witnessed = historic || departure || return_to_station;
+    let cloth_return = (turn, place) == (6, "pond");
+    let witnessed = historic || departure || return_to_station || cloth_return;
     let prior = match (historic, turn, place) {
         (true, 482, "station") => {
             if let Some(head) = opening_station_move::historic_resident_moves(world) {
@@ -373,6 +375,14 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
         }
         (false, 5, "station") => {
             opening_station_view::keeper_return::gift_head(world)?;
+            only_bard_roams(world, geo)?;
+            1
+        }
+        (false, 6, "pond") => {
+            if opening_station_move::departure_turn(world) != Some(6) {
+                return None;
+            }
+            opening_pond_call_view::cloth_arrival(world, false)?;
             only_bard_roams(world, geo)?;
             1
         }
@@ -444,5 +454,7 @@ pub(super) fn dwell_projection(request: &Value) -> Option<Value> {
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = request.get("world")?.clone();
     settle_dwell(&mut world, &geo)?;
-    Some(json!({"ok":true, "world":world}))
+    let mut response = json!({"ok":true});
+    response["world"] = world;
+    Some(response)
 }

@@ -1,6 +1,7 @@
 use super::{
-    initial_wants, lamp_state, opening_content, opening_crossings, opening_mirror_move,
-    opening_station_move, opening_station_read, opening_station_view, pack_state::Catalog,
+    initial_wants, lamp_state, opening_content, opening_crossings, opening_held_items,
+    opening_mirror_move, opening_pond_call_view, opening_station_move, opening_station_read,
+    opening_station_view, pack_state::Catalog,
 };
 use crate::{Geography, LampPosition};
 use serde_json::{json, Value};
@@ -87,13 +88,17 @@ fn settle_carried_lamp(world: &mut Value, place: &str) -> Option<()> {
     let held = match world["actors"][VALE].get("heldItem")? {
         Value::Null => false,
         item if item == LAMP => true,
-        item if place == "station"
-            && item == "cloth"
-            && world["items"]["cloth"]["holder"] == VALE
-            && opening_station_view::keeper_abandon_head(world)
-                .or_else(|| opening_station_view::keeper_return::gift_head(world))
-                .is_some() =>
-        {
+        item if item == "cloth" && world["items"]["cloth"]["holder"] == VALE => {
+            match place {
+                "station" => {
+                    opening_station_view::keeper_abandon_head(world)
+                        .or_else(|| opening_station_view::keeper_return::gift_head(world))?;
+                }
+                "pond" if opening_station_move::departure_turn(world) == Some(6) => {
+                    opening_pond_call_view::cloth_arrival(world, false)?;
+                }
+                _ => return None,
+            }
             false
         }
         _ => return None,
@@ -115,7 +120,20 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = request.get("world")?.clone();
-    settle(request.get("before")?, &mut world, &geo)?;
+    let before = request.get("before")?;
+    if opening_station_move::departure_turn(&world) == Some(6) {
+        opening_pond_call_view::station_cloth_gift(before)?;
+        if world["eventSeq"] != before["eventSeq"].as_u64()?.checked_add(1)?
+            || world["revision"] != before["revision"].as_u64()?.checked_add(1)?
+            || world["items"]["cloth"]["holder"] != VALE
+        {
+            return None;
+        }
+        opening_held_items::settle(&mut world, &geo, Some(before))?;
+        settle_carried_at(&mut world, &geo, "pond")?;
+    } else {
+        settle(before, &mut world, &geo)?;
+    }
     let mut response = json!({"ok":true});
     response["world"] = world;
     Some(response)
