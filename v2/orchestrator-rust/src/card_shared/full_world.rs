@@ -93,7 +93,7 @@ impl World {
     // Every journal command uses the same seat guard and versioned rules.
     // AI text is appended by the authored speech reducer.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
-        self.apply_with(command, &mut engine::reduce_pack)
+        self.apply_with(command, &mut engine::reduce_journal)
     }
 
     pub(super) fn apply_with(
@@ -150,8 +150,7 @@ impl World {
         let mut next = self.clone();
         let (kind, result) = match op {
             "claim" => {
-                // The avatar's level travels with it from its last seat (#1846).
-                let mut request = self.request("join", a);
+                let mut request = self.request("join_state", a);
                 if !command["progress"].is_null() {
                     request["progress"] = command["progress"].clone();
                 }

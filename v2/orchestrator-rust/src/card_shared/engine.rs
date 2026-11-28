@@ -2,7 +2,7 @@
 use super::{content, store::Result};
 use cosyworld_orchestrator::card_assets;
 use rquickjs::{Context, Function, Runtime};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, VecDeque},
@@ -86,6 +86,23 @@ pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> 
         return Err(message.chars().take(240).collect());
     }
     Ok(value)
+}
+
+pub(super) fn reduce_journal(
+    version: &str,
+    pack: Option<&str>,
+    mut request: Value,
+) -> Result<Value> {
+    if request["op"] != "join_state" {
+        return reduce_pack(version, pack, request);
+    }
+    request["op"] = json!("join");
+    let mut response = reduce_pack(version, pack, request)?;
+    let world = response
+        .get_mut("world")
+        .filter(|world| world.is_object())
+        .ok_or("The shared-world rules did not return a world.")?;
+    Ok(json!({"ok": true, "world": world.take()}))
 }
 pub(super) fn reduce_pack_envelope(
     version: &str,
@@ -250,6 +267,28 @@ fn engine_error(error: impl std::fmt::Display) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn journal_join_preserves_refusals_and_the_world_from_a_direct_join() -> Result<()> {
+        let world = reduce(json!({"op": "create", "seed": 7}))?["world"].clone();
+        let mut request = json!({
+            "op": "join", "world": world, "actor": "mara", "claimed": [], "present": [],
+            "progress": {"xp": 7, "level": 3},
+        });
+        let direct = reduce(request.clone())?;
+        assert_eq!(direct["actor"], "mara");
+        assert!(direct["actions"].is_array());
+        assert!(direct["profiles"].is_object());
+        request["op"] = json!("join_state");
+        let journal = |request| reduce_journal(version(), Some(content::current()), request);
+        assert_eq!(
+            journal(request.clone())?,
+            json!({"ok": true, "world": direct["world"]})
+        );
+        request["progress"] = json!({"xp": -1});
+        assert_eq!(journal(request).unwrap_err(), "Choose the avatar's level.");
+        Ok(())
+    }
 
     #[test]
     fn every_pinned_version_runs_exactly_its_pinned_bytes() {
