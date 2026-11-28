@@ -12,7 +12,6 @@ from pathlib import Path
 
 from chatterbox_service import CachedSpeech, create_server, model_identity
 from memory_budget import MemoryBudget, owned_rows, LIMIT_BYTES, WINDOW_RESERVE_BYTES
-from run import local_environment
 from voice_profiles import profile_key
 
 
@@ -61,19 +60,6 @@ class ServicesTest(unittest.TestCase):
             self.request("x" * 32, {"speaker": "unknown", "text": "Hello."})
         self.assertEqual(error.exception.code, 400)
         error.exception.close()
-
-    def test_launcher_isolates_local_models_from_hosted_settings(self):
-        source = {"PATH": "/bin", "OPENROUTER_API_KEY": "private", "COSYWORLD_AI_REGISTRY_JSON": "hosted", "COSYWORLD_CARD_CHARACTER_MODELS_JSON": "hosted"}
-        env = local_environment(source, 3110, 3111, "x" * 32, Path(tempfile.gettempdir()))
-        self.assertEqual(env["COSYWORLD_AI_BASE_URL"], "embedded://llama")
-        self.assertEqual(env["COSYWORLD_LLAMA_CONTEXT"], "2048")
-        self.assertTrue(env["COSYWORLD_LLAMA_MODEL"].endswith("gemma3-4b-q4.gguf"))
-        self.assertEqual(env["COSYWORLD_CHATTERBOX_MODEL"], "nano")
-        self.assertEqual(env["COSYWORLD_CARD_TEXT_PROFILE"], "local")
-        self.assertNotIn("OPENROUTER_API_KEY", env)
-        self.assertNotIn("COSYWORLD_AI_REGISTRY_JSON", env)
-        compatible = local_environment({"COSYWORLD_LOCAL_BACKEND":"ollama"}, 3110, 3111, "x"*32, Path(tempfile.gettempdir()))
-        self.assertEqual(compatible["COSYWORLD_AI_BASE_URL"], "http://127.0.0.1:11434/v1")
 
     def test_disk_clips_survive_restart_and_track_reference_changes(self):
         with tempfile.TemporaryDirectory() as directory:

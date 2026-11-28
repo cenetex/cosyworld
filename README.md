@@ -21,14 +21,16 @@ npm run dev
 
 `npm run dev` builds the server and serves http://127.0.0.1:3102/. On a Mac it also tries to open that URL. Use `npm run v2:status` and `npm run v2:stop` to inspect or stop the supervisor. Hosted dialogue reads `OPENROUTER_API_KEY`. With no key, the play is still saved and each voice that was due shows "…".
 
-Dialogue from a model on your own machine:
+Prepare and run dialogue from a model on your own machine.
 
 ```sh
-python3 v2/local/prepare.py
-npm run play:cards:local
+cargo run --locked --release --manifest-path v2/orchestrator-rust/Cargo.toml \
+  --features local-tooling -- local prepare --model gemma3:4b
+cargo run --locked --release --manifest-path v2/orchestrator-rust/Cargo.toml \
+  --features local-tooling,embedded-llama -- local
 ```
 
-`prepare.py` fetches a pinned local dialogue model (`gemma3:4b` or `gemma3:1b`). The play script then prints `http://127.0.0.1:3110/` and starts the game plus a local voice process. Model names and the loopback checks live in `v2/local/run.py`.
+Preparation verifies the pinned `gemma3:4b` or `gemma3:1b` download. Set `COSYWORLD_LOCAL_MODEL=gemma3:1b` to launch with the smaller model. The game runs at `http://127.0.0.1:3110/`. For optional Chatterbox speech, `npm run play:cards:local` starts the voice service alongside the game. That service still uses Python by default.
 
 ## For portfolio reviewers / engineers
 
