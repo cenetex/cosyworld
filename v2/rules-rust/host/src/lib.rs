@@ -143,6 +143,7 @@ fn encode_request(
                 | "move:vale:lamp:station"
                 | "accept:vale::box:train"
                 | "drop:vale:::0"
+                | "read:vale:keeper-log:"
         )
     );
     let room = request

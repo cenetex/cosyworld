@@ -73,7 +73,6 @@ describe("shared speech from an occasion's own voices", () => {
         ]),
       ).lines,
     ).toHaveLength(2);
-    // The room may caption any play.
     const threatened = played(scene(), "threaten", "moth");
     expect(
       dispatchShared(
