@@ -54,6 +54,7 @@ mod opening_second_round;
 mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
+mod opening_station_departure_residents;
 mod opening_station_keeper_gift;
 mod opening_station_move;
 mod opening_station_quest_drop_learning;
@@ -213,6 +214,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_station_move") => {
             opening_station_move::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_station_departure_residents") => {
+            opening_station_departure_residents::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_behind_station_view") => {
             opening_behind_station_view::projection(request).unwrap_or(Value::Null)
