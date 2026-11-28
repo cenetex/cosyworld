@@ -17,7 +17,7 @@ function hold(world, item) {
   };
 }
 
-test("quiet attic holds match pinned first and second rounds with speech history", async () => {
+test("quiet attic holds and presence match pinned first and second rounds", async () => {
   const { pinned, wasm } = await reducers();
   const save = (request) => {
     const reply = pinned(request);
@@ -65,6 +65,14 @@ test("quiet attic holds match pinned first and second rounds with speech history
         assert.equal(wasm(hold(dropped, "lamp")), null);
       }
       for (const saved of states) {
+        for (const present of [[], ["vale"]]) {
+          const request = { ...seats, op: "presence", world: saved, present };
+          const expected = pinned(request);
+          assert.equal(expected.ok, true, expected.error);
+          const label = `${options.seed} ${lamp} turn ${saved.turn} present ${present.length}`;
+          assert.ok(isDeepStrictEqual(wasm(request), expected), label);
+          assert.ok(isDeepStrictEqual(expected.world, saved), label);
+        }
         let current = saved;
         for (const item of [null, "lamp", null]) {
           const request = hold(current, item);
@@ -100,6 +108,10 @@ test("quiet attic holds match pinned first and second rounds with speech history
       ).sleep = true;
       assert.equal(wasm(hold(invalid, null)), null);
       assert.equal(wasm({ ...hold(waited, null), present: [] }), null);
+      const presence = { ...seats, op: "presence", world: waited };
+      assert.equal(wasm({ ...presence, world: invalid }), null);
+      assert.equal(wasm({ ...presence, present: ["mara"] }), null);
+      assert.equal(wasm({ ...presence, claimed: [] }), null);
       assert.equal(
         wasm({ ...hold(waited, null), claimed: ["vale", "mara"] }),
         null,

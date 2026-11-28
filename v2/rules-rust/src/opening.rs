@@ -61,9 +61,11 @@ impl Opening {
     fn after_quiet_play(request: &Value) -> Option<(&Value, Self)> {
         let world = request.get("world")?;
         let turn = world["turn"].as_u64()?;
+        let claimed = seats(&request["claimed"])?;
+        let present = seats(&request["present"])?;
         if request["actor"] != "vale"
-            || seats(&request["claimed"])? != ["vale"]
-            || seats(&request["present"])? != ["vale"]
+            || claimed != ["vale"]
+            || !present.iter().all(|id| claimed.contains(id))
             || ["disabledPacks", "gone", "hidden", "absent", "homecoming"]
                 .iter()
                 .any(|key| !world[*key].is_null())
@@ -83,8 +85,7 @@ impl Opening {
         let catalog = Catalog::from_files(&files)?;
         let geo = Geography::new(&files, catalog.packs())?;
         opening_second_attic_tail::verify_station_order(world, &geo)?;
-        let solo = ["vale"];
-        let opening = Self::at_turn(world, "vale", &solo, &solo, turn, None)?;
+        let opening = Self::at_turn(world, "vale", &claimed, &present, turn, None)?;
         Some((world, opening))
     }
 
@@ -228,7 +229,8 @@ pub(super) fn stored_response(world: Value) -> Option<Value> {
 }
 
 pub(super) fn presence(request: &Value) -> Option<Value> {
-    let (world, opening) = Opening::supported(request)?;
+    let (world, opening) =
+        Opening::supported(request).or_else(|| Opening::after_quiet_play(request))?;
     let held = opening.held;
     opening.respond(world.clone(), held)
 }
