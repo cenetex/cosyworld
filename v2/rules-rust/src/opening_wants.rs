@@ -108,9 +108,14 @@ pub(super) fn settle_with(
 ) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    let first_pond_move = began == 0
+        && world["actors"]["vale"]["place"] == "pond"
+        && world["arrival"]["fromLocationId"] == "attic"
+        && world["arrival"]["locationId"] == "pond"
+        && world["items"]["lamp"]["holder"] == "vale";
     if began.checked_add(1)? != turn
         || (began != 0 && geo.files()["v2/card-game/world-history.json"]["turns"] != began)
-        || world["actors"]["vale"]["place"] != "attic"
+        || (world["actors"]["vale"]["place"] != "attic" && !first_pond_move)
         || !world["elysiumEncounters"].is_null()
         || world["sharedVersion"] != 1
         || ["heldActors", "presentActors", "controlledActors"]
@@ -141,7 +146,13 @@ pub(super) fn settle_with(
             continue;
         }
         want["since"].as_u64()?;
-        if want["kind"] == "item" && want["refusals"].as_u64()? != 0 {
+        if want["kind"] == "item"
+            && want["refusals"].as_u64()? != 0
+            && !(first_pond_move
+                && id == "moth"
+                && want["target"] == "lamp"
+                && want["refusals"] == 1)
+        {
             return None;
         }
         if opening::is_seat(id) {

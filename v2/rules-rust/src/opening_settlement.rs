@@ -29,6 +29,14 @@ pub(super) fn sail_attic_transports(world: &mut Value, catalog: &Catalog) -> Opt
     if world["actors"]["vale"]["place"] != ATTIC {
         return None;
     }
+    sail_transports(world, catalog, Some(ATTIC))
+}
+
+pub(super) fn sail_transports(
+    world: &mut Value,
+    catalog: &Catalog,
+    waited_at: Option<&str>,
+) -> Option<Vec<Value>> {
     let actors = world.get("actors")?.as_object()?;
     let states = world.get("transports")?.as_object()?;
     let mut changes = Vec::new();
@@ -39,7 +47,7 @@ pub(super) fn sail_attic_transports(world: &mut Value, catalog: &Catalog) -> Opt
             let docks = transport["docks"].as_array()?;
             let state = states.get(id)?;
             let riders = state["riders"].as_array()?;
-            if docks.iter().any(|dock| dock == ATTIC)
+            if waited_at.is_some_and(|room| docks.iter().any(|dock| dock == room))
                 || state["version"] != 3
                 || !docks.contains(&state["dock"])
                 || (!state["recall"].is_null() && !docks.contains(&state["recall"]))

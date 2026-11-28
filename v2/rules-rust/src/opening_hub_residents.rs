@@ -108,6 +108,20 @@ pub(super) fn confirm_idle(world: &Value, geo: &Geography) -> Option<()> {
     idle_plans(world, geo).map(|_| ())
 }
 
+pub(super) fn keeper_idle_after_move(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    if world["actors"]["vale"]["place"] != "pond"
+        || world["turn"] != 1
+        || world["items"]["lamp"]["holder"] != "vale"
+        || world["items"]["bell"]["holder"] != "station"
+        || world["items"]["bell"]["ringing"] != 0
+        || world["actors"][KEEPER]["want"]["step"]["verb"] != "call"
+        || geo.entity_active(world, "boardyai")?
+    {
+        return None;
+    }
+    at_home(world, geo, KEEPER, "oil")
+}
+
 fn idle_plans(world: &Value, geo: &Geography) -> Option<[Option<&'static str>; 2]> {
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
     if world["turn"].as_u64()? != began.checked_add(1)?

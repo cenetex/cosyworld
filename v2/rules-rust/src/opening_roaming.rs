@@ -150,7 +150,8 @@ fn chosen_move(world: &Value, geo: &Geography, turn: u64) -> Option<Move> {
 pub(super) fn bard_move(world: &mut Value, geo: &Geography) -> Option<Value> {
     let turn = world["turn"].as_u64()?;
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
-    if began.checked_add(1)? != turn || world["actors"]["vale"]["place"] != "attic" {
+    let place = world["actors"]["vale"]["place"].as_str()?;
+    if began.checked_add(1)? != turn || !(place == "attic" || began == 0 && place == "pond") {
         return None;
     }
     let chosen = chosen_move(world, geo, turn)?;

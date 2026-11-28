@@ -22,6 +22,7 @@ mod opening_content;
 mod opening_crossings;
 mod opening_drop;
 pub mod opening_evidence;
+mod opening_full_move;
 mod opening_full_wait;
 mod opening_grounded_lamp;
 pub mod opening_history;
@@ -163,6 +164,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_mirror_move") => {
             opening_mirror_move::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_full_move") => opening_full_move::projection(request).unwrap_or(Value::Null),
         Some("opening_pond_ask") => opening_pond_ask::projection(request).unwrap_or(Value::Null),
         Some("opening_pond_place_returns") => {
             opening_pond_place_returns::projection(request).unwrap_or(Value::Null)

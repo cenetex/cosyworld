@@ -136,6 +136,19 @@ pub(super) fn begin(
     evidence: &ResidentEvidence,
     carry: bool,
 ) -> Option<Value> {
+    let (world, ()) = begin_with(before, geo, authored, order, evidence, carry, |_| Some(()))?;
+    Some(world)
+}
+
+pub(super) fn begin_with<T>(
+    before: &Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+    carry: bool,
+    before_action: impl FnOnce(&Value) -> Option<T>,
+) -> Option<(Value, T)> {
     fresh_traveler(before, geo)?;
     quiet_route(before, geo)?;
     let turn = before["turn"].as_u64()?.checked_add(1)?;
@@ -160,12 +173,14 @@ pub(super) fn begin(
     for field in ["heldActors", "controlledActors", "presentActors"] {
         world[field] = json!([VALE]);
     }
+    let vale = world["actors"][VALE].as_object_mut()?;
+    vale.remove("offered");
+    vale.remove("guarding");
+    let prepared = before_action(&world)?;
     world["locations"][ATTIC]
         .as_object_mut()?
         .insert("anchored".into(), json!(true));
     let vale = world["actors"][VALE].as_object_mut()?;
-    vale.remove("offered");
-    vale.remove("guarding");
     vale.insert("place".into(), json!(POND));
     vale.insert("crossed".into(), json!(1));
 
@@ -209,7 +224,7 @@ pub(super) fn begin(
     world["arrival"] = json!({
         "seq":world["eventSeq"], "locationId":POND, "fromLocationId":ATTIC,
     });
-    Some(world)
+    Some((world, prepared))
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {

@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 
 const VALE: &str = "vale";
 
-fn quiet_opening(world: &Value) -> Option<()> {
+pub(super) fn quiet_opening(world: &Value) -> Option<()> {
     let began = opening::unplayed_turn(world)?;
     if !matches!(began, 0 | 480)
         || world["revision"].as_u64()?.checked_sub(began)? > 2
@@ -56,7 +56,7 @@ fn visible_items<'a>(
     Some(items)
 }
 
-fn roam(
+pub(super) fn roam(
     world: &mut Value,
     geo: &Geography,
     authored: &Order,
@@ -79,6 +79,28 @@ fn roam(
     detail["witnesses"] = json!(witnesses);
     evidence.record(world, &cast, &items, detail, true)?;
     deck.settle(world, geo, None)
+}
+
+pub(super) fn pickups(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    evidence: &ResidentEvidence,
+    deck: &opening_place_cards::Deck<'_>,
+    known: &[&str],
+    residents: &[&str],
+) -> Option<()> {
+    let mut custody = opening_pickups::Custody::new(world)?;
+    for &id in residents {
+        if !known.contains(&id) || ["moth", "keeper"].contains(&id) {
+            continue;
+        }
+        if !opening::is_seat(id) {
+            return None;
+        }
+        opening_pickups::take(world, geo, evidence, &[VALE], &[VALE], id, &mut custody)??;
+        deck.settle(world, geo, None)?;
+    }
+    Some(())
 }
 
 #[derive(PartialEq, Eq)]
@@ -142,25 +164,7 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
         opening_roster::visit_hidden(&mut world, &geo)?;
     }
     opening_hub_residents::confirm_idle(&world, &geo)?;
-    let mut custody = opening_pickups::Custody::new(&world)?;
-    for &id in &residents {
-        if !known.contains(&id) || ["moth", "keeper"].contains(&id) {
-            continue;
-        }
-        if !opening::is_seat(id) {
-            return None;
-        }
-        opening_pickups::take(
-            &mut world,
-            &geo,
-            &evidence,
-            &claimed,
-            &present,
-            id,
-            &mut custody,
-        )??;
-        deck.settle(&mut world, &geo, None)?;
-    }
+    pickups(&mut world, &geo, &evidence, &deck, &known, &residents)?;
     opening_settlement::decay_bell(&mut world)?;
     roam(&mut world, &geo, &authored, &order, &evidence, &deck)?;
     if historic {
