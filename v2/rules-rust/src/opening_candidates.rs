@@ -11,7 +11,7 @@ struct Context<'a> {
     pub active: BTreeSet<&'a str>,
     pub regions: BTreeMap<&'a str, &'a str>,
     forest: &'a Value,
-    authored: BTreeMap<(&'a str, &'a str), bool>,
+    authored: BTreeMap<&'a str, Vec<(&'a str, bool)>>,
 }
 
 type Pool<'a> = BTreeSet<(&'static str, &'a str)>;
@@ -29,6 +29,10 @@ pub(super) fn fill(
     files: &Value,
 ) -> Option<()> {
     let forest = files.get("v2/card-game/forest.json")?;
+    let mut authored = BTreeMap::<_, Vec<_>>::new();
+    for ((from, to), retired) in create::authored_edges(forest, geo.packs())? {
+        authored.entry(from).or_default().push((to, retired));
+    }
     let mut context = Context {
         active: BTreeSet::new(),
         regions: people
@@ -36,7 +40,7 @@ pub(super) fn fill(
             .iter()
             .map(|(&id, person)| (id, person.pack))
             .collect(),
-        authored: create::authored_edges(forest, geo.packs())?,
+        authored,
         forest,
     };
     for &id in people.people.keys() {
@@ -167,8 +171,8 @@ impl<'a> Context<'a> {
             if distance == limit {
                 continue;
             }
-            for &(start, end) in self.authored.keys() {
-                if start == here && found.insert(end.into()) {
+            for &(end, _) in self.authored.get(here.as_str()).into_iter().flatten() {
+                if found.insert(end.into()) {
                     queue.push_back((end.into(), distance + 1));
                 }
             }
@@ -188,9 +192,8 @@ fn reachable<'a>(
     let mut found = BTreeSet::new();
     let mut queue = VecDeque::from([here]);
     while let Some(from) = queue.pop_front() {
-        for (&(start, end), &retired) in &context.authored {
-            if start != from
-                || retired
+        for &(end, retired) in context.authored.get(from).into_iter().flatten() {
+            if retired
                 || end == here
                 || !context.active.contains(end)
                 || allowed.is_some_and(|places| !places.contains(end))
