@@ -307,23 +307,7 @@ fn settle_guards(world: &mut Value, geo: &Geography, people: &People) -> Option<
 }
 
 fn settle_hands_and_lamp(world: &mut Value, geo: &Geography) -> Option<()> {
-    let mut hands = BTreeMap::<String, Vec<String>>::new();
-    for (id, item) in world["items"].as_object()? {
-        let holder = item["holder"].as_str()?;
-        if world["actors"].get(holder).is_some() && geo.entity_enabled(world, id)? {
-            hands.entry(holder.into()).or_default().push(id.clone());
-        }
-    }
-    for (id, actor) in world["actors"].as_object_mut()? {
-        if actor.get("heldItem") == Some(&Value::Null) {
-            continue;
-        }
-        let saved = actor["heldItem"].as_str();
-        let options = hands.get(id);
-        if !options.is_some_and(|items| items.iter().any(|id| Some(id.as_str()) == saved)) {
-            actor["heldItem"] = json!(options.and_then(|items| items.first()));
-        }
-    }
+    super::opening_held_items::settle(world, geo, None)?;
     let owner = world["items"]["lamp"]["holder"].as_str()?;
     let place = world["actors"][owner]["place"].as_str()?;
     let position = LampPosition {

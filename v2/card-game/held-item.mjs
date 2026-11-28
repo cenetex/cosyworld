@@ -58,7 +58,6 @@ export function chooseHeldItem(world, actor, item) {
   world.actors[actor].heldItem = item;
 }
 
-// A revision-checked Hold changes only the authenticated actor's selection.
 export function applyHeldChoice(world, actor, choice) {
   if (
     !choice ||
