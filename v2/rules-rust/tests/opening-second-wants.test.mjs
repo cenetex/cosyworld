@@ -267,3 +267,131 @@ test("historic Station arrival settles wants and contacts while Pip sleeps at Po
     assert.equal(wasm({ op, world }), null);
   }
 });
+
+test("the first Keeper’s Log read settles wants after Pip’s witnessed Wait", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(capture);
+  const op = "opening_station_read_wants";
+  const key = "read:vale:keeper-log:";
+  const play = (world, action) => {
+    const reply = pinned({ ...seats, op: "play", world, action });
+    assert.equal(reply.ok, true, reply.error);
+    return reply.world;
+  };
+  const observe = (request) => {
+    const reply = JSON.parse(reference.cardShared(JSON.stringify(request)));
+    assert.equal(reply.ok, true, reply.error);
+    return reply;
+  };
+  const copy = (world) => JSON.parse(JSON.stringify(world));
+  let valid, settled;
+  for (const [seed, dry, spoken, sorted] of [
+    [undefined, false, false, false],
+    [0, true, false, true],
+    [2, false, true, false],
+    [42, true, true, true],
+    [4242, false, false, true],
+    [4_294_967_295, true, false, false],
+  ]) {
+    let { world } = pinned({ op: "create", seed });
+    if (dry) {
+      Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+    } else {
+      const held = pinned({
+        ...seats,
+        op: "hold",
+        world,
+        choice: { item: null, revision: world.revision },
+      });
+      assert.equal(held.ok, true, held.error);
+      world = held.world;
+    }
+    world = play(world, "move:vale::pond");
+    world = play(world, dry ? "move:vale:lamp:station" : "move:vale::station");
+    if (spoken) {
+      const told = pinned({
+        ...seats,
+        op: "speech",
+        world,
+        room: "station",
+        lines: [{ actorId: "keeper", text: "Wait beside the timetable." }],
+      });
+      assert.equal(told.ok, true, told.error);
+      world = told.world;
+    }
+    if (sorted)
+      world.actors = Object.fromEntries(
+        Object.entries(world.actors).toSorted(),
+      );
+    const played = observe({
+      ...seats,
+      op: "play",
+      world,
+      action: spoken ? { key } : key,
+      revision: world.revision,
+    });
+    const before = copy(reference.beforeWants);
+    const after = copy(reference.afterWants);
+    const label = JSON.stringify({ seed, dry, spoken, sorted });
+    const [read, waited] = played.events;
+    assert.deepEqual(
+      played.events.map(({ actorId, verb }) => [actorId, verb]),
+      [
+        ["vale", "read"],
+        ["moth", "wait"],
+      ],
+    );
+    assert.deepEqual(read.witnesses, waited.witnesses, label);
+    assert.deepEqual(after.log.slice(-2), played.events, label);
+    assert.equal(before.actors["greek-aethra"].want.since, 2, label);
+    assert.equal(after.actors["greek-aethra"].want.since, 3, label);
+    const actual = wasm({ op, world: before });
+    assert.ok(actual, `unsupported ${label}`);
+    const changed = Object.keys(after).find(
+      (field) => !isDeepStrictEqual(actual.world[field], after[field]),
+    );
+    assert.equal(changed, undefined, label);
+    assert.ok(isDeepStrictEqual(actual, { ok: true, world: after }), label);
+    valid = before;
+    settled = played.world;
+  }
+
+  const repeated = observe({
+    ...seats,
+    op: "play",
+    world: settled,
+    action: key,
+  });
+  assert.equal(repeated.events.at(-1).verb, "give");
+  assert.equal(wasm({ op, world: copy(reference.beforeWants) }), null);
+  for (const corrupt of [
+    (world) => {
+      world.arrival.fromLocationId = "attic";
+    },
+    (world) => {
+      world.log.pop();
+      world.eventSeq--;
+    },
+    (world) => {
+      world.log.at(-1).sleep = true;
+    },
+    (world) => {
+      for (const event of world.log.slice(-2)) {
+        event.witnesses = event.witnesses.filter((id) => id !== "keeper");
+      }
+    },
+    (world) => {
+      delete world.knowledge.known.vale["quest:keeper:pond"];
+    },
+    (world) => {
+      world.actors.moth.want.refusals++;
+    },
+    (world) => {
+      world.heldActors.push("mara");
+    },
+  ]) {
+    const world = structuredClone(valid);
+    corrupt(world);
+    assert.equal(wasm({ op, world }), null);
+  }
+});

@@ -1,7 +1,7 @@
 use super::{
     create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
     opening_company, opening_content, opening_mirror_move, opening_play, opening_resident_sleep,
-    opening_stale_wants, opening_station_move, pack_state::Catalog,
+    opening_stale_wants, opening_station_move, opening_station_read, pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -236,24 +236,12 @@ pub(super) fn settle_second_pond(world: &mut Value, geo: &Geography<'_>) -> Opti
     settle_wants(world, geo, 2, true, false, opening_company::fade_trust)
 }
 
-pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
-    let turn = world["turn"].as_u64()?;
-    let historic = world.get("began").is_some();
-    let pip_place = if historic {
-        let seq = opening_station_move::historic_arrival(world)?;
-        opening_resident_sleep::sleeping_pip_at_pond(world, geo, seq)?;
-        let pip = &world["actors"]["moth"];
-        if geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
-            || pip["want"]
-                != json!({"kind":"item", "target":"lamp", "since":0, "refusals":1, "lit":true})
-        {
-            return None;
-        }
-        "pond"
-    } else {
-        opening_station_move::arrival(world)?;
-        "station"
-    };
+fn pip_wants_lamp(world: &Value) -> bool {
+    world["actors"]["moth"]["want"]
+        == json!({"kind":"item", "target":"lamp", "since":0, "refusals":1, "lit":true})
+}
+
+fn station_wants_state(world: &Value, pip_place: &str) -> Option<()> {
     if world["actors"]["vale"].get("want") != Some(&Value::Null)
         || world["actors"]["moth"]["place"] != pip_place
         || world["actors"]["keeper"]["place"] != "station"
@@ -266,6 +254,26 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
     {
         return None;
     }
+    Some(())
+}
+
+pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    let turn = world["turn"].as_u64()?;
+    let historic = world.get("began").is_some();
+    let pip_place = if historic {
+        let seq = opening_station_move::historic_arrival(world)?;
+        opening_resident_sleep::sleeping_pip_at_pond(world, geo, seq)?;
+        if geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
+            || !pip_wants_lamp(world)
+        {
+            return None;
+        }
+        "pond"
+    } else {
+        opening_station_move::arrival(world)?;
+        "station"
+    };
+    station_wants_state(world, pip_place)?;
     settle_wants(
         world,
         geo,
@@ -274,6 +282,57 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
         historic,
         opening_company::fade_trust,
     )
+}
+
+pub(super) fn settle_station_read(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    let seq = opening_station_read::after_first_log(world)?;
+    let next = seq.checked_add(1)?;
+    let [.., read, wait] = world["log"].as_array()?.as_slice() else {
+        return None;
+    };
+    let cast = wait["cast"].as_array()?;
+    let witnesses = wait["witnesses"].as_array()?;
+    let known = &world["knowledge"]["known"]["vale"];
+    let name = geo.files()["v2/card-game/forest.json"]["people"]["moth"]["name"].as_str()?;
+    if world["eventSeq"] != next
+        || read["seq"] != seq
+        || wait["seq"] != next
+        || wait["turn"] != 3
+        || wait["kind"] != "action"
+        || wait["generated"] == true
+        || wait["actorId"] != "moth"
+        || wait["verb"] != "wait"
+        || wait["locationId"] != "station"
+        || wait["text"] != format!("{name} waits one turn.")
+        || ["sleep", "guards", "itemId", "targetId", "fromLocationId"]
+            .iter()
+            .any(|field| !wait[*field].is_null())
+        || ["cast", "witnesses", "items", "light"]
+            .iter()
+            .any(|field| read[*field] != wait[*field])
+        || cast.len() != 3
+        || ["vale", "moth", "keeper"]
+            .iter()
+            .any(|id| !cast.iter().any(|actor| actor == *id))
+        || ["vale", "moth", "keeper", "keeper-log"]
+            .iter()
+            .any(|id| !witnesses.iter().any(|witness| witness == *id))
+        || ["claim:hub:keeper-log:pond-signal", "quest:keeper:pond"]
+            .iter()
+            .any(|id| {
+                known[*id]["kind"] != "read"
+                    || known[*id]["book"] != "keeper-log"
+                    || known[*id]["eventSeq"] != seq
+                    || known[*id]["learnedTurn"] != 3
+            })
+        || !world["standoffs"].as_array()?.is_empty()
+        || !world["actors"]["moth"]["sleeping"].is_null()
+        || !pip_wants_lamp(world)
+    {
+        return None;
+    }
+    station_wants_state(world, "station")?;
+    settle_wants(world, geo, 3, true, false, opening_company::fade_trust)
 }
 
 pub(super) fn round_projection(request: &Value) -> Option<Value> {
@@ -285,6 +344,7 @@ pub(super) fn round_projection(request: &Value) -> Option<Value> {
         "opening_second_attic_wants" => settle_second_attic(&mut world, &geo)?,
         "opening_second_pond_wants" => settle_second_pond(&mut world, &geo)?,
         "opening_station_wants" => settle_station(&mut world, &geo)?,
+        "opening_station_read_wants" => settle_station_read(&mut world, &geo)?,
         _ => return None,
     }
     Some(json!({"ok":true, "world":world}))
