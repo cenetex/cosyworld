@@ -82,6 +82,14 @@ test("Vale's first boarding of The Charybdis matches the pinned Move and settlem
         );
       world = play(world, "drop:vale:lamp:pond");
       assert.equal(world.transports[ship].dock, "pond");
+      if (seed === 17 && !sorted)
+        world = run({
+          ...seats,
+          op: "speech",
+          world,
+          room: "pond",
+          lines: [{ actorId: "vale", text: "I can hear the ship." }],
+        });
       for (const key of [`move:vale::${ship}`, `move:vale:cloth:${ship}`]) {
         reference.boarded = undefined;
         reference.plans = [];
@@ -97,6 +105,7 @@ test("Vale's first boarding of The Charybdis matches the pinned Move and settlem
         const expected = captured("boarded");
         const actual = wasm({ ...request, op });
         const label = `${seed} ${sorted} ${key}`;
+        assert.ok(isDeepStrictEqual(wasm(request), reply), `play ${label}`);
         assert.ok(actual, `unsupported ${label}`);
         const field = Object.keys(expected).find(
           (name) => !isDeepStrictEqual(actual.world[name], expected[name]),

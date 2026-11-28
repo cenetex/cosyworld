@@ -141,6 +141,8 @@ fn encode_request(
             "move:vale::pond"
                 | "move:vale:lamp:pond"
                 | "move:vale:cloth:pond"
+                | "move:vale::greek-ship"
+                | "move:vale:cloth:greek-ship"
                 | "drop:vale:lamp:pond"
         )
     );
