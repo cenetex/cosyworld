@@ -108,7 +108,7 @@ fn second_scene(world: &Value) -> Option<&'static str> {
     }
 }
 
-fn no_arcana(world: &Value, geo: &Geography) -> Option<()> {
+pub(super) fn no_arcana(world: &Value, geo: &Geography) -> Option<()> {
     let authored = &geo.files()["v2/card-game/arcana.json"];
     (authored["calls"].as_u64()? > 0
         && world["actors"]
@@ -152,6 +152,10 @@ pub(super) fn verify_stops(world: &Value, geo: &Geography) -> Option<()> {
 
 pub(super) fn verify_wake(world: &Value) -> Option<()> {
     second_scene(world)?;
+    no_sleepers(world)
+}
+
+pub(super) fn no_sleepers(world: &Value) -> Option<()> {
     world["actors"]
         .as_object()?
         .values()

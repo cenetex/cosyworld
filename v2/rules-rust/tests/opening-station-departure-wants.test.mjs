@@ -6,26 +6,39 @@ import { reducers } from "./parity.mjs";
 
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const op = "opening_station_departure_wants";
+const life = "opening_station_departure_life";
 
-function traceWants(source) {
-  const start = "    reviseStalledWants(\n      next,";
-  const end = "    fillWants(next, wantAPI(next));";
-  const tail = "    if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));";
-  assert.equal(source.split(start).length, 2);
-  assert.equal(source.split(end).length, 2);
-  assert.equal(source.split(tail).length, 2);
-  return source
-    .replace(
-      start,
-      `    globalThis.beforeWants = structuredClone(next);\n${start}`,
-    )
-    .replace(end, `${end}\n    globalThis.afterWants = structuredClone(next);`)
-    .replace(tail, `${tail}\n    globalThis.afterTail = structuredClone(next);`);
+function traceRound(source) {
+  for (const [name, marker, after] of [
+    [
+      "beforeLife",
+      "    residentRound(next, [...cast, ...lightPlays(next, round2, cast)]);",
+    ],
+    ["afterLife", "    settleStops(next, {"],
+    ["afterStops", "    const worldLine = (text2, locationId) =>"],
+    ["beforeWake", "    wakeSleepers(next, s, voyages);"],
+    ["afterWake", "    settleItemCycle(next, nameOf2, worldLine);"],
+    ["beforeWants", "    reviseStalledWants(\n      next,"],
+    ["afterWants", "    fillWants(next, wantAPI(next));", true],
+    [
+      "afterTail",
+      "    if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));",
+      true,
+    ],
+  ]) {
+    assert.equal(source.split(marker).length, 2, name);
+    const capture = `    globalThis.${name} = structuredClone(next);`;
+    source = source.replace(
+      marker,
+      after ? `${marker}\n${capture}` : `${capture}\n${marker}`,
+    );
+  }
+  return source;
 }
 
-test("fresh Station departures settle wants without closing the Keeper quest", async () => {
+test("fresh Station departures match quiet life, wake, and wants cuts", async () => {
   const { pinned, wasm } = await reducers();
-  const reference = currentSharedEngine(traceWants);
+  const reference = currentSharedEngine(traceRound);
   const run = (request, reducer = pinned) => {
     const result = reducer(request);
     assert.equal(result.ok, true, result.error);
@@ -45,6 +58,17 @@ test("fresh Station departures settle wants without closing the Keeper quest", a
   const trace = (request) =>
     JSON.parse(reference.cardShared(JSON.stringify(request)));
   const capture = (name) => JSON.parse(JSON.stringify(reference[name]));
+  const check = (request, expected, label) => {
+    const actual = wasm(request);
+    const differingField = Object.keys(expected).find(
+      (key) => !isDeepStrictEqual(actual?.world[key], expected[key]),
+    );
+    assert.ok(
+      isDeepStrictEqual(actual, { ok: true, world: expected }),
+      `${label}: ${request.op} ${actual ? differingField : "unsupported"}`,
+    );
+    return actual.world;
+  };
   let sample;
   for (const seed of [undefined, 2, 17, 42, 4242]) {
     for (const dry of [false, true]) {
@@ -75,40 +99,31 @@ test("fresh Station departures settle wants without closing the Keeper quest", a
         }
         const key = `move:vale:${dry ? "lamp" : ""}:${to}`;
         play(before, key, dry, trace);
+        const label = `${seed} ${to} dry=${dry}`;
+        const day = { op: life, before, world: capture("beforeLife") };
+        assert.ok(isDeepStrictEqual(day.world, capture("afterLife")), label);
+        check(day, capture("afterStops"), label);
+        check(
+          { op: life, before, world: capture("beforeWake") },
+          capture("afterWake"),
+          label,
+        );
         const request = { op, before, world: capture("beforeWants") };
-        const expected = capture("afterWants");
-        const actual = wasm(request);
-        const differingField = Object.keys(expected).find(
-          (key) => !isDeepStrictEqual(actual?.world[key], expected[key]),
+        const settled = check(request, capture("afterWants"), label);
+        assert.deepEqual(settled.actors.vale.want, before.actors.vale.want);
+        assert.equal(settled.actors.moth.want.refusals, 1);
+        assert.equal(settled.actors["greek-aethra"].want.since, settled.turn);
+        check(
+          {
+            op: "opening_second_attic_tail",
+            phase: "station_departure_after_wants",
+            before,
+            world: settled,
+          },
+          capture("afterTail"),
+          label,
         );
-        assert.ok(
-          isDeepStrictEqual(actual, { ok: true, world: expected }),
-          `${seed} ${to} dry=${dry}: ${actual ? differingField : "unsupported"}`,
-        );
-        assert.deepEqual(
-          actual.world.actors.vale.want,
-          before.actors.vale.want,
-        );
-        assert.equal(actual.world.actors.moth.want.refusals, 1);
-        assert.equal(
-          actual.world.actors["greek-aethra"].want.since,
-          actual.world.turn,
-        );
-        const tail = wasm({
-          op: "opening_second_attic_tail",
-          phase: "station_departure_after_wants",
-          before,
-          world: actual.world,
-        });
-        const after = capture("afterTail");
-        const tailField = Object.keys(after).find(
-          (field) => !isDeepStrictEqual(tail?.world[field], after[field]),
-        );
-        assert.ok(
-          isDeepStrictEqual(tail, { ok: true, world: after }),
-          `${seed} ${to} dry=${dry}: tail ${tail ? tailField : "unsupported"}`,
-        );
-        if (to === "pond") sample = request;
+        if (to === "pond") sample = { request, day };
       }
     }
   }
@@ -129,8 +144,26 @@ test("fresh Station departures settle wants without closing the Keeper quest", a
       world.log.at(-1).actorId = "moth";
     },
   ]) {
-    const request = structuredClone(sample);
+    const request = structuredClone(sample.request);
     change(request);
+    assert.equal(wasm(request), null);
+  }
+  for (const change of [
+    (world) => {
+      world.turn = 24;
+    },
+    (world) => {
+      world.actors.keeper.sleeping = { place: "station", since: 3, until: 4 };
+    },
+    (world) => {
+      world.actors.vale.arcana = { calls: 3 };
+    },
+    (world) => {
+      world.actors["greek-rhapsode"].place = "pond";
+    },
+  ]) {
+    const request = structuredClone(sample.day);
+    change(request.world);
     assert.equal(wasm(request), null);
   }
 });
