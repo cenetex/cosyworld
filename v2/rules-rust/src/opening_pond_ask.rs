@@ -125,7 +125,12 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
     opening_crossings::no_crossing_unlocks(world, geo)
 }
 
-fn first_trial(world: &Value, turn: u64, text: &str) -> Option<Value> {
+pub(super) fn lamp_trial(world: &Value, turn: u64, kind: &str, text: &str) -> Option<Value> {
+    let (target, item) = match kind {
+        "ask" => (Some(VALE), Some(LAMP)),
+        "wait" => (None, None),
+        _ => return None,
+    };
     let want = &world["actors"][PIP]["want"];
     let intent = json!([want["kind"], want["target"]]).to_string();
     let trust = world["actors"][VALE]["trust"][PIP].as_u64()?;
@@ -159,7 +164,7 @@ fn first_trial(world: &Value, turn: u64, text: &str) -> Option<Value> {
     Some(json!({
         "version":2, "seq":world["eventSeq"], "turn":turn,
         "goal":{"kind":"ask","target":VALE,"item":LAMP,"destination":null},
-        "action":{"kind":"ask","target":VALE,"item":LAMP,"receive":null,"destination":null},
+        "action":{"kind":kind,"target":target,"item":item,"receive":null,"destination":null},
         "intent":intent, "conditions":conditions, "afterConditions":conditions,
         "before":observation, "after":observation,
         "expected":{"value":null,"samples":0,"local":0}, "reward":-1, "evidence":text,
@@ -216,7 +221,7 @@ pub(super) fn settle(
         "targetId":VALE,"accepted":false,"reason":"wants-something-else","witnesses":witnesses,
     });
     evidence.record(world, &cast, &items, detail, true)?;
-    world["memories"][PIP]["learning"] = json!([first_trial(world, turn, &text)?]);
+    world["memories"][PIP]["learning"] = json!([lamp_trial(world, turn, "ask", &text)?]);
     Some(())
 }
 

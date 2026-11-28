@@ -1,9 +1,9 @@
 use super::*;
-use crate::{opening_content, pack_state::Catalog};
+use crate::{opening_content, pack_state::Catalog, settle_station_read_wait};
 use std::{path::Path, process::Command};
 
 #[test]
-fn reading_the_keeper_log_matches_the_whole_pinned_primary_stage() {
+fn reading_the_keeper_log_and_pip_wait_match_the_pinned_stages() {
     let raw = include_str!("../../orchestrator-rust/src/card_shared/content.json");
     let (files, authored) = opening_content::wait_files(&json!({"packContentJson":raw})).unwrap();
     let catalog = Catalog::from_files(&files).unwrap();
@@ -13,9 +13,16 @@ fn reading_the_keeper_log_matches_the_whole_pinned_primary_stage() {
 import assert from 'node:assert/strict';
 import { currentSharedEngine } from './test/fixtures/shared-engine.mjs';
 const marker = 'if (itemOf(bookPack(a.item), a.item).lifecycle === "spent")\n      giveUpForGood(s, a.item);';
+const resident = '      perform(next, read2 ?? plan(next, id).action, round2, residents2);';
 const runtime = currentSharedEngine(source => {
     assert.equal(source.split(marker).length, 2);
-    return source.replace(marker, marker + '\n    globalThis.readPhase = structuredClone(s);');
+    assert.equal(source.split(resident).length, 2);
+    return source.replace(marker, marker + '\n    globalThis.readPhase = structuredClone(s);')
+        .replace(resident, `      const chosen = read2 ?? plan(next, id).action;
+      const capture = id === "moth" && next.turn === 3 && next.log.at(-1)?.verb === "read";
+      const before = capture && structuredClone(next);
+      perform(next, chosen, round2, residents2);
+      if (capture) globalThis.pipPhase = {before, after:structuredClone(next), key:chosen.key};`);
 });
 const raw = (request) => JSON.parse(runtime.cardShared(JSON.stringify(request)));
 const pinned = (request) => {
@@ -47,6 +54,8 @@ for (const [seed, dry, spoken, sorted, object] of [
     assert.equal(raw({...request, revision:world.revision - 1}).ok, false);
     const full = pinned(request);
     const expected = runtime.readPhase;
+    const pipPhase = runtime.pipPhase;
+    assert.equal(pipPhase.key, 'wait:moth::');
     assert.deepEqual(full.events.map(({actorId,verb}) => [actorId,verb]), [['vale','read'],['moth','wait']]);
     assert.deepEqual(full.world.speechVoices.vale, []);
     assert.deepEqual(full.events[0], expected.log.at(-1));
@@ -56,7 +65,7 @@ for (const [seed, dry, spoken, sorted, object] of [
     assert.deepEqual(repeat.events.map(({actorId,verb}) => [actorId,verb]), [['vale','read'],['moth','give']]);
     assert.deepEqual(repeat.world.knowledge.known.vale['claim:hub:keeper-log:pond-signal'],
         full.world.knowledge.known.vale['claim:hub:keeper-log:pond-signal']);
-    console.log(JSON.stringify({request, expected, settled:full.world, order:Object.keys(world.actors),
+    console.log(JSON.stringify({request, expected, pipPhase, settled:full.world, order:Object.keys(world.actors),
         title:{seed,dry,spoken,sorted,object}}));
 }
 "#;
@@ -95,6 +104,23 @@ for (const [seed, dry, spoken, sorted, object] of [
             );
         }
         assert_eq!(actual, row["expected"]);
+        let read_seq = after_first_log(&actual).unwrap();
+        for mut world in [actual, row["pipPhase"]["before"].clone()] {
+            settle_station_read_wait(&mut world, &geo, &authored, &order, &evidence)
+                .unwrap_or_else(|| panic!("Pip Wait declined {}", row["title"]));
+            for (key, expected) in row["pipPhase"]["after"].as_object().unwrap() {
+                assert!(
+                    world[key] == *expected,
+                    "Pip Wait differs at {key} in {}",
+                    row["title"]
+                );
+            }
+            assert_eq!(world, row["pipPhase"]["after"]);
+            assert_eq!(after_first_log(&world), Some(read_seq));
+            assert!(
+                settle_station_read_wait(&mut world, &geo, &authored, &order, &evidence).is_none()
+            );
+        }
 
         request["revision"] = json!(request["world"]["revision"].as_u64().unwrap() - 1);
         assert!(begin(&request).is_none());

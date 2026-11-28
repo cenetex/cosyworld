@@ -5,6 +5,7 @@ use super::{
     opening_reflection::valid_text,
     opening_roster::known_actors,
     opening_station_view::settled_first_arrival,
+    opening_wait_response::vale_action,
     resident_evidence::ResidentEvidence,
     Geography,
 };
@@ -16,7 +17,7 @@ const STATION: &str = "station";
 const BOOK: &str = "keeper-log";
 const QUEST: &str = "quest:keeper:pond";
 const KEY: &str = "read:vale:keeper-log:";
-const PROTECTED_FACT_LIMIT: usize = 128;
+pub(super) const PROTECTED_FACT_LIMIT: usize = 128;
 
 fn read_world(request: &Value) -> Option<&Value> {
     let world = request.get("world")?;
@@ -39,6 +40,55 @@ fn read_world(request: &Value) -> Option<&Value> {
             actor["place"] != STATION || [VALE, "moth", KEEPER].contains(&id.as_str())
         }))
     .then_some(world)
+}
+
+pub(super) fn after_first_log(world: &Value) -> Option<u64> {
+    if world["turn"] != 3
+        || world.get("began").is_some()
+        || world["schema"] != 8
+        || world["sharedVersion"] != 1
+        || world["actors"][VALE]["place"] != STATION
+        || world["items"][BOOK]["holder"] != STATION
+        || world["opening"]["met"]["moth"] != 1
+        || world["opening"]["met"][KEEPER] != 2
+    {
+        return None;
+    }
+    let log = world["log"].as_array()?;
+    let moves = |event: &Value, from: &str, to: &str, turn: u64| {
+        event["verb"] == "move"
+            && event["turn"] == turn
+            && event["fromLocationId"] == from
+            && event["locationId"] == to
+            && event["targetId"] == to
+    };
+    let mut actions = log.iter().filter(|event| vale_action(event));
+    let pond = actions.next()?;
+    let station = actions.next()?;
+    let station_seq = station["seq"].as_u64()?;
+    let read = actions.next()?;
+    let read_seq = read["seq"].as_u64()?;
+    (actions.next().is_none()
+        && moves(pond, "attic", "pond", 1)
+        && pond["seq"].as_u64()? < station_seq
+        && moves(station, "pond", STATION, 2)
+        && world["arrival"]
+            == json!({"seq":station_seq,"fromLocationId":"pond","locationId":STATION})
+        && read_seq > station_seq
+        && read["turn"] == 3
+        && read["locationId"] == STATION
+        && read["verb"] == "read"
+        && read["itemId"] == BOOK
+        && read["text"] == "Vale reads The keeper’s log."
+        && read["witnesses"].as_array()?.iter().any(|id| id == BOOK)
+        && log.iter().any(|event| {
+            event["seq"].as_u64() == station_seq.checked_add(1)
+                && event["actorId"] == "moth"
+                && event["kind"] == "action"
+                && event["generated"] != true
+                && moves(event, "pond", STATION, 2)
+        }))
+    .then_some(read_seq)
 }
 
 fn claim<'a>(world: &Value, geo: &Geography<'a>) -> Option<&'a Value> {
