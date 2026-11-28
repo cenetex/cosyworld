@@ -165,7 +165,7 @@ function coveredCards(world, isCovered) {
   return {
     hidden,
     shown,
-    unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id))),
+    unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id)) && !GENERIC.has(lowerName(id))),
   };
 }
 const lowerName = (id) => nameOf(id).toLowerCase();
