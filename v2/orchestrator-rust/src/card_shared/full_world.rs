@@ -222,8 +222,7 @@ impl World {
                 *self = next;
                 return Ok(result);
             }
-            // Reflections journaled after their speech (#2016). Like speech,
-            // they move no one and may land after the speaker leaves.
+            // A reflection can arrive after its speaker leaves (#2016).
             "reflect" => {
                 let mut request = self.request("reflect", a);
                 for key in ["turn", "resting", "rest", "entries"] {
