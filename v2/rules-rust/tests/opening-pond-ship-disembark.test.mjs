@@ -67,9 +67,18 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
         "accept:vale::keeper",
         "move:vale::pond",
         "move:vale::station",
-        "move:vale::pond",
       ])
         world = play(world, action);
+      const lastRoom = seed === 17 && ordered;
+      if (lastRoom)
+        for (const item of ["lamp", "cloth"])
+          world = run({
+            ...seats,
+            op: "hold",
+            world,
+            choice: { item, revision: world.revision },
+          }).world;
+      world = play(world, "move:vale::pond");
       if (ordered)
         world.actors = Object.fromEntries(
           Object.entries(world.actors).toSorted(),
@@ -81,6 +90,7 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
         "wait:vale::",
       ])
         world = play(world, action);
+      assert.equal(world.items.lamp.fuel, lastRoom ? 4 : 8);
       for (const cloth of ["", "cloth"]) {
         const key = ["move", "vale", cloth, harbor].join(":");
         const request = {
@@ -92,6 +102,10 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
         };
         reference.residentPlans = [];
         const reply = run(request);
+        assert.ok(
+          isDeepStrictEqual(wasm(request), reply),
+          `play ${seed} ${ordered} ${key}`,
+        );
         const primary = JSON.parse(JSON.stringify(reference.primary));
         sample = { ...request, op };
         const candidate = wasm(sample);

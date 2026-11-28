@@ -136,12 +136,7 @@ fn ready(world: &Value, geo: &Geography<'_>, authored: &Order) -> Option<Vec<&'s
         || world["memories"][VALE]["learning"]
             .as_array()
             .is_some_and(|trials| !trials.is_empty())
-        || lamp["holder"] != "pond"
-        || lamp["fuelPlace"] != "pond"
-        || lamp["fuel"] != 8
-        || lamp["fuelRooms"] != 2
-        || lamp["fuelVisit"] != true
-        || lamp["lit"] != true
+        || !super::opening_pond_lamp_drop::grounded_fuel(lamp)?
         || ship["version"] != 3
         || !ship["destination"].is_null()
         || !ship["recall"].is_null()
