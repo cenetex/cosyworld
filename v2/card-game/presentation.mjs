@@ -176,6 +176,60 @@ export function lockedStackProjection(count, index, open, holderExpanded) {
     shown: Boolean(state & 4),
   };
 }
+export function questAction(offers, tarot, turnable, reward, discardable) {
+  const labels = ["Turn over", "Collect"];
+  const input = viewModel?.quest_action && handInput(offers.length);
+  if (input) {
+    offers.forEach((offer, index) => {
+      let role = 0;
+      if (offer.tarot === tarot) {
+        if (offer.kind === "accept") role = labels.indexOf(offer.label) + 1;
+        else if (offer.kind === "drop" && !offer.item) role = 3;
+      }
+      input[index] = role;
+    });
+    return offers[
+      viewModel.quest_action(
+        Boolean(turnable),
+        Boolean(reward),
+        Boolean(discardable),
+      )
+    ];
+  }
+  const label = turnable ? labels[0] : reward ? labels[1] : null;
+  return offers.find(
+    (offer) =>
+      offer.tarot === tarot &&
+      (label
+        ? offer.kind === "accept" && offer.label === label
+        : discardable && offer.kind === "drop" && !offer.item),
+  );
+}
+export function matchingPairAction(actions, kind, selected, exact = false) {
+  const ofKind = (action) =>
+    action.kind === kind && (!exact || action.cards.length === 2);
+  if (
+    viewModel?.matching_pair_action &&
+    selected.length === 2 &&
+    selected.every((id) => typeof id === "string") &&
+    selected[0] !== selected[1]
+  ) {
+    const offers = actions.filter(ofKind);
+    const cards = offers.flatMap((action) => [
+      ...action.cards.map((id) => selected.indexOf(id)),
+      -2,
+    ]);
+    const input = handInput(cards.length);
+    if (input) {
+      input.set(cards);
+      return offers[viewModel.matching_pair_action()];
+    }
+  }
+  return actions.find(
+    (action) =>
+      ofKind(action) && selected.every((id) => action.cards.includes(id)),
+  );
+}
 export function holdDialogueChoice({ queued, live, complete, speaking, next }) {
   if (viewModel)
     return Boolean(

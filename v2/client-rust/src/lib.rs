@@ -1,7 +1,9 @@
 #![deny(unsafe_code)]
 
+mod actions;
 mod hand;
 
+pub use actions::{QuestOffer, matching_pair_action, quest_action};
 pub use hand::{
     LockedStack, ROOM_BACK, ROOM_FEATURED, ROOM_LOCAL, ROOM_WAY, VISIBLE_FRAME, hand_focus,
     locked_stack, room_card_order,
@@ -120,6 +122,23 @@ mod wasm {
             return 0;
         };
         (under << 3) | (u32::from(shown) << 2) | (u32::from(top) << 1) | u32::from(open)
+    }
+
+    #[expect(unsafe_code, reason = "Browser ABI export name is unique")]
+    #[unsafe(no_mangle)]
+    extern "C" fn quest_action(turnable: bool, reward: bool, discardable: bool) -> i32 {
+        HAND.with_borrow(|offers| {
+            super::quest_action(offers, turnable, reward, discardable)
+                .map_or(-1, |index| index as i32)
+        })
+    }
+
+    #[expect(unsafe_code, reason = "Browser ABI export name is unique")]
+    #[unsafe(no_mangle)]
+    extern "C" fn matching_pair_action() -> i32 {
+        HAND.with_borrow(|offers| {
+            super::matching_pair_action(offers).map_or(-1, |index| index as i32)
+        })
     }
 
     #[expect(
