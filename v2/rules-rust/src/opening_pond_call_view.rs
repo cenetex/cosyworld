@@ -108,12 +108,11 @@ pub(super) fn station_cloth_gift(world: &Value) -> Option<u64> {
     Some(read)
 }
 
-pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> {
+fn cloth_receipt(world: &Value, dropped: bool) -> Option<(u64, u64, u64)> {
     let (read, gift, mut plays) = cloth_journey(world)?;
     let gift_seq = gift["seq"].as_u64()?;
     let second_return = plays.next()?;
     let returned = second_return["seq"].as_u64()?;
-    let next = returned.checked_add(1)?;
     if !matches!(world["turn"].as_u64()?, 6 | 7)
         || gift_seq >= returned
         || !cloth_return_event(second_return)
@@ -121,11 +120,34 @@ pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> 
     {
         return None;
     }
+    let log = world["log"].as_array()?;
+    let start = log.iter().position(|entry| entry["seq"] == returned)?;
+    let mut suffix = log.get(start + 1..)?.iter().peekable();
+    let mut head = returned;
+    while suffix.peek().is_some_and(|entry| entry["turn"] == 6) {
+        let line = suffix.next()?;
+        head = head.checked_add(1)?;
+        if line["seq"] != head
+            || line["generated"] != true
+            || line["locationId"] != POND
+            || line["cast"] != json!([VALE])
+            || line["light"] != false
+            || line.get("elysiumName").is_some()
+            || match line["kind"].as_str()? {
+                "dialogue" => line["actorId"] != VALE || line["entityId"] != VALE,
+                "narration" => !line["actorId"].is_null() || line["entityId"] != POND,
+                _ => true,
+            }
+        {
+            return None;
+        }
+    }
     match (dropped, plays.next()) {
-        (false, None) => {}
+        (false, None) if suffix.next().is_none() && world["eventSeq"] == head => {}
         (true, Some(drop))
             if world["turn"] == 7
-                && drop["seq"] == next
+                && drop["seq"] == head.checked_add(1)?
+                && suffix.next()? == drop
                 && drop["turn"] == 7
                 && drop["verb"] == "drop"
                 && drop["itemId"] == "lamp"
@@ -134,11 +156,21 @@ pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> 
                 && plays.next().is_none() => {}
         _ => return None,
     }
-    Some((returned, read))
+    Some((returned, read, head))
 }
 
-fn drop_receipt(world: &Value) -> Option<u64> {
-    cloth_arrival(world, true)?.0.checked_add(1)
+pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> {
+    let (arrival, read, _) = cloth_receipt(world, dropped)?;
+    Some((arrival, read))
+}
+
+pub(super) fn before_drop(world: &Value) -> Option<(u64, u64)> {
+    let (_, read, head) = cloth_receipt(world, false)?;
+    Some((head, read))
+}
+
+pub(super) fn drop_receipt(world: &Value) -> Option<u64> {
+    cloth_receipt(world, true)?.2.checked_add(1)
 }
 
 pub(super) fn completion_owners(world: &Value) -> &'static [&'static str] {

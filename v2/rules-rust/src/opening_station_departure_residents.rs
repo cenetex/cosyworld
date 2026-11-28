@@ -20,8 +20,7 @@ fn cloth_wait_receipt(world: &Value, geo: &Geography<'_>, trials: &[Value]) -> O
     };
     let goal = json!({"kind":"ask","target":VALE,"item":"lamp","destination":null});
     let gift_seq = gift["seq"].as_u64()?;
-    if world["eventSeq"] != arrival
-        || world["actors"][VALE]["want"] != keeper_want_from_read(world, geo, read)?
+    if world["actors"][VALE]["want"] != keeper_want_from_read(world, geo, read)?
         || world["life"]["actors"][VALE]["attachments"] != json!({"cloth":{"from":PIP,"turn":5}})
         || !geo.entity_active(world, "cloth")?
         || [ask, wait, gift].iter().any(|trial| {

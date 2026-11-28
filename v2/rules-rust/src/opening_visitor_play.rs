@@ -2,7 +2,7 @@ use super::{
     authored_order::Order,
     opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
-    opening_pond_call_view::{cloth_arrival, completion_owners},
+    opening_pond_call_view::{completion_owners, drop_receipt},
     opening_roster, opening_station_move, opening_station_read, opening_station_view,
     opening_visitor_routes,
     opening_wait_response::vale_action,
@@ -69,7 +69,7 @@ fn pond_drop_route(actor: &str, from: &str, to: &str) -> bool {
 }
 
 fn pond_drop_scene(world: &Value) -> Option<()> {
-    let seq = cloth_arrival(world, true)?.0.checked_add(1)?;
+    let seq = drop_receipt(world)?;
     let lamp = &world["items"]["lamp"];
     let lit = lamp["lit"].as_bool()?;
     let crossing = if lit {
