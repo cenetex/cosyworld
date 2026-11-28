@@ -200,7 +200,6 @@ fn the_owner_deletes_an_avatar_and_frees_its_place() {
     assert_eq!(w.game["actors"]["mara"]["xp"], 0);
     // Anyone may now take the fresh Mara, Ann included.
     run(&mut c, &id, "bob", &body("claim", Some("mara"))).unwrap();
-    // The journal replays to the same world.
     let replayed = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(replayed.claimed[mara], 1);
 }
