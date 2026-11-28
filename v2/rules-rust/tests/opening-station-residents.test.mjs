@@ -125,3 +125,77 @@ test("Pip follows to Station with pinned memories and Keeper waits silently", as
     assert.equal(wasm({ op, world }), null);
   }
 });
+
+test("Pip follows Vale after historic Pond arrival while Keeper remains asleep", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(captureResidents);
+  const diagnostic = { op, resident: "moth" };
+  const run = (request) => {
+    const result = pinned(request);
+    assert.equal(result.ok, true, result.error);
+    return result.world;
+  };
+  let saved;
+  for (const seed of [17, 99]) {
+    const initial = run({ op: "create", history: true, seed });
+    const reopened = run({ op: "create", save: JSON.stringify(initial) });
+    const stowed = run({
+      ...seats,
+      op: "hold",
+      world: reopened,
+      choice: { item: null, revision: reopened.revision },
+    });
+    const pond = run({
+      ...seats,
+      op: "play",
+      world: stowed,
+      action: "move:vale::pond",
+    });
+    assert.equal(pond.turn, 481);
+    assert.equal(pond.actors.moth.sleeping, undefined);
+    const sorted = Object.fromEntries(Object.entries(pond.actors).toSorted());
+    for (const actors of [pond.actors, sorted]) {
+      for (const key of ["move:vale::station", "move:vale:lamp:station"]) {
+        reference.hub = {};
+        const request = {
+          ...seats,
+          op: "play",
+          world: { ...pond, actors },
+          action: actors === sorted ? { key } : key,
+        };
+        const reply = JSON.parse(reference.cardShared(JSON.stringify(request)));
+        assert.equal(reply.ok, true, reply.error);
+        const { moth, keeper } = JSON.parse(JSON.stringify(reference.hub));
+        assert.equal(keeper, undefined);
+        assert.equal(moth.key, "move:moth::station");
+        assert.deepEqual(moth.before.actors.keeper.sleeping, {
+          since: 481,
+          place: "station",
+          until: 482,
+        });
+        const actual = wasm({ ...diagnostic, world: moth.before });
+        const label = `${seed} ${key} ${actors === sorted ? "sorted" : "authored"}`;
+        assert.ok(actual?.ok, `unsupported ${label}`);
+        const field = Object.keys(moth.after).find(
+          (key) => !isDeepStrictEqual(actual.world[key], moth.after[key]),
+        );
+        assert.ok(
+          isDeepStrictEqual(actual, { ok: true, world: moth.after }),
+          `${label} ${field}`,
+        );
+        assert.deepEqual(
+          actual.world.actors.keeper.sleeping,
+          moth.before.actors.keeper.sleeping,
+        );
+        assert.equal(wasm(request), null);
+        saved = moth.before;
+      }
+    }
+  }
+  const unsettledKeeper = structuredClone(saved);
+  delete unsettledKeeper.actors.keeper.sleeping;
+  assert.equal(wasm({ ...diagnostic, world: unsettledKeeper }), null);
+  const currentConversation = structuredClone(saved);
+  currentConversation.conversations.push({ turn: saved.turn });
+  assert.equal(wasm({ ...diagnostic, world: currentConversation }), null);
+});

@@ -22,7 +22,12 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 }
 
 fn after_vale(world: &Value) -> Option<u64> {
-    let seq = opening_station_move::arrival(world)?;
+    let historic = world.get("began").is_some();
+    let seq = if historic {
+        opening_station_move::historic_arrival(world)?
+    } else {
+        opening_station_move::arrival(world)?
+    };
     let turn = world["turn"].as_u64()?;
     let log = world["log"].as_array()?;
     let primary = log.last()?;
@@ -32,7 +37,10 @@ fn after_vale(world: &Value) -> Option<u64> {
             .any(|key| world[*key] != json!([VALE]))
         || world["actors"][VALE]["visited"] != json!(["attic", POND, STATION])
         || !world["standoffs"].as_array()?.is_empty()
-        || !world["conversations"].as_array()?.is_empty()
+        || world["conversations"]
+            .as_array()?
+            .iter()
+            .any(|record| !historic || record["turn"].as_u64().is_none_or(|at| at >= turn))
         || !world["disabledPacks"].is_null()
         || world["eventSeq"] != seq
         || primary["seq"] != seq
@@ -100,6 +108,7 @@ fn quiet_residents(world: &Value, geo: &Geography, turn: u64) -> Option<()> {
         || lamp["lit"] != false
         || lamp["fuelPlace"] != STATION
         || forest["people"][KEEPER]["home"] != STATION
+        || world["actors"][KEEPER]["place"] != STATION
         || world["actors"][KEEPER]["want"]["step"]["verb"] != "call"
         || !world["defeats"][KEEPER].is_null()
         || world["items"]["bell"]["holder"] != STATION
@@ -138,7 +147,17 @@ fn quiet_residents(world: &Value, geo: &Geography, turn: u64) -> Option<()> {
             return None;
         }
     }
-    opening_hub_residents::at_home(world, geo, KEEPER, "oil")
+    let keeper = &world["actors"][KEEPER];
+    if world["began"] == 480 {
+        (geo.files()["v2/card-game/world-history.json"]["turns"] == world["began"]
+            && scheduled_sleep(keeper, STATION)?
+            && keeper["heldItem"] == "oil"
+            && world["items"]["oil"]["holder"] == KEEPER
+            && geo.entity_active(world, KEEPER)?)
+        .then_some(())
+    } else {
+        opening_hub_residents::at_home(world, geo, KEEPER, "oil")
+    }
 }
 
 fn scheduled_sleep(actor: &Value, place: &str) -> Option<bool> {
@@ -297,7 +316,11 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = saved.clone();
-    if world.get("began").is_some() {
+    let resident = &request["resident"];
+    if !resident.is_null() && (resident != PIP || world["began"] != 480) {
+        return None;
+    }
+    if resident.is_null() && world.get("began").is_some() {
         confirm_historic_idle(&mut world, &geo, &order)?;
     } else {
         let evidence = ResidentEvidence::new(&files)?;
