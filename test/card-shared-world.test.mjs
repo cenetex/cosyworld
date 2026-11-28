@@ -284,7 +284,6 @@ describe("the full world shared by human avatars", () => {
     expect(
       view.actions.some((a) => a.kind === "take" && a.item === "mask"),
     ).toBe(false);
-    // An away traveler is no one's to trade with, and an Ask takes nothing.
     const aimed = (a) =>
       a.kind === "trade" && (a.target === "mara" || a.receive === "mask");
     expect(view.actions.filter(aimed).map((a) => a.key)).toEqual([]);
