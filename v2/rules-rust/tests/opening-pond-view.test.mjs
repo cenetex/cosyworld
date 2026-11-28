@@ -10,10 +10,13 @@ function success(pinned, request) {
   return response;
 }
 
-test("the first pond view preserves the pinned offers and private save projection", async () => {
+test("the fresh and historic first pond views preserve pinned offers and private saves", async () => {
   const { pinned, wasm } = await reducers();
-  for (const seed of [undefined, 17, 42, 4_294_967_295]) {
-    const { world: fresh } = success(pinned, { op: "create", seed });
+  const options = [false, true].flatMap((history) =>
+    [undefined, 17, 42, 4_294_967_295].map((seed) => ({ seed, history })),
+  );
+  for (const { seed, history } of options) {
+    const { world: fresh } = success(pinned, { op: "create", seed, history });
     for (const lamp of ["stowed", "dry"]) {
       const world =
         lamp === "stowed"
@@ -28,7 +31,16 @@ test("the first pond view preserves the pinned offers and private save projectio
         Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
       for (const action of ["move:vale::pond", "move:vale:lamp:pond"]) {
         const played = success(pinned, { ...seats, op: "play", world, action });
-        assert.equal(played.world.turn, 1);
+        assert.equal(played.world.turn, history ? 481 : 1);
+        const sleeping = history && seed !== 17;
+        assert.equal(Boolean(played.world.actors.moth.sleeping), sleeping);
+        assert.equal(
+          played.events.some(
+            (entry) =>
+              entry.actorId === "moth" && entry.text === "Pip falls asleep.",
+          ),
+          sleeping,
+        );
         assert.ok(Object.hasOwn(played.world.memories.moth, "subjects"));
         const spoken = success(pinned, {
           ...seats,
@@ -47,6 +59,7 @@ test("the first pond view preserves the pinned offers and private save projectio
             const actual = wasm(request);
             const label = JSON.stringify({
               seed,
+              history,
               lamp,
               action,
               present,
@@ -56,6 +69,11 @@ test("the first pond view preserves the pinned offers and private save projectio
             assert.equal(actual.world.memories.moth.subjects, undefined);
             assert.deepEqual(actual.world.memories.vale, state.memories.vale);
             assert.deepEqual(actual.world.speechVoices.vale, ["vale", "moth"]);
+            for (const kind of ["accompany", "ask", "trade"])
+              assert.equal(
+                actual.actions.some((offer) => offer.kind === kind),
+                !sleeping,
+              );
             assert.deepEqual(actual.exits, ["station"]);
             assert.ok(
               actual.actions.some((offer) => offer.box === "greek-ship"),
@@ -71,6 +89,16 @@ test("the first pond view preserves the pinned offers and private save projectio
         const busy = structuredClone(played.world);
         busy.actors.keeper.place = "pond";
         assert.equal(wasm({ ...seats, op: "view", world: busy }), null);
+        if (sleeping) {
+          const missingSleep = structuredClone(played.world);
+          missingSleep.log = missingSleep.log.filter(
+            (entry) => entry.text !== "Pip falls asleep.",
+          );
+          assert.equal(
+            wasm({ ...seats, op: "view", world: missingSleep }),
+            null,
+          );
+        }
         assert.equal(
           wasm({
             ...seats,

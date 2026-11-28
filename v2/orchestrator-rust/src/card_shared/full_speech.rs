@@ -91,7 +91,6 @@ pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
         })
         .collect()
 }
-/// The story service's settings for shared voices and reflections.
 pub(super) fn story(state: &crate::AppState) -> Result<(AiConfig, BTreeMap<String, String>)> {
     let mut config = state
         .ai_config

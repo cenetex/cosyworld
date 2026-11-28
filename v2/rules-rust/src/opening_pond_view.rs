@@ -37,7 +37,33 @@ fn arrival(world: &Value) -> Option<u64> {
     .then_some(seq)
 }
 
-fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
+fn pond_sleeping(world: &Value, geo: &Geography<'_>, began: u64, turn: u64) -> Option<bool> {
+    let sleeping = &world["actors"][PIP]["sleeping"];
+    if sleeping.is_null() {
+        return Some(false);
+    }
+    let name = geo.files()["v2/card-game/forest.json"]["people"][PIP]["name"].as_str()?;
+    let notice = format!("{name} falls asleep.");
+    let arrival_seq = world["arrival"]["seq"].as_u64()?;
+    (began > 0
+        && sleeping["since"] == turn
+        && sleeping["place"] == POND
+        && sleeping["until"].as_u64()? > turn
+        && entries(&world["log"]).any(|entry| {
+            entry["kind"] == "narration"
+                && entry["actorId"] == PIP
+                && entry["locationId"] == POND
+                && entry["turn"] == turn
+                && entry["generated"] != true
+                && entry["seq"].as_u64().is_some_and(|seq| seq > arrival_seq)
+                && entry["text"] == notice
+        }))
+    .then_some(true)
+}
+
+fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<bool> {
+    let turn = world["turn"].as_u64()?;
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
     let vale = &world["actors"][VALE];
     let pip = &world["actors"][PIP];
     let lamp = &world["items"][LAMP];
@@ -48,11 +74,12 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
     want.insert("refusals".into(), json!(1));
     if world["schema"] != 8
         || world["sharedVersion"] != 1
-        || world["turn"] != 1
-        || world.get("began").is_some()
-        || !(1..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
+        || began.checked_add(1)? != turn
+        || (world.get("began").is_some()
+            && (began == 0 || geo.files()["v2/card-game/world-history.json"]["turns"] != began))
+        || !(turn..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
         || world["opening"]["crossed"] != true
-        || world["opening"]["met"][PIP] != 1
+        || world["opening"]["met"][PIP] != turn
         || world["locations"]["attic"]["anchored"] != true
         || !world["disabledPacks"].is_null()
         || !world["placeCard"][POND].is_null()
@@ -65,7 +92,6 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
             .iter()
             .any(|key| !vale[*key].is_null())
         || !vale["talked"].as_array()?.is_empty()
-        || !pip["sleeping"].is_null()
         || pip["place"] != POND
         || pip["heldItem"] != CLOTH
         || pip["want"] != Value::Object(want)
@@ -101,10 +127,11 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
             return None;
         }
     }
-    Some(())
+    pond_sleeping(world, geo, began, turn)
 }
 
 fn pond_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let turn = world["turn"].as_u64()?;
     let files = geo.files();
     let forest = &files["v2/card-game/forest.json"];
     let mut returns = entries(&forest["reflectionRoutes"]).filter(|route| route["from"] == POND);
@@ -160,7 +187,7 @@ fn pond_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
                 || !crossing["unlockWhen"].is_null()
                 || ((crossing["retired"] != true || discovered)
                     && (crossing["signal"].is_null()
-                        || world["crossings"][id]["until"].as_u64()? > 1)
+                        || world["crossings"][id]["until"].as_u64()? > turn)
                     && geo.crossing_conditions(
                         world,
                         pack_id,
@@ -199,7 +226,12 @@ fn pond_response(mut response: Value, plans: Vec<Value>, profiles: Value) -> Val
     response
 }
 
-fn actions(world: &Value, geo: &Geography<'_>, profiles: &Value) -> Option<Vec<Value>> {
+fn actions(
+    world: &Value,
+    geo: &Geography<'_>,
+    profiles: &Value,
+    pip_sleeping: bool,
+) -> Option<Vec<Value>> {
     let name = |id: &str| profiles[id]["name"].as_str();
     let vale = name(VALE)?;
     let pip = name(PIP)?;
@@ -207,18 +239,26 @@ fn actions(world: &Value, geo: &Geography<'_>, profiles: &Value) -> Option<Vec<V
     let station = name(STATION)?;
     let lamp = item_as_named(name(LAMP)?);
     let cloth = item_as_named(name(CLOTH)?);
-    let mut accompany = offer(
-        "accompany",
+    let mut out = vec![offer(
+        "wait",
         None,
-        Some(PIP),
-        format!("{vale} asks {pip} to accompany them to {station}."),
-        &[PIP, STATION],
-    );
-    accompany["destination"] = json!(STATION);
-    accompany["key"] = json!(format!("accompany:{VALE}::{PIP}:{STATION}"));
-    let mut out = vec![
-        offer("wait", None, None, format!("{vale} waits one turn."), &[]),
-        accompany,
+        None,
+        format!("{vale} waits one turn."),
+        &[],
+    )];
+    if !pip_sleeping {
+        let mut accompany = offer(
+            "accompany",
+            None,
+            Some(PIP),
+            format!("{vale} asks {pip} to accompany them to {station}."),
+            &[PIP, STATION],
+        );
+        accompany["destination"] = json!(STATION);
+        accompany["key"] = json!(format!("accompany:{VALE}::{PIP}:{STATION}"));
+        out.push(accompany);
+    }
+    out.extend([
         offer(
             "move",
             None,
@@ -247,7 +287,7 @@ fn actions(world: &Value, geo: &Geography<'_>, profiles: &Value) -> Option<Vec<V
             format!("{vale} has a conversation with {pip}."),
             &[PIP],
         ),
-    ];
+    ]);
     for id in [KEY, WAYFINDER] {
         if world["items"][id]["holder"] == POND && geo.entity_active(world, id)? {
             let thing = item_as_named(name(id)?);
@@ -275,24 +315,27 @@ fn actions(world: &Value, geo: &Geography<'_>, profiles: &Value) -> Option<Vec<V
             format!("{vale} gives {lamp} to {pip}."),
             &[LAMP, PIP],
         ),
-        offer(
+    ]);
+    if !pip_sleeping {
+        out.push(offer(
             "ask",
             Some(CLOTH),
             Some(PIP),
             format!("{vale} asks {pip} for {cloth}."),
             &[CLOTH, PIP],
-        ),
-    ]);
-    let owned_cloth = name(CLOTH)?;
-    let mut trade = offer(
-        "trade",
-        Some(LAMP),
-        Some(PIP),
-        format!("{vale} trades {lamp} for {pip}’s {owned_cloth}."),
-        &[LAMP, CLOTH],
-    );
-    trade["receive"] = json!(CLOTH);
-    trade["key"] = json!(format!("trade:{VALE}:{LAMP}:{PIP}:{CLOTH}"));
+        ));
+        let owned_cloth = name(CLOTH)?;
+        let mut trade = offer(
+            "trade",
+            Some(LAMP),
+            Some(PIP),
+            format!("{vale} trades {lamp} for {pip}’s {owned_cloth}."),
+            &[LAMP, CLOTH],
+        );
+        trade["receive"] = json!(CLOTH);
+        trade["key"] = json!(format!("trade:{VALE}:{LAMP}:{PIP}:{CLOTH}"));
+        out.push(trade);
+    }
     let mut quest = offer(
         "accept",
         None,
@@ -302,7 +345,7 @@ fn actions(world: &Value, geo: &Geography<'_>, profiles: &Value) -> Option<Vec<V
     );
     quest["box"] = json!(SHIP);
     quest["key"] = json!(format!("accept:{VALE}::box:{SHIP}"));
-    out.extend([trade, quest]);
+    out.push(quest);
     Some(out)
 }
 
@@ -315,7 +358,7 @@ pub fn completed_move_response(
     if present != [VALE] || arrival(&world)? != before_seq.checked_add(1)? {
         return None;
     }
-    quiet_pond(&world, geo)?;
+    let pip_sleeping = quiet_pond(&world, geo)?;
     pond_paths(&world, geo)?;
     let files = geo.files();
     let speech = &files["v2/card-game/speech.json"];
@@ -339,7 +382,7 @@ pub fn completed_move_response(
         .as_object_mut()?
         .insert(VALE.into(), json!([VALE, PIP]));
     let profiles = profiles::project(files)?;
-    let plans = actions(&world, geo, &profiles)?;
+    let plans = actions(&world, geo, &profiles, pip_sleeping)?;
     let mut response = opening::stored_response(world)?;
     response["events"] = json!(events);
     Some(pond_response(response, plans, profiles))
@@ -356,10 +399,10 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let files = opening_content::files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    quiet_pond(world, &geo)?;
+    let pip_sleeping = quiet_pond(world, &geo)?;
     pond_paths(world, &geo)?;
     let profiles = profiles::project(&files)?;
-    let plans = actions(world, &geo, &profiles)?;
+    let plans = actions(world, &geo, &profiles, pip_sleeping)?;
     let projected = opening_view::private_world(world, request)?;
     Some(pond_response(
         json!({"ok":true,"world":projected}),
@@ -388,10 +431,12 @@ import { currentSharedEngine } from './test/fixtures/shared-engine.mjs';
 const { cardShared } = currentSharedEngine();
 const pinned = request => JSON.parse(cardShared(JSON.stringify(request)));
 const seats = { actor: 'vale', claimed: ['vale'], present: ['vale'] };
-for (const seed of [undefined, 0, 2, 17, 42, 4242, 4294967295]) {
+const options = [false, true].flatMap(history =>
+  [undefined, 0, 2, 17, 42, 4242, 4294967295].map(seed => ({seed, history})));
+for (const {seed, history} of options) {
   for (const lamp of ['stowed', 'dry']) {
     for (const action of ['move:vale::pond', 'move:vale:lamp:pond']) {
-      const created = pinned({op:'create', seed});
+      const created = pinned({op:'create', seed, history});
       assert.equal(created.ok, true, created.error);
       let {world} = created;
       if (lamp === 'stowed') {
@@ -405,7 +450,7 @@ for (const seed of [undefined, 0, 2, 17, 42, 4242, 4294967295]) {
       world.speechVoices = voices;
       const expected = pinned({...seats, op:'play', world, action});
       assert.equal(expected.ok, true, expected.error);
-      console.log(JSON.stringify({beforeSeq:world.eventSeq, expected, voices, title:{seed,lamp,action}}));
+      console.log(JSON.stringify({beforeSeq:world.eventSeq, expected, voices, title:{seed,history,lamp,action}}));
     }
   }
 }
@@ -421,7 +466,7 @@ for (const seed of [undefined, 0, 2, 17, 42, 4242, 4294967295]) {
             String::from_utf8_lossy(&output.stderr)
         );
         let lines = String::from_utf8(output.stdout).unwrap();
-        assert_eq!(lines.lines().count(), 28);
+        assert_eq!(lines.lines().count(), 56);
         for line in lines.lines() {
             let case: Value = serde_json::from_str(line).unwrap();
             let expected = &case["expected"];
