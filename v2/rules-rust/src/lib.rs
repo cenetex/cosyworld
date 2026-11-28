@@ -231,7 +231,8 @@ pub fn reduce(request: &Value) -> Value {
         Some(
             "opening_station_departure_residents"
             | "opening_ship_board_residents"
-            | "opening_ship_course_residents",
+            | "opening_ship_course_residents"
+            | "opening_ship_wait_residents",
         ) => opening_station_departure_residents::projection(request).unwrap_or(Value::Null),
         Some("opening_behind_station_view") => {
             opening_behind_station_view::projection(request).unwrap_or(Value::Null)

@@ -191,6 +191,15 @@ pub(super) fn docking_event(world: &Value) -> Option<&Value> {
         .then_some(event)
 }
 
+pub(super) fn before_docking(world: &Value) -> Option<u64> {
+    let wait = wait_event(world)?;
+    let seq = wait["seq"].as_u64()?;
+    (world["eventSeq"] == seq
+        && world["log"].as_array()?.last()? == wait
+        && world["transports"][SHIP] == sailing())
+    .then_some(seq)
+}
+
 pub(super) fn dock(
     world: &mut Value,
     geo: &Geography<'_>,
@@ -199,10 +208,7 @@ pub(super) fn dock(
     order: &[&str],
     evidence: &ResidentEvidence,
 ) -> Option<()> {
-    let wait = wait_event(world)?;
-    if wait["seq"] != world["eventSeq"] || world["transports"][SHIP] != sailing() {
-        return None;
-    }
+    before_docking(world)?;
     let transport = geo.packs().find_map(|pack| pack["transports"].get(SHIP))?;
     let lane = json!({"from":"pond","to":HARBOR});
     if transport["place"] != SHIP

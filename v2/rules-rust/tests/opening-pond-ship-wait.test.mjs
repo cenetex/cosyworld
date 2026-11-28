@@ -7,14 +7,28 @@ import { reducers } from "./parity.mjs";
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const ship = "greek-ship";
 const key = "wait:vale::";
+const residents = "opening_ship_wait_residents";
 
 function captureWait(source) {
   const primary =
     "    const respondent = perform(next, exact, round2, residents2);";
   const docking = "    settleVoyageCargo(next, voyages, nameOf2, worldLine);";
-  assert.equal(source.split(primary).length, 2);
-  assert.equal(source.split(docking).length, 2);
+  const plans =
+    "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
+  const after = "    const rings2 = next.log.filter(";
+  for (const marker of [primary, docking, plans, after])
+    assert.equal(source.split(marker).length, 2);
   return source
+    .replace(
+      plans,
+      `      const chosen = read2 ?? plan(next, id).action;
+      if (next.turn === 10) globalThis.plans.push([id,chosen.key,Boolean(read2 || beginLearning(next,chosen) || transportArrival(next,id) || packWaitChoice(next,id) || chosen.sleep || chosen.guards)]);
+      perform(next, chosen, round2, residents2);`,
+    )
+    .replace(
+      after,
+      "    if (next.turn === 10) globalThis.afterResidents = structuredClone(next);\n$&",
+    )
     .replace(
       primary,
       "$&\n    if (next.turn === 10) globalThis.waited = structuredClone(next);",
@@ -73,6 +87,7 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
         action: ordered ? { key } : key,
         revision: world.revision,
       };
+      reference.plans = [];
       const reply = run(request);
       const waited = captured("waited");
       const docked = captured("docked");
@@ -82,6 +97,31 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
       assert.ok(
         isDeepStrictEqual(wasm(sample), { ok: true, world: waited }),
         `waited ${label}`,
+      );
+      const settled = captured("afterResidents");
+      assert.deepEqual(settled, waited);
+      assert.deepEqual(reference.plans.map(([id]) => id).toSorted(), [
+        "ada",
+        "ash",
+        "keeper",
+        "mara",
+        "moth",
+        "nell",
+        "orin",
+        "rue",
+        "tavi",
+      ]);
+      assert.ok(
+        reference.plans.every(
+          ([id, key, effect]) => key === `wait:${id}::` && !effect,
+        ),
+      );
+      assert.ok(
+        isDeepStrictEqual(wasm({ op: residents, world: waited }), {
+          ok: true,
+          world: settled,
+        }),
+        `residents ${label}`,
       );
       assert.ok(
         isDeepStrictEqual(wasm(arriving), { ok: true, world: docked }),
@@ -144,5 +184,20 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
     const world = structuredClone(arriving.world);
     mutate(world);
     assert.equal(wasm({ ...arriving, world }), null);
+  }
+  for (const change of [
+    (world) => {
+      world.transports[ship].phase = "arrived";
+    },
+    (world) => {
+      world.actors.moth.want.refusals = 1;
+    },
+    (world) => {
+      world.actors.tavi.dwellUntil = 10;
+    },
+  ]) {
+    const world = structuredClone(arriving.world);
+    change(world);
+    assert.equal(wasm({ op: residents, world }), null);
   }
 });

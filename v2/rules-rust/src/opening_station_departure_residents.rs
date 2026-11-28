@@ -2,8 +2,9 @@ use super::{
     authored_order::Order, opening_content, opening_crossings, opening_hub_residents,
     opening_pickups, opening_place_cards::Deck, opening_pond_call_view::cloth_arrival,
     opening_pond_lamp_drop::grounded_fuel, opening_pond_ship_board,
-    opening_pond_ship_settlement::course_before_sailing, opening_roster, opening_second_round,
-    opening_station_move, opening_station_quest_drop_learning::confirm_pond_ask_trial,
+    opening_pond_ship_settlement::course_before_sailing, opening_pond_ship_wait, opening_roster,
+    opening_second_round, opening_station_move,
+    opening_station_quest_drop_learning::confirm_pond_ask_trial,
     opening_station_read::keeper_want_from_read, pack_state::Catalog,
     resident_evidence::ResidentEvidence, seed, Geography,
 };
@@ -19,12 +20,12 @@ const SHIP: &str = "greek-ship";
 fn cloth_wait_receipt(world: &Value, geo: &Geography<'_>, trials: &[Value]) -> Option<()> {
     let vale = &world["actors"][VALE];
     let arrival = match world["turn"].as_u64()? {
-        8 | 9 => {
+        stage @ 8..=10 => {
             vale["want"].is_null().then_some(())?;
-            if world["turn"] == 8 {
-                opening_pond_ship_board::arrival(world)?
-            } else {
-                course_before_sailing(world)?
+            match stage {
+                8 => opening_pond_ship_board::arrival(world)?,
+                9 => course_before_sailing(world)?,
+                _ => opening_pond_ship_wait::before_docking(world)?,
             }
         }
         _ => {
@@ -79,7 +80,7 @@ pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Optio
     let pip = &world["actors"][PIP];
     let forest = &geo.files()["v2/card-game/forest.json"];
     let lamp = &world["items"]["lamp"];
-    let boarded = matches!(turn, 8 | 9);
+    let boarded = matches!(turn, 8..=10);
     let cloth_given = turn == 6 || boarded;
     let hand = if cloth_given {
         Value::Null
@@ -149,14 +150,14 @@ pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Optio
         {
             confirm_pond_ask_trial(world, ask, 1)
         }
-        (6 | 8 | 9, trials) => cloth_wait_receipt(world, geo, trials),
+        (6 | 8..=10, trials) => cloth_wait_receipt(world, geo, trials),
         _ => None,
     }
 }
 
 fn keeper_wait(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
     let keeper = &world["actors"][KEEPER];
-    if matches!(turn, 8 | 9) {
+    if matches!(turn, 8..=10) {
         let completed = &keeper["completedQuest"];
         if keeper["place"] != STATION
             || !keeper["want"].is_null()
@@ -186,20 +187,29 @@ pub(super) fn settle(
     residents: &[&str],
 ) -> Option<()> {
     let turn = world["turn"].as_u64()?;
-    if matches!(turn, 8 | 9) {
-        let (phase, destination) = if turn == 8 {
-            opening_pond_ship_board::arrival(world)?;
-            ("docked", None)
-        } else {
-            course_before_sailing(world)?;
-            ("course", Some("greek-harbor"))
-        };
-        let ship = &world["transports"][SHIP];
+    if matches!(turn, 8..=10) {
+        match turn {
+            8 | 9 => {
+                let (phase, destination) = if turn == 8 {
+                    opening_pond_ship_board::arrival(world)?;
+                    ("docked", None)
+                } else {
+                    course_before_sailing(world)?;
+                    ("course", Some("greek-harbor"))
+                };
+                if world["transports"][SHIP]
+                    != json!({"version":3,"phase":phase,"dock":POND,"destination":destination,"riders":[],"since":turn,"recall":null})
+                {
+                    return None;
+                }
+            }
+            _ => {
+                opening_pond_ship_wait::before_docking(world)?;
+            }
+        }
         if world["actors"][VALE]["heldItem"] != "cloth"
             || world["crossings"]["pond-greek-harbor"]
                 != json!({"discovered":true,"method":"pond-lamp"})
-            || *ship
-                != json!({"version":3,"phase":phase,"dock":POND,"destination":destination,"riders":[],"since":turn,"recall":null})
         {
             return None;
         }
@@ -240,6 +250,7 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let from = match (request["op"].as_str()?, working["turn"].as_u64()?) {
         ("opening_ship_board_residents", 8) => POND,
         ("opening_ship_course_residents", 9) => SHIP,
+        ("opening_ship_wait_residents", 10) => SHIP,
         ("opening_station_departure_residents", 3 | 4 | 6) => STATION,
         _ => return None,
     };
