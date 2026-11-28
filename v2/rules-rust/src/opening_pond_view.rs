@@ -1,4 +1,7 @@
-use super::{lamp_state, opening, opening_pickups::item_as_named, profiles, Geography};
+use super::{
+    lamp_state, opening, opening_content, opening_pickups::item_as_named, opening_view,
+    pack_state::Catalog, profiles, Geography,
+};
 use serde_json::{json, Value};
 
 const VALE: &str = "vale";
@@ -340,4 +343,104 @@ pub fn completed_move_response(
     let mut response = opening::stored_response(world)?;
     response["events"] = json!(events);
     Some(pond_response(response, plans, profiles))
+}
+
+pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
+    if request["claimed"] != json!([VALE]) || (!present.is_empty() && present != [VALE]) {
+        return None;
+    }
+    let world = request.get("world")?;
+    if world["speechVoices"][VALE] != json!([VALE, PIP]) {
+        return None;
+    }
+    let files = opening_content::files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    quiet_pond(world, &geo)?;
+    pond_paths(world, &geo)?;
+    let profiles = profiles::project(&files)?;
+    let plans = actions(world, &geo, &profiles)?;
+    let projected = opening_view::private_world(world, request)?;
+    Some(pond_response(
+        json!({"ok":true,"world":projected}),
+        plans,
+        profiles,
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{path::Path, process::Command};
+
+    #[test]
+    fn first_pond_moves_project_the_complete_pinned_response() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let (files, _) = opening_content::wait_files(&json!({
+            "packContentJson":include_str!("../../orchestrator-rust/src/card_shared/content.json")
+        }))
+        .unwrap();
+        let catalog = Catalog::from_files(&files).unwrap();
+        let geo = Geography::new(&files, catalog.packs()).unwrap();
+        let script = r#"
+import assert from 'node:assert/strict';
+import { currentSharedEngine } from './test/fixtures/shared-engine.mjs';
+const { cardShared } = currentSharedEngine();
+const pinned = request => JSON.parse(cardShared(JSON.stringify(request)));
+const seats = { actor: 'vale', claimed: ['vale'], present: ['vale'] };
+for (const seed of [undefined, 0, 2, 17, 42, 4242, 4294967295]) {
+  for (const lamp of ['stowed', 'dry']) {
+    for (const action of ['move:vale::pond', 'move:vale:lamp:pond']) {
+      const created = pinned({op:'create', seed});
+      assert.equal(created.ok, true, created.error);
+      let {world} = created;
+      if (lamp === 'stowed') {
+        const held = pinned({...seats, op:'hold', world, choice:{item:null, revision:world.revision}});
+        assert.equal(held.ok, true, held.error);
+        world = held.world;
+      } else {
+        Object.assign(world.items.lamp, {fuel:0, fuelRooms:0, lit:false});
+      }
+      const voices = {mara:['mara']};
+      world.speechVoices = voices;
+      const expected = pinned({...seats, op:'play', world, action});
+      assert.equal(expected.ok, true, expected.error);
+      console.log(JSON.stringify({beforeSeq:world.eventSeq, expected, voices, title:{seed,lamp,action}}));
+    }
+  }
+}
+"#;
+        let output = Command::new("node")
+            .args(["--input-type=module", "--eval", script])
+            .current_dir(root)
+            .output()
+            .expect("Node runs the pinned shared reducer");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let lines = String::from_utf8(output.stdout).unwrap();
+        assert_eq!(lines.lines().count(), 28);
+        for line in lines.lines() {
+            let case: Value = serde_json::from_str(line).unwrap();
+            let expected = &case["expected"];
+            let mut world = expected["world"].clone();
+            world["speechVoices"] = case["voices"].clone();
+            world["playerActorId"] = json!(VALE);
+            for field in ["heldActors", "presentActors", "controlledActors"] {
+                world[field] = json!([VALE]);
+            }
+            let result =
+                completed_move_response(world, &geo, case["beforeSeq"].as_u64().unwrap(), &[VALE])
+                    .unwrap_or_else(|| panic!("Unsupported {}", case["title"]));
+            for (field, value) in expected.as_object().unwrap() {
+                assert_eq!(&result[field], value, "{field} for {}", case["title"]);
+            }
+            assert_eq!(
+                result.as_object().unwrap().len(),
+                expected.as_object().unwrap().len()
+            );
+        }
+    }
 }

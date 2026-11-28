@@ -354,7 +354,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(refused[0]["entityId"], "pip");
-        // A refuser whose words do not come leaves the scene with no lines.
         let none = parse(r#"{"entries":[]}"#, &work, &ids).unwrap();
         assert_eq!(none, json!([]));
         assert_eq!(silent(&work, 0, &none), vec!["pip"]);

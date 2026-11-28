@@ -38,6 +38,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     {
         return None;
     }
+    if request["world"]["actors"]["vale"]["place"] == "pond" {
+        return super::opening_pond_view::private_view(request, &present);
+    }
     let (world, can_sleep) = match opening::supported_world(request) {
         Some(world) => {
             opening_play::attic_state(world)?;
@@ -146,7 +149,7 @@ fn pond_at_capacity(world: &Value, present: &[&str]) -> bool {
             >= 4
 }
 
-fn private_world(world: &Value, request: &Value) -> Option<Value> {
+pub(super) fn private_world(world: &Value, request: &Value) -> Option<Value> {
     let mut world = world.clone();
     let memories = world["memories"].as_object_mut()?;
     if !memories.get("vale")?.get("subjects")?.is_object() {
