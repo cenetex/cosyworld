@@ -228,7 +228,7 @@ describe("local authoring import", () => {
         d.assets[0].size = DRAFT_LIMITS.assetBytes + 1;
       },
       (d) => {
-        d.assets = Array.from({ length: 17 }, (_, i) => ({
+        d.assets = Array.from({ length: 25 }, (_, i) => ({
           ...d.assets[0],
           path: `${i}.webp`,
           size: DRAFT_LIMITS.assetBytes,

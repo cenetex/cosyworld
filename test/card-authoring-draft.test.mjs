@@ -150,7 +150,7 @@ describe("authoring draft files", () => {
       }));
     });
     rejects((d) => {
-      d.assets = Array.from({ length: 17 }, (_, i) => ({
+      d.assets = Array.from({ length: 25 }, (_, i) => ({
         ...asset,
         path: `art/${i}.png`,
         size: DRAFT_LIMITS.assetBytes,
