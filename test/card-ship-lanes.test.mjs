@@ -154,11 +154,14 @@ describe("knowing a lane is personal", () => {
     expect(knowsFact(s, "mara", clue.disclosedFactId)).toBe(false);
     const chart = act(s, "vale", "talk", pilot);
     expect(knowsLane(chart, "vale", pagasae, "greek-sicily")).toBe(true);
-    const outOfDirections = act(chart, "vale", "talk", pilot);
+    const anchorage = act(chart, "vale", "talk", pilot);
+    expect(knowsLane(anchorage, "vale", pagasae, "greek-aulis")).toBe(true);
+    const outOfDirections = act(anchorage, "vale", "talk", pilot);
     expect(outOfDirections.log.filter((line) => line.actorId === pilot && line.disclosedFactId)
       .map((line) => line.disclosedFactId)).toEqual([
       `lane:${pagasae}>${lemnos}`,
       `lane:${pagasae}>greek-sicily`,
+      `lane:${pagasae}>greek-aulis`,
     ]);
     expect(knowsLane(outOfDirections, "vale", pagasae, "greek-egypt-tomb")).toBe(false);
     expect(knowsLane(outOfDirections, "vale", "greek-harbor", "greek-piraeus")).toBe(false);

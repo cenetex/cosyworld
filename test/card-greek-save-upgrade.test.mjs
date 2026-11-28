@@ -7,6 +7,7 @@ import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { knowsLane } from "../v2/card-game/pack-transport.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { gainTrust } from "../v2/card-game/world/company.mjs";
+import { act, witnessed } from "./fixtures/card-branch-ways.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
 const greek = "greek-drama";
@@ -119,6 +120,50 @@ it("gives travelers saved at Aulis a way home on the Scylla", () => {
   expect(legalActions(arrival.state).some((action) =>
     action.kind === "move" && action.target === "greek-scylla",
   )).toBe(true);
+});
+
+it("keeps the Trojan account and gives travelers saved at Homecoming Beach a way back to Pagasae", () => {
+  const beach = "greek-troy-beach", harbor = "greek-harbor", lemnos = "greek-lemnos";
+  const scylla = "greek-scylla", pagasae = "greek-pagasae";
+  const oldEdges = [[harbor, beach], [beach, harbor]];
+  const old = witnessed("troy");
+  old.packs[greek].revision = 46;
+  old.actors.vale.place = beach;
+  old.items.bell.holder = "vale";
+  old.routeKnowledge.vale = [...(old.routeKnowledge.vale || []), ...oldEdges];
+  const save = JSON.stringify(old);
+  const shared = dispatchShared({ op: "create", save });
+  expect(shared.ok, shared.error).toBe(true);
+
+  for (const loaded of [decodeSave(save), shared.world]) {
+    expect(loaded.actors.vale.place).toBe(beach);
+    expect(loaded.items.bell.holder).toBe("vale");
+    expect(loaded.items["greek-helen-accounts"].holder).toBe("greek-well");
+    expect(loaded.packs[greek].receipts["greek-helen-troy"]).toBe(
+      old.packs[greek].receipts["greek-helen-troy"],
+    );
+    for (const edge of oldEdges) expect(loaded.routeKnowledge.vale).not.toContainEqual(edge);
+    expect(loaded.routeKnowledge[rhapsode]).toContainEqual(survivingRoad);
+    expect(legalActions(loaded).some((a) => a.kind === "move" && a.target === harbor)).toBe(false);
+    expect(knowsLane(loaded, "vale", beach, lemnos)).toBe(true);
+  }
+  let world = decodeSave(save);
+  world = act(world, "wait", (a) => a.label === "Wait for Scylla");
+  world = act(world, "wait", (a) => a.label === "Wait for Scylla");
+  world = act(world, "move", (a) => a.target === scylla);
+  world = act(world, "course", (a) => a.target === lemnos);
+  world = act(world, "wait");
+  world = act(world, "move", (a) => a.target === lemnos);
+  expect(world.actors.vale.place).toBe(lemnos);
+  expect(knowsLane(world, "vale", lemnos, pagasae)).toBe(false);
+  world = act(world, "talk", (a) => a.target === "greek-story-sophocles-philoctetes-first");
+  expect(knowsLane(world, "vale", lemnos, pagasae)).toBe(true);
+  world = act(world, "move", (a) => a.target === scylla);
+  world = act(world, "course", (a) => a.target === pagasae);
+  world = act(world, "wait");
+  world = act(world, "move", (a) => a.target === pagasae);
+  expect(world.actors.vale.place).toBe(pagasae);
+  expect(world.items.bell.holder).toBe("vale");
 });
 
 it("stores resident trust when it is earned and compacts old zero entries", () => {

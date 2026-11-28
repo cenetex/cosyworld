@@ -22,15 +22,23 @@ export const atPort = (s, actor) =>
       t.docks.includes(s.actors[actor].place),
   );
 
-export const scyllaPilot = (actor) =>
-  transports["greek-scylla"]?.shipmaster === actor;
+const scyllaShoreCourses = {
+  "greek-story-sophocles-philoctetes-first": ["greek-pagasae", "greek-thrace"],
+  "greek-story-euripides-hecuba-first": ["greek-lemnos", "greek-tauris"],
+};
+
+export const scyllaGuide = (actor) =>
+  transports["greek-scylla"]?.shipmaster === actor ||
+  Object.hasOwn(scyllaShoreCourses, actor);
 
 export function scyllaDirections(world, speaker, listener) {
   const ship = transports["greek-scylla"];
   const from = world.actors[speaker]?.place;
-  if (!scyllaPilot(speaker) || !ship.docks.includes(from) || !entityActive(world, from))
+  if (!ship?.docks.includes(from) || !entityActive(world, from))
     return null;
+  const shoreCourses = scyllaShoreCourses[speaker];
   const to = lanesFrom(ship, from).find((to) =>
+    (speaker === ship.shipmaster || shoreCourses?.includes(to)) &&
     entityActive(world, to) &&
     knowsLane(world, speaker, from, to) &&
     !knowsLane(world, listener, from, to) &&

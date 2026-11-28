@@ -4,6 +4,7 @@ import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { lanePath } from "../v2/card-game/pack-transport.mjs";
 import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
 import { openGreekGate } from "./helpers/greek-gate.mjs";
+import { ajaxTalk } from "./helpers/greek-ajax.mjs";
 import { greekStart, traveler } from "./helpers/open-door.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 
@@ -11,6 +12,8 @@ const pack = "greek-drama";
 const harbor = "greek-harbor";
 const scylla = "greek-scylla";
 const pagasae = "greek-pagasae";
+const lemnos = "greek-lemnos";
+const beach = "greek-troy-beach";
 const egypt = "greek-egypt-tomb";
 const mark = "greek-helen-egypt-passage-mark";
 const notice = "greek-helen-pagasae-report";
@@ -20,12 +23,18 @@ const wine = "greek-wine-skin";
 const oldShelterWine = "greek-helen-troy-shelter-wine";
 
 const reload = (world) => decodeSave(encodeSave(world));
-const sail = (t, destination) =>
-  t
-    .act("move", { target: scylla })
-    .act("course", { target: destination })
-    .act("wait")
-    .act("move", { target: destination });
+const sail = (t, ...docks) => {
+  t.act("move", { target: scylla });
+  for (const target of docks) t.act("course", { target }).act("wait");
+  return t.act("move", { target: docks.at(-1) });
+};
+
+function reachBeach(t) {
+  expect(exits(t.s, harbor, "vale")).not.toContain(beach);
+  t.move(pagasae);
+  t.s = ajaxTalk(t.s, `lane:${pagasae}>${lemnos}`, { target: "greek-pagasae-pilot" });
+  return sail(t, lemnos, beach);
+}
 
 describe("Helen’s passage records", () => {
   it("carries the Egyptian passage mark back on Scylla and posts it at Pagasae", () => {
@@ -65,11 +74,13 @@ describe("Helen’s passage records", () => {
   });
 
   it("keeps the Trojan beach and its shelter apart from the Egyptian voyage", () => {
-    const t = traveler(greekStart()).move(harbor).take("helen-accounts");
+    const t = traveler(openGreekGate(greekStart())).move(harbor).take("helen-accounts");
     t.move("well").give("helen-accounts", "elder").move(harbor);
     expect(t.s.packs[pack].choices["greek-helen-account"]).toBe("troy");
     expect(lanePath(t.s, scylla, pagasae, egypt)).toBeNull();
-    t.move("troy-beach").act("talk", { target: troyHelen });
+    reachBeach(t).act("talk", { target: troyHelen });
+    expect(exits(t.s, beach, "vale")).not.toContain("greek-troy");
+    expect(exits(t.s, beach, "vale")).not.toContain("greek-ajax-landing");
     const gateWine = structuredClone(t.s.items[wine]);
     const oldTrust = t.s.actors[troyHelen].trust.vale ?? 0;
     expect(oldTrust).toBeLessThan(2);
@@ -95,15 +106,15 @@ describe("Helen’s passage records", () => {
 
     expect(entityActive(t.s, mark)).toBe(false);
     expect(entityActive(t.s, notice)).toBe(false);
-    t.move(harbor);
+    sail(t, lemnos, pagasae).move(harbor);
     expect(t.s.actors.vale.place).toBe(harbor);
   });
 
   it("records the Trojan passage and spent provisions in the original tablet", () => {
-    const t = traveler(greekStart()).move(harbor).take("helen-accounts");
+    const t = traveler(openGreekGate(greekStart())).move(harbor).take("helen-accounts");
     t.move("well").give("helen-accounts", "elder").move(harbor);
     stowProvisions(t.s, harbor);
-    t.take("provisions").move("troy-beach").talk("helen-troy");
+    reachBeach(t.take("provisions")).talk("helen-troy");
     t.take("troy-testimony").give("troy-testimony", "menelaus-troy");
     expect(t.s.usedUp).toContain("greek-provisions");
     expect(t.s.items["greek-troy-testimony"].holder).toBe("greek-troy-beach");
@@ -117,5 +128,9 @@ describe("Helen’s passage records", () => {
       "At the Homecoming Beach, Menelaus agreed to passage and kept the tablet at the beach while the Travel Provisions were spent.",
     );
     expect(knowsFact(saved, "vale", shelter)).toBe(false);
+    t.s = saved;
+    sail(t, lemnos, pagasae);
+    expect(t.s.actors.vale.place).toBe(pagasae);
+    expect(t.s.usedUp).toContain("greek-provisions");
   });
 });

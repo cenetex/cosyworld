@@ -2356,7 +2356,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 46,
+        revision: 47,
         name: "The Wine-Dark Sea",
         description: "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2434,6 +2434,7 @@
           },
           "greek-gate": {
             name: "Theban City Gate",
+            text: "The gate opens onto the Exposed Battlefield. The guard accepts Creon\u2019s Writ or the Herald\u2019s Truce.",
             exits: [
               "greek-courtyard"
             ],
@@ -2505,18 +2506,20 @@
           },
           "greek-athens": {
             name: "Athenian Agora",
-            text: "The Long Walls lead to the quays at Piraeus. Take the Road to Delphi to continue inland toward Pagasae.",
+            text: "Follow the Long Walls to Piraeus Quays. The Marathon Road goes to the altar where the refugees are waiting. Take the road to the Delphic Temple to continue inland toward Pagasae.",
             exits: [
               "greek-assembly",
               "greek-acropolis",
               "greek-thinkery",
               "greek-road-athens-eleusis",
+              "greek-road-athens-marathon",
               "greek-road-sacred-way"
             ],
             backdrop: "assets/greek-drama/athens-grand-agora.webp"
           },
           "greek-piraeus": {
             name: "Piraeus Quays",
+            text: "Follow the Long Walls inland to the Athenian Agora.",
             exits: [],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             seed: "From the Charybdis\u2019s quay, the Long Walls lead to Athens and the inland route to Pagasae."
@@ -2578,7 +2581,6 @@
             exits: [
               "greek-eleusis",
               "greek-colonus",
-              "greek-marathon",
               "greek-acharnae"
             ],
             backdrop: "assets/greek-drama/grove.svg",
@@ -2597,7 +2599,6 @@
             name: "Colonus Grove",
             exits: [
               "greek-eleusis",
-              "greek-marathon",
               "greek-attic-farm"
             ],
             backdrop: "assets/greek-drama/open-door-colonus.webp",
@@ -2605,10 +2606,9 @@
           },
           "greek-eleusis": {
             name: "Eleusinian Sanctuary",
-            text: "Take the Sacred Way to the Athenian Agora. The Cithaeron Road leads back toward Thebes.",
+            text: "Take the Sacred Way to the Athenian Agora. The Cithaeron Road leads to the Exposed Battlefield on the way back to Thebes.",
             exits: [
               "greek-colonus",
-              "greek-marathon",
               "greek-attic-farm",
               "greek-cithaeron",
               "greek-road-athens-eleusis",
@@ -2619,16 +2619,16 @@
           },
           "greek-marathon": {
             name: "Marathon Altar",
+            text: "The Marathon Road returns to the Athenian Agora. From the Agora, the Long Walls lead to Piraeus.",
             exits: [
-              "greek-eleusis",
-              "greek-colonus",
-              "greek-attic-farm"
+              "greek-road-athens-marathon"
             ],
             backdrop: "assets/greek-drama/open-door-marathon.webp",
             seed: "In the reign of Demophon, Iolaus and Heracles\u2019s children take refuge at the altar."
           },
           "greek-argolid-road": {
             name: "The Argolid Crossroads",
+            text: "The Shore Altar and Jury Yard are open to petitioners. Ismene keeps the tomb account, Creon the palace account, and Dione the farmhouse account. Giving the Record of the House of Atreus to one of them decides which household path opens for everyone.",
             exits: [
               "greek-harbor",
               "greek-argos-sanctuary",
@@ -2781,7 +2781,7 @@
           },
           "greek-delphi": {
             name: "Delphic Temple",
-            text: "The Oeta Road crosses the pass toward Trachis and Pherae. The south road returns to the Athenian Agora.",
+            text: "The Oeta Road crosses the pass to the House at Trachis. Continue through Pherae for the coast, or take the south road back to the Athenian Agora.",
             exits: [
               "greek-road-sacred-way",
               "greek-oeta",
@@ -2871,6 +2871,7 @@
           },
           "greek-troy-beach": {
             name: "The Homecoming Beach",
+            text: "The Scylla calls here from Lemnos. The same course leads back to the island.",
             exits: [],
             backdrop: "assets/greek-drama/homecoming-beach-day.webp",
             requires: [
@@ -2883,12 +2884,14 @@
           },
           "greek-lemnos": {
             name: "The Lemnian Cave",
+            text: "Ask Philoctetes about the Scylla\u2019s courses between Lemnos, Pagasae and Thrace.",
             exits: [],
             backdrop: "assets/greek-drama/lemnian-cave-day.webp",
             seed: "The conflict of Philoctetes is unfolding here."
           },
           "greek-thrace": {
             name: "Thracian Shore",
+            text: "Hecuba can tell you which course to take for Tauris or back to Lemnos.",
             exits: [],
             backdrop: "assets/greek-drama/thracian-shore-day.webp",
             seed: "The conflict of Hecuba is unfolding here."
@@ -3096,6 +3099,7 @@
           },
           "greek-road-athens-marathon": {
             name: "Marathon Road",
+            text: "One way leads back to the Athenian Agora. The other continues to Marathon Altar.",
             exits: [
               "greek-athens",
               "greek-marathon"
@@ -3104,8 +3108,7 @@
               "greek-athens",
               "greek-marathon"
             ],
-            retired: true,
-            backdrop: "assets/greek-drama/attic-road.webp"
+            backdrop: "assets/greek-drama/grove.svg"
           },
           "greek-road-piraeus-eleusis": {
             name: "Eleusis Coast Road",
@@ -3386,6 +3389,7 @@
           },
           "greek-cadmea-street": {
             name: "Cadmea Street",
+            text: "The older accounts of Thebes begin here. The Seventh Gate looks out on the siege. Oedipus\u2019s palace stands farther along the street.",
             exits: [
               "greek-well",
               "greek-seven-gates",
@@ -3404,7 +3408,8 @@
             seed: "The Argive army is outside the walls, before the deaths of the brothers."
           },
           "greek-oedipus-court": {
-            name: "Theban Palace Forecourt",
+            name: "Oedipus\u2019s Palace Forecourt",
+            text: "The city is in the reign of Oedipus. Cadmea Street leads back to the Market Well.",
             exits: [
               "greek-cadmea-street",
               "greek-jocasta-rooms",
@@ -4945,7 +4950,7 @@
             travels: false,
             standoffs: false,
             personalQuests: false,
-            seed: "Jocasta asks for help with the dispute at Theban Palace Forecourt.",
+            seed: "Jocasta asks for help with the dispute in Oedipus\u2019s forecourt.",
             text: "Oedipus is looking for the man who killed Laius, and the Corinthian messenger says the same shepherd knows where our king comes from. The shepherd\u2019s name is on this summons. I ask for a word with him before the herald reads it out.",
             tastes: {
               likes: "a traveler who hears both sides",
@@ -4960,7 +4965,7 @@
             travels: false,
             standoffs: false,
             personalQuests: false,
-            seed: "Oedipus has a stake in the dispute at Theban Palace Forecourt.",
+            seed: "Oedipus has a stake in the dispute in his palace forecourt.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -6474,7 +6479,13 @@
                 text: "The Trojan song carries Helen herself to Troy with Paris and keeps her within its walls through the war.",
                 about: "greek-troy-beach"
               }
-            ]
+            ],
+            records: [
+              "greek-helen-troy"
+            ],
+            recordText: {
+              "greek-helen-troy": "The Elder directs the traveler from Pagasae to Lemnos aboard the Scylla, then onward to Helen\u2019s Homecoming Beach."
+            }
           },
           "greek-atreid-record": {
             name: "Record of the House of Atreus",
@@ -8953,28 +8964,6 @@
             }
           },
           {
-            from: "greek-harbor",
-            to: "greek-troy-beach",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-helen-account",
-                value: "troy"
-              }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "greek-helen-accounts",
-                to: "greek-elder"
-              }
-            }
-          },
-          {
-            from: "greek-troy-beach",
-            to: "greek-harbor"
-          },
-          {
             from: "greek-argolid-road",
             to: "greek-argos-tomb",
             requires: [
@@ -9186,6 +9175,7 @@
             id: "greek-helen-troy",
             subject: "greek-elder",
             at: "greek-well",
+            text: "The Elder keeps the tablet and sends you to the Scylla at Pagasae to ask Philon for the Lemnos course before sailing on to Homecoming Beach.",
             requires: [
               {
                 kind: "choice_unset",
@@ -15841,6 +15831,7 @@
           },
           {
             id: "greek-helen-egypt-report-pagasae",
+            workId: "euripides-helen",
             subject: "greek-pagasae-pilot",
             at: "greek-pagasae",
             label: "Give the Egyptian passage mark to Philon",
@@ -18057,6 +18048,7 @@
             "greek-road-thebes",
             "greek-road-athens-piraeus",
             "greek-road-athens-eleusis",
+            "greek-road-athens-marathon",
             "greek-cithaeron",
             "greek-polynices-hollow",
             "greek-greek-camp",
@@ -19012,7 +19004,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "The Charybdis sails from Black Pond to the Wine-Dark Harbor and takes provisions to reach Piraeus. The Signal Jetty takes a Hoppy Cat thing aboard. To call the Charybdis, lay the burning Lamp at Black Pond while holding the Black cloth. Walk to Pagasae from Pherae to board the Scylla for Lemnos, Thrace, Tauris and Sicily. The Egyptian and Trojan accounts open two further berths."
+          description: "The Charybdis sails from Black Pond to the Wine-Dark Harbor and takes provisions to reach Piraeus. The Signal Jetty takes a Hoppy Cat thing aboard. To call the Charybdis, lay the burning Lamp at Black Pond while holding the Black cloth. Walk to Pagasae from Pherae to board the Scylla for Aulis, Lemnos, Thrace, Tauris and Sicily. The remaining berths open through local stories."
         },
         crossings: [
           {
@@ -19121,6 +19113,21 @@
                 y: 50
               }
             }
+          },
+          {
+            id: "greek-troy-beach-ship",
+            from: "greek-troy-beach",
+            to: "greek-lemnos",
+            travelers: "any",
+            travel: "aboard the Scylla",
+            requires: [],
+            travelLabel: "Board",
+            scenery: {
+              open: "The mooring lies below Helen\u2019s shelter.",
+              cardName: "The Scylla",
+              cardArt: "assets/greek-drama/scylla-card.webp"
+            },
+            transport: "greek-scylla"
           },
           {
             id: "hoppycat-signal-jetty-ship",
@@ -19351,6 +19358,7 @@
               "greek-sicily",
               "greek-egypt-tomb",
               "greek-ajax-landing",
+              "greek-troy-beach",
               "greek-aulis"
             ],
             lanes: [
@@ -19369,6 +19377,10 @@
               {
                 from: "greek-lemnos",
                 to: "greek-ajax-landing"
+              },
+              {
+                from: "greek-lemnos",
+                to: "greek-troy-beach"
               },
               {
                 from: "greek-pagasae",
@@ -29152,6 +29164,10 @@
       );
     return choice.text ?? plainChoiceText(choice, actor);
   }
+  function matchesChoiceWitness(choice, actor, text2) {
+    return text2 === choiceText(choice, actor) || // Before revision 47 the Elder's Give used the default action sentence.
+    choice.id === "greek-helen-troy" && text2 === plainChoiceText(choice, actor);
+  }
   var nameOf = (id) => humanAvatar(id)?.name || entities[id]?.name || forest_default.people[id]?.name || forest_default.things[id]?.name || forest_default.places[id]?.name || "An earlier traveler";
   var NAMED = /^(?:The|An?) |^\p{L}+['’]s? /u;
   var theName = (id) => NAMED.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
@@ -29235,6 +29251,33 @@
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
   var routeOpen = (world, packId, r) => coordinateRouteDiscovered(world, r.from, r.to) || conditionsMet(world, packId, r.requires);
+  var committedChoiceKeys = /* @__PURE__ */ new Map();
+  function isChoiceCommitment(packId, key2) {
+    const id = `${packId}:${key2}`;
+    if (!committedChoiceKeys.has(id)) {
+      const writers = (packDefinition(packId)?.choices || []).filter(
+        (choice) => !choice.archived && choice.effects.some(
+          (effect) => effect.kind === "choose" && effect.key === key2
+        )
+      );
+      committedChoiceKeys.set(
+        id,
+        writers.length > 0 && writers.every(
+          (choice) => choice.requires?.some((c) => c.kind === "choice_unset" && c.key === key2)
+        )
+      );
+    }
+    return committedChoiceKeys.get(id);
+  }
+  function sealedRouteCanOpen(world, packId, route) {
+    const choices = packState(world, packId)?.choices;
+    if (!choices) return true;
+    const impossible = (condition) => {
+      if (condition.kind === "any") return condition.conditions.every(impossible);
+      return condition.kind === "choice" && owns5(choices, condition.key) && choices[condition.key] !== condition.value && isChoiceCommitment(packId, condition.key);
+    };
+    return !route.requires?.some(impossible) && !route.travelerRequires?.some(impossible);
+  }
   var packRouteOpen = (world, from, to) => packDefinitions.some(
     (pack) => (pack.routes || []).some(
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
@@ -30783,7 +30826,7 @@
     );
     const sawCommit = (id) => {
       const f = s.knowledge.facts[id];
-      return known[id].kind === "witnessed" && f?.source.kind === "event" && f.source.turn === receipts[commit.id] && f.source.locationId === commit.at && f.text === choiceText(commit, f.source.actorId);
+      return known[id].kind === "witnessed" && f?.source.kind === "event" && f.source.turn === receipts[commit.id] && f.source.locationId === commit.at && matchesChoiceWitness(commit, f.source.actorId, f.text);
     };
     return onBranch(here2) || Object.keys(s.actors).some(
       (id) => s.actors[id].place === here2 && onBranch(id) && entityActive(s, id)
@@ -31034,7 +31077,8 @@
     const open = exits(s, here2, actor), seen = /* @__PURE__ */ new Set();
     return ways2.filter((r) => !open.includes(r.to)).flatMap((r) => {
       const guard = guardOf(s, here2, r.to, actor);
-      if (!guard) return r.sealed ? [r] : [];
+      if (!guard)
+        return r.sealed && sealedRouteCanOpen(s, packIdOf(r.from), r) ? [r] : [];
       return [{ ...r, sealed: {}, guardedBy: guard }];
     }).filter((r) => !seen.has(r.to) && seen.add(r.to));
   }
@@ -31187,6 +31231,10 @@
         reconcileGreekClaims(s);
       }
       if (greekRevision < 46) reconcileAulis(s);
+      if (greekRevision < 47) {
+        reconcileHomecomingBeach(s);
+        reconcileMarathonRoad(s);
+      }
     }
     if (reworked.has("elysium")) settleStrandedWayfinder(s);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
@@ -31362,6 +31410,35 @@
     forgetRouteEdges(s, /* @__PURE__ */ new Set(["greek-aulis>greek-gate", "greek-gate>greek-aulis"]));
     for (const [id, actor] of Object.entries(s.actors))
       if (actor.place === "greek-aulis") learnLane(s, id, "greek-aulis", "greek-pagasae");
+  }
+  function reconcileMarathonRoad(s) {
+    const marathon = "greek-marathon";
+    const formerNeighbors = ["greek-eleusis", "greek-colonus", "greek-attic-farm"];
+    const obsolete = new Set(formerNeighbors.flatMap((neighbor) => [
+      `${marathon}>${neighbor}`,
+      `${neighbor}>${marathon}`
+    ]));
+    const rhapsode = "greek-rhapsode";
+    const known = s.routeKnowledge?.[rhapsode];
+    const knewMarathon = Array.isArray(known) && known.some(
+      (edge) => Array.isArray(edge) && edge.length === 2 && obsolete.has(edge.join(">"))
+    );
+    forgetRouteEdges(s, obsolete);
+    if (knewMarathon) {
+      const road = "greek-road-athens-marathon";
+      rememberRoutes(s, rhapsode, [
+        ["greek-athens", road],
+        [road, "greek-athens"],
+        [marathon, road],
+        [road, marathon]
+      ]);
+    }
+  }
+  function reconcileHomecomingBeach(s) {
+    forgetRouteEdges(s, /* @__PURE__ */ new Set([
+      "greek-harbor>greek-troy-beach",
+      "greek-troy-beach>greek-harbor"
+    ]));
   }
   function reconcileNorthernRoad(s) {
     const road = "greek-road-north";
@@ -33090,7 +33167,7 @@
   function knowsPackChoice(world, actor, pack, choice) {
     const turn = world.packs[pack.id].receipts[choice.id];
     const known = world.knowledge?.known?.[actor] || {};
-    const wordsMatch = (entry, text2) => entry.turn === turn && entry.locationId === choice.at && text2 === choiceText(choice, entry.actorId);
+    const wordsMatch = (entry, text2) => entry.turn === turn && entry.locationId === choice.at && matchesChoiceWitness(choice, entry.actorId, text2);
     if ((world.log || []).some((entry) => {
       if (entry.generated || entry.turn !== turn) return false;
       const commit = entry.packId === pack.id && entry.choiceId === choice.id || entry.kind === "action" && entry.verb === (choice.on || "choose") && wordsMatch(entry, entry.text);

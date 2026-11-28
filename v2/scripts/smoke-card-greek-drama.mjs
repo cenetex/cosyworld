@@ -17,6 +17,7 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { knowsLane } from "../card-game/pack-transport.mjs";
 import { MAX_DWELL } from "../card-game/world/dwell.mjs";
 
 function commit(world, kind, target) {
@@ -102,12 +103,14 @@ try {
         body: JSON.stringify({
           revision: input.revision,
           model: "greek-browser-fixture",
-          entries: input.entities.map(({ id }) => ({
-            id,
-            text:
-              input.disclosures?.find((fact) => fact.speaker === id)?.text ||
-              `${profiles[id]?.name || id} considers the witnessed result.`,
-          })),
+          entries: input.entities.map(({ id }) => {
+            const disclosure = input.disclosures?.find((fact) => fact.speaker === id);
+            if (disclosure) {
+              const { factId, listener, speaker, eventSeq, text } = disclosure;
+              return { id, text, disclosed: { factId, listener, speaker, eventSeq } };
+            }
+            return { id, text: `${profiles[id]?.name || id} considers the witnessed result.` };
+          }),
         }),
       });
     });
@@ -326,13 +329,11 @@ try {
     const opposite =
       branch === "egypt" ? "greek-troy-beach" : "greek-egypt-tomb";
     const evidence = `greek-${branch}-testimony`;
-    const otherAccountLocked = async () => {
-      if (branch === "egypt")
-        assert.equal(await card(opposite).getAttribute("data-locked"), "true");
-      else assert.equal(await card(opposite).count(), 0);
+    const otherAccountHidden = async () => {
+      assert.equal(await card(opposite).count(), 0);
       assert.equal(
         legalActions(await state()).some(
-          (action) => action.kind === "move" && action.target === opposite,
+          (action) => ["move", "course"].includes(action.kind) && action.target === opposite,
         ),
         false,
         "The other account is never a legal destination",
@@ -356,22 +357,26 @@ try {
       branch === "egypt" ? "greek-harbor" : "greek-well",
     );
     if (branch === "troy") await travel("greek-harbor");
-    await otherAccountLocked();
-    if (branch === "egypt") {
-      const shore = await state();
-      assert.equal(
-        legalActions(shore).some(
-          (action) => action.kind === "move" && action.target === destination,
-        ),
-        false,
-        "Egypt has no walk from the harbor",
+    await otherAccountHidden();
+    const outwardShore = await state();
+    assert.ok(!legalActions(outwardShore).some(
+      (action) => action.kind === "move" && action.target === destination,
+    ), "Helen's berth has no walk from the harbor");
+    // Native voyage tests cover the inland walk to Pagasae. Start the browser
+    // voyage there with the same witnesses, choices and possessions.
+    outwardShore.actors.vale.place = "greek-pagasae";
+    await restore(outwardShore);
+    if (branch === "troy") {
+      const canTalkToPilot = async () => legalActions(await state()).some(
+        (action) => action.kind === "talk" && action.target === "greek-pagasae-pilot",
       );
-      // The port journeys cover the inland walk. Start the browser voyage at
-      // Pagasae with the same witnesses, choices and possessions.
-      shore.actors.vale.place = "greek-pagasae";
-      await restore(shore);
-      await sailScylla(destination);
-    } else await travel(destination);
+      for (let n = 0; n < 2 * MAX_DWELL && !(await canTalkToPilot()); n++)
+        await playCard("vale");
+      await playCard("greek-pagasae-pilot");
+      assert.ok(knowsLane(await state(), "vale", "greek-pagasae", "greek-lemnos"));
+    }
+    await sailScylla(destination);
+    await otherAccountHidden();
     await playCard(evidence);
     assert.equal(rootHolder(await state(), evidence), "vale");
     await page.reload();
@@ -382,13 +387,11 @@ try {
       path: new URL(`helen-${branch}-${width}.png`, output).pathname,
       fullPage: true,
     });
-    if (branch === "egypt") {
-      await sailScylla("greek-pagasae");
-      const shore = await state();
-      shore.actors.vale.place = "greek-harbor";
-      await restore(shore);
-    } else await travel("greek-harbor");
-    await otherAccountLocked();
+    await sailScylla("greek-pagasae");
+    const returnShore = await state();
+    returnShore.actors.vale.place = "greek-harbor";
+    await restore(returnShore);
+    await otherAccountHidden();
     await travel("pond");
     current = await state();
     assert.equal(
@@ -413,7 +416,7 @@ try {
       "greek-harbor",
     );
     await restore(updated);
-    await otherAccountLocked();
+    await otherAccountHidden();
     await travel("pond");
     assert.equal(rootHolder(await state(), evidence), "vale");
     assert.ok(requests.some((r) => r.location === "greek-gate"));

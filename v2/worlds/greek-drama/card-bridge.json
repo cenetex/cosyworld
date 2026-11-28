@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "The Charybdis sails from Black Pond to the Wine-Dark Harbor and takes provisions to reach Piraeus. The Signal Jetty takes a Hoppy Cat thing aboard. To call the Charybdis, lay the burning Lamp at Black Pond while holding the Black cloth. Walk to Pagasae from Pherae to board the Scylla for Lemnos, Thrace, Tauris and Sicily. The Egyptian and Trojan accounts open two further berths.",
+  "description": "The Charybdis sails from Black Pond to the Wine-Dark Harbor and takes provisions to reach Piraeus. The Signal Jetty takes a Hoppy Cat thing aboard. To call the Charybdis, lay the burning Lamp at Black Pond while holding the Black cloth. Walk to Pagasae from Pherae to board the Scylla for Aulis, Lemnos, Thrace, Tauris and Sicily. The remaining berths open through local stories.",
   "entries": [
     {
       "joins": "hub",
@@ -122,6 +122,21 @@
           "y": 50
         }
       }
+    },
+    {
+      "id": "greek-troy-beach-ship",
+      "from": "greek-troy-beach",
+      "to": "greek-lemnos",
+      "travelers": "any",
+      "travel": "aboard the Scylla",
+      "requires": [],
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The mooring lies below Helen’s shelter.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp"
+      },
+      "transport": "greek-scylla"
     },
     {
       "id": "hoppycat-signal-jetty-ship",
@@ -352,6 +367,7 @@
         "greek-sicily",
         "greek-egypt-tomb",
         "greek-ajax-landing",
+        "greek-troy-beach",
         "greek-aulis"
       ],
       "lanes": [
@@ -370,6 +386,10 @@
         {
           "from": "greek-lemnos",
           "to": "greek-ajax-landing"
+        },
+        {
+          "from": "greek-lemnos",
+          "to": "greek-troy-beach"
         },
         {
           "from": "greek-pagasae",

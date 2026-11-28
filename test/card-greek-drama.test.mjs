@@ -2,7 +2,8 @@ import "./helpers/still-cast.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
-import { summonTransport } from "../v2/card-game/pack-transport.mjs";
+import { ajaxTalk } from "./helpers/greek-ajax.mjs";
+import { knowsLane, summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { describe, expect, it } from "vitest";
 import {
@@ -48,6 +49,7 @@ const WELL = "greek-well";
 const PALACE = "greek-palace";
 const EGYPT = "greek-egypt-tomb";
 const PAGASAE = "greek-pagasae";
+const LEMNOS = "greek-lemnos";
 const SCYLLA = "greek-scylla";
 const stateOf = (world) => world.packs[PACK];
 
@@ -143,13 +145,16 @@ const walk = (world, ...route) => route.reduce(move, world);
 const take = (world, item) => act(world, "take", { item });
 
 function reachHelen(world, destination) {
-  if (destination !== EGYPT) return move(world, destination);
   world.actors.vale.place = PAGASAE;
-  return sailTo(move(world, SCYLLA), EGYPT);
+  if (destination !== EGYPT && !knowsLane(world, "vale", PAGASAE, LEMNOS)) {
+    if (!legalActions(world).some((a) => a.kind === "talk" && a.target === "greek-pagasae-pilot"))
+      world = act(world, "wait");
+    world = ajaxTalk(world, `lane:${PAGASAE}>${LEMNOS}`, { target: "greek-pagasae-pilot" });
+  }
+  return sailTo(move(world, SCYLLA), destination);
 }
 
 function returnFromHelen(world) {
-  if (world.actors.vale.place !== EGYPT) return move(world, HARBOR);
   world = sailTo(move(world, SCYLLA), PAGASAE);
   world.actors.vale.place = HARBOR;
   return world;
@@ -659,9 +664,7 @@ describe("incompatible histories become playable branches", () => {
       world = choose(world, choice.id);
       expect(world.items[tablet].holder).toBe(choice.at);
       if (choice.at !== HARBOR) world = move(world, HARBOR);
-      if (branch === "egypt")
-        expect(exits(world, HARBOR, "vale")).not.toContain(destination);
-      else expect(exits(world, HARBOR, "vale")).toContain(destination);
+      expect(exits(world, HARBOR, "vale")).not.toContain(destination);
       expect(exits(world, HARBOR, "vale")).not.toContain(otherDestination);
       world = reachHelen(world, destination);
       expect(knownActors(world)).toContain(`greek-helen-${branch}`);

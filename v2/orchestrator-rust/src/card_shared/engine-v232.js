@@ -5210,6 +5210,10 @@
       );
     return choice.text ?? plainChoiceText(choice, actor);
   }
+  function matchesChoiceWitness(choice, actor, text2) {
+    return text2 === choiceText(choice, actor) || // Before revision 47 the Elder's Give used the default action sentence.
+    choice.id === "greek-helen-troy" && text2 === plainChoiceText(choice, actor);
+  }
   var nameOf = (id) => humanAvatar(id)?.name || entities[id]?.name || forest_default.people[id]?.name || forest_default.things[id]?.name || forest_default.places[id]?.name || "An earlier traveler";
   var NAMED = /^(?:The|An?) |^\p{L}+['’]s? /u;
   var theName = (id) => NAMED.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
@@ -5293,6 +5297,33 @@
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
   var routeOpen = (world, packId, r) => coordinateRouteDiscovered(world, r.from, r.to) || conditionsMet(world, packId, r.requires);
+  var committedChoiceKeys = /* @__PURE__ */ new Map();
+  function isChoiceCommitment(packId, key2) {
+    const id = `${packId}:${key2}`;
+    if (!committedChoiceKeys.has(id)) {
+      const writers = (packDefinition(packId)?.choices || []).filter(
+        (choice) => !choice.archived && choice.effects.some(
+          (effect) => effect.kind === "choose" && effect.key === key2
+        )
+      );
+      committedChoiceKeys.set(
+        id,
+        writers.length > 0 && writers.every(
+          (choice) => choice.requires?.some((c) => c.kind === "choice_unset" && c.key === key2)
+        )
+      );
+    }
+    return committedChoiceKeys.get(id);
+  }
+  function sealedRouteCanOpen(world, packId, route) {
+    const choices = packState(world, packId)?.choices;
+    if (!choices) return true;
+    const impossible = (condition) => {
+      if (condition.kind === "any") return condition.conditions.every(impossible);
+      return condition.kind === "choice" && owns5(choices, condition.key) && choices[condition.key] !== condition.value && isChoiceCommitment(packId, condition.key);
+    };
+    return !route.requires?.some(impossible) && !route.travelerRequires?.some(impossible);
+  }
   var packRouteOpen = (world, from, to) => packDefinitions.some(
     (pack) => (pack.routes || []).some(
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
@@ -6294,14 +6325,19 @@
   var atPort = (s, actor) => Object.values(transports).some(
     (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
   );
-  var scyllaPilot = (actor) => transports["greek-scylla"]?.shipmaster === actor;
+  var scyllaShoreCourses = {
+    "greek-story-sophocles-philoctetes-first": ["greek-pagasae", "greek-thrace"],
+    "greek-story-euripides-hecuba-first": ["greek-lemnos", "greek-tauris"]
+  };
+  var scyllaGuide = (actor) => transports["greek-scylla"]?.shipmaster === actor || Object.hasOwn(scyllaShoreCourses, actor);
   function scyllaDirections(world, speaker, listener) {
     const ship = transports["greek-scylla"];
     const from = world.actors[speaker]?.place;
-    if (!scyllaPilot(speaker) || !ship.docks.includes(from) || !entityActive(world, from))
+    if (!ship?.docks.includes(from) || !entityActive(world, from))
       return null;
+    const shoreCourses = scyllaShoreCourses[speaker];
     const to = lanesFrom(ship, from).find(
-      (to2) => entityActive(world, to2) && knowsLane(world, speaker, from, to2) && !knowsLane(world, listener, from, to2) && conditionsMet(world, ship.packId, laneBetween(ship, from, to2).opensWith)
+      (to2) => (speaker === ship.shipmaster || shoreCourses?.includes(to2)) && entityActive(world, to2) && knowsLane(world, speaker, from, to2) && !knowsLane(world, listener, from, to2) && conditionsMet(world, ship.packId, laneBetween(ship, from, to2).opensWith)
     );
     return to ? laneFact(from, to) : null;
   }
@@ -6372,10 +6408,10 @@
         const topic = offered.find((t) => t.commitChoice) ?? offered.find(
           (t) => Object.hasOwn(world.packs[t.packId].receipts, t.choiceId) && !knowsFact(world, listener, t.id)
         );
-        const marker = topic ? reserveKnowledge(world, speaker, listener, event, [{ ...topic, said: true }]) : scyllaPilot(speaker) ? reserveLaneKnowledge(world, speaker, listener, event, scyllaDirections(world, speaker, listener)) : null;
+        const marker = topic ? reserveKnowledge(world, speaker, listener, event, [{ ...topic, said: true }]) : scyllaGuide(speaker) ? reserveLaneKnowledge(world, speaker, listener, event, scyllaDirections(world, speaker, listener)) : null;
         if (tellAuthored(world, event, marker, addLog2)) break;
       }
-      const lane = scyllaPilot(speaker) ? null : laneToTell(world, speaker, listener);
+      const lane = scyllaGuide(speaker) ? null : laneToTell(world, speaker, listener);
       const port = lane && atPort(world, speaker) && !topics.some((t) => t.said);
       if (port && reserveLaneKnowledge(world, speaker, listener, event, lane))
         break;
@@ -7651,7 +7687,7 @@
     );
     const sawCommit = (id) => {
       const f = s.knowledge.facts[id];
-      return known[id].kind === "witnessed" && f?.source.kind === "event" && f.source.turn === receipts[commit.id] && f.source.locationId === commit.at && f.text === choiceText(commit, f.source.actorId);
+      return known[id].kind === "witnessed" && f?.source.kind === "event" && f.source.turn === receipts[commit.id] && f.source.locationId === commit.at && matchesChoiceWitness(commit, f.source.actorId, f.text);
     };
     return onBranch(here) || Object.keys(s.actors).some(
       (id) => s.actors[id].place === here && onBranch(id) && entityActive(s, id)
@@ -8445,12 +8481,16 @@
     for (const def of here) {
       if (!present(s, def)) continue;
       switch (def.kind) {
-        case "way":
+        case "way": {
           if (!entityShown(s, def.id)) break;
           if (!def.route && !(def.guard && guardOf(s, def.at, def.id, actor)))
             break;
-          add(def, boxOpen(s, def, actor));
+          const open = boxOpen(s, def, actor);
+          if (!open && def.route && !sealedRouteCanOpen(s, def.pack, def.route) && !(def.guard && guardOf(s, def.at, def.id, actor)))
+            break;
+          add(def, open);
           break;
+        }
         case "item":
           if (def.sealed ? !entityActive(s, def.id) && entityShown(s, def.id) : usedUp(s, def.id) && entityActive(s, def.by))
             add(def, false);
@@ -8583,6 +8623,10 @@
         reconcileGreekClaims(s);
       }
       if (greekRevision < 46) reconcileAulis(s);
+      if (greekRevision < 47) {
+        reconcileHomecomingBeach(s);
+        reconcileMarathonRoad(s);
+      }
     }
     if (reworked.has("elysium")) settleStrandedWayfinder(s);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
@@ -8758,6 +8802,35 @@
     forgetRouteEdges(s, /* @__PURE__ */ new Set(["greek-aulis>greek-gate", "greek-gate>greek-aulis"]));
     for (const [id, actor] of Object.entries(s.actors))
       if (actor.place === "greek-aulis") learnLane(s, id, "greek-aulis", "greek-pagasae");
+  }
+  function reconcileMarathonRoad(s) {
+    const marathon = "greek-marathon";
+    const formerNeighbors = ["greek-eleusis", "greek-colonus", "greek-attic-farm"];
+    const obsolete = new Set(formerNeighbors.flatMap((neighbor) => [
+      `${marathon}>${neighbor}`,
+      `${neighbor}>${marathon}`
+    ]));
+    const rhapsode = "greek-rhapsode";
+    const known = s.routeKnowledge?.[rhapsode];
+    const knewMarathon = Array.isArray(known) && known.some(
+      (edge) => Array.isArray(edge) && edge.length === 2 && obsolete.has(edge.join(">"))
+    );
+    forgetRouteEdges(s, obsolete);
+    if (knewMarathon) {
+      const road = "greek-road-athens-marathon";
+      rememberRoutes(s, rhapsode, [
+        ["greek-athens", road],
+        [road, "greek-athens"],
+        [marathon, road],
+        [road, marathon]
+      ]);
+    }
+  }
+  function reconcileHomecomingBeach(s) {
+    forgetRouteEdges(s, /* @__PURE__ */ new Set([
+      "greek-harbor>greek-troy-beach",
+      "greek-troy-beach>greek-harbor"
+    ]));
   }
   function reconcileNorthernRoad(s) {
     const road = "greek-road-north";

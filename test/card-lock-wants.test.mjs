@@ -560,10 +560,10 @@ describe("a lock in a real world shows only what the traveler knows", () => {
 
   it("names a card once it is discovered", () => {
     const s = world();
-    const def = boxDefs().find((d) => d.id === "greek-troy-beach");
+    const def = boxDefs().find((d) => d.id === "greek-argos-tomb");
     s.actors.vale.place = def.at;
-    expect(lockWords(s, def.id)).not.toContain("Tablet");
-    expect(lockWords(s, def.id, () => true)).toContain("Tablet");
+    expect(lockWords(s, def.id)).not.toContain("Record");
+    expect(lockWords(s, def.id, () => true)).toContain("Record");
   });
 
   it("words a quest a fresh traveler knows without its undiscovered names", () => {

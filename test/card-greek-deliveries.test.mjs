@@ -1,17 +1,13 @@
 import { expect, it } from "vitest";
 import { claimsIn } from "../v2/card-game/claims.mjs";
-import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import {
   packGiveChoice,
   packTalkChoice,
 } from "../v2/card-game/pack-registry.mjs";
 import { knowsLane } from "../v2/card-game/pack-transport.mjs";
 import { readPage } from "../v2/card-game/read-view.mjs";
-import {
-  applyTalkDisclosure,
-  decodeSave,
-  encodeSave,
-} from "../v2/card-game/world.mjs";
+import { decodeSave, encodeSave, legalActions } from "../v2/card-game/world.mjs";
 import { greekStart, landRoad, traveler } from "./helpers/open-door.mjs";
 import "./helpers/still-cast.mjs";
 
@@ -22,24 +18,27 @@ const ELECTRA = "greek-story-euripides-orestes-first";
 const DELIVERY = "greek-tauris-deliver-letter";
 const receipts = (t) => t.s.packs[PACK].receipts;
 
-function sailWithDirections(t, speaker, destination) {
+function sailWithDirections(t, speaker, destination, returnTo) {
   const from = t.s.actors.vale.place;
-  for (
-    let attempt = 0;
-    attempt < 8 && !knowsLane(t.s, "vale", from, destination);
-    attempt++
-  ) {
-    t.talk(speaker);
-    const context = narrativeContext(t.s);
-    const disclosure = context.disclosures?.[0];
-    if (disclosure)
-      applyTalkDisclosure(t.s, disclosure, {
-        actorId: disclosure.speaker,
-        locationId: context.location,
-      });
-  }
+  expect(knowsLane(t.s, "vale", from, destination)).toBe(false);
+  t.talk(speaker);
+  const fact = `lane:${from}>${destination}`;
   expect(knowsLane(t.s, "vale", from, destination)).toBe(true);
-  t.move("scylla", destination);
+  expect(knowsFact(t.s, "vale", fact)).toBe(true);
+  expect(t.s.knowledge.known.vale[fact]).toMatchObject({
+    kind: "heard",
+    teller: speaker,
+  });
+  t.move("scylla");
+  const courses = legalActions(t.s)
+    .filter(({ kind }) => kind === "course")
+    .map(({ target }) => target);
+  expect(new Set(courses)).toEqual(
+    new Set(returnTo ? [destination, returnTo] : [destination]),
+  );
+  t.act("course", { target: destination })
+    .act("wait")
+    .act("move", { target: destination });
 }
 
 function prepareHandoff(t, stem, response) {
@@ -89,8 +88,14 @@ it("carries Iphigenia’s original letter from Tauris to Electra and reads her a
     t,
     "greek-story-sophocles-philoctetes-first",
     "greek-thrace",
+    "greek-pagasae",
   );
-  sailWithDirections(t, "greek-story-euripides-hecuba-first", "greek-tauris");
+  sailWithDirections(
+    t,
+    "greek-story-euripides-hecuba-first",
+    "greek-tauris",
+    "greek-lemnos",
+  );
   prepareHandoff(
     t,
     "greek-story-euripides-tauris",

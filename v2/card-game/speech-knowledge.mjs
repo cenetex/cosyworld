@@ -1,7 +1,6 @@
-// The player uncovers cards before their names reach a speech request.
 import {
-  choiceText,
   entityActive,
+  matchesChoiceWitness,
   observableStates,
   packThings,
 } from "./pack-registry.mjs";
@@ -22,7 +21,7 @@ export function knowsPackChoice(world, actor, pack, choice) {
   const known = world.knowledge?.known?.[actor] || {};
   const wordsMatch = (entry, text) =>
     entry.turn === turn && entry.locationId === choice.at &&
-    text === choiceText(choice, entry.actorId);
+    matchesChoiceWitness(choice, entry.actorId, text);
 
   // A commit can be witnessed directly or retained as a personal fact after
   // the original line leaves the log. Older events may carry only their words.

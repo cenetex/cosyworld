@@ -2,7 +2,7 @@
 // sails the Black Pond route: Black Pond to the Wine-Dark Harbor and back
 // with no cargo, on to Piraeus and the Hoppy Cat jetty only with cargo
 // aboard. The Scylla sails the Far Shores from Pagasae without cargo.
-// Marathon is a walk from Eleusis. Myrto's invitation opens the Scylla's
+// Marathon is a walk from Athens. Myrto's invitation opens the Scylla's
 // landing at Troy. The land route from Piraeus through Athens,
 // Eleusis, Cithaeron and the battlefield enters Thebes through the City Gate.
 import { describe, expect, it } from "vitest";
@@ -71,6 +71,7 @@ const PAGASAE = "greek-pagasae";
 const SCYLLA = "greek-scylla";
 const AJAX_LANDING = "greek-ajax-landing";
 const EGYPT_TOMB = "greek-egypt-tomb";
+const HOMECOMING_BEACH = "greek-troy-beach";
 const AJAX_PLACES = pack.sections.find((s) => s.id === "greek-ajax").places;
 const FAR_SHORES = [
   "greek-aulis",
@@ -87,6 +88,7 @@ const FAR_SHORE_LANES = [
   [PAGASAE, "greek-sicily"],
   [PAGASAE, EGYPT_TOMB],
   [PAGASAE, "greek-aulis"],
+  ["greek-lemnos", HOMECOMING_BEACH],
 ];
 
 // Every thing a route or a sea lane names in its conditions: the keys that
@@ -365,7 +367,7 @@ describe("ports reachable on foot or by a free leg home", () => {
     expect(ship.at).toBe(PAGASAE);
     expect(ship.shipmaster).toBe("greek-pagasae-pilot");
     expect(new Set(ship.docks)).toEqual(
-      new Set([PAGASAE, ...FAR_SHORES, AJAX_LANDING, EGYPT_TOMB]),
+      new Set([PAGASAE, ...FAR_SHORES, AJAX_LANDING, EGYPT_TOMB, HOMECOMING_BEACH]),
     );
     expect(ship.lanes).toHaveLength(FAR_SHORE_LANES.length);
     for (const [from, to] of FAR_SHORE_LANES) {
@@ -381,10 +383,11 @@ describe("ports reachable on foot or by a free leg home", () => {
     }
   });
 
-  it("opens the Scylla's Ajax landing and Egyptian berth only for their own commitments", () => {
+  it("opens the Scylla's three story berths only for their own commitments", () => {
     const s = stages.opening();
     expect(lanePath(s, SCYLLA, PAGASAE, AJAX_LANDING)).toBeNull();
     expect(lanePath(s, SCYLLA, PAGASAE, EGYPT_TOMB)).toBeNull();
+    expect(lanePath(s, SCYLLA, PAGASAE, HOMECOMING_BEACH)).toBeNull();
     expect(exits(s, "greek-harbor", "vale")).not.toContain(EGYPT_TOMB);
 
     s.packs["greek-drama"].flags["greek-ajax-open"] = true;
@@ -404,9 +407,21 @@ describe("ports reachable on foot or by a free leg home", () => {
     expect(exits(s, AJAX_LANDING, "vale")).not.toContain("greek-road-north");
     expect(exits(s, AJAX_LANDING, "vale")).toContain("greek-greek-camp");
 
+    delete s.packs["greek-drama"].flags["greek-ajax-open"];
     s.packs["greek-drama"].choices["greek-helen-account"] = "troy";
     expect(lanePath(s, SCYLLA, PAGASAE, EGYPT_TOMB)).toBeNull();
+    expect(lanePath(s, SCYLLA, PAGASAE, AJAX_LANDING)).toBeNull();
+    expect(lanePath(s, SCYLLA, PAGASAE, HOMECOMING_BEACH)).toEqual([
+      PAGASAE, "greek-lemnos", HOMECOMING_BEACH,
+    ]);
+    expect(lanePath(s, SCYLLA, HOMECOMING_BEACH, PAGASAE)).toEqual([
+      HOMECOMING_BEACH, "greek-lemnos", PAGASAE,
+    ]);
+    expect(exits(s, "greek-harbor", "vale")).not.toContain(HOMECOMING_BEACH);
+    expect(exits(s, HOMECOMING_BEACH, "vale")).not.toContain("greek-harbor");
+    expect(exits(s, HOMECOMING_BEACH, "vale")).not.toContain(AJAX_LANDING);
     s.packs["greek-drama"].choices["greek-helen-account"] = "egypt";
+    expect(lanePath(s, SCYLLA, PAGASAE, HOMECOMING_BEACH)).toBeNull();
     expect(lanePath(s, SCYLLA, PAGASAE, EGYPT_TOMB)).toEqual([
       PAGASAE,
       EGYPT_TOMB,
@@ -439,7 +454,7 @@ describe("ports reachable on foot or by a free leg home", () => {
     ];
     const waypoints = {
       "greek-eleusis": "Sacred Way",
-      "greek-athens": "the Road to Delphi",
+      "greek-athens": "the road to the Delphic Temple",
       "greek-delphi": "The Oeta Road",
       "greek-oeta": "through Trachis",
       "greek-trachis": "down to Pherae",
