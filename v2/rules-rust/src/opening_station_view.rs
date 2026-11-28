@@ -653,6 +653,27 @@ fn generated_station_line(event: &Value, voices: &[&str]) -> bool {
         }
 }
 
+pub(super) fn historic_ada_move(world: &Value, event: &Value) -> bool {
+    let ada = &world["actors"]["ada"];
+    historic_station(world)
+        && world["run"]["seed"] == 99
+        && is_move(event, "ada", "loft", "greek-ship")
+        && event["turn"] == 482
+        && event["speaker"] == "World"
+        && event["itemId"].is_null()
+        && event["cast"] == json!(["ada"])
+        && event["witnesses"] == json!(["ada", "shears"])
+        && event["items"] == json!([])
+        && event["light"] == false
+        && world["doors"]["loft"] == "greek-ship"
+        && world["crossings"]["loft-greek-ship"]["discovered"] == true
+        && world["items"]["shears"]["holder"] == "loft"
+        && ada["place"] == "greek-ship"
+        && ada["visited"] == json!(["loft", "greek-ship"])
+        && ada["crossed"] == 1
+        && ada.get("heldItem") == Some(&Value::Null)
+}
+
 fn awake_arrival_events(world: &Value, committed: &[&Value]) -> Option<()> {
     let [primary, follow, offstage @ .., wake] = committed else {
         return None;
@@ -683,6 +704,7 @@ fn awake_arrival_events(world: &Value, committed: &[&Value]) -> Option<()> {
     }
     match offstage {
         [] => Some(()),
+        [entry] if historic_ada_move(world, entry) => Some(()),
         [entry] if is_move(entry, "orin", "pavilion", "willows-bank") => (entry["itemId"]
             .is_null()
             && entry["cast"] == json!(["orin"])

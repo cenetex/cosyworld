@@ -5,7 +5,6 @@ import { profiles } from "./memory.mjs";
 import { grievanceActive } from "./knowledge.mjs";
 
 export const LIFE_VERSION = 3;
-// A conversation promises a few turns of company.
 export const COMPANY_TURNS = 3;
 const EXPERIENCE_LIMIT = 16;
 const experienceKinds = ["help", "gift", "journey", "care", "talk", "trade"];

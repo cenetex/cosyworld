@@ -57,11 +57,16 @@ test("awake historic Station speech and reloads keep the witnessed arrival", asy
         };
         const expected = run(request);
         const label = `${seed} dry ${dry} sorted ${sorted}`;
+        const remote = [];
+        if (seed === 17 && pond.actors.orin.want.target === "willows-swede") {
+          remote.push("orin");
+        }
+        if (seed === 99 && pond.actors.ada.want.target === "vale") {
+          remote.push("ada");
+        }
         assert.deepEqual(
           expected.events.map(({ actorId }) => actorId),
-          seed === 17
-            ? ["vale", "moth", "orin", "keeper"]
-            : ["vale", "moth", "keeper"],
+          ["vale", "moth", ...remote, "keeper"],
         );
         const settled = { ...expected.world, speechVoices: pond.speechVoices };
         complete = {
