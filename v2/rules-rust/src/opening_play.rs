@@ -36,6 +36,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
                     | "move:vale:lamp:behind-station"
                     | "move:vale::pond"
                     | "move:vale:lamp:pond"
+                    | "move:vale:cloth:pond"
             )
         )
     {
