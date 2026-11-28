@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+mod release;
+
 use cosyworld_rules::{MAX_JSON_BYTES, MAX_WIRE_BYTES};
 use serde_json::Value;
 use wasmi::{Config, Engine, ExternType, Linker, Module, Store, StoreLimits, StoreLimitsBuilder};
@@ -224,7 +226,11 @@ mod tests {
     }
 
     fn guest_with_marker(memory_pages: u32, reducer: &str, marker: &str) -> Rules {
-        let wasm = wat::parse_str(format!(
+        Rules::new(&guest_bytes(memory_pages, reducer, marker)).unwrap()
+    }
+
+    pub(super) fn guest_bytes(memory_pages: u32, reducer: &str, marker: &str) -> Vec<u8> {
+        wat::parse_str(format!(
             r#"(module
             (memory (export "memory") {memory_pages})
             (data (i32.const 64) "null")
@@ -233,8 +239,7 @@ mod tests {
             (func (export "reduce") (result i32) {reducer})
             (func (export "output_ptr") (result i32) i32.const 64))"#
         ))
-        .unwrap();
-        Rules::new(&wasm).unwrap()
+        .unwrap()
     }
 
     #[test]
