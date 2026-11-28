@@ -1,9 +1,13 @@
 use super::{content, engine, full_store, full_world::World, store::Result};
+#[cfg(feature = "rules-wasm")]
+use cosyworld_orchestrator::rules_wasm::Rules;
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod direct;
+#[cfg(feature = "rules-wasm")]
+mod opening_quest;
 mod proof;
 
 #[derive(Debug, Default, PartialEq)]
@@ -261,16 +265,25 @@ fn cutover_requires_current_heads_and_observed_coverage() {
 }
 
 #[cfg(feature = "rules-wasm")]
-#[test]
-fn sqlite_rules_wasm_parity() -> Result<()> {
+fn read_candidate() -> Result<Vec<u8>> {
     let artifact = std::env::var_os("COSYWORLD_RULES_WASM")
         .ok_or("Set COSYWORLD_RULES_WASM to the compiled rules artifact.")?;
-    let bytes = std::fs::read(artifact).map_err(|_| "Could not read the rules artifact.")?;
-    let guest = cosyworld_orchestrator::rules_wasm::Rules::new(&bytes)?;
-    let mut candidate = |_: &str, pack: Option<&str>, request: &Value| {
-        let pack = pack.ok_or("Rules WASM requires pinned pack content.")?;
-        guest.reduce_with_pack(request, &content::text(pack)?)
-    };
+    std::fs::read(artifact).map_err(|_| "Could not read the rules artifact.".into())
+}
+
+#[cfg(feature = "rules-wasm")]
+fn reduce_candidate(guest: &Rules, pack: Option<&str>, request: &Value) -> Result<Option<Value>> {
+    let pack = pack.ok_or("Rules WASM requires pinned pack content.")?;
+    guest.reduce_with_pack(request, &content::text(pack)?)
+}
+
+#[cfg(feature = "rules-wasm")]
+#[test]
+fn sqlite_rules_wasm_parity() -> Result<()> {
+    let bytes = read_candidate()?;
+    let guest = Rules::new(&bytes)?;
+    let mut candidate =
+        |_: &str, pack: Option<&str>, request: &Value| reduce_candidate(&guest, pack, request);
     let world = std::env::var("COSYWORLD_REPLAY_WORLD").ok();
     let all = std::env::var("COSYWORLD_REPLAY_ALL").as_deref() == Ok("1");
     let full = std::env::var("COSYWORLD_REQUIRE_FULL_REPLAY").as_deref() == Ok("1");
