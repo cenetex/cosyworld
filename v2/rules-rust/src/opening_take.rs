@@ -1,6 +1,7 @@
 use super::{
-    lamp_state, opening, opening_crossings, opening_pickups, opening_play, opening_view,
-    pack_state::Catalog, resident_evidence::ResidentEvidence, Geography, LampPosition,
+    lamp_state, opening, opening_crossings, opening_drop, opening_pickups, opening_play,
+    opening_reflection::valid_text, opening_view, pack_state::Catalog,
+    resident_evidence::ResidentEvidence, Geography, LampPosition,
 };
 use serde_json::{json, Map, Value};
 
@@ -25,11 +26,65 @@ fn take_world(request: &Value) -> Option<&Value> {
     Some(world)
 }
 
+fn first_drop_revision(world: &Value, drop: &Value) -> Option<()> {
+    let revision = world["revision"].as_u64()?;
+    let event_seq = world["eventSeq"].as_u64()?;
+    let log = world["log"].as_array()?;
+    let last_seq = log.iter().try_fold(0, |previous, event| {
+        let seq = event["seq"].as_u64()?;
+        (seq > previous && seq <= event_seq).then_some(seq)
+    })?;
+    let committed = log.iter().rposition(|entry| entry["generated"] != true)?;
+    let published = &log[committed + 1..];
+    if published.is_empty() {
+        return (1..=2).contains(&revision).then_some(());
+    }
+    if last_seq != event_seq
+        || event_seq.checked_sub(log[committed]["seq"].as_u64()?)? != published.len() as u64
+        || world["speechVoices"][VALE] != json!([VALE])
+    {
+        return None;
+    }
+
+    let mut min_publications = 0;
+    let mut unmatched = None;
+    for event in published {
+        let scenic = match (
+            event["kind"].as_str(),
+            event["entityId"].as_str(),
+            &event["actorId"],
+        ) {
+            (Some("narration"), Some(ATTIC), Value::Null) => true,
+            (Some("dialogue"), Some(VALE), actor) if actor == VALE => false,
+            _ => return None,
+        };
+        if event["turn"] != 1
+            || event["locationId"] != ATTIC
+            || event["cast"] != drop["cast"]
+            || event["light"] != drop["light"]
+            || event["items"] != drop["items"]
+            || !event["verb"].is_null()
+            || !event["text"]
+                .as_str()
+                .is_some_and(|text| valid_text(text, 600))
+        {
+            return None;
+        }
+        if unmatched.is_some_and(|first| first != scenic) {
+            unmatched = None;
+        } else {
+            min_publications += 1;
+            unmatched = Some(scenic);
+        }
+    }
+    (1 + min_publications..=2 + published.len() as u64)
+        .contains(&revision)
+        .then_some(())
+}
+
 fn after_drop(world: &Value) -> Option<()> {
     opening_play::quiet_attic_scene(world)?;
-    if !matches!(world["revision"].as_u64()?, 1 | 2)
-        || world["items"][LAMP]["holder"] != ATTIC
-        || world["actors"][VALE].get("heldItem") != Some(&Value::Null)
+    if world["turn"] != 1
         || world["actors"][VALE].get("want") != Some(&Value::Null)
         || world["memories"][VALE]["learning"]
             .as_array()
@@ -37,35 +92,17 @@ fn after_drop(world: &Value) -> Option<()> {
     {
         return None;
     }
-    let prior_seq = world["eventSeq"].as_u64()?;
-    let entries = world["log"].as_array()?;
-    if entries
-        .iter()
-        .any(|entry| entry["seq"].as_u64().is_none_or(|seq| seq > prior_seq))
-    {
-        return None;
-    }
-    let mut player_actions = entries.iter().filter(|event| {
-        event["actorId"] == VALE && event["kind"] == "action" && event["generated"] != true
-    });
-    let drop = player_actions.next()?;
+    let drop = opening_drop::grounding_committed(world)?;
     let custody_note = format!("Turn 1: {}", drop["text"].as_str()?);
-    if player_actions.next().is_some()
-        || drop["turn"] != 1
-        || drop["verb"] != "drop"
-        || drop["itemId"] != LAMP
-        || drop["locationId"] != ATTIC
-        || drop["fromLocationId"] != ATTIC
-        || drop["targetId"] != ATTIC
-        || world["items"][LAMP]["history"]
-            .as_array()?
-            .last()?
-            .as_str()?
-            != custody_note
+    if world["items"][LAMP]["history"]
+        .as_array()?
+        .last()?
+        .as_str()?
+        != custody_note
     {
         return None;
     }
-    Some(())
+    first_drop_revision(world, drop)
 }
 
 pub(super) fn begin(

@@ -13,7 +13,7 @@ const ROOM: &str = "attic";
 const LAMP: &str = "lamp";
 pub(super) const DROP: &str = "drop:vale:lamp:attic";
 
-pub(super) fn grounding_committed(world: &Value) -> Option<()> {
+pub(super) fn grounding_committed(world: &Value) -> Option<&Value> {
     if world["items"][LAMP]["holder"] != ROOM
         || world["actors"][VALE].get("heldItem") != Some(&Value::Null)
     {
@@ -30,7 +30,7 @@ pub(super) fn grounding_committed(world: &Value) -> Option<()> {
         && drop["fromLocationId"] == ROOM
         && drop["targetId"] == ROOM
         && actions.next().is_none())
-    .then_some(())
+    .then_some(drop)
 }
 
 pub(super) fn drop_world(request: &Value) -> Option<&Value> {

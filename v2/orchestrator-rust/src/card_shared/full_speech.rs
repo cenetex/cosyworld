@@ -76,7 +76,6 @@ pub(super) fn voices(work: &Value, actor: usize) -> Vec<String> {
         .filter(|id| work["profiles"][id]["kind"] == "avatar")
         .collect()
 }
-/// Requested avatars without published lines remain silent in the scene record.
 pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
     let Ok((_, ids)) = prepared(actor, work) else {
         return Vec::new();

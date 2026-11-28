@@ -132,7 +132,7 @@ pub(super) fn first_lamp_drop(world: &Value) -> Option<()> {
         return None;
     }
     opening_play::quiet_attic_scene(world)?;
-    super::opening_drop::grounding_committed(world)
+    super::opening_drop::grounding_committed(world).map(|_| ())
 }
 
 pub(super) fn attic_mirror(world: &Value, present: &[&str]) -> Option<Mirror> {
