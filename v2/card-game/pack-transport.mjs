@@ -299,8 +299,7 @@ export function canDisembark(s, id, actor) {
   );
 }
 
-// Course cards are the docked port's open lanes. A resident leaves the choice
-// to a human aboard.
+// The dock's open lanes give course cards, and residents defer to humans aboard.
 export function courseOptions(s, id, actor = null) {
   const t = transports[id],
     state = read(s, id);

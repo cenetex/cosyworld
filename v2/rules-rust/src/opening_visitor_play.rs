@@ -1,6 +1,6 @@
 use super::{
     authored_order::Order,
-    opening_content, opening_crossings, opening_full_wait,
+    opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
     opening_roster, opening_visitor_routes,
     pack_state::Catalog,
@@ -16,7 +16,6 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 fn quiet_turn(world: &Value) -> Option<()> {
     if world["turn"] != 2
         || world.get("began").is_some_and(|began| began != 0)
-        || world["actors"]["vale"]["place"] != "attic"
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
         || !world["conversations"].as_array()?.is_empty()
@@ -27,19 +26,24 @@ fn quiet_turn(world: &Value) -> Option<()> {
                     .as_array()
                     .is_some_and(|actors| actors.len() == 1 && actors[0] == "vale")
             })
-        || !entries(&world["log"]).any(|event| {
-            event["turn"] == 2
-                && event["actorId"] == "vale"
-                && event["kind"] == "action"
-                && event["locationId"] == "attic"
-                && matches!(event["verb"].as_str(), Some("take" | "wait"))
-                && event["sleep"].is_null()
-                && event["guards"].is_null()
-        })
     {
         return None;
     }
-    Some(())
+    match world["actors"]["vale"]["place"].as_str()? {
+        "attic" => entries(&world["log"])
+            .any(|event| {
+                event["turn"] == 2
+                    && event["actorId"] == "vale"
+                    && event["kind"] == "action"
+                    && event["locationId"] == "attic"
+                    && matches!(event["verb"].as_str(), Some("take" | "wait"))
+                    && event["sleep"].is_null()
+                    && event["guards"].is_null()
+            })
+            .then_some(()),
+        "pond" => opening_mirror_move::second_arrival(world),
+        _ => None,
+    }
 }
 
 fn room<'a>(geo: &Geography<'a>, id: &str) -> Option<&'a Value> {
