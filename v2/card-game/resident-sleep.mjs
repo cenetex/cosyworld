@@ -1,7 +1,6 @@
-// Resident sleep (rules 100): each resident sleeps on its schedule from
-// world-life.json, its bedtime and rise time scattered by the run seed, at
-// home when it can walk there. Pip and Nix are nocturnal. world.mjs puts
-// residents to sleep and wakes them (residentRound, wakeResident).
+// world-life.json sets each resident's sleep schedule and the run seed varies
+// their bedtime and rise. Residents walk home when they can. Pip and Nix are
+// nocturnal. residentRound and wakeResident apply the schedule.
 import { packPeople } from "./pack-registry.mjs";
 import { humanAvatar } from "./human-cast.mjs";
 import { runHash } from "./pack-rules.mjs";
