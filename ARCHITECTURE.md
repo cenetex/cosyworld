@@ -44,6 +44,8 @@ The Rust validator rebuilds a Vale opening save from the authored pack data, usi
 
 Import can reopen a pristine shared Vale opening from an object or JSON string. It discards account context and upgrades, checks the complete saved state, and keeps the save's original seed.
 
+When a rules upgrade or pack change receives a save that exactly matches a reconstructed opening, the candidate can preserve the saved state and advance its revision. This includes vacant or solo Vale seats and the first two quiet lamp holds. Packed upgrades use the same reconstruction fuel bound as create and validate. Transitions that need to backfill or transform saved data still require their recorded JavaScript rules.
+
 Replay passes the original, hash-verified pack JSON to the candidate as `packContentJson`. The guest receives these exact bytes in a JSON string, preserving author order for reducers that need it.
 
 With the Rust `wasm32-unknown-unknown` target installed, build and replay a candidate from the repository root.

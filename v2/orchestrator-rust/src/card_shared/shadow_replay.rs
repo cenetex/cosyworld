@@ -9,6 +9,8 @@ mod direct;
 #[cfg(feature = "rules-wasm")]
 mod opening_quest;
 #[cfg(feature = "rules-wasm")]
+mod opening_repack;
+#[cfg(feature = "rules-wasm")]
 mod opening_seat;
 #[cfg(feature = "rules-wasm")]
 mod opening_wait;

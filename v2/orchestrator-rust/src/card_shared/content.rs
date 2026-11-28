@@ -29,7 +29,6 @@ fn loaded() -> &'static Mutex<HashMap<String, Arc<str>>> {
         )]))
     })
 }
-/// Verified content for `pack`, from this binary or an earlier `preload`.
 pub(super) fn text(pack: &str) -> Result<Arc<str>> {
     loaded()
         .lock()
