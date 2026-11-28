@@ -141,7 +141,7 @@ fn verify(
     }
     report
         .heads
-        .push(proof::Head::read(c, world, head, &state)?);
+        .push(proof::Head::read(c, world, head, &state, &checkpoint)?);
     report.noncurrent_heads = usize::from(
         rebuilt.version != engine::version() || rebuilt.pack.as_deref() != Some(content::current()),
     );
@@ -297,6 +297,8 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     let full = std::env::var("COSYWORLD_REQUIRE_FULL_REPLAY").as_deref() == Ok("1");
     let proof = std::env::var_os("COSYWORLD_EPOCH_PROOF");
     let check = std::env::var_os("COSYWORLD_EPOCH_CHECK");
+    let anchor = std::env::var_os("COSYWORLD_EPOCH_ANCHOR");
+    let anchor_check = std::env::var_os("COSYWORLD_EPOCH_ANCHOR_CHECK");
     if proof.is_some() && check.is_some() {
         return Err("Choose either epoch proof export or a read-only proof check.".into());
     }
@@ -304,6 +306,12 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
         return Err(
             "Epoch proof export and checking require all active worlds and strict replay.".into(),
         );
+    }
+    if (anchor.is_some() || anchor_check.is_some()) && check.is_none() {
+        return Err("Checkpoint anchor export and checking require COSYWORLD_EPOCH_CHECK.".into());
+    }
+    if anchor.is_some() && anchor_check.is_some() {
+        return Err("Choose either checkpoint anchor export or a read-only anchor check.".into());
     }
     let (mut c, world) = match (std::env::var_os("COSYWORLD_REPLAY_DB"), world, all) {
         (Some(path), world, all) if world.is_none() == all => {
@@ -347,7 +355,15 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
         return proof::export(std::path::Path::new(&path), &bytes, &report, &direct);
     }
     if let Some(path) = check {
-        proof::check(std::path::Path::new(&path), &bytes, &report, &direct)?;
+        let verified = proof::check(std::path::Path::new(&path), &bytes, &report, &direct)?;
+        if let Some(path) = anchor {
+            verified.export_anchor(std::path::Path::new(&path))?;
+            println!("Checkpoint anchor exported from the verified snapshot.");
+        }
+        if let Some(path) = anchor_check {
+            verified.check_anchor(std::path::Path::new(&path))?;
+            println!("Checkpoint anchor matches the verified snapshot.");
+        }
         println!("Epoch proof matches the verified journal snapshot and WASM candidate.");
         return Ok(());
     }

@@ -1,4 +1,4 @@
-use super::{content, direct, engine, Report, Result};
+use super::{content, direct, engine, Report, Result, World};
 use crate::card_shared::store::sql_error;
 use rusqlite::Connection;
 use serde::Serialize;
@@ -12,6 +12,7 @@ use std::{
 
 const PROOF_MISMATCH: &str =
     "The epoch proof differs from this verified journal snapshot or candidate.";
+const ANCHOR_MISMATCH: &str = "The checkpoint anchor differs from this verified epoch proof.";
 
 #[derive(Debug, PartialEq, Serialize)]
 pub(super) struct Head {
@@ -19,16 +20,78 @@ pub(super) struct Head {
     head_sequence: String,
     checkpoint_sha256: String,
     journal_sha256: String,
+    #[serde(skip)]
+    canonical_checkpoint_sha256: String,
 }
 
 impl Head {
-    pub(super) fn read(c: &Connection, world: &str, seq: i64, state: &str) -> Result<Self> {
+    pub(super) fn read(
+        c: &Connection,
+        world: &str,
+        seq: i64,
+        state: &str,
+        checkpoint: &World,
+    ) -> Result<Self> {
+        let canonical = serde_json::to_string(checkpoint).map_err(sql_error)?;
         Ok(Self {
             world_id_sha256: content::hash(world),
             head_sequence: seq.to_string(),
             checkpoint_sha256: content::hash(state),
             journal_sha256: journal_sha256(c, world)?,
+            canonical_checkpoint_sha256: content::hash(&canonical),
         })
+    }
+}
+
+#[derive(Debug)]
+pub(super) struct VerifiedProof<'a> {
+    sha256: String,
+    heads: &'a [Head],
+}
+
+#[derive(Serialize)]
+struct AnchorHead<'a> {
+    world_id_sha256: &'a str,
+    head_sequence: &'a str,
+    canonical_checkpoint_sha256: &'a str,
+}
+
+#[derive(Serialize)]
+struct Anchor<'a> {
+    format: &'static str,
+    readiness_proof_sha256: &'a str,
+    worlds: Vec<AnchorHead<'a>>,
+}
+
+impl VerifiedProof<'_> {
+    fn anchor_bytes(&self) -> Result<Vec<u8>> {
+        let worlds = sorted_heads(self.heads)
+            .into_iter()
+            .map(|head| AnchorHead {
+                world_id_sha256: &head.world_id_sha256,
+                head_sequence: &head.head_sequence,
+                canonical_checkpoint_sha256: &head.canonical_checkpoint_sha256,
+            })
+            .collect();
+        json_bytes(&Anchor {
+            format: "cosyworld-checkpoint-anchor/v1",
+            readiness_proof_sha256: &self.sha256,
+            worlds,
+        })
+    }
+
+    pub(super) fn export_anchor(&self, path: &Path) -> Result<()> {
+        publish(path, &self.anchor_bytes()?)
+            .map_err(|err| format!("Could not publish the checkpoint anchor: {err}"))
+    }
+
+    pub(super) fn check_anchor(&self, path: &Path) -> Result<()> {
+        compare(
+            path,
+            &self.anchor_bytes()?,
+            "checkpoint anchor",
+            ANCHOR_MISMATCH,
+        )
     }
 }
 
@@ -69,29 +132,41 @@ pub(super) fn export(
     publish(path, &bytes).map_err(|err| format!("Could not publish the epoch proof: {err}"))
 }
 
-pub(super) fn check(
+pub(super) fn check<'a>(
     path: &Path,
     artifact: &[u8],
-    journal: &Report,
+    journal: &'a Report,
     direct: &direct::Report,
-) -> Result<()> {
+) -> Result<VerifiedProof<'a>> {
     let expected = canonical_bytes(artifact, journal, direct)?;
+    compare(path, &expected, "epoch proof", PROOF_MISMATCH)?;
+    Ok(VerifiedProof {
+        sha256: format!("{:x}", Sha256::digest(&expected)),
+        heads: &journal.heads,
+    })
+}
+
+fn compare(path: &Path, expected: &[u8], label: &str, mismatch: &str) -> Result<()> {
     let limit = u64::try_from(expected.len()).map_err(|err| err.to_string())? + 1;
     let mut recorded = Vec::new();
     File::open(path)
         .and_then(|file| file.take(limit).read_to_end(&mut recorded))
-        .map_err(|err| format!("Could not read the epoch proof: {err}"))?;
+        .map_err(|err| format!("Could not read the {label}: {err}"))?;
     if recorded != expected {
-        return Err(PROOF_MISMATCH.into());
+        return Err(mismatch.into());
     }
     Ok(())
+}
+
+fn sorted_heads(heads: &[Head]) -> Vec<&Head> {
+    let mut heads: Vec<_> = heads.iter().collect();
+    heads.sort_unstable_by(|a, b| a.world_id_sha256.cmp(&b.world_id_sha256));
+    heads
 }
 
 fn canonical_bytes(artifact: &[u8], journal: &Report, direct: &direct::Report) -> Result<Vec<u8>> {
     journal.require_coverage(true)?;
     direct.require_coverage(true)?;
-    let mut heads: Vec<_> = journal.heads.iter().collect();
-    heads.sort_unstable_by(|a, b| a.world_id_sha256.cmp(&b.world_id_sha256));
     let proof = json!({
         "format": "cosyworld-epoch-readiness/v2",
         "rules_version": engine::version(),
@@ -101,9 +176,13 @@ fn canonical_bytes(artifact: &[u8], journal: &Report, direct: &direct::Report) -
         "matched_journal_calls": journal.checked,
         "historical_journal_calls": journal.historical,
         "matched_direct_fixtures": direct.matched,
-        "worlds": heads,
+        "worlds": sorted_heads(&journal.heads),
     });
-    let mut bytes = serde_json::to_vec_pretty(&proof).map_err(|err| err.to_string())?;
+    json_bytes(&proof)
+}
+
+fn json_bytes(value: &impl Serialize) -> Result<Vec<u8>> {
+    let mut bytes = serde_json::to_vec_pretty(value).map_err(|err| err.to_string())?;
     bytes.push(b'\n');
     Ok(bytes)
 }
@@ -133,7 +212,7 @@ fn publish(path: &Path, bytes: &[u8]) -> io::Result<()> {
 
 #[test]
 fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
-    use super::{active_worlds, fixture, full_store, verify_worlds, World};
+    use super::{active_worlds, fixture, full_store, verify_worlds};
     use rusqlite::{OpenFlags, MAIN_DB};
     use serde_json::Value;
     use std::path::PathBuf;
@@ -151,6 +230,8 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
     let db = root.0.join("copy.sqlite");
     let output = root.0.join("proof.json");
     let second = root.0.join("repeat.json");
+    let anchor_path = root.0.join("anchor.json");
+    let second_anchor = root.0.join("repeat-anchor.json");
     let c = fixture()?;
     full_store::seed(
         &c,
@@ -164,7 +245,8 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
         CREATE TABLE card_tables(id TEXT PRIMARY KEY, retired_at INTEGER);
         INSERT INTO card_tables VALUES ('shadow-replay', NULL), ('untouched', NULL), ('retired', 4);
         UPDATE card_full_log SET seq=9007199254740993 WHERE world='untouched';
-        UPDATE card_full_checkpoints SET seq=9007199254740993 WHERE world='untouched';
+        UPDATE card_full_checkpoints SET seq=9007199254740993, state=char(10)||state
+          WHERE world='untouched';
     ",
     )
     .map_err(sql_error)?;
@@ -194,7 +276,13 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
     assert_eq!(bytes, fs::read(&second).unwrap());
     assert!(export(&output, b"different", &journal, &direct).is_err());
     assert_eq!(bytes, fs::read(&output).unwrap());
-    check(&output, artifact, &journal, &direct)?;
+    {
+        let verified = check(&output, artifact, &journal, &direct)?;
+        verified.export_anchor(&anchor_path)?;
+        assert!(verified.export_anchor(&anchor_path).is_err());
+        verified.check_anchor(&anchor_path)?;
+        check(&second, artifact, &journal, &direct)?.export_anchor(&second_anchor)?;
+    }
     assert_eq!(
         check(&output, b"different", &journal, &direct).unwrap_err(),
         PROOF_MISMATCH
@@ -223,6 +311,19 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
     assert_eq!(proof["rules_version"], engine::version());
     assert_eq!(proof["content_sha256"], content::current());
     assert_eq!(proof["worlds"].as_array().unwrap().len(), 2);
+    let anchor_bytes = fs::read(&anchor_path).unwrap();
+    assert_eq!(anchor_bytes, fs::read(&second_anchor).unwrap());
+    let anchor: Value = serde_json::from_slice(&anchor_bytes).unwrap();
+    assert_eq!(anchor["format"], "cosyworld-checkpoint-anchor/v1");
+    assert_eq!(
+        anchor["readiness_proof_sha256"],
+        format!("{:x}", Sha256::digest(&bytes))
+    );
+    let anchor_worlds = anchor["worlds"].as_array().unwrap();
+    assert_eq!(anchor_worlds.len(), 2);
+    assert!(
+        anchor_worlds[0]["world_id_sha256"].as_str() < anchor_worlds[1]["world_id_sha256"].as_str()
+    );
     let expected = [("shadow-replay", "3"), ("untouched", "9007199254740993")];
     for (world, sequence) in expected {
         let state: String = snapshot
@@ -241,8 +342,47 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
         assert_eq!(head["head_sequence"], sequence);
         assert_eq!(head["checkpoint_sha256"], content::hash(&state));
         assert_eq!(head["journal_sha256"], journal_sha256(&snapshot, world)?);
+        assert!(head.get("canonical_checkpoint_sha256").is_none());
         assert!(!String::from_utf8_lossy(&bytes).contains(world));
+        let sealed = anchor_worlds
+            .iter()
+            .find(|head| head["world_id_sha256"] == content::hash(world))
+            .unwrap();
+        let canonical =
+            serde_json::to_string(&serde_json::from_str::<World>(&state).unwrap()).unwrap();
+        assert_eq!(sealed["head_sequence"], sequence);
+        assert_eq!(
+            sealed["canonical_checkpoint_sha256"],
+            content::hash(&canonical)
+        );
+        if world == "untouched" {
+            assert_ne!(
+                sealed["canonical_checkpoint_sha256"],
+                head["checkpoint_sha256"]
+            );
+        }
+        assert!(!String::from_utf8_lossy(&anchor_bytes).contains(world));
     }
+    let tampered = root.0.join("tampered-anchor.json");
+    let digest = anchor_worlds[0]["canonical_checkpoint_sha256"]
+        .as_str()
+        .unwrap();
+    fs::write(
+        &tampered,
+        String::from_utf8_lossy(&anchor_bytes).replacen(digest, &"0".repeat(64), 1),
+    )
+    .unwrap();
+    assert_eq!(
+        check(&output, artifact, &journal, &direct)?
+            .check_anchor(&tampered)
+            .unwrap_err(),
+        ANCHOR_MISMATCH
+    );
+    let subset = verify_worlds(&snapshot, &worlds[..1], journal_oracle)?;
+    assert_eq!(
+        check(&output, artifact, &subset, &direct).unwrap_err(),
+        PROOF_MISMATCH
+    );
     drop(snapshot);
     drop(read);
     assert!(before == fs::read(&db).unwrap());
@@ -280,6 +420,7 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
         PROOF_MISMATCH
     );
     assert_eq!(bytes, fs::read(&output).unwrap());
+    assert_eq!(anchor_bytes, fs::read(&anchor_path).unwrap());
     Ok(())
 }
 
