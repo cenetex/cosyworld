@@ -223,7 +223,6 @@ try {
     await page.reload();
     await ready();
     await assertShut("attic");
-    // A lit lamp carried away from both shores leaves the mirror closed.
     const away = structuredClone(spent);
     away.actors.moth.place = "station";
     fillLampFuel(away);

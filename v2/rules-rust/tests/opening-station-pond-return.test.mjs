@@ -10,12 +10,29 @@ const op = "opening_station_move";
 function tracePrimary(source) {
   const marker = "    const sourceSeq = event.seq;";
   assert.equal(source.split(marker).length, 2);
-  return source.replace(
+  source = source.replace(
     marker,
     `${marker}
     if (a.actor === "vale" && a.kind === "move" && a.target === "pond" && s.turn === 4)
       globalThis.pondReturn = structuredClone(s);`,
   );
+  const drop =
+    'a.actor === "vale" && a.kind === "drop" && a.item === "lamp" && here === "pond" && s.turn === 7';
+  for (const [target, frame] of [
+    ["    const narrateCall = ", "grounded"],
+    [
+      '    addLog(s, "World", text2, {\n      kind: "action",\n      actorId: a.actor,\n      verb: a.kind,\n      fromLocationId: here,',
+      "beforeDropLog",
+    ],
+    [marker, "afterDropLog"],
+  ]) {
+    assert.equal(source.split(target).length, 2);
+    source = source.replace(
+      target,
+      `    if (${drop}) globalThis.${frame} = structuredClone(s);\n${target}`,
+    );
+  }
+  return source;
 }
 
 test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state", async () => {
@@ -154,13 +171,41 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
         const withCloth = play(reply.world, "move:vale::station");
         assert.equal(withCloth.actors.vale.heldItem, "cloth");
         const ready = play(withCloth, "move:vale::pond");
-        const called = pinned({
+        const drop = {
           ...seats,
           op: "play",
           world: ready,
           action: "drop:vale:lamp:pond",
-        });
+          revision: ready.revision,
+        };
+        const called = JSON.parse(reference.cardShared(JSON.stringify(drop)));
         assert.equal(called.ok, true, called.error);
+        const op = "opening_pond_lamp_drop";
+        const cut = (phase) => JSON.parse(JSON.stringify(reference[phase]));
+        const grounded = wasm({ ...drop, op, phase: "ground" });
+        assert.ok(
+          isDeepStrictEqual(grounded, { ok: true, world: cut("grounded") }),
+          `ground ${label}`,
+        );
+        const recorded = wasm({
+          op,
+          phase: "record",
+          world: cut("beforeDropLog"),
+        });
+        assert.ok(
+          isDeepStrictEqual(recorded, { ok: true, world: cut("afterDropLog") }),
+          `record ${label}`,
+        );
+        assert.equal(grounded.world.items.lamp.lit, !dry);
+        assert.equal(
+          wasm({ ...drop, op, phase: "ground", revision: ready.revision - 1 }),
+          null,
+        );
+        if (!dry)
+          assert.equal(
+            wasm({ op, phase: "record", world: grounded.world }),
+            null,
+          );
         const request = {
           ...seats,
           op: "opening_pond_call_view",
