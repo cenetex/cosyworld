@@ -2,7 +2,7 @@ use super::{
     create,
     create_geography::Geography,
     initial_wants::{self, People, Person},
-    opening_rumours,
+    opening_rumours, opening_visitor_routes,
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -131,7 +131,9 @@ pub(super) fn fill(
             .or_else(|| person.data["place"].as_str())
             .unwrap_or(&here);
         let allowed = range.map(|limit| context.places_within(home, limit));
-        let reaches = if roams {
+        let reaches = if world["hidden"]["actor"] == id {
+            opening_visitor_routes::reachable(world, geo, id, &here)?
+        } else if roams {
             reachable(world, geo, &context, id, &here, allowed.as_ref())?
         } else {
             BTreeSet::new()
