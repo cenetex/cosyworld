@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { isDeepStrictEqual } from "node:util";
 import { currentSharedEngine } from "../../../test/fixtures/shared-engine.mjs";
 import { reducers } from "./parity.mjs";
 
@@ -132,4 +133,131 @@ test("the quiet second attic tail matches the pinned stop, wake, arcana and fact
   assert.deepEqual(wasm(packed), { ok: true, world: nested });
   nested.items.oil.holder = "moth";
   assert.equal(wasm(packed), null);
+});
+
+test("the second pond arrival keeps the pinned working-world tail stable", async () => {
+  const { wasm } = await reducers();
+  const reference = currentSharedEngine((source) =>
+    traceQuiet(traceTail(source)),
+  );
+  const save = (request) => {
+    const reply = JSON.parse(reference.cardShared(JSON.stringify(request)));
+    assert.equal(reply.ok, true, reply.error);
+    return reply.world;
+  };
+  const op = "opening_second_attic_tail";
+  let before;
+  let stopped;
+  for (const seed of [undefined, 0, 2, 17, 42, 4242, 4_294_967_295]) {
+    for (const mode of ["stowed", "dry"]) {
+      let world = save({ op: "create", seed });
+      if (mode === "dry") {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      }
+      reference.tail = {};
+      reference.quiet = {};
+      world = save({ ...seats, op: "play", world, action: "wait:vale::" });
+      if (mode === "stowed") {
+        world = save({
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+      }
+      const spoken = save({
+        ...seats,
+        op: "speech",
+        world,
+        room: "attic",
+        lines: [{ entityId: "attic", text: "The old shutters rattle." }],
+      });
+      for (const [key, prior] of [
+        ["move:vale::pond", world],
+        ["move:vale:lamp:pond", spoken],
+      ]) {
+        before = prior;
+        const sorted = seed === 2 || seed === 4242;
+        if (sorted)
+          before.actors = Object.fromEntries(
+            Object.entries(before.actors).toSorted(),
+          );
+        reference.tail = {};
+        reference.quiet = {};
+        const settled = save({
+          ...seats,
+          op: "play",
+          world: before,
+          action: sorted ? { key } : key,
+        });
+        assert.equal(settled.actors.vale.place, "pond");
+        const tail = JSON.parse(JSON.stringify(reference.tail));
+        const quiet = JSON.parse(JSON.stringify(reference.quiet));
+        stopped = quiet.stops;
+        assert.equal(stopped.opening.met.moth, 2);
+        for (const [phase, from, expected] of [
+          ["station", tail.earlyStation.before, tail.earlyStation.after],
+          ["stops", quiet.stops, quiet.stopsAfter],
+          ["wake", quiet.wake, quiet.wakeAfter],
+          ["quiet", quiet.arcana, quiet.arcanaAfter],
+          ["wayfinder", tail.wayfinder.before, tail.wayfinder.after],
+          ["station", tail.lateStation.before, tail.lateStation.after],
+          ["quiet", quiet.facts, quiet.factsAfter],
+        ]) {
+          const label = `${seed} ${mode} ${key} ${phase} turn ${from.turn}`;
+          assert.ok(
+            isDeepStrictEqual(from, expected),
+            `pinned changed ${label}`,
+          );
+          const actual = wasm({ op, phase, before, world: from });
+          assert.ok(
+            isDeepStrictEqual(actual, { ok: true, world: expected }),
+            label,
+          );
+        }
+      }
+    }
+  }
+  for (const [phase, change] of [
+    [
+      "stops",
+      (world) => {
+        delete world.opening.met.moth;
+      },
+    ],
+    [
+      "stops",
+      (world) => {
+        world.actors.mara.place = "pond";
+      },
+    ],
+    [
+      "stops",
+      (world) => {
+        world.actors.moth.place = "station";
+      },
+    ],
+    [
+      "wake",
+      (world) => {
+        world.actors.vale.sleeping = { since: 1, place: "pond", present: [] };
+      },
+    ],
+    [
+      "wayfinder",
+      (world) => {
+        world.items["elysium-wayfinder"].holder = "elysium-void-001";
+      },
+    ],
+  ]) {
+    const world = structuredClone(stopped);
+    change(world);
+    assert.equal(wasm({ op, phase, before, world }), null);
+  }
+  const unrelated = structuredClone(before);
+  unrelated.eventSeq -= 1;
+  assert.equal(
+    wasm({ op, phase: "quiet", before: unrelated, world: stopped }),
+    null,
+  );
 });

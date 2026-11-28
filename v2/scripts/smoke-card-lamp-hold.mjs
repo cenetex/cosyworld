@@ -47,7 +47,6 @@ try {
     );
     const read = () =>
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
-    // Opening a folded, covered held item preserves the authoritative choice.
     const opened = await read();
     assert.equal(opened.actors.vale.heldItem, "lamp");
     assert.equal(opened.items.lamp.lit, true);
