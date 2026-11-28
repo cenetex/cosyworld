@@ -164,3 +164,106 @@ test("quiet Station arrivals settle wants on either opening turn", async () => {
     }
   }
 });
+
+test("historic Station arrival settles wants and contacts while Pip sleeps at Pond", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(capture);
+  const op = "opening_station_wants";
+  const sort = (map) => Object.fromEntries(Object.entries(map).toSorted());
+  let valid;
+  for (const seed of [undefined, 2, 42, 4242]) {
+    const created = pinned({ op: "create", history: true, seed });
+    assert.equal(created.ok, true, created.error);
+    for (const mode of ["stowed", "dry"]) {
+      let world = structuredClone(created.world);
+      if (mode === "stowed") {
+        const held = pinned({
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+        assert.equal(held.ok, true, held.error);
+        world = held.world;
+      } else {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      }
+      const pond = pinned({
+        ...seats,
+        op: "play",
+        world,
+        action: "move:vale::pond",
+      });
+      assert.equal(pond.ok, true, pond.error);
+      assert.equal(pond.world.actors.moth.sleeping.since, 481);
+      const sorted = {
+        ...pond.world,
+        actors: sort(pond.world.actors),
+        ...(pond.world.placeCard && { placeCard: sort(pond.world.placeCard) }),
+      };
+      for (const [order, world] of [
+        ["authored", pond.world],
+        ["sorted", sorted],
+      ]) {
+        const action =
+          mode === "dry" ? "move:vale:lamp:station" : "move:vale::station";
+        const reply = JSON.parse(
+          reference.cardShared(
+            JSON.stringify({ ...seats, op: "play", world, action }),
+          ),
+        );
+        assert.equal(reply.ok, true, reply.error);
+        const before = JSON.parse(JSON.stringify(reference.beforeWants));
+        const after = JSON.parse(JSON.stringify(reference.afterWants));
+        const label = `${seed} ${mode} ${order}`;
+        const actual = wasm({ op, world: before });
+        assert.ok(actual, `unsupported ${label}`);
+        const changed = Object.keys(after).find(
+          (field) => !isDeepStrictEqual(actual.world[field], after[field]),
+        );
+        assert.equal(changed, undefined, label);
+        assert.ok(isDeepStrictEqual(actual, { ok: true, world: after }), label);
+        assert.equal(after.actors["greek-aethra"].want.since, 482);
+        assert.notDeepEqual(
+          after.actors.rati.contact,
+          before.actors.rati.contact,
+        );
+        assert.deepEqual(after.actors.moth, before.actors.moth);
+        valid = before;
+      }
+    }
+  }
+  assert.ok(valid);
+  for (const corrupt of [
+    (world) => {
+      world.arrival.fromLocationId = "attic";
+    },
+    (world) => {
+      delete world.actors.moth.sleeping;
+    },
+    (world) => {
+      world.actors.moth.sleeping.until = world.turn;
+    },
+    (world) => {
+      world.log = world.log.filter(
+        (event) =>
+          event.turn !== 481 ||
+          event.actorId !== "moth" ||
+          event.kind !== "narration",
+      );
+    },
+    (world) => {
+      world.actors.moth.want.refusals = 2;
+    },
+    (world) => {
+      world.actors["greek-adrastus"].want.refusals = 1;
+    },
+    (world) => {
+      world.heldActors.push("mara");
+    },
+  ]) {
+    const world = structuredClone(valid);
+    corrupt(world);
+    assert.equal(wasm({ op, world }), null);
+  }
+});

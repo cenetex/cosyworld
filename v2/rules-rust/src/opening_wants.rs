@@ -1,7 +1,7 @@
 use super::{
     create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
-    opening_company, opening_content, opening_mirror_move, opening_play, opening_stale_wants,
-    opening_station_move, pack_state::Catalog,
+    opening_company, opening_content, opening_mirror_move, opening_play, opening_resident_sleep,
+    opening_stale_wants, opening_station_move, pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -237,11 +237,26 @@ pub(super) fn settle_second_pond(world: &mut Value, geo: &Geography<'_>) -> Opti
 }
 
 pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
-    opening_station_move::arrival(world)?;
+    let turn = world["turn"].as_u64()?;
+    let historic = world.get("began").is_some();
+    let pip_place = if historic {
+        let seq = opening_station_move::historic_arrival(world)?;
+        opening_resident_sleep::sleeping_pip_at_pond(world, geo, seq)?;
+        let pip = &world["actors"]["moth"];
+        if geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
+            || pip["want"]
+                != json!({"kind":"item", "target":"lamp", "since":0, "refusals":1, "lit":true})
+        {
+            return None;
+        }
+        "pond"
+    } else {
+        opening_station_move::arrival(world)?;
+        "station"
+    };
     if world["actors"]["vale"].get("want") != Some(&Value::Null)
-        || ["moth", "keeper"]
-            .iter()
-            .any(|id| world["actors"][*id]["place"] != "station")
+        || world["actors"]["moth"]["place"] != pip_place
+        || world["actors"]["keeper"]["place"] != "station"
         || world["items"]["lamp"]["holder"] != "vale"
         || !world["elysiumEncounters"].is_null()
         || world["playerActorId"] != "vale"
@@ -251,8 +266,14 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
     {
         return None;
     }
-    let turn = world["turn"].as_u64()?;
-    settle_wants(world, geo, turn, true, false, opening_company::fade_trust)
+    settle_wants(
+        world,
+        geo,
+        turn,
+        true,
+        historic,
+        opening_company::fade_trust,
+    )
 }
 
 pub(super) fn round_projection(request: &Value) -> Option<Value> {
