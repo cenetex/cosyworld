@@ -364,7 +364,6 @@ version = "1.2.166"
 dependencies = [
  "axum",
  "base64 0.22.1",
- "cc",
  "ed25519-dalek",
  "futures-util",
  "image",

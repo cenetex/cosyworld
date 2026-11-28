@@ -18,7 +18,7 @@ import {
   crowdedAgoraWorld,
 } from "../../test/helpers/greek-capacity.mjs";
 
-// This uses five separate passkeys, the HTTP service, C session guard,
+// This uses five separate passkeys, the HTTP service, Rust seat guard,
 // QuickJS rules, SQLite journal, and a fixture speech provider.
 const dir = await mkdtemp(join(tmpdir(), "greek-capacity-"));
 const output = resolve("output/greek-capacity");

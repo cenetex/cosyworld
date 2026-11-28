@@ -26,7 +26,6 @@ const IMAGE = [
   ".dockerignore",
   "deploy/",
   "models/card-policy/",
-  "v2/core-c/",
   "v2/ai-model-rust/",
   "v2/orchestrator-rust/",
   "scripts/build-release-image.sh",

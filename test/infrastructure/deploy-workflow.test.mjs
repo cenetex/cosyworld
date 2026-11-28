@@ -550,7 +550,7 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain(
       "from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked",
     );
-    expect(dockerfile).toContain("touch build.rs");
+    expect(dockerfile).toContain("find src ../ai-model-rust/src");
     expect(dockerfile).toContain("cargo build --release --locked");
     expect(dockerfile).toContain(
       "cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator",
@@ -1132,7 +1132,7 @@ describe("deploy workflow", () => {
       dockerfile.indexOf(releaseBuild),
     );
 
-    expect(build).toContain("COPY v2/core-c /app/v2/core-c");
+    expect(build).toContain("COPY v2/ai-model-rust /app/v2/ai-model-rust");
     for (const dir of ["v2/card-game", "v2/content", "v2/media"])
       expect(build).not.toContain(`COPY ${dir} `);
   });

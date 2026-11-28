@@ -16,7 +16,7 @@ QuickJS is a C interpreter. The Rust service in `v2/orchestrator-rust` hosts it 
 
 This QuickJS host is the bounded C interpreter named in the engine. CosyWorld did not invent a separate language for it.
 
-A second, smaller C file stands beside it. `v2/core-c/src/card_table.c` is compiled into the server. After the rules run, `ct_shared_guard` checks the session: claims are 0 or 1, someone present is claimed, a command changes only the acting avatar's claim and presence, room ids are bounded strings, and no room holds more than four present avatars. The header states the split in one sentence: the authored rules execute inside the bounded QuickJS interpreter, and this guard owns claim, presence, and capacity. Shipping shared play calls `ct_shared_guard`. The same file still contains `ct_apply`, an older nine-room table.
+After the rules run, the Rust session guard checks that every present avatar has claimed a seat, a command changes only the acting avatar's claim and presence, room IDs fit the replay format, and no room holds more than four present avatars.
 
 Views of a world may be cached. Commands always run in the interpreter.
 
@@ -34,7 +34,7 @@ Production dialogue goes out through the model gateway configured for [lonelyfor
 
 ## Shared worlds
 
-Each shared world is a SQLite journal. Writers for one database take a single turn, then the rules and the C guard accept or refuse the command. Replaying the journal rebuilds the world. The world stores the rules version it was written with. Released bundles from `full-card-world/133` onward stay available to the server, so an old journal still reduces on the rules that wrote it. A rules change mints the next bundle (`npm run v2:card:shared:next`). Released bundle bytes stay fixed. The active deployment reports its rules version in `/meta`. [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
+Each shared world is a SQLite journal. Writers for one database take a single turn, then the rules and the Rust session guard accept or refuse the command. Replaying the journal rebuilds the world. The world stores the rules version it was written with. Released bundles from `full-card-world/133` onward stay available to the server, so an old journal still reduces on the rules that wrote it. A rules change mints the next bundle (`npm run v2:card:shared:next`). Released bundle bytes stay fixed. The active deployment reports its rules version in `/meta`. [Pinned rules](v2/orchestrator-rust/src/card_shared/rules.json)
 
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.
 
@@ -73,7 +73,6 @@ Keeping every released rules bundle means a world saved under an older version s
 - `v2/card-game/world.mjs` — rules the browser runs, including the split between generated lines and the log the rules read
 - `v2/card-game/shared-world.mjs` — create, play, speech, and reflect, as the interpreter sees them
 - `v2/orchestrator-rust/src/card_shared/engine.rs` — the QuickJS host and the versioned bundles
-- `v2/core-c/include/card_table.h` — what the C session guard is responsible for
 - `v2/orchestrator-rust/src/card_shared/full.rs` — journaled shared play, and where speech is attached
 - `v2/orchestrator-rust/src/card_narrative/` — dialogue after a committed scene, and what a reply is refused for
 - [DECISIONS.md](DECISIONS.md) — five choices and the reason for each
