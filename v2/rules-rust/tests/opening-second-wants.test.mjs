@@ -62,3 +62,45 @@ test("a second attic Wait or Take settles wants exactly when residents stay or m
   }
   assert.ok(moved);
 });
+
+test("the second pond arrival settles wants after Pip's refusal", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(capture);
+  const pond = "opening_second_pond_wants";
+  for (const seed of [undefined, 2, 17, 4242, 4294967295]) {
+    for (const mode of ["stowed", "held dry"]) {
+      let { world } = pinned({ op: "create", seed });
+      if (mode === "stowed") {
+        const held = pinned({
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+        assert.equal(held.ok, true, held.error);
+        world = held.world;
+      } else {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      }
+      const prior = pinned({
+        ...seats,
+        op: "play",
+        world,
+        action: "wait:vale::",
+      });
+      assert.equal(prior.ok, true, prior.error);
+      for (const action of ["move:vale::pond", "move:vale:lamp:pond"]) {
+        const play = { ...seats, op: "play", world: prior.world, action };
+        const reply = JSON.parse(reference.cardShared(JSON.stringify(play)));
+        assert.equal(reply.ok, true, reply.error);
+        const before = JSON.parse(JSON.stringify(reference.beforeWants));
+        const after = JSON.parse(JSON.stringify(reference.afterWants));
+        const actual = wasm({ op: pond, world: before });
+        const label = `${seed} ${mode} ${action}`;
+        assert.ok(isDeepStrictEqual(actual, { ok: true, world: after }), label);
+        before.actors.moth.want.refusals = 2;
+        assert.equal(wasm({ op: pond, world: before }), null);
+      }
+    }
+  }
+});

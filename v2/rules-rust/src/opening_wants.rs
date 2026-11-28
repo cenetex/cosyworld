@@ -1,6 +1,7 @@
 use super::{
     create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
-    opening_company, opening_content, opening_play, opening_stale_wants, pack_state::Catalog,
+    opening_company, opening_content, opening_mirror_move, opening_play, opening_stale_wants,
+    pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -223,12 +224,28 @@ pub(super) fn settle_second_attic(world: &mut Value, geo: &Geography<'_>) -> Opt
     settle_wants(world, geo, 2, false, false, opening_company::fade_trust)
 }
 
-pub(super) fn second_attic_projection(request: &Value) -> Option<Value> {
+pub(super) fn settle_second_pond(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    opening_mirror_move::second_arrival(world)?;
+    if world["actors"]["vale"].get("want") != Some(&Value::Null)
+        || world["actors"]["moth"]["place"] != "pond"
+        || world["items"]["lamp"]["holder"] != "vale"
+        || !world["elysiumEncounters"].is_null()
+    {
+        return None;
+    }
+    settle_wants(world, geo, 2, true, false, opening_company::fade_trust)
+}
+
+pub(super) fn second_projection(request: &Value) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = request.get("world")?.clone();
-    settle_second_attic(&mut world, &geo)?;
+    match request["op"].as_str()? {
+        "opening_second_attic_wants" => settle_second_attic(&mut world, &geo)?,
+        "opening_second_pond_wants" => settle_second_pond(&mut world, &geo)?,
+        _ => return None,
+    }
     Some(json!({"ok":true, "world":world}))
 }
 

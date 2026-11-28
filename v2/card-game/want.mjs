@@ -193,8 +193,7 @@ export const closedBy = (a, from, want) =>
   a.closed?.[from]?.[1] === closedKey(want);
 export const closedAny = (a, want) =>
   Object.values(a.closed || {}).some(([, terms]) => terms === closedKey(want));
-// A player sets the held quest down. Its target stays out
-// of mind a while and nothing is drawn in its place.
+// A dropped player quest stays out of mind for a while, with no replacement draw.
 export function dropQuest(s, actor, index = 0) {
   const a = s.actors[actor],
     want = heldOf(a)[index];
