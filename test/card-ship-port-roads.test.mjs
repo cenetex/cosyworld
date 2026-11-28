@@ -115,9 +115,7 @@ const placeOf = (s, item) => {
   return s.actors[holder]?.place ?? holder;
 };
 
-// Whether a traveler waiting at a dock can always call the empty ship there:
-// someone else may have called it to any other active dock, its riders and
-// cargo gone ashore there. The call is the rules' own, one lane a round.
+// Recall the empty ship after its passengers and cargo unload elsewhere.
 function callable(world, dock) {
   return Object.entries(transports)
     .filter(([, t]) => t.docks.includes(dock))

@@ -146,6 +146,10 @@ pub(super) fn verify_station_departure(
 
 pub(super) fn verify_first_board(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     opening_pond_ship_board::arrival(world)?;
+    verify_ship_life(world, geo)
+}
+
+pub(super) fn verify_ship_life(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     opening_second_attic_tail::no_sleepers(world)?;
     if geo.arcana_called(world)? || world["items"]["lamp"]["holder"] != "pond" {
         return None;
