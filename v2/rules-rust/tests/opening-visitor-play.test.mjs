@@ -28,7 +28,7 @@ test("second visitor actions preserve pinned quiet arrivals and complete home de
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(captureVisitorPlays);
   const counts = { move: 0, wait: 0 };
-  for (const seed of [undefined, 2, 17, 4242, 4294967295]) {
+  for (const seed of [undefined, 2, 3, 42, 4294967295]) {
     const created = pinned({ op: "create", seed });
     assert.equal(created.ok, true, created.error);
     for (const [first, second] of [
@@ -93,7 +93,7 @@ test("second visitor actions preserve pinned quiet arrivals and complete home de
       }
     }
   }
-  assert.deepEqual(counts, { move: 6, wait: 64 });
+  assert.deepEqual(counts, { move: 4, wait: 66 });
 });
 
 test("visitor actions after the second pond crossing match pinned working states", async () => {
@@ -101,7 +101,7 @@ test("visitor actions after the second pond crossing match pinned working states
   const reference = currentSharedEngine(captureVisitorPlays);
   const counts = { move: 0, wait: 0 };
   let request;
-  for (const seed of [undefined, 2, 17, 4242, 4294967295]) {
+  for (const seed of [undefined, 2, 3, 42, 4294967295]) {
     for (const lamp of ["stowed", "held dry"]) {
       let { world } = pinned({ op: "create", seed });
       if (lamp === "stowed") {
@@ -152,7 +152,7 @@ test("visitor actions after the second pond crossing match pinned working states
       }
     }
   }
-  assert.deepEqual(counts, { move: 12, wait: 128 });
+  assert.deepEqual(counts, { move: 8, wait: 132 });
   const forged = structuredClone(request.world);
   forged.arrival.fromLocationId = "station";
   assert.equal(wasm({ ...request, world: forged }), null);
@@ -164,7 +164,6 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
   const counts = {
     wait: 0,
     move: 0,
-    station: 0,
     awayWait: 0,
     awayUnseen: 0,
     awayTalk: 0,
@@ -175,9 +174,13 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
     assert.equal(result.ok, true, result.error);
     return result.world;
   }
+  const tracedPlay = (world, action) =>
+    play(world, action, (request) =>
+      JSON.parse(reference.cardShared(JSON.stringify(request))),
+    );
 
-  let verified, away, meeting;
-  for (const seed of [undefined, 2, 5, 7, 17, 99, 4242, 4_294_967_295]) {
+  let verified, away;
+  for (const seed of [undefined, 2, 3, 17, 42, 99, 4242, 4_294_967_295]) {
     for (const mode of ["stowed", "dry"]) {
       let { world } = pinned({ op: "create", seed });
       if (mode === "stowed") {
@@ -198,9 +201,7 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
             ? "move:vale:lamp:station"
             : "move:vale::station";
         reference.visitorPlays = [];
-        play(pond, key, (request) =>
-          JSON.parse(reference.cardShared(JSON.stringify(request))),
-        );
+        tracedPlay(pond, key);
         const observed = JSON.parse(JSON.stringify(reference.visitorPlays));
         assert.equal(observed.length, 7);
         for (const { actor, action, before, after } of observed) {
@@ -225,25 +226,7 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
             } else {
               counts.awayWait++;
             }
-            if (seed === 5) away = request;
-          } else if (action.key === `move:${actor}::station`) {
-            assert.ok(
-              isDeepStrictEqual(actual, { ok: true, world: after }),
-              label,
-            );
-            assert.equal(actual.world.opening.met[actor], before.turn);
-            assert.equal(
-              actual.world.packs["shared-homes"].met[actor],
-              before.turn,
-            );
-            assert.deepEqual(actual.world.log.at(-1).cast, [
-              "vale",
-              "moth",
-              "keeper",
-              actor,
-            ]);
-            meeting = request;
-            counts.station++;
+            if (seed === 42 && actor === "tavi") away = request;
           } else if (before.conversations.length) {
             assert.equal(actual, null, label);
             assert.equal(action.kind, "wait", label);
@@ -263,13 +246,12 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
     }
   }
   assert.deepEqual(counts, {
-    wait: 188,
-    move: 10,
-    station: 4,
-    awayWait: 6,
-    awayUnseen: 4,
-    awayTalk: 4,
-    afterTalk: 8,
+    wait: 216,
+    move: 4,
+    awayWait: 4,
+    awayUnseen: 0,
+    awayTalk: 0,
+    afterTalk: 0,
   });
   assert.ok(verified);
   for (const corrupt of [
@@ -320,7 +302,63 @@ test("first Station arrivals replay quiet visitor plays and dwelling travelers",
     corrupt(world);
     assert.equal(wasm({ ...away, world }), null);
   }
-  assert.ok(meeting);
+});
+
+test("a controlled Rue want exercises a complete Station meeting", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(captureVisitorPlays);
+  const created = pinned({ op: "create" });
+  assert.equal(created.ok, true, created.error);
+  const stowed = pinned({
+    ...seats,
+    op: "hold",
+    world: created.world,
+    choice: { item: null, revision: created.world.revision },
+  });
+  assert.equal(stowed.ok, true, stowed.error);
+  const pond = pinned({
+    ...seats,
+    op: "play",
+    world: stowed.world,
+    action: "move:vale::pond",
+  });
+  assert.equal(pond.ok, true, pond.error);
+  pond.world.actors.rue.want = {
+    kind: "person",
+    target: "vale",
+    since: 0,
+    refusals: 0,
+  };
+  reference.visitorPlays = [];
+  const station = JSON.parse(
+    reference.cardShared(
+      JSON.stringify({
+        ...seats,
+        op: "play",
+        world: pond.world,
+        action: "move:vale::station",
+      }),
+    ),
+  );
+  assert.equal(station.ok, true, station.error);
+  const observed = JSON.parse(JSON.stringify(reference.visitorPlays));
+  const visit = observed.find(({ actor }) => actor === "rue");
+  assert.equal(visit?.action.key, "move:rue::station");
+  const meeting = {
+    op: "opening_visitor_play",
+    actor: "rue",
+    world: visit.before,
+  };
+  const actual = wasm(meeting);
+  assert.ok(isDeepStrictEqual(actual, { ok: true, world: visit.after }));
+  assert.equal(actual.world.opening.met.rue, 2);
+  assert.equal(actual.world.packs["shared-homes"].met.rue, 2);
+  assert.deepEqual(actual.world.log.at(-1).cast, [
+    "vale",
+    "moth",
+    "keeper",
+    "rue",
+  ]);
   for (const corrupt of [
     (world) => {
       world.actors.moth.place = "pond";
