@@ -57,7 +57,7 @@
       "humanOnly": true,
       "text": "Electra says, “Read the meeting on my tablet or bring it with you. Take the Theban Gate past Cithaeron and Eleusis, then cross Athens to the Acropolis. Ask for Athena at the Areopagus.”",
       "requires": [
-        { "kind": "flag", "key": "greek-atreid-heard-aeschylus", "value": true },
+        { "kind": "choice", "key": "greek-atreid-account", "value": "aeschylus" },
         { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": false }
       ],
       "effects": []

@@ -49,7 +49,8 @@ const PROVISIONS = "greek-provisions";
 const PROOF_REPLY = "greek-acharnae-quay-needs-proof";
 const WAITING_REPLY = "greek-acharnae-quay-bread-waiting";
 const READY_REPLY = "greek-acharnae-quay-bread-ready";
-const SET_OUT_REPLY = "greek-acharnae-quay-bread-set-out";
+const BAKE_REPLY = "greek-acharnae-quay-bread-set-out";
+const BAKE_WORDS = "When the Bread is gone, give me Water";
 
 const reload = (world) => decodeSave(encodeSave(world));
 const packState = (world) => world.packs[PACK];
@@ -106,7 +107,6 @@ function reachAcharnaeAfterWheatRecovery() {
   expect(t.s.actors[GUARD].place).not.toBe(GATE);
   t.move("battlefield", "cithaeron", "eleusis", "attic-farm", MARKET);
   expect(t.s.items[WHEAT].holder).toBe(COURTYARD);
-  expect(entityActive(t.s, HOST)).toBe(false);
   return t.s;
 }
 
@@ -155,6 +155,40 @@ describe("Acharnae orders at Piraeus", () => {
       .drop("shovel")
       .drop("oil-flask")
       .move("cithaeron", "eleusis", "attic-farm", MARKET).s;
+  });
+
+  it("bakes the one Bread from Water before the market dispute is heard", () => {
+    const t = walkToQuay(traveler(marketAfterRecovery).fork());
+    const cargo = structuredClone(cargoState(t.s));
+    expect(t.s.items[WHEAT].holder).toBe(COURTYARD);
+    t.act("talk", { target: HOST });
+    expectReply(t.s, BAKE_REPLY, BAKE_WORDS);
+
+    t.move("athens", "eleusis", "cithaeron", "battlefield", GATE, COURTYARD, "well")
+      .take(WATER)
+      .move(COURTYARD, GATE, "battlefield", "cithaeron", "eleusis", "athens", PIREAUS);
+    expect(playLabel(cardPlay(t.s, [WATER, HOST]).action)).toBe(
+      "Bring Water for Bread",
+    );
+    t.give(WATER, HOST);
+    expect(packState(t.s).receipts[QUAY_BAKE]).toBe(t.s.turn);
+
+    t.s = reload(t.s);
+    expect(t.s.items[WATER].holder).toBe("greek-well");
+    expect(t.s.items[BREAD].holder).toBe(PIREAUS);
+    expect(t.s.usedUp).not.toContain(BREAD);
+    expect(
+      packState(t.s).receipts["greek-story-aristophanes-acharnians-hear"],
+    ).toBeUndefined();
+    expect(
+      packState(t.s).choices["greek-story-aristophanes-acharnians-outcome"],
+    ).toBeUndefined();
+    expect(packState(t.s).choices[ORDER]).toBeUndefined();
+    expect(packState(t.s).receipts[QUAY_SUPPLY]).toBeUndefined();
+    expect(entityActive(t.s, LEDGER)).toBe(false);
+    expect(cargoState(t.s)).toEqual(cargo);
+    t.take(BREAD);
+    expect(t.s.items[BREAD].holder).toBe("vale");
   });
 
   it("honors the public agreement after a Read with the wheat still at Dione’s", () => {
@@ -257,11 +291,11 @@ describe("Acharnae orders at Piraeus", () => {
       refill.s.items[WATER].holder = "vale";
     }
     t.act("talk", { target: HOST });
-    expectReply(t.s, SET_OUT_REPLY, "The Bread has been set out");
+    expectReply(t.s, BAKE_REPLY, BAKE_WORDS);
     expect(packState(t.s).receipts[PUBLIC]).toBe(reportedAt);
     expect(t.s.items[BREAD].holder).toBe("vale");
     t.act("eat", { item: BREAD, target: null }).act("talk", { target: HOST });
-    expectReply(t.s, SET_OUT_REPLY, "The Bread has been set out");
+    expectReply(t.s, BAKE_REPLY, BAKE_WORDS);
     expect(supplier(legalActions(t.s), QUAY_SUPPLY)).toBeUndefined();
     t.act("read", { item: LEDGER });
     const [ledger] = claimsIn(LEDGER, t.s);

@@ -182,9 +182,8 @@
       "art": "assets/greek-drama/testimony.png",
       "requires": [
         {
-          "kind": "choice",
-          "key": "greek-story-euripides-rhesus-outcome",
-          "value": "first"
+          "kind": "receipt",
+          "choiceId": "greek-story-euripides-rhesus-first-answer"
         }
       ],
       "author": "greek-story-euripides-rhesus-first",
@@ -200,9 +199,8 @@
       "art": "assets/greek-drama/guard-tablet.webp",
       "requires": [
         {
-          "kind": "choice",
-          "key": "greek-story-euripides-rhesus-outcome",
-          "value": "second"
+          "kind": "receipt",
+          "choiceId": "greek-story-euripides-rhesus-second-answer"
         }
       ],
       "author": "greek-story-euripides-rhesus-second",
@@ -272,6 +270,90 @@
     }
   },
   "choices": [
+    {
+      "id": "greek-story-euripides-rhesus-hear",
+      "workId": "euripides-rhesus",
+      "subject": "greek-story-euripides-rhesus-first",
+      "at": "greek-trojan-camp",
+      "on": "talk",
+      "text": "Rhesus lies dead and his horses are gone. Come to my mat at the start of the night watch and I’ll tell you what I saw.",
+      "requires": [],
+      "effects": [{ "kind": "set_flag", "key": "greek-story-euripides-rhesus-heard", "value": true }]
+    },
+    {
+      "id": "greek-story-euripides-rhesus-first-answer",
+      "workId": "euripides-rhesus",
+      "subject": "greek-story-euripides-rhesus-first",
+      "at": "greek-trojan-camp",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "The charioteer tells you what he saw at Rhesus’s camp, and the watch records his statement beside his mat.",
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-story-euripides-rhesus-hear" },
+        { "kind": "daylight", "phase": "night" }
+      ],
+      "effects": [{ "kind": "set_flag", "key": "greek-rhesus-bedside-posted", "value": true }]
+    },
+    {
+      "id": "greek-story-euripides-rhesus-second-answer",
+      "workId": "euripides-rhesus",
+      "subject": "greek-story-euripides-rhesus-second",
+      "at": "greek-trojan-camp",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Hector checks the occupied stalls and posts a count of the surviving teams at the inner pen.",
+      "requires": [{ "kind": "daylight", "phase": "day" }],
+      "effects": [{ "kind": "set_flag", "key": "greek-rhesus-stable-count-posted", "value": true }]
+    },
+    {
+      "id": "greek-story-euripides-cyclops-hear",
+      "workId": "euripides-cyclops",
+      "subject": "greek-story-euripides-cyclops-first",
+      "at": "greek-sicily",
+      "on": "talk",
+      "text": "I’ll trade a cheese for the wineskin from the ship. My master will give the satyrs a rest if you bring him Wine from the Theban City Gate.",
+      "requires": [],
+      "effects": [{ "kind": "set_flag", "key": "greek-story-euripides-cyclops-heard", "value": true }],
+      "recap": {
+        "record": "greek-story-euripides-cyclops-record",
+        "answers": ["greek-story-euripides-cyclops-first-answer", "greek-story-euripides-cyclops-second-answer"]
+      }
+    },
+    {
+      "id": "greek-story-euripides-cyclops-first-answer",
+      "workId": "euripides-cyclops",
+      "subject": "greek-story-euripides-cyclops-first",
+      "at": "greek-sicily",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Silenus slips a cheese into the strangers’ sack and stuffs the wine skin into his bedding before Polyphemus can count the stock.",
+      "requires": [
+        { "kind": "flag", "key": "greek-story-euripides-cyclops-heard", "value": true },
+        { "kind": "holding", "item": "greek-story-euripides-cyclops-object", "role": "actor" },
+        { "kind": "choice_unset", "key": "greek-story-euripides-cyclops-outcome" }
+      ],
+      "effects": [
+        { "kind": "choose", "key": "greek-story-euripides-cyclops-outcome", "value": "first" },
+        { "kind": "retire_item", "item": "greek-story-euripides-cyclops-object", "forGood": true }
+      ]
+    },
+    {
+      "id": "greek-story-euripides-cyclops-second-answer",
+      "workId": "euripides-cyclops",
+      "subject": "greek-story-euripides-cyclops-second",
+      "at": "greek-sicily",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Polyphemus pours the Wine and gives the satyrs leave to set down their churns and share a cup of goat milk.",
+      "requires": [
+        { "kind": "holding", "item": "greek-wine-skin", "role": "actor" },
+        { "kind": "choice_unset", "key": "greek-story-euripides-cyclops-outcome" }
+      ],
+      "effects": [
+        { "kind": "choose", "key": "greek-story-euripides-cyclops-outcome", "value": "second" },
+        { "kind": "retire_item", "item": "greek-wine-skin" }
+      ]
+    },
     {
       "id": "greek-tauris-entrust-letter",
       "workId": "euripides-iphigenia-in-tauris",

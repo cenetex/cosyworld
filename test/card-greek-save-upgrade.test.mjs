@@ -2,8 +2,9 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
+import { DAYLIGHT_TURNS, isNight } from "../v2/card-game/daylight.mjs";
 import { createWorld, decodeSave, encodeSave, legalActions, play } from "../v2/card-game/world.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { entityActive, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { knowsLane } from "../v2/card-game/pack-transport.mjs";
 import { knownRoute } from "../v2/card-game/roaming-routes.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -169,6 +170,126 @@ it("keeps the Trojan account and gives travelers saved at Homecoming Beach a way
   expect(world.items.bell.holder).toBe("vale");
 });
 
+function releasedGreekVisit(prior, place) {
+  const initial = prior.createWorld();
+  initial.actors.vale.place = place;
+  initial.actors.vale.visited.push(place);
+  initial.crossings["pond-greek-harbor"].discovered = true;
+  const shared = prior.shared({ op: "create", save: JSON.stringify(initial) });
+  expect(shared.ok, shared.error).toBe(true);
+  let world = shared.world;
+  return {
+    get world() { return world; },
+    act(kind, fields) {
+      const state = { world, actor: "vale", claimed: ["vale"], present: ["vale"] };
+      const offered = prior.shared({ ...state, op: "view" });
+      expect(offered.ok, offered.error).toBe(true);
+      const action = offered.actions.find((action) =>
+        action.kind === kind && Object.entries(fields).every(([key, value]) => action[key] === value),
+      );
+      expect(action, `${kind} ${JSON.stringify(fields)}`).toBeDefined();
+      const result = prior.shared({ ...state, op: "play", action });
+      expect(result.ok, result.error).toBe(true);
+      world = result.world;
+    },
+  };
+}
+
+it("keeps old Rhesus choices, direct action history, and attributed readings as report receipts", async () => {
+  const prior = await releasedRules("0c5f4f1d683f33061a500ec64aebf4e8ce14df51", 232);
+  const stem = "greek-story-euripides-rhesus";
+  const camp = "greek-trojan-camp";
+  for (const [answer, record, flag] of [
+    ["first", "greek-rhesus-bedside-deposition", "greek-rhesus-bedside-posted"],
+    ["second", "greek-rhesus-stable-count", "greek-rhesus-stable-count-posted"],
+  ]) {
+    const trip = releasedGreekVisit(prior, camp);
+    expect(trip.world.packs[greek].revision).toBe(47);
+    const choiceId = `${stem}-${answer}-answer`;
+    const fact = `claim:${greek}:${record}:${choiceId}`;
+    trip.act("talk", { target: `${stem}-first` });
+    trip.act("choose", { choiceId });
+    trip.act("read", { item: record });
+    const world = trip.world;
+    expect(prior.shared({ op: "validate", world }).ok).toBe(true);
+    const deed = world.log.find((entry) => entry.choiceId === choiceId);
+    expect(deed?.verb).toBe("choose");
+    expect(world.knowledge.known.vale[fact]).toMatchObject({ kind: "read", book: record });
+
+    const loaded = decodeSave(JSON.stringify(world));
+    expect(loaded.packs[greek].choices[`${stem}-outcome`]).toBeUndefined();
+    expect(loaded.packs[greek].flags[flag]).toBe(true);
+    expect(loaded.packs[greek].receipts[choiceId]).toBe(deed.turn);
+    expect(loaded.log.find((entry) => entry.seq === deed.seq)).toEqual(deed);
+    expect(loaded.knowledge.facts[fact]).toEqual(world.knowledge.facts[fact]);
+    expect(loaded.knowledge.known.vale[fact]).toEqual(world.knowledge.known.vale[fact]);
+    expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
+  }
+});
+
+it("preserves an old Polyphemus bargain made with the ship’s wineskin", async () => {
+  const prior = await releasedRules("0c5f4f1d683f33061a500ec64aebf4e8ce14df51", 232);
+  const stem = "greek-story-euripides-cyclops";
+  const vesselWine = `${stem}-object`;
+  const record = `${stem}-record`;
+  const answer = `${stem}-second-answer`;
+  const fact = `claim:${greek}:${record}:${answer}`;
+  const trip = releasedGreekVisit(prior, "greek-sicily");
+  trip.act("talk", { target: `${stem}-first` });
+  trip.act("take", { item: vesselWine });
+  trip.act("give", { item: vesselWine, target: `${stem}-second` });
+  trip.act("read", { item: record });
+  const world = trip.world;
+  expect(prior.shared({ op: "validate", world }).ok).toBe(true);
+  expect(world.knowledge.known.vale[fact]).toMatchObject({ kind: "read", book: record });
+
+  const upgraded = decodeSave(JSON.stringify(world));
+  expect(upgraded.packs[greek].receipts[answer]).toBe(world.packs[greek].receipts[answer]);
+  expect(upgraded.packs[greek].choices[`${stem}-outcome`]).toBe("second");
+  expect(upgraded.gone).toContain(vesselWine);
+  expect(upgraded.items["greek-wine-skin"].holder).toBe("greek-gate");
+  expect(upgraded.knowledge.facts[fact]).toEqual(world.knowledge.facts[fact]);
+  expect(upgraded.knowledge.known.vale[fact]).toEqual(world.knowledge.known.vale[fact]);
+});
+
+it("restores Lysistrata’s recorded Treasury Key custody so she keeps watch at night", async () => {
+  const prior = await releasedRules("663334e9586ac900da6a3fccaa49da59ade5dd31", 233);
+  const stem = "greek-story-aristophanes-lysistrata";
+  const keeper = `${stem}-first`;
+  const key = `${stem}-object`;
+  const answer = `${stem}-first-answer`;
+  const trip = releasedGreekVisit(prior, "greek-acropolis");
+  trip.act("talk", { target: keeper });
+  trip.act("take", { item: key });
+  trip.act("give", { item: key, target: keeper });
+  for (let turn = 0; turn < DAYLIGHT_TURNS && !isNight(trip.world); turn++)
+    trip.act("wait", { sleep: undefined });
+  const old = trip.world;
+  const receipt = old.packs[greek].receipts[answer];
+  expect(old.packs[greek].revision).toBe(48);
+  expect(receipt).toBeTypeOf("number");
+  expect(old.gone).toContain(key);
+  expect(old.usedUp).toContain(key);
+  expect(isNight(old)).toBe(true);
+  expect(prior.shared({ op: "validate", world: old }).ok).toBe(true);
+
+  const shared = dispatchShared({
+    op: "upgrade", world: old, from: "full-card-world/233",
+  });
+  expect(shared.ok, shared.error).toBe(true);
+  for (const world of [decodeSave(JSON.stringify(old)), shared.world]) {
+    expect(world.packs[greek].receipts[answer]).toBe(receipt);
+    expect(world.packs[greek].choices[`${stem}-outcome`]).toBe("first");
+    expect(world.packs[greek].receipts["greek-acropolis-lampito-shares-bread"]).toBeUndefined();
+    expect(world.items[key]).toEqual({ ...old.items[key], holder: keeper });
+    expect(world.gone ?? []).not.toContain(key);
+    expect(world.usedUp).not.toContain(key);
+    expect(isNight(world)).toBe(true);
+    expect(entityActive(world, keeper)).toBe(true);
+    expect(decodeSave(encodeSave(world))).toEqual(world);
+  }
+}, 30_000);
+
 it("stores resident trust when it is earned and compacts old zero entries", () => {
   const creon = "greek-creon";
   const guard = "greek-guard";
@@ -202,7 +323,7 @@ it("translates known directions in revision 47 saves and lets travelers leave th
   const shared = dispatchShared({ op: "create", save });
   expect(shared.ok, shared.error).toBe(true);
   for (const loaded of [decodeSave(save), shared.world]) {
-    expect(loaded.packs[greek].revision).toBe(48);
+    expect(loaded.packs[greek].revision).toBe(49);
     expect(loaded.items.bell.holder).toBe("vale");
     expect(loaded.actors.vale.place).toBe(walls);
     expect(knownRoute(loaded, "vale", agora, walls)).toEqual([agora, avenue, fork, walls]);

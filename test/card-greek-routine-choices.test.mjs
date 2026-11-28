@@ -26,15 +26,6 @@ const scenes = [
     aftermaths: [null, "greek-crag-fork-marker"],
     formerlySpent: "first",
   },
-  {
-    work: "euripides-rhesus",
-    place: "greek-trojan-camp",
-    labels: ["Hear the charioteer’s account", "Count the surviving horses"],
-    aftermaths: [
-      "greek-rhesus-bedside-deposition",
-      "greek-rhesus-stable-count",
-    ],
-  },
 ];
 
 it.each(scenes)(

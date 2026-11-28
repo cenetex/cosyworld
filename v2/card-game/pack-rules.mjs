@@ -125,8 +125,13 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
   switch (c.kind) {
     case "item_used_up":
       return usedUp(s, c.item);
-    case "receipt":
-      return Boolean(state?.receipts && Object.hasOwn(state.receipts, c.choiceId));
+    case "receipt": {
+      if (!state?.receipts || !Object.hasOwn(state.receipts, c.choiceId))
+        return false;
+      if (c.within === undefined) return true;
+      const elapsed = s.turn - state.receipts[c.choiceId];
+      return elapsed >= 0 && elapsed < c.within;
+    }
     case "sound":
       return !!senses && c.at.some((place) => soundAt(s, place, senses));
     case "light":

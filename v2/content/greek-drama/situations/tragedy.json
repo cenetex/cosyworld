@@ -346,6 +346,24 @@
   },
   "choices": [
     {
+      "id": "greek-danaids-bake-for-road",
+      "subject": "greek-story-aeschylus-suppliant-women-second",
+      "at": "greek-argos-sanctuary",
+      "workId": "aeschylus-suppliant-women",
+      "on": "give",
+      "humanOnly": true,
+      "repeats": true,
+      "label": "Bring Water for Altar Bread",
+      "text": "The Danaids mix your Water with their meal and bake Bread at the altar hearth. Their leader sets the loaf on the bench for whoever is taking the coast road.",
+      "requires": [
+        { "kind": "holding", "item": "greek-water-jar", "role": "actor" }
+      ],
+      "effects": [
+        { "kind": "retire_item", "item": "greek-water-jar" },
+        { "kind": "drop_item", "item": "greek-bread" }
+      ]
+    },
+    {
       "id": "greek-polynices-grave-offering",
       "subject": "greek-polynices-hollow",
       "at": "greek-polynices-hollow",
@@ -395,106 +413,6 @@
       "effects": [{ "kind": "trust", "level": 1 }]
     },
     {
-      "id": "greek-areopagus-file-atreid-evidence",
-      "subject": "greek-story-aeschylus-eumenides-first",
-      "at": "greek-areopagus",
-      "workId": "aeschylus-eumenides",
-      "humanOnly": true,
-      "on": "talk",
-      "label": "File the Argive household testimony",
-      "text": "Athena enters the household evidence beside Orestes’s case and posts a witness order. Read it before visiting Cilissa, who is waiting at Agamemnon’s tomb.",
-      "summary": "Athena filed the Argive household evidence and issued a witness order separately from the ballot.",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        },
-        {
-          "kind": "flag",
-          "key": "greek-story-aeschylus-eumenides-heard",
-          "value": true
-        },
-        {
-          "kind": "any",
-          "conditions": [
-            {
-              "kind": "any",
-              "conditions": [
-                {
-                  "kind": "holding",
-                  "item": "greek-tomb-testimony",
-                  "role": "actor"
-                },
-                {
-                  "kind": "holding",
-                  "item": "greek-aeschylean-welcome-seal",
-                  "role": "actor"
-                },
-                {
-                  "kind": "holding",
-                  "item": "greek-aeschylean-cassandra-deposition",
-                  "role": "actor"
-                }
-              ]
-            },
-            {
-              "kind": "any",
-              "conditions": [
-                {
-                  "kind": "knows",
-                  "topic": "claim:greek-drama:greek-tomb-testimony:meeting",
-                  "role": "actor"
-                },
-                {
-                  "kind": "knows",
-                  "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
-                  "role": "actor"
-                },
-                {
-                  "kind": "knows",
-                  "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
-                  "role": "actor"
-                }
-              ]
-            },
-            {
-              "kind": "any",
-              "conditions": [
-                {
-                  "kind": "knows",
-                  "topic": "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
-                  "role": "actor"
-                },
-                {
-                  "kind": "knows",
-                  "topic": "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
-                  "role": "actor"
-                },
-                {
-                  "kind": "knows",
-                  "topic": "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
-                  "role": "actor"
-                },
-                {
-                  "kind": "knows",
-                  "topic": "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
-                  "role": "actor"
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-areopagus-household-evidence-filed",
-          "value": true
-        }
-      ]
-    },
-    {
       "id": "greek-areopagus-admit-atreid-witnesses",
       "subject": "greek-story-aeschylus-eumenides-second",
       "at": "greek-areopagus",
@@ -541,7 +459,6 @@
       "text": "Athena says, “Bring me Electra’s tablet from Agamemnon’s tomb, or tell me what you read there. I can also enter a record from the Argive Palace Threshold. An account of another household will not answer for this one.”",
       "requires": [
         { "kind": "choice", "key": "greek-atreid-account", "value": "aeschylus" },
-        { "kind": "flag", "key": "greek-story-aeschylus-eumenides-heard", "value": true },
         { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": false }
       ],
       "effects": []

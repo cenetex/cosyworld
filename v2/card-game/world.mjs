@@ -134,7 +134,6 @@ import {
   ACCOMPANY_TRUST,
   TRUST_LOSS,
   addTrustLinks,
-  compactTrust,
   fadeTrust,
   gainTrust,
   loseTrust,
@@ -2356,10 +2355,11 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       break;
     case "give":
     case "trade": {
-      const gift = a.kind === "give" ? packGiveChoice(s, a) : null;
+      const turn = s.turn - 1;
+      const gift = a.kind === "give" ? packGiveChoice(s, a, { turn }) : null;
       if (gift) {
         requestAccepted = chosen = true;
-        text = choiceText(applyPackChoice(s, gift, { mode: "give" }), a.actor);
+        text = choiceText(applyPackChoice(s, gift, { mode: "give", turn }), a.actor);
         break;
       }
       requestAccepted = expects(s, a);
@@ -3932,7 +3932,6 @@ export function encodeSave(s) {
 }
 export function decodeSave(text) {
   const s = JSON.parse(text);
-  const greekRevision = s?.packs?.["greek-drama"]?.revision;
   try {
     // Existing room metadata is evidence, not a migration hint. Reject it before
     // settlement can replace an unknown location or repair a forged projection.
@@ -3953,8 +3952,6 @@ export function decodeSave(text) {
       installPacks,
       laneText: laneFactText,
     });
-    if (Number.isSafeInteger(greekRevision) && greekRevision < s.packs["greek-drama"].revision)
-      compactTrust(s.actors);
     installJourneyProgress(s, packDefinitions);
     installConversations(s);
     settleGuards(s);

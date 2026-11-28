@@ -81,7 +81,6 @@ function fileEvidence(t) {
     .waitFor("guard")
     .give("creon-writ", "guard")
     .move(...PATH.slice(6))
-    .act("talk", { target: ATHENA })
     .act("talk", { target: ATHENA });
 }
 
@@ -121,6 +120,8 @@ it("finds the Argive testimony, escorts Cilissa, and lets a late arrival open th
 
   fileEvidence(t.move("argolid-road"));
   expect(receipts(t)[FILED]).toBe(t.s.turn);
+  expect(t.s.packs[PACK].flags[`${STEM}-heard`]).toBeUndefined();
+  t.act("talk", { target: ATHENA });
   expect(entityActive(t.s, TESTIMONY)).toBe(false);
   expect(knowsFact(t.s, "vale", ORDER_CLAIM)).toBe(false);
   expect(entityActive(t.s, WATER)).toBe(false);

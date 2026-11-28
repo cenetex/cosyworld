@@ -37,10 +37,10 @@ it.each(migrations)(
     const t = traveler(greekStart());
     t.s.actors.vale.place = place;
     t.s.actors.vale.visited.push(place);
-    t.talk(`${episode}-first`)
-      .take(`${episode}-object`)
-      .give(`${episode}-object`, `${episode}-${answer}`)
-      .act("read", { item: record });
+    t.talk(`${episode}-first`);
+    if (work === "hippolytus") t.talk(`${episode}-second`);
+    else t.take(`${episode}-object`).give(`${episode}-object`, `${episode}-${answer}`);
+    t.act("read", { item: record });
 
     const old = structuredClone(t.s);
     old.packs[PACK].revision = revision;

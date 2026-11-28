@@ -292,7 +292,7 @@ describe("credit for opening a box", () => {
       target: "greek-baker",
     });
     expect(made.opened["greek-bread"]).toEqual(["vale"]);
-    expect(made.opened["greek-quay-host"]).toEqual(["vale"]);
+    expect(made.opened["greek-quay-host"]).toBeUndefined();
     expect(made.actors.vale.xp).toBe(xp);
     const relocked = structuredClone(made);
     relocked.usedUp = [...relocked.usedUp, "greek-bread"].sort();

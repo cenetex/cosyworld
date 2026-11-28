@@ -37,6 +37,9 @@ const PACK_DEF = packDefinition(PACK);
 const episodes = PACK_DEF.works.filter(({ hookChoiceIds }) =>
   hookChoiceIds.some((id) => id.startsWith("greek-story-")),
 );
+const offerEpisodes = episodes.filter(
+  ({ id }) => !["euripides-cyclops", "euripides-hippolytus", "euripides-rhesus"].includes(id),
+);
 const choices = new Map(PACK_DEF.choices.map((choice) => [choice.id, choice]));
 const supplies = PACK_DEF.choices.filter(
   ({ on, effects }) => !on && effects.some(({ kind }) => kind === "drop_item"),
@@ -85,16 +88,6 @@ const recordedAftermath = {
     disposition: "retire_item",
     text: "Athena cast her stone for Orestes and the Areopagus declared him acquitted.",
   },
-  "greek-story-euripides-hippolytus-first-answer": {
-    former: "greek-troezen-witness-tablet",
-    disposition: "place_item",
-    text: "Theseus agrees to hear the nurse’s testimony before he decides whether to expel Hippolytus.",
-  },
-  "greek-story-euripides-hippolytus-second-answer": {
-    former: "greek-troezen-expulsion-writ",
-    disposition: "retire_item",
-    text: "Theseus orders Hippolytus out of Troezen before hearing the nurse’s account.",
-  },
   "greek-story-euripides-trojan-women-first-answer": {
     former: "greek-trojan-kin-roll-copy",
     disposition: "retire_item",
@@ -107,13 +100,6 @@ const recordedAftermath = {
   },
 };
 const localFollowups = [
-  {
-    place: "greek-troezen",
-    scene: "greek-story-euripides-hippolytus",
-    resident: "greek-story-euripides-hippolytus-second",
-    response: "greek-troezen-hear-the-nurse",
-    entrustsProp: false,
-  },
   {
     place: "greek-tauris",
     scene: "greek-story-euripides-tauris",
@@ -213,7 +199,7 @@ describe("the world of the Greek plays", () => {
     expect(loaded.items[object]?.holder).toBe(resolved.items[object]?.holder);
   });
 
-  it.each(episodes)("plays and reads both outcomes of $id", (work) => {
+  it.each(offerEpisodes)("plays and reads both outcomes of $id", (work) => {
     const [place] = work.placeIds;
     const [hear, ...outcomes] = work.hookChoiceIds.map((id) => choices.get(id));
     const [first, second] = outcomes.map(({ subject }) => subject);
@@ -346,7 +332,7 @@ describe("the world of the Greek plays", () => {
         ).toBe(false);
       } else {
         expect(itemEffect.kind).toBe("place_item");
-        expect(closed.items[item].holder).toBe(itemEffect.place);
+        expect(closed.items[item].holder).toBe(itemEffect.holder ?? itemEffect.place);
       }
 
       const claims = claimsIn(record, closed);

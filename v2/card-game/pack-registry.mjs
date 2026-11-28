@@ -18,6 +18,7 @@ import {
   bringBack,
 } from "./item-use.mjs";
 import { restForGood } from "./world/for-good.mjs";
+import { usesLegacyPlainChoiceText } from "./world/history.mjs";
 import { hasSpaceForItems } from "./world/items.mjs";
 import compiled from "./packs.json" with { type: "json" };
 import forest from "./forest.json" with { type: "json" };
@@ -386,8 +387,7 @@ export function choiceText(choice, actor) {
 }
 export function matchesChoiceWitness(choice, actor, text) {
   return text === choiceText(choice, actor) ||
-    // Before revision 47 the Elder's Give used the default action sentence.
-    (choice.id === "greek-helen-troy" && text === plainChoiceText(choice, actor));
+    (usesLegacyPlainChoiceText(choice.id) && text === plainChoiceText(choice, actor));
 }
 const nameOf = (id) =>
   humanAvatar(id)?.name ||
@@ -691,7 +691,7 @@ function choiceFeasible(
     e.kind === "choose"
       ? !owns(state.choices, e.key)
       : e.kind === "place_item"
-        ? e.place === choice.at && Boolean(
+        ? (e.place === choice.at || (mode === "give" && e.holder === subject)) && Boolean(
             choiceInput(world, e.item, offered, (id) =>
               world.items[id]?.holder === actor && !usedUp(world, id),
             ),
@@ -789,7 +789,7 @@ export function packGiveLabel(world, action) {
 }
 // Choices marked "on": "give" are the effect of giving their subject the
 // item the choice needs the actor to hold. They are never offered as cards.
-export function packGiveChoice(world, action) {
+export function packGiveChoice(world, action, { turn = world.turn } = {}) {
   if (world.items[action.item]?.holder !== action.actor) return null;
   for (const pack of packDefinitions)
     for (const c of pack.choices || [])
@@ -799,7 +799,7 @@ export function packGiveChoice(world, action) {
         heldSlots(c.requires).some((slot) =>
           slot.some((id) => itemTypeMatches(id, action.item)),
         ) &&
-        choiceFeasible(world, pack, c, action.actor, "give", world.turn, action.item)
+        choiceFeasible(world, pack, c, action.actor, "give", turn, action.item)
       )
         return {
           packId: pack.id,
@@ -942,7 +942,8 @@ export function packTalkChoice(world, action, { turn = world.turn, topicId } = {
   for (const pack of packDefinitions)
     for (const c of pack.choices || []) {
       if (c.on !== "talk" || c.subject !== action.target) continue;
-      if (c.recap && owns(packState(world, pack.id)?.receipts, c.id)) {
+      const receipts = packState(world, pack.id)?.receipts;
+      if (c.recap && (owns(receipts, c.id) || c.recap.answers.some((id) => owns(receipts, id)))) {
         if (
           topicId === undefined &&
           !recap &&
@@ -1079,7 +1080,7 @@ export function applyPackChoice(
       const id = choiceInput(world, e.item, offered,
         (id) => world.items[id]?.holder === action.actor && !usedUp(world, id));
       if (!id) continue;
-      world.items[id].holder = e.place;
+      world.items[id].holder = e.holder ?? e.place;
       note(id);
     }
   }
@@ -1196,6 +1197,8 @@ function isProgressionRequirement(condition) {
     return isProgressionRequirement(condition.condition);
   if (condition.kind === "any")
     return condition.conditions.every(isProgressionRequirement);
+  if (condition.kind === "receipt" && condition.within !== undefined)
+    return false;
   return ["choice", "choice_unset", "flag", "receipt"].includes(condition.kind);
 }
 

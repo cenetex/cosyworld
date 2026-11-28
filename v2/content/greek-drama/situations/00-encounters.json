@@ -122,7 +122,7 @@
     },
     "euripides-alcestis": {
       "at": "greek-pherae",
-      "opening": "I keep watch beside Alcestis, who has died in Admetus’s place. Heracles takes supper as our guest without knowing whom we mourn, and the children hear him singing from the next room. Give the servant the cloth for Alcestis’s bier. Hand Heracles the cloth and disclose the mourning.",
+      "opening": "I keep watch beside Alcestis, who died in Admetus’s place. Heracles takes supper without knowing whom we mourn, and the children can hear him singing. Her mourning cloth lies next to the bier.",
       "outcomes": [
         {
           "text": "The servant folds the cloth around Alcestis and brings her children to sit beside her. Admetus keeps the guest room shut while the household holds its vigil.",
@@ -143,19 +143,6 @@
         },
         {
           "text": "Medea hands over the tally at the quay and secures passage for herself and her sons. She puts the boys aboard beside her, and the boatkeeper casts off for Athens.",
-          "spend": true
-        }
-      ]
-    },
-    "euripides-hippolytus": {
-      "at": "greek-troezen",
-      "opening": "I told Hippolytus what Phaedra begged me to keep secret. She has left a sealed accusation, and Theseus stands ready to punish his son before he has heard how the secret came out. Give the nurse the tablet to hold for witnesses. Deliver Phaedra’s tablet into Theseus’s custody.",
-      "outcomes": [
-        {
-          "text": "The nurse sets the tablet on the steps between two witnesses. Theseus agrees to hear her testimony before ordering Hippolytus out of Troezen."
-        },
-        {
-          "text": "Theseus keeps Phaedra’s tablet and sends an attendant to put his son out of the city. The nurse waits on the steps with her account still unheard.",
           "spend": true
         }
       ]
@@ -291,35 +278,6 @@
         }
       ]
     },
-    "euripides-rhesus": {
-      "at": "greek-trojan-camp",
-      "direct": true,
-      "opening": "Rhesus came to fight for Troy, and now he lies dead and the horses are gone. I can tell Hector what I remember if he comes to my mat. If he goes to the stalls, he can see which teams are still there.",
-      "outcomes": [
-        {
-          "label": "Hear the charioteer’s account",
-          "text": "The charioteer sets the lantern by his mat, and the healer binds his wound. With Hector in earshot, he gives his account to the watch."
-        },
-        {
-          "label": "Count the surviving horses",
-          "text": "Hector hangs the lantern at the stalls and counts the surviving teams with the stable hands. They move the remaining horses into the inner pen and post a list of the missing teams."
-        }
-      ]
-    },
-    "euripides-cyclops": {
-      "at": "greek-sicily",
-      "opening": "I have cheese, these strangers have wine, and my master counts the wheels when he comes home. Give that skin to the right man and someone may get supper before the goats do. Give Silenus the wine in trade for a round of cheese. Give Polyphemus the wine and ask him to excuse the satyrs.",
-      "outcomes": [
-        {
-          "text": "Silenus slips a cheese into the strangers’ sack and stuffs the wine skin into his bedding before Polyphemus can count the stock.",
-          "spend": true
-        },
-        {
-          "text": "Polyphemus takes the wine and excuses the satyrs from their churns on condition they sing him a drinking song. Their chorus wakes every goat in the cave.",
-          "spend": true
-        }
-      ]
-    },
     "aristophanes-acharnians": {
       "at": "greek-acharnae",
       "opening": "Athens is still at war, and my truce covers only my house. The Megarian at the rope has salt for our unsalted bread, and the charcoal burners are waiting to see who I let through. Give Dicaeopolis the seal for a household sale. Give the Megarian the seal to open the stall.",
@@ -399,19 +357,6 @@
         {
           "label": "Call the birds to council",
           "text": "The Hoopoe carries the peg into the branches as a perch for whichever bird has the floor. The builders set down their tools while the smallest sparrows claim the first turn."
-        }
-      ]
-    },
-    "aristophanes-lysistrata": {
-      "at": "greek-acropolis",
-      "opening": "The envoys are at our steps, but the magistrate still has a wagon waiting for the army's pay. Lampito wants bread enough to keep both parties at one table, and I want that wagon to leave empty. Give Lysistrata the key to keep the chest locked. Give Lampito the key for a witnessed meal.",
-      "outcomes": [
-        {
-          "text": "Lysistrata keeps the key on her belt and turns away the empty pay wagon, so the envoys sit on the steps and start their talks within earshot.",
-          "spend": true
-        },
-        {
-          "text": "Lampito pays the baker from one chest and sets the key on the coalition's table, where both delegations sit down to supper and talk terms."
         }
       ]
     },

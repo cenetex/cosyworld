@@ -2356,7 +2356,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 48,
+        revision: 49,
         name: "The Wine-Dark Sea",
         description: "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2552,7 +2552,7 @@
           },
           "greek-assembly": {
             name: "The Assembly Hill",
-            text: "The lanes below the assembly steps lead to the House of Demos and the Thinkery. The North Gate leads back to the city roads.",
+            text: "Praxagora takes the first Bread offered for the common table and records it in the register. The lanes below the steps lead to the House of Demos and the Thinkery. The North Gate leads back to the city roads.",
             exits: [
               "greek-north-gate",
               "greek-demos-house",
@@ -2563,6 +2563,7 @@
           },
           "greek-acropolis": {
             name: "Acropolis Treasury",
+            text: "The treasury chest stands above the steps. Lysistrata hears callers in daylight and keeps watch if she has the key. Lampito keeps the table open longer when she has Bread to share.",
             exits: [
               "greek-athens",
               "greek-festival",
@@ -2618,12 +2619,13 @@
           },
           "greek-acharnae": {
             name: "Acharnae Market",
+            text: "The path leads to the Attic Farm. Dicaeopolis speaks for his household. The Megarian needs a seal to open his stall. Thaleia bakes at Piraeus when the Bread runs out.",
             exits: [
               "greek-attic-farm",
               "greek-bird-wilderness"
             ],
             backdrop: "assets/greek-drama/repertoire-greek-acharnae.webp",
-            seed: "The conflict of Acharnians is unfolding here."
+            seed: "An Attic market with a salt trader at the stall rope and a truce backed by Dicaeopolis's household."
           },
           "greek-colonus": {
             name: "Colonus Grove",
@@ -2668,7 +2670,7 @@
           },
           "greek-marathon": {
             name: "Marathon Altar",
-            text: "Take Marathon Road to the North Gate. Continue to the City Road Fork for the Long Walls to Piraeus.",
+            text: "Demophon\u2019s watch shelters families inside the altar enclosure. Take Marathon Road to the North Gate. Continue to the City Road Fork for the Long Walls to Piraeus.",
             exits: [
               "greek-road-athens-marathon"
             ],
@@ -2686,7 +2688,7 @@
           },
           "greek-argos-sanctuary": {
             name: "Argive Shore Altar",
-            text: "The coast path continues to Corinth. The inland path leads to the Argive Jury Yard, and the Crossroads lead back to the harbor.",
+            text: "The Danaids bake for travelers here. Bring Water to their leader when the bread bench is bare. The coast path continues to Corinth, the inland path leads to the Argive Jury Yard, and the Crossroads lead back to the harbor.",
             exits: [
               "greek-argolid-road",
               "greek-argive-jury",
@@ -2727,6 +2729,7 @@
           },
           "greek-argos-tomb": {
             name: "Agamemnon's Tomb",
+            text: "Electra\u2019s tablet tells who met here. You can take it to read and leave it here, or carry it to Athena\u2019s court on the Areopagus, beyond the Acropolis in Athens.",
             exits: [],
             backdrop: "assets/greek-drama/house-atreus-tomb.webp",
             requires: [
@@ -2865,7 +2868,7 @@
           },
           "greek-pherae": {
             name: "The House of Admetus at Pherae",
-            text: "The shore path leads to Pagasae Anchorage. The road back toward Delphi passes through Trachis.",
+            text: "Alcestis\u2019s servant shares bread with the children and passing travelers at the outer bench. The shore path leads to Pagasae Anchorage. The road toward Delphi passes through Trachis.",
             exits: [
               "greek-trachis",
               "greek-thetis",
@@ -2942,6 +2945,7 @@
           },
           "greek-trojan-camp": {
             name: "Trojan Night Camp",
+            text: "Hector checks the stalls in daylight. The wounded charioteer gives his account at the start of the night watch.",
             exits: [
               "greek-troy"
             ],
@@ -3543,6 +3547,7 @@
           },
           "greek-areopagus": {
             name: "The Court on the Areopagus",
+            text: "Go back through the Acropolis to Athens. Athena accepts the tablet from Agamemnon\u2019s tomb and accounts from the Argive Palace Threshold. You can bring a record or tell her what you read.",
             exits: [
               "greek-acropolis"
             ],
@@ -4424,35 +4429,6 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds"
             },
-            requires: [
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "item_at",
-                    item: "greek-wheat",
-                    place: "greek-piraeus"
-                  },
-                  {
-                    kind: "choice",
-                    key: "greek-story-aristophanes-acharnians-outcome",
-                    value: "first"
-                  },
-                  {
-                    kind: "choice",
-                    key: "greek-story-aristophanes-acharnians-outcome",
-                    value: "second"
-                  },
-                  {
-                    kind: "met",
-                    actor: "greek-quay-host"
-                  }
-                ]
-              }
-            ],
-            sealed: {
-              at: "greek-piraeus"
-            },
             travels: false,
             want: {
               kind: "person",
@@ -4848,18 +4824,11 @@
             travels: false,
             standoffs: false,
             personalQuests: false,
-            seed: "Danaid Chorus Leader has a stake in the dispute at Argive Shore Altar.",
+            seed: "The Danaids\u2019 leader keeps the altar hearth and shares bread with those going on to Corinth.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
-            },
-            appearsWhen: [
-              {
-                kind: "flag",
-                key: "greek-story-aeschylus-suppliant-women-heard",
-                value: true
-              }
-            ]
+            }
           },
           "greek-story-aeschylus-prometheus-bound-first": {
             name: "Io",
@@ -4980,14 +4949,7 @@
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
-            },
-            appearsWhen: [
-              {
-                kind: "flag",
-                key: "greek-story-aeschylus-eumenides-heard",
-                value: true
-              }
-            ]
+            }
           },
           "greek-story-sophocles-women-of-trachis-first": {
             name: "Deianeira",
@@ -5196,14 +5158,7 @@
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
-            },
-            appearsWhen: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-hippolytus-heard",
-                value: true
-              }
-            ]
+            }
           },
           "greek-story-euripides-andromache-first": {
             name: "Andromache",
@@ -5574,7 +5529,7 @@
             standoffs: false,
             personalQuests: false,
             seed: "Rhesus\u2019s Charioteer asks for help with the dispute at Trojan Night Camp.",
-            text: "Rhesus came to fight for Troy, and now he lies dead and the horses are gone. I can tell Hector what I remember if he comes to my mat. If he goes to the stalls, he can see which teams are still there.",
+            text: "Rhesus lies dead and his horses are gone. Come to my mat at the start of the night watch and I\u2019ll tell you what I saw.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -5588,18 +5543,11 @@
             travels: false,
             standoffs: false,
             personalQuests: false,
-            seed: "Hector has a stake in the dispute at Trojan Night Camp.",
+            seed: "Hector can inspect the remaining horses at Trojan Night Camp in daylight.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
-            },
-            appearsWhen: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-rhesus-heard",
-                value: true
-              }
-            ]
+            }
           },
           "greek-story-euripides-cyclops-first": {
             name: "Silenus",
@@ -5610,7 +5558,7 @@
             standoffs: false,
             personalQuests: false,
             seed: "Silenus asks for help with the dispute at Sicilian Cave of Polyphemus.",
-            text: "I have cheese, these strangers have wine, and my master counts the wheels when he comes home. Give that skin to the right man and someone may get supper before the goats do.",
+            text: "My master counts my cheeses when he comes home. I\u2019ll trade you one for the wineskin from the ship before he checks the stock.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
@@ -5624,18 +5572,12 @@
             travels: false,
             standoffs: false,
             personalQuests: false,
-            seed: "Polyphemus has a stake in the dispute at Sicilian Cave of Polyphemus.",
+            seed: "Polyphemus can release the satyrs from their churns at the Sicilian cave.",
+            text: "Bring me Wine from the Theban City Gate and I\u2019ll give the satyrs a rest from the churns.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
-            },
-            appearsWhen: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-cyclops-heard",
-                value: true
-              }
-            ]
+            }
           },
           "greek-story-aristophanes-acharnians-first": {
             name: "Dicaeopolis",
@@ -5862,11 +5804,32 @@
             standoffs: false,
             personalQuests: false,
             seed: "Lysistrata asks for help with the dispute at Acropolis Treasury.",
-            text: "The envoys are at our steps, but the magistrate still has a wagon waiting for the army's pay. Lampito wants bread enough to keep both parties at one table, and I want that wagon to leave empty.",
+            text: "The magistrate sent a wagon for the army\u2019s pay. I mean it to leave empty. Lampito keeps a table on the steps for anyone who has come to talk.",
             tastes: {
               likes: "a traveler who hears both sides",
               sore: "a promise without a deed"
-            }
+            },
+            appearsWhen: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  },
+                  {
+                    kind: "receipt",
+                    choiceId: "greek-acropolis-lampito-shares-bread",
+                    within: 8
+                  },
+                  {
+                    kind: "holding",
+                    item: "greek-story-aristophanes-lysistrata-object",
+                    actor: "greek-story-aristophanes-lysistrata-first"
+                  }
+                ]
+              }
+            ]
           },
           "greek-story-aristophanes-lysistrata-second": {
             name: "Lampito",
@@ -5876,18 +5839,12 @@
             travels: false,
             standoffs: false,
             personalQuests: false,
-            seed: "Lampito has a stake in the dispute at Acropolis Treasury.",
+            seed: "Lampito keeps a table on the treasury steps and makes room for travelers.",
+            text: "If you bring Bread, I can break it here with whoever is at the table. Lysistrata answers for the chest.",
             tastes: {
-              likes: "a traveler who hears both sides",
+              likes: "a traveler who shares a loaf",
               sore: "a promise without a deed"
-            },
-            appearsWhen: [
-              {
-                kind: "flag",
-                key: "greek-story-aristophanes-lysistrata-heard",
-                value: true
-              }
-            ]
+            }
           },
           "greek-story-aristophanes-thesmophoria-first": {
             name: "The First Woman",
@@ -7004,13 +6961,13 @@
             name: "Phaedra\u2019s sealed tablet",
             holder: "greek-troezen",
             art: "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-object.webp",
-            seed: "The object Phaedra\u2019s Nurse asks you to bring to the dispute."
+            seed: "Phaedra\u2019s sealed accusation lies on the palace steps. Its seal is unbroken."
           },
           "greek-story-euripides-hippolytus-record": {
             name: "Hippolytus Settlement",
             holder: "greek-troezen",
             art: "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-record.webp",
-            seed: "A written account of the decision made here.",
+            seed: "Theseus\u2019s order and any public testimony are posted on the palace steps.",
             lifecycle: "fixed",
             author: "greek-story-euripides-hippolytus-first",
             records: [
@@ -7021,7 +6978,7 @@
             recordText: {
               "greek-story-euripides-hippolytus-first-answer": "Theseus agrees to hear the nurse\u2019s testimony before he decides whether to expel Hippolytus.",
               "greek-story-euripides-hippolytus-second-answer": "Theseus orders Hippolytus out of Troezen before hearing the nurse\u2019s account.",
-              "greek-troezen-hear-the-nurse": "Theseus heard the nurse before two witnesses and told Hippolytus to stay in Troezen while the accusation was examined."
+              "greek-troezen-hear-the-nurse": "Theseus heard the nurse say she had spoken to Hippolytus and told him to stay in Troezen while the accusation was examined."
             },
             requires: [
               {
@@ -7443,7 +7400,7 @@
             name: "Rhesus Settlement",
             holder: "greek-trojan-camp",
             art: "assets/greek-drama/repertoire-greek-story-euripides-rhesus-record.webp",
-            seed: "A written account of the decision made here.",
+            seed: "The watch keeps accounts from the bedside and the stalls here.",
             lifecycle: "fixed",
             author: "greek-story-euripides-rhesus-first",
             records: [
@@ -7455,14 +7412,12 @@
                 kind: "any",
                 conditions: [
                   {
-                    kind: "choice",
-                    key: "greek-story-euripides-rhesus-outcome",
-                    value: "first"
+                    kind: "receipt",
+                    choiceId: "greek-story-euripides-rhesus-first-answer"
                   },
                   {
-                    kind: "choice",
-                    key: "greek-story-euripides-rhesus-outcome",
-                    value: "second"
+                    kind: "receipt",
+                    choiceId: "greek-story-euripides-rhesus-second-answer"
                   }
                 ]
               }
@@ -7711,7 +7666,7 @@
             name: "Treasury Key",
             holder: "greek-acropolis",
             art: "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-object.webp",
-            seed: "The object Lysistrata asks you to bring to the dispute."
+            seed: "The iron key opens the treasury chest above the steps."
           },
           "greek-story-aristophanes-lysistrata-record": {
             name: "Lysistrata Settlement",
@@ -7813,16 +7768,20 @@
             ]
           },
           "greek-story-aristophanes-assemblywomen-record": {
-            name: "Assemblywomen Settlement",
+            name: "Assembly Hill Register",
             holder: "greek-assembly",
             art: "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-record.webp",
-            seed: "A written account of the decision made here.",
+            seed: "Praxagora records contributions to the common table and the assembly\u2019s decisions about its stores.",
             lifecycle: "fixed",
             author: "greek-story-aristophanes-assemblywomen-first",
             records: [
               "greek-story-aristophanes-assemblywomen-first-answer",
-              "greek-story-aristophanes-assemblywomen-second-answer"
+              "greek-story-aristophanes-assemblywomen-second-answer",
+              "greek-assembly-register-bread"
             ],
+            recordText: {
+              "greek-assembly-register-bread": "Praxagora accepted a loaf for the common table, where anyone waiting for a meal could take it."
+            },
             requires: [
               {
                 kind: "any",
@@ -7836,6 +7795,10 @@
                     kind: "choice",
                     key: "greek-story-aristophanes-assemblywomen-outcome",
                     value: "second"
+                  },
+                  {
+                    kind: "receipt",
+                    choiceId: "greek-assembly-register-bread"
                   }
                 ]
               }
@@ -7881,6 +7844,14 @@
             holder: "greek-marathon",
             art: "assets/greek-drama/repertoire-greek-marathon-captive-bond.webp",
             seed: "The bearer stands surety for Eurystheus while the guards hold him at the altar.",
+            author: "greek-marathon-keeper",
+            claims: [
+              {
+                id: "custody-terms",
+                text: "The watch must answer for Eurystheus until the city assumes his custody or Alcmene pledges her household\u2019s surety.",
+                about: "greek-marathon"
+              }
+            ],
             requires: [
               {
                 kind: "flag",
@@ -8131,7 +8102,7 @@
             claims: [
               {
                 id: "wagon",
-                text: "Lysistrata withheld the army chest and the delegations began talking on the treasury steps."
+                text: "Lysistrata withheld the army chest and the pay wagon left empty."
               }
             ],
             requires: [
@@ -8584,9 +8555,8 @@
             art: "assets/greek-drama/testimony.png",
             requires: [
               {
-                kind: "choice",
-                key: "greek-story-euripides-rhesus-outcome",
-                value: "first"
+                kind: "receipt",
+                choiceId: "greek-story-euripides-rhesus-first-answer"
               }
             ],
             author: "greek-story-euripides-rhesus-first",
@@ -8604,9 +8574,8 @@
             art: "assets/greek-drama/guard-tablet.webp",
             requires: [
               {
-                kind: "choice",
-                key: "greek-story-euripides-rhesus-outcome",
-                value: "second"
+                kind: "receipt",
+                choiceId: "greek-story-euripides-rhesus-second-answer"
               }
             ],
             author: "greek-story-euripides-rhesus-second",
@@ -11309,11 +11278,15 @@
                 kind: "set_flag",
                 key: "greek-open-door-marathon-entered",
                 value: true
+              },
+              {
+                kind: "trust",
+                level: 1
               }
             ],
             workId: "euripides-children-of-heracles",
             on: "talk",
-            text: "Demophon stands between the altar and the Argive herald. \u201CEurystheus demands that I hand over Heracles\u2019s children. I have promised them shelter. Bring the blanket from Piraeus so they can stay here through the night.\u201D"
+            text: "Demophon has his watch make room beneath the altar roof. \u201CEurystheus demands the children, but they have shelter here. Sit beside Iolaus if you need a dry place. If you come from Piraeus, the watch can put a dry blanket to good use.\u201D"
           },
           {
             id: "greek-open-door-marathon-blanket",
@@ -11336,11 +11309,16 @@
                 kind: "set_flag",
                 key: "greek-open-door-marathon-blanket-set",
                 value: true
+              },
+              {
+                kind: "trust",
+                level: 1
               }
             ],
             workId: "euripides-children-of-heracles",
             on: "give",
-            text: "Demophon lays the Shelter Blanket in the dry beside Iolaus and the children. His watch brings them inside the altar enclosure and sends the Argive herald away."
+            humanOnly: true,
+            text: "Demophon spreads the dry blanket beside Iolaus and the children, making another place for someone to sit under the roof. The watch keeps the Argive herald outside."
           },
           {
             id: "greek-open-door-marathon-daughter",
@@ -11636,6 +11614,101 @@
               }
             ],
             archived: true
+          },
+          {
+            id: "greek-areopagus-file-atreid-evidence",
+            subject: "greek-story-aeschylus-eumenides-first",
+            at: "greek-areopagus",
+            workId: "aeschylus-eumenides",
+            humanOnly: true,
+            on: "talk",
+            label: "File the Argive household testimony",
+            text: "Athena enters the household evidence beside Orestes\u2019s case and posts a witness order. Read it before visiting Cilissa, who is waiting at Agamemnon\u2019s tomb.",
+            summary: "Athena filed the Argive household evidence and issued a witness order separately from the ballot.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              },
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "any",
+                    conditions: [
+                      {
+                        kind: "holding",
+                        item: "greek-tomb-testimony",
+                        role: "actor"
+                      },
+                      {
+                        kind: "holding",
+                        item: "greek-aeschylean-welcome-seal",
+                        role: "actor"
+                      },
+                      {
+                        kind: "holding",
+                        item: "greek-aeschylean-cassandra-deposition",
+                        role: "actor"
+                      }
+                    ]
+                  },
+                  {
+                    kind: "any",
+                    conditions: [
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-tomb-testimony:meeting",
+                        role: "actor"
+                      },
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+                        role: "actor"
+                      },
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+                        role: "actor"
+                      }
+                    ]
+                  },
+                  {
+                    kind: "any",
+                    conditions: [
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+                        role: "actor"
+                      },
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+                        role: "actor"
+                      },
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+                        role: "actor"
+                      },
+                      {
+                        kind: "knows",
+                        topic: "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+                        role: "actor"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-areopagus-household-evidence-filed",
+                value: true
+              }
+            ]
           },
           {
             id: "greek-story-aeschylus-persians-hear",
@@ -12495,7 +12568,7 @@
             subject: "greek-story-euripides-alcestis-first",
             at: "greek-pherae",
             workId: "euripides-alcestis",
-            text: "I keep watch beside Alcestis, who has died in Admetus\u2019s place. Heracles takes supper as our guest without knowing whom we mourn, and the children hear him singing from the next room. Give the servant the cloth for Alcestis\u2019s bier. Hand Heracles the cloth and disclose the mourning.",
+            text: "I keep watch beside Alcestis, who died in Admetus\u2019s place. Heracles takes supper without knowing whom we mourn, and the children can hear him singing. Her mourning cloth lies next to the bier.",
             on: "talk",
             requires: [],
             effects: [
@@ -12680,103 +12753,6 @@
               {
                 kind: "retire_item",
                 item: "greek-story-euripides-medea-object",
-                forGood: true
-              }
-            ]
-          },
-          {
-            id: "greek-story-euripides-hippolytus-hear",
-            subject: "greek-story-euripides-hippolytus-first",
-            at: "greek-troezen",
-            workId: "euripides-hippolytus",
-            text: "I told Hippolytus what Phaedra begged me to keep secret. She has left a sealed accusation, and Theseus stands ready to punish his son before he has heard how the secret came out. Give the nurse the tablet to hold for witnesses. Deliver Phaedra\u2019s tablet into Theseus\u2019s custody.",
-            on: "talk",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-story-euripides-hippolytus-heard",
-                value: true
-              }
-            ],
-            recap: {
-              record: "greek-story-euripides-hippolytus-record",
-              answers: [
-                "greek-story-euripides-hippolytus-first-answer",
-                "greek-story-euripides-hippolytus-second-answer"
-              ]
-            }
-          },
-          {
-            id: "greek-story-euripides-hippolytus-first-answer",
-            subject: "greek-story-euripides-hippolytus-first",
-            at: "greek-troezen",
-            workId: "euripides-hippolytus",
-            on: "give",
-            humanOnly: true,
-            text: "The nurse sets the tablet on the steps between two witnesses. Theseus agrees to hear her testimony before ordering Hippolytus out of Troezen.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-hippolytus-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-story-euripides-hippolytus-object",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-story-euripides-hippolytus-outcome"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-story-euripides-hippolytus-outcome",
-                value: "first"
-              },
-              {
-                kind: "place_item",
-                item: "greek-story-euripides-hippolytus-object",
-                place: "greek-troezen"
-              }
-            ]
-          },
-          {
-            id: "greek-story-euripides-hippolytus-second-answer",
-            subject: "greek-story-euripides-hippolytus-second",
-            at: "greek-troezen",
-            workId: "euripides-hippolytus",
-            on: "give",
-            humanOnly: true,
-            text: "Theseus keeps Phaedra\u2019s tablet and sends an attendant to put his son out of the city. The nurse waits on the steps with her account still unheard.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-hippolytus-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-story-euripides-hippolytus-object",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-story-euripides-hippolytus-outcome"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-story-euripides-hippolytus-outcome",
-                value: "second"
-              },
-              {
-                kind: "retire_item",
-                item: "greek-story-euripides-hippolytus-object",
                 forGood: true
               }
             ]
@@ -13752,180 +13728,6 @@
             ]
           },
           {
-            id: "greek-story-euripides-rhesus-hear",
-            subject: "greek-story-euripides-rhesus-first",
-            at: "greek-trojan-camp",
-            workId: "euripides-rhesus",
-            text: "Rhesus came to fight for Troy, and now he lies dead and the horses are gone. I can tell Hector what I remember if he comes to my mat. If he goes to the stalls, he can see which teams are still there.",
-            on: "talk",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-story-euripides-rhesus-heard",
-                value: true
-              }
-            ],
-            recap: {
-              record: "greek-story-euripides-rhesus-record",
-              answers: [
-                "greek-story-euripides-rhesus-first-answer",
-                "greek-story-euripides-rhesus-second-answer"
-              ]
-            }
-          },
-          {
-            id: "greek-story-euripides-rhesus-first-answer",
-            subject: "greek-story-euripides-rhesus-first",
-            at: "greek-trojan-camp",
-            workId: "euripides-rhesus",
-            label: "Hear the charioteer\u2019s account",
-            humanOnly: true,
-            text: "The charioteer sets the lantern by his mat, and the healer binds his wound. With Hector in earshot, he gives his account to the watch.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-rhesus-heard",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-story-euripides-rhesus-outcome"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-story-euripides-rhesus-outcome",
-                value: "first"
-              }
-            ]
-          },
-          {
-            id: "greek-story-euripides-rhesus-second-answer",
-            subject: "greek-story-euripides-rhesus-second",
-            at: "greek-trojan-camp",
-            workId: "euripides-rhesus",
-            label: "Count the surviving horses",
-            humanOnly: true,
-            text: "Hector hangs the lantern at the stalls and counts the surviving teams with the stable hands. They move the remaining horses into the inner pen and post a list of the missing teams.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-rhesus-heard",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-story-euripides-rhesus-outcome"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-story-euripides-rhesus-outcome",
-                value: "second"
-              }
-            ]
-          },
-          {
-            id: "greek-story-euripides-cyclops-hear",
-            subject: "greek-story-euripides-cyclops-first",
-            at: "greek-sicily",
-            workId: "euripides-cyclops",
-            text: "I have cheese, these strangers have wine, and my master counts the wheels when he comes home. Give that skin to the right man and someone may get supper before the goats do. Give Silenus the wine in trade for a round of cheese. Give Polyphemus the wine and ask him to excuse the satyrs.",
-            on: "talk",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-story-euripides-cyclops-heard",
-                value: true
-              }
-            ],
-            recap: {
-              record: "greek-story-euripides-cyclops-record",
-              answers: [
-                "greek-story-euripides-cyclops-first-answer",
-                "greek-story-euripides-cyclops-second-answer"
-              ]
-            }
-          },
-          {
-            id: "greek-story-euripides-cyclops-first-answer",
-            subject: "greek-story-euripides-cyclops-first",
-            at: "greek-sicily",
-            workId: "euripides-cyclops",
-            on: "give",
-            humanOnly: true,
-            text: "Silenus slips a cheese into the strangers\u2019 sack and stuffs the wine skin into his bedding before Polyphemus can count the stock.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-cyclops-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-story-euripides-cyclops-object",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-story-euripides-cyclops-outcome"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-story-euripides-cyclops-outcome",
-                value: "first"
-              },
-              {
-                kind: "retire_item",
-                item: "greek-story-euripides-cyclops-object",
-                forGood: true
-              }
-            ]
-          },
-          {
-            id: "greek-story-euripides-cyclops-second-answer",
-            subject: "greek-story-euripides-cyclops-second",
-            at: "greek-sicily",
-            workId: "euripides-cyclops",
-            on: "give",
-            humanOnly: true,
-            text: "Polyphemus takes the wine and excuses the satyrs from their churns on condition they sing him a drinking song. Their chorus wakes every goat in the cave.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-story-euripides-cyclops-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-story-euripides-cyclops-object",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-story-euripides-cyclops-outcome"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-story-euripides-cyclops-outcome",
-                value: "second"
-              },
-              {
-                kind: "retire_item",
-                item: "greek-story-euripides-cyclops-object",
-                forGood: true
-              }
-            ]
-          },
-          {
             id: "greek-story-aristophanes-acharnians-hear",
             subject: "greek-story-aristophanes-acharnians-first",
             at: "greek-acharnae",
@@ -14490,103 +14292,6 @@
             ]
           },
           {
-            id: "greek-story-aristophanes-lysistrata-hear",
-            subject: "greek-story-aristophanes-lysistrata-first",
-            at: "greek-acropolis",
-            workId: "aristophanes-lysistrata",
-            text: "The envoys are at our steps, but the magistrate still has a wagon waiting for the army's pay. Lampito wants bread enough to keep both parties at one table, and I want that wagon to leave empty. Give Lysistrata the key to keep the chest locked. Give Lampito the key for a witnessed meal.",
-            on: "talk",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-story-aristophanes-lysistrata-heard",
-                value: true
-              }
-            ],
-            recap: {
-              record: "greek-story-aristophanes-lysistrata-record",
-              answers: [
-                "greek-story-aristophanes-lysistrata-first-answer",
-                "greek-story-aristophanes-lysistrata-second-answer"
-              ]
-            }
-          },
-          {
-            id: "greek-story-aristophanes-lysistrata-first-answer",
-            subject: "greek-story-aristophanes-lysistrata-first",
-            at: "greek-acropolis",
-            workId: "aristophanes-lysistrata",
-            on: "give",
-            humanOnly: true,
-            text: "Lysistrata keeps the key on her belt and turns away the empty pay wagon, so the envoys sit on the steps and start their talks within earshot.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-story-aristophanes-lysistrata-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-story-aristophanes-lysistrata-object",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-story-aristophanes-lysistrata-outcome"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-story-aristophanes-lysistrata-outcome",
-                value: "first"
-              },
-              {
-                kind: "retire_item",
-                item: "greek-story-aristophanes-lysistrata-object",
-                forGood: true
-              }
-            ]
-          },
-          {
-            id: "greek-story-aristophanes-lysistrata-second-answer",
-            subject: "greek-story-aristophanes-lysistrata-second",
-            at: "greek-acropolis",
-            workId: "aristophanes-lysistrata",
-            on: "give",
-            humanOnly: true,
-            text: "Lampito pays the baker from one chest and sets the key on the coalition's table, where both delegations sit down to supper and talk terms.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-story-aristophanes-lysistrata-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-story-aristophanes-lysistrata-object",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-story-aristophanes-lysistrata-outcome"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-story-aristophanes-lysistrata-outcome",
-                value: "second"
-              },
-              {
-                kind: "place_item",
-                item: "greek-story-aristophanes-lysistrata-object",
-                place: "greek-acropolis"
-              }
-            ]
-          },
-          {
             id: "greek-story-aristophanes-thesmophoria-hear",
             subject: "greek-story-aristophanes-thesmophoria-first",
             at: "greek-festival",
@@ -15000,11 +14705,11 @@
           {
             id: "greek-marathon-public-custody",
             subject: "greek-marathon-keeper",
-            label: "Give Demophon custody for a hearing",
-            text: "Demophon seals the bond in the city\u2019s name and sets it on the altar. The Athenian guards keep Eurystheus alive and call witnesses to hear Alcmene\u2019s claim.",
+            text: "Demophon seals the bond where it lies on the altar. The Athenian guards keep Eurystheus in the city\u2019s custody and call witnesses to hear Alcmene\u2019s claim.",
             at: "greek-marathon",
             workId: "euripides-children-of-heracles",
-            on: "give",
+            on: "talk",
+            humanOnly: true,
             requires: [
               {
                 kind: "flag",
@@ -15016,17 +14721,17 @@
                 key: "greek-marathon-captive-disposition"
               },
               {
-                kind: "holding",
+                kind: "item_at",
                 item: "greek-marathon-captive-bond",
+                place: "greek-marathon"
+              },
+              {
+                kind: "knows",
+                topic: "claim:greek-drama:greek-marathon-captive-bond:custody-terms",
                 role: "actor"
               }
             ],
             effects: [
-              {
-                kind: "place_item",
-                item: "greek-marathon-captive-bond",
-                place: "greek-marathon"
-              },
               {
                 kind: "choose",
                 key: "greek-marathon-captive-disposition",
@@ -15356,19 +15061,8 @@
             at: "greek-piraeus",
             on: "talk",
             humanOnly: true,
-            workId: "aristophanes-acharnians",
-            text: "Thaleia says, \u201CThe Bread has been set out. That order has had its one allotment. When the Bread is gone, bring me Water and I can bake another loaf here.\u201D",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-acharnae-quay-order",
-                value: "public"
-              },
-              {
-                kind: "receipt",
-                choiceId: "greek-acharnae-quay-bread-supply"
-              }
-            ],
+            text: "Thaleia says, \u201CWhen the Bread is gone, give me Water and I\u2019ll bake a loaf from the quay flour.\u201D",
+            requires: [],
             effects: []
           },
           {
@@ -15403,9 +15097,9 @@
             text: "Electra says, \u201CRead the meeting on my tablet or bring it with you. Take the Theban Gate past Cithaeron and Eleusis, then cross Athens to the Acropolis. Ask for Athena at the Areopagus.\u201D",
             requires: [
               {
-                kind: "flag",
-                key: "greek-atreid-heard-aeschylus",
-                value: true
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
               },
               {
                 kind: "flag",
@@ -15552,12 +15246,8 @@
             humanOnly: true,
             repeats: true,
             label: "Bring Water for Bread",
-            text: "Thaleia mixes the Water with flour from the quay stores and sets out Bread beside the ledger.",
+            text: "Thaleia mixes the Water with flour from the quay stores and sets out Bread on the bench.",
             requires: [
-              {
-                kind: "receipt",
-                choiceId: "greek-acharnae-quay-bread-supply"
-              },
               {
                 kind: "holding",
                 item: "greek-water-jar",
@@ -15632,6 +15322,117 @@
             ]
           },
           {
+            id: "greek-story-aristophanes-lysistrata-hear",
+            subject: "greek-story-aristophanes-lysistrata-first",
+            at: "greek-acropolis",
+            workId: "aristophanes-lysistrata",
+            on: "talk",
+            text: "The magistrate sent a wagon for the army\u2019s pay. With the key in my hands I can keep the chest locked. Give it to Lampito if you want her to pledge one chest to hospitality. She can share a loaf now with whoever is at the table.",
+            requires: [],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-story-aristophanes-lysistrata-heard",
+                value: true
+              }
+            ],
+            recap: {
+              record: "greek-story-aristophanes-lysistrata-record",
+              answers: [
+                "greek-story-aristophanes-lysistrata-first-answer",
+                "greek-story-aristophanes-lysistrata-second-answer"
+              ]
+            }
+          },
+          {
+            id: "greek-story-aristophanes-lysistrata-first-answer",
+            subject: "greek-story-aristophanes-lysistrata-first",
+            at: "greek-acropolis",
+            workId: "aristophanes-lysistrata",
+            on: "give",
+            humanOnly: true,
+            text: "Lysistrata keeps the Treasury Key and sends the army\u2019s pay wagon away empty.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-story-aristophanes-lysistrata-object",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-story-aristophanes-lysistrata-outcome"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-story-aristophanes-lysistrata-outcome",
+                value: "first"
+              },
+              {
+                kind: "place_item",
+                item: "greek-story-aristophanes-lysistrata-object",
+                holder: "greek-story-aristophanes-lysistrata-first"
+              }
+            ]
+          },
+          {
+            id: "greek-story-aristophanes-lysistrata-second-answer",
+            subject: "greek-story-aristophanes-lysistrata-second",
+            at: "greek-acropolis",
+            workId: "aristophanes-lysistrata",
+            on: "give",
+            humanOnly: true,
+            text: "Lampito sets the Treasury Key on the coalition\u2019s table and pledges one chest for hospitality during the talks.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-story-aristophanes-lysistrata-object",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-story-aristophanes-lysistrata-outcome"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-story-aristophanes-lysistrata-outcome",
+                value: "second"
+              },
+              {
+                kind: "place_item",
+                item: "greek-story-aristophanes-lysistrata-object",
+                place: "greek-acropolis"
+              }
+            ]
+          },
+          {
+            id: "greek-acropolis-lampito-shares-bread",
+            subject: "greek-story-aristophanes-lysistrata-second",
+            at: "greek-acropolis",
+            workId: "aristophanes-lysistrata",
+            on: "give",
+            humanOnly: true,
+            repeats: true,
+            text: "Lampito breaks the loaf for those at the table and keeps the audience on the steps open a while longer.",
+            summary: "Lampito shared Bread at the treasury steps and kept the audience open longer.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-bread",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "retire_item",
+                item: "greek-bread"
+              }
+            ]
+          },
+          {
             id: "greek-story-aristophanes-thesmophoria-dispatch-summons",
             subject: "greek-story-aristophanes-thesmophoria-second",
             at: "greek-festival",
@@ -15655,6 +15456,29 @@
               {
                 kind: "trust",
                 level: 1
+              }
+            ]
+          },
+          {
+            id: "greek-assembly-register-bread",
+            subject: "greek-story-aristophanes-assemblywomen-first",
+            at: "greek-assembly",
+            on: "give",
+            humanOnly: true,
+            label: "Give Bread for the common table",
+            text: "Praxagora sets the Bread on the common table and enters it in the register for anyone who needs a meal.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-bread",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-bread",
+                place: "greek-assembly"
               }
             ]
           },
@@ -15726,6 +15550,116 @@
             ]
           },
           {
+            id: "greek-story-euripides-hippolytus-hear",
+            subject: "greek-story-euripides-hippolytus-first",
+            at: "greek-troezen",
+            workId: "euripides-hippolytus",
+            on: "talk",
+            text: "Phaedra left a sealed accusation. I was the one who spoke to Hippolytus, and I will answer for what I said if Theseus calls me.",
+            requires: [],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-story-euripides-hippolytus-heard",
+                value: true
+              }
+            ],
+            recap: {
+              record: "greek-story-euripides-hippolytus-record",
+              answers: [
+                "greek-story-euripides-hippolytus-first-answer",
+                "greek-story-euripides-hippolytus-second-answer"
+              ]
+            }
+          },
+          {
+            id: "greek-story-euripides-hippolytus-first-answer",
+            subject: "greek-story-euripides-hippolytus-second",
+            at: "greek-troezen",
+            workId: "euripides-hippolytus",
+            on: "talk",
+            humanOnly: true,
+            text: "Theseus leaves Phaedra\u2019s tablet unopened on the steps. He agrees to hear the nurse before ordering Hippolytus out of Troezen.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-story-euripides-hippolytus-outcome"
+              },
+              {
+                kind: "item_at",
+                item: "greek-story-euripides-hippolytus-object",
+                place: "greek-troezen"
+              },
+              {
+                kind: "talked",
+                person: "greek-story-euripides-hippolytus-first"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-story-euripides-hippolytus-outcome",
+                value: "first"
+              }
+            ]
+          },
+          {
+            id: "greek-story-euripides-hippolytus-second-answer",
+            subject: "greek-story-euripides-hippolytus-second",
+            at: "greek-troezen",
+            workId: "euripides-hippolytus",
+            on: "give",
+            humanOnly: true,
+            text: "Theseus keeps Phaedra\u2019s tablet and sends an attendant to put his son out of the city. The nurse waits on the steps with her account still unheard.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-story-euripides-hippolytus-outcome"
+              },
+              {
+                kind: "holding",
+                item: "greek-story-euripides-hippolytus-object",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-story-euripides-hippolytus-outcome",
+                value: "second"
+              },
+              {
+                kind: "retire_item",
+                item: "greek-story-euripides-hippolytus-object",
+                forGood: true
+              }
+            ]
+          },
+          {
+            id: "greek-pherae-share-bread",
+            subject: "greek-story-euripides-alcestis-first",
+            at: "greek-pherae",
+            workId: "euripides-alcestis",
+            on: "give",
+            humanOnly: true,
+            repeats: true,
+            text: "The servant breaks the bread on the outer bench and shares it with the children and the travelers who have stopped at the house.",
+            summary: "At Pherae, the servant shared Bread with the children and passing travelers.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-bread",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "retire_item",
+                item: "greek-bread"
+              }
+            ]
+          },
+          {
             id: "greek-pherae-tend-vigil-lamp",
             subject: "greek-story-euripides-alcestis-first",
             at: "greek-pherae",
@@ -15776,7 +15710,7 @@
             at: "greek-troezen",
             on: "talk",
             humanOnly: true,
-            text: "Theseus hears the nurse on the steps before both witnesses. He tells Hippolytus to stay in Troezen while the accusation is examined.",
+            text: "The nurse tells Theseus that she was the one who spoke to Hippolytus. Theseus hears her out and tells Hippolytus to stay in Troezen while he considers the accusation.",
             requires: [
               {
                 kind: "choice",
@@ -15784,9 +15718,18 @@
                 value: "first"
               },
               {
-                kind: "knows",
-                topic: "claim:greek-drama:greek-story-euripides-hippolytus-record:greek-story-euripides-hippolytus-first-answer",
-                role: "actor"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "talked",
+                    person: "greek-story-euripides-hippolytus-first"
+                  },
+                  {
+                    kind: "knows",
+                    topic: "claim:greek-drama:greek-story-euripides-hippolytus-record:greek-story-euripides-hippolytus-first-answer",
+                    role: "actor"
+                  }
+                ]
               }
             ],
             effects: [
@@ -15845,6 +15788,161 @@
                 kind: "choose",
                 key: "greek-eleusis-urn-disposition",
                 value: "quay"
+              }
+            ]
+          },
+          {
+            id: "greek-story-euripides-rhesus-hear",
+            workId: "euripides-rhesus",
+            subject: "greek-story-euripides-rhesus-first",
+            at: "greek-trojan-camp",
+            on: "talk",
+            text: "Rhesus lies dead and his horses are gone. Come to my mat at the start of the night watch and I\u2019ll tell you what I saw.",
+            requires: [],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-story-euripides-rhesus-heard",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-story-euripides-rhesus-first-answer",
+            workId: "euripides-rhesus",
+            subject: "greek-story-euripides-rhesus-first",
+            at: "greek-trojan-camp",
+            on: "talk",
+            humanOnly: true,
+            text: "The charioteer tells you what he saw at Rhesus\u2019s camp, and the watch records his statement beside his mat.",
+            requires: [
+              {
+                kind: "receipt",
+                choiceId: "greek-story-euripides-rhesus-hear"
+              },
+              {
+                kind: "daylight",
+                phase: "night"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-bedside-posted",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-story-euripides-rhesus-second-answer",
+            workId: "euripides-rhesus",
+            subject: "greek-story-euripides-rhesus-second",
+            at: "greek-trojan-camp",
+            on: "talk",
+            humanOnly: true,
+            text: "Hector checks the occupied stalls and posts a count of the surviving teams at the inner pen.",
+            requires: [
+              {
+                kind: "daylight",
+                phase: "day"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-stable-count-posted",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-story-euripides-cyclops-hear",
+            workId: "euripides-cyclops",
+            subject: "greek-story-euripides-cyclops-first",
+            at: "greek-sicily",
+            on: "talk",
+            text: "I\u2019ll trade a cheese for the wineskin from the ship. My master will give the satyrs a rest if you bring him Wine from the Theban City Gate.",
+            requires: [],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-story-euripides-cyclops-heard",
+                value: true
+              }
+            ],
+            recap: {
+              record: "greek-story-euripides-cyclops-record",
+              answers: [
+                "greek-story-euripides-cyclops-first-answer",
+                "greek-story-euripides-cyclops-second-answer"
+              ]
+            }
+          },
+          {
+            id: "greek-story-euripides-cyclops-first-answer",
+            workId: "euripides-cyclops",
+            subject: "greek-story-euripides-cyclops-first",
+            at: "greek-sicily",
+            on: "give",
+            humanOnly: true,
+            text: "Silenus slips a cheese into the strangers\u2019 sack and stuffs the wine skin into his bedding before Polyphemus can count the stock.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-story-euripides-cyclops-heard",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-story-euripides-cyclops-object",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-story-euripides-cyclops-outcome"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-story-euripides-cyclops-outcome",
+                value: "first"
+              },
+              {
+                kind: "retire_item",
+                item: "greek-story-euripides-cyclops-object",
+                forGood: true
+              }
+            ]
+          },
+          {
+            id: "greek-story-euripides-cyclops-second-answer",
+            workId: "euripides-cyclops",
+            subject: "greek-story-euripides-cyclops-second",
+            at: "greek-sicily",
+            on: "give",
+            humanOnly: true,
+            text: "Polyphemus pours the Wine and gives the satyrs leave to set down their churns and share a cup of goat milk.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-wine-skin",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-story-euripides-cyclops-outcome"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-story-euripides-cyclops-outcome",
+                value: "second"
+              },
+              {
+                kind: "retire_item",
+                item: "greek-wine-skin"
               }
             ]
           },
@@ -16260,6 +16358,34 @@
             ]
           },
           {
+            id: "greek-danaids-bake-for-road",
+            subject: "greek-story-aeschylus-suppliant-women-second",
+            at: "greek-argos-sanctuary",
+            workId: "aeschylus-suppliant-women",
+            on: "give",
+            humanOnly: true,
+            repeats: true,
+            label: "Bring Water for Altar Bread",
+            text: "The Danaids mix your Water with their meal and bake Bread at the altar hearth. Their leader sets the loaf on the bench for whoever is taking the coast road.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-water-jar",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "retire_item",
+                item: "greek-water-jar"
+              },
+              {
+                kind: "drop_item",
+                item: "greek-bread"
+              }
+            ]
+          },
+          {
             id: "greek-polynices-grave-offering",
             subject: "greek-polynices-hollow",
             at: "greek-polynices-hollow",
@@ -16326,106 +16452,6 @@
             ]
           },
           {
-            id: "greek-areopagus-file-atreid-evidence",
-            subject: "greek-story-aeschylus-eumenides-first",
-            at: "greek-areopagus",
-            workId: "aeschylus-eumenides",
-            humanOnly: true,
-            on: "talk",
-            label: "File the Argive household testimony",
-            text: "Athena enters the household evidence beside Orestes\u2019s case and posts a witness order. Read it before visiting Cilissa, who is waiting at Agamemnon\u2019s tomb.",
-            summary: "Athena filed the Argive household evidence and issued a witness order separately from the ballot.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              },
-              {
-                kind: "flag",
-                key: "greek-story-aeschylus-eumenides-heard",
-                value: true
-              },
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "any",
-                    conditions: [
-                      {
-                        kind: "holding",
-                        item: "greek-tomb-testimony",
-                        role: "actor"
-                      },
-                      {
-                        kind: "holding",
-                        item: "greek-aeschylean-welcome-seal",
-                        role: "actor"
-                      },
-                      {
-                        kind: "holding",
-                        item: "greek-aeschylean-cassandra-deposition",
-                        role: "actor"
-                      }
-                    ]
-                  },
-                  {
-                    kind: "any",
-                    conditions: [
-                      {
-                        kind: "knows",
-                        topic: "claim:greek-drama:greek-tomb-testimony:meeting",
-                        role: "actor"
-                      },
-                      {
-                        kind: "knows",
-                        topic: "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
-                        role: "actor"
-                      },
-                      {
-                        kind: "knows",
-                        topic: "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
-                        role: "actor"
-                      }
-                    ]
-                  },
-                  {
-                    kind: "any",
-                    conditions: [
-                      {
-                        kind: "knows",
-                        topic: "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
-                        role: "actor"
-                      },
-                      {
-                        kind: "knows",
-                        topic: "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
-                        role: "actor"
-                      },
-                      {
-                        kind: "knows",
-                        topic: "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
-                        role: "actor"
-                      },
-                      {
-                        kind: "knows",
-                        topic: "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
-                        role: "actor"
-                      }
-                    ]
-                  }
-                ]
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-areopagus-household-evidence-filed",
-                value: true
-              }
-            ]
-          },
-          {
             id: "greek-areopagus-admit-atreid-witnesses",
             subject: "greek-story-aeschylus-eumenides-second",
             at: "greek-areopagus",
@@ -16475,11 +16501,6 @@
                 kind: "choice",
                 key: "greek-atreid-account",
                 value: "aeschylus"
-              },
-              {
-                kind: "flag",
-                key: "greek-story-aeschylus-eumenides-heard",
-                value: true
               },
               {
                 kind: "flag",
@@ -18499,6 +18520,7 @@
             "greek-hear-electra-aeschylus",
             "greek-atreid-aeschylus-hearing",
             "greek-atreid-aeschylus-refusal",
+            "greek-areopagus-file-atreid-evidence",
             "greek-atreid-sophocles",
             "greek-hear-electra-sophocles",
             "greek-atreid-sophocles-hearing",
@@ -18567,9 +18589,6 @@
             "greek-story-euripides-medea-hear",
             "greek-story-euripides-medea-first-answer",
             "greek-story-euripides-medea-second-answer",
-            "greek-story-euripides-hippolytus-hear",
-            "greek-story-euripides-hippolytus-first-answer",
-            "greek-story-euripides-hippolytus-second-answer",
             "greek-story-euripides-andromache-hear",
             "greek-story-euripides-andromache-first-answer",
             "greek-story-euripides-andromache-second-answer",
@@ -18600,12 +18619,6 @@
             "greek-story-euripides-iphigenia-at-aulis-hear",
             "greek-story-euripides-iphigenia-at-aulis-first-answer",
             "greek-story-euripides-iphigenia-at-aulis-second-answer",
-            "greek-story-euripides-rhesus-hear",
-            "greek-story-euripides-rhesus-first-answer",
-            "greek-story-euripides-rhesus-second-answer",
-            "greek-story-euripides-cyclops-hear",
-            "greek-story-euripides-cyclops-first-answer",
-            "greek-story-euripides-cyclops-second-answer",
             "greek-story-aristophanes-acharnians-hear",
             "greek-story-aristophanes-acharnians-first-answer",
             "greek-story-aristophanes-acharnians-second-answer",
@@ -18624,9 +18637,6 @@
             "greek-story-aristophanes-birds-hear",
             "greek-story-aristophanes-birds-first-answer",
             "greek-story-aristophanes-birds-second-answer",
-            "greek-story-aristophanes-lysistrata-hear",
-            "greek-story-aristophanes-lysistrata-first-answer",
-            "greek-story-aristophanes-lysistrata-second-answer",
             "greek-story-aristophanes-thesmophoria-hear",
             "greek-story-aristophanes-thesmophoria-first-answer",
             "greek-story-aristophanes-thesmophoria-second-answer",
@@ -18662,14 +18672,29 @@
             "greek-piraeus-bake-bread",
             "greek-story-aristophanes-wasps-set-bowl-aside",
             "greek-story-aristophanes-birds-mark-council-turn",
+            "greek-story-aristophanes-lysistrata-hear",
+            "greek-story-aristophanes-lysistrata-first-answer",
+            "greek-story-aristophanes-lysistrata-second-answer",
+            "greek-acropolis-lampito-shares-bread",
             "greek-story-aristophanes-thesmophoria-dispatch-summons",
+            "greek-assembly-register-bread",
             "greek-story-aristophanes-wealth-sow-last-furrow",
             "greek-dione-recover-wheat",
+            "greek-story-euripides-hippolytus-hear",
+            "greek-story-euripides-hippolytus-first-answer",
+            "greek-story-euripides-hippolytus-second-answer",
+            "greek-pherae-share-bread",
             "greek-pherae-tend-vigil-lamp",
             "greek-piraeus-tend-iphis-lamp",
             "greek-troezen-hear-the-nurse",
             "greek-eleusis-urn-at-altar",
             "greek-eleusis-urn-at-quay",
+            "greek-story-euripides-rhesus-hear",
+            "greek-story-euripides-rhesus-first-answer",
+            "greek-story-euripides-rhesus-second-answer",
+            "greek-story-euripides-cyclops-hear",
+            "greek-story-euripides-cyclops-first-answer",
+            "greek-story-euripides-cyclops-second-answer",
             "greek-tauris-entrust-letter",
             "greek-tauris-deliver-letter",
             "greek-helen-egypt-report-pagasae",
@@ -18684,10 +18709,10 @@
             "greek-argos-hear-tomb-witness",
             "greek-ajax-household-receives-traveler",
             "greek-colonus-welcome-at-watch",
+            "greek-danaids-bake-for-road",
             "greek-polynices-grave-offering",
             "greek-electra-tomb-offering",
             "greek-furies-welcome-offering",
-            "greek-areopagus-file-atreid-evidence",
             "greek-areopagus-admit-atreid-witnesses",
             "greek-areopagus-explain-household-proof",
             "greek-areopagus-question-from-tomb",
@@ -26483,8 +26508,13 @@
     switch (c.kind) {
       case "item_used_up":
         return usedUp(s, c.item);
-      case "receipt":
-        return Boolean(state?.receipts && Object.hasOwn(state.receipts, c.choiceId));
+      case "receipt": {
+        if (!state?.receipts || !Object.hasOwn(state.receipts, c.choiceId))
+          return false;
+        if (c.within === void 0) return true;
+        const elapsed = s.turn - state.receipts[c.choiceId];
+        return elapsed >= 0 && elapsed < c.within;
+      }
       case "sound":
         return !!senses2 && c.at.some((place) => soundAt(s, place, senses2));
       case "light":
@@ -27276,6 +27306,9 @@
     );
   }
 
+  // v2/card-game/world/history.mjs
+  var usesLegacyPlainChoiceText = (choiceId) => choiceId === "greek-helen-troy";
+
   // v2/card-game/world/items.mjs
   var SHORT_CHAIN = 32;
   function rootHolder(s, id) {
@@ -27447,14 +27480,16 @@
   var owns3 = (o, key2) => record3(o) && typeof key2 === "string" && Object.hasOwn(o, key2);
   var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
   var ITEM_IDENTITY_FIELDS = ["name", "art", "tags", "startLevel"];
-  function itemPlacementEffect(items2, places2, player2, choice, effect) {
+  function itemPlacementEffect(items2, places2, avatars, player2, choice, effect) {
     const fromGround = effect.kind === "fetch_item";
     if (!owns3(items2, effect.item) || Object.keys(effect).length !== 3) return false;
     if (fromGround)
       return choice.on === "talk" && choice.humanOnly === true && owns3(places2, effect.from) && effect.from !== choice.at && items2[effect.item].lifecycle !== "fixed" && choice.requires?.some(
         (r) => r.kind === "item_at" && r.item === effect.item && r.place === effect.from
       );
-    return effect.place === choice.at && choice.requires?.some(
+    const localPlace = effect.place === choice.at;
+    const giveRecipient = choice.on === "give" && choice.humanOnly === true && effect.holder === choice.subject && owns3(avatars, effect.holder) && items2[effect.item].lifecycle !== "fixed";
+    return (localPlace || giveRecipient) && choice.requires?.some(
       (r) => r.kind === "holding" && r.item === effect.item && (r.role === "actor" || r.actor === player2)
     );
   }
@@ -27572,13 +27607,14 @@
       if (c.repeats === true && c.on === "talk" && effects.length === 1 && effects[0].kind === "fetch_item")
         continue;
       const made = effects.filter((e) => e.kind === "drop_item");
+      const consumed = effects.filter((e) => e.kind === "retire_item");
+      const servesSupply = effects.length === 1 && consumed.length === 1 && !consumed[0].forGood && owns3(items2, consumed[0].item);
+      const makesSupply = made.length === 1 && Boolean(items2[made[0].item]?.home) && effects.every((e) => ["retire_item", "drop_item", "set_flag"].includes(e.kind));
       check(
-        c.repeats === true && c.on === "give" && made.length === 1 && Boolean(items2[made[0]?.item]?.home) && effects.every(
-          (e) => ["retire_item", "drop_item", "set_flag"].includes(e.kind)
-        ),
-        `choice ${c.id} repeats only as a give that drops one homed thing or a talk that fetches one thing`
+        c.repeats === true && c.on === "give" && (servesSupply || makesSupply),
+        `choice ${c.id} repeats only as a give that uses or restores a supply, or a talk that fetches one thing`
       );
-      for (const e of effects.filter((e2) => e2.kind === "retire_item"))
+      for (const e of consumed)
         check(
           renews(e.item),
           `choice ${c.id} repeats, so its ${e.item} must renew or the loop stops`
@@ -27628,6 +27664,16 @@
   }
 
   // v2/card-game/pack-choice-schema.mjs
+  var ACTIVE_CHOICE_LIMIT = 256;
+  var ARCHIVED_CHOICE_LIMIT = 64;
+  var PACK_CHOICE_LIMIT = ACTIVE_CHOICE_LIMIT + ARCHIVED_CHOICE_LIMIT;
+  function choiceCountProblem(choices = []) {
+    const archived = choices.filter((choice) => choice.archived === true).length;
+    return choices.length - archived <= ACTIVE_CHOICE_LIMIT && archived <= ARCHIVED_CHOICE_LIMIT ? null : `choices must have at most ${ACTIVE_CHOICE_LIMIT} active and ${ARCHIVED_CHOICE_LIMIT} archived entries`;
+  }
+  function validChoiceReceipt(condition, choices, keysOk2, idOk4, intOk2) {
+    return keysOk2(condition, ["kind", "choiceId", "within"]) && idOk4(condition.choiceId) && (condition.within === void 0 || intOk2(condition.within, 1, 48)) && choices.some((choice) => choice.id === condition.choiceId && choice.effects.length > 0 && !choice.archived);
+  }
   function choicePresentationProblems(pack, choice, items2, choices, keysOk2, textOk2) {
     const problems2 = [];
     const prefix = `${pack.id}: choice ${choice.id}`;
@@ -27903,7 +27949,7 @@
     }
     for (const [key2, max] of [
       ["routes", 256],
-      ["choices", 256],
+      ["choices", PACK_CHOICE_LIMIT],
       ["works", 128],
       ["crossings", 32],
       ["storyQuests", 128],
@@ -27914,6 +27960,8 @@
         `${key2} must be a bounded record list`
       ))
         return problems2;
+    const choiceLimit = choiceCountProblem(pack.choices);
+    if (!check(!choiceLimit, choiceLimit)) return problems2;
     for (const c of pack.choices || [])
       if (!check(
         Array.isArray(c.effects) && (c.effects.length > 0 || c.on === "talk" && c.humanOnly === true) && c.effects.length <= 12 && c.effects.every(record4),
@@ -28260,7 +28308,7 @@
             ok = keysOk(c, ["kind", "item"]) && (hub2.items.includes(c.item) || owns4(items2, c.item));
             break;
           case "receipt":
-            ok = keysOk(c, ["kind", "choiceId"]) && idOk3(c.choiceId) && (pack.choices || []).some((entry) => entry.id === c.choiceId && entry.effects.length > 0 && !entry.archived);
+            ok = validChoiceReceipt(c, pack.choices || [], keysOk, idOk3, intOk);
             break;
           case "actor_at":
             ok = keysOk(c, ["kind", "place"]) && anyPlace(c.place);
@@ -28596,7 +28644,7 @@
           flags.add(e.key);
         }
         if (["place_item", "fetch_item"].includes(e.kind))
-          valid = itemPlacementEffect(items2, places2, hub2.player, c, e);
+          valid = itemPlacementEffect(items2, places2, avatars, hub2.player, c, e);
         if (e.kind === "hide_item")
           valid = keysOk(e, ["kind", "item"]) && owns4(items2, e.item) && c.on === "meet";
         if (e.kind === "trust")
@@ -29259,8 +29307,7 @@
     return choice.text ?? plainChoiceText(choice, actor);
   }
   function matchesChoiceWitness(choice, actor, text2) {
-    return text2 === choiceText(choice, actor) || // Before revision 47 the Elder's Give used the default action sentence.
-    choice.id === "greek-helen-troy" && text2 === plainChoiceText(choice, actor);
+    return text2 === choiceText(choice, actor) || usesLegacyPlainChoiceText(choice.id) && text2 === plainChoiceText(choice, actor);
   }
   var nameOf = (id) => humanAvatar(id)?.name || entities[id]?.name || forest_default.people[id]?.name || forest_default.things[id]?.name || forest_default.places[id]?.name || "An earlier traveler";
   var NAMED = /^(?:The|An?) |^\p{L}+['’]s? /u;
@@ -29516,6 +29563,8 @@
       return isProgressionRequirement(condition.condition);
     if (condition.kind === "any")
       return condition.conditions.every(isProgressionRequirement);
+    if (condition.kind === "receipt" && condition.within !== void 0)
+      return false;
     return ["choice", "choice_unset", "flag", "receipt"].includes(condition.kind);
   }
   function progressionRequirementsMet(world, packId, requires = []) {
@@ -31283,6 +31332,7 @@
   function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
     if (!s || s.schema !== SAVE_SCHEMA)
       throw new Error("This save needs a fresh start.");
+    const savedGreekRevision = s.packs?.["greek-drama"]?.revision;
     const reworked = new Set(
       packDefinitions.filter((p) => {
         const revision = s.packs?.[p.id]?.revision;
@@ -31330,6 +31380,16 @@
         reconcileMarathonRoad(s);
       }
       if (greekRevision < 48) reconcileGreekJunctions(s);
+      if (greekRevision < 49) {
+        reconcileRhesusReports(s.packs["greek-drama"]);
+        restoreLysistrataKey(s);
+        const host = s.actors["greek-quay-host"];
+        const quay = packEntity("greek-quay-host").place;
+        if (host.place !== quay) {
+          host.place = quay;
+          host.crossed = 0;
+        }
+      }
     }
     if (reworked.has("elysium")) settleStrandedWayfinder(s);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
@@ -31343,6 +31403,8 @@
     for (const pack of packDefinitions)
       if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
     installQuestFacts(s);
+    if (Number.isSafeInteger(savedGreekRevision) && savedGreekRevision < s.packs["greek-drama"].revision)
+      compactTrust(s.actors);
     return s;
   }
   function releaseGreekStaples(s) {
@@ -31534,6 +31596,25 @@
       "greek-harbor>greek-troy-beach",
       "greek-troy-beach>greek-harbor"
     ]));
+  }
+  function reconcileRhesusReports(state) {
+    const stem = "greek-story-euripides-rhesus";
+    const key2 = `${stem}-outcome`;
+    const outcome = state.choices?.[key2];
+    if (!["first", "second"].includes(outcome)) return;
+    if (!Object.hasOwn(state.receipts ?? {}, `${stem}-${outcome}-answer`)) return;
+    const flag = outcome === "first" ? "greek-rhesus-bedside-posted" : "greek-rhesus-stable-count-posted";
+    state.flags[flag] = true;
+    delete state.choices[key2];
+  }
+  function restoreLysistrataKey(s) {
+    const stem = "greek-story-aristophanes-lysistrata";
+    const key2 = `${stem}-object`;
+    const state = s.packs["greek-drama"];
+    if (!gone(s, key2) || state.choices[`${stem}-outcome`] !== "first" || !Object.hasOwn(state.receipts, `${stem}-first-answer`)) return;
+    s.gone = s.gone.filter((id) => id !== key2);
+    if (!s.gone.length) delete s.gone;
+    bringBack(s, key2, `${stem}-first`);
   }
   var greekJunctionPaths = [
     ["athens", "civic-avenue", "city-road-fork", "north-gate", "assembly"],
@@ -32827,7 +32908,6 @@
   }
   function decodeSave(text2) {
     const s = JSON.parse(text2);
-    const greekRevision = s?.packs?.["greek-drama"]?.revision;
     try {
       const lamp = s?.items?.lamp;
       const hasRoomFuel = lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some(
@@ -32842,8 +32922,6 @@
         installPacks,
         laneText: laneFactText
       });
-      if (Number.isSafeInteger(greekRevision) && greekRevision < s.packs["greek-drama"].revision)
-        compactTrust(s.actors);
       installJourneyProgress(s, packDefinitions);
       installConversations(s);
       settleGuards(s);

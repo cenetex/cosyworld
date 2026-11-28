@@ -41,6 +41,10 @@ const WATER = "greek-water-jar";
 const AULIS_WATER = "greek-aulis-waiting-tent-water";
 const COURTYARD = "greek-courtyard";
 const DIONE = "greek-baker";
+const PHERAE = "greek-pherae";
+const ALCESTIS = "greek-story-euripides-alcestis";
+const PHERAE_SERVANT = `${ALCESTIS}-first`;
+const PHERAE_MEAL = "greek-pherae-share-bread";
 
 function at(t, place) {
   const vale = t.s.actors.vale;
@@ -67,6 +71,48 @@ const revision40 = (state) => {
 };
 
 describe("Greek supplies", () => {
+  it("shares the one Bread at Pherae on repeated visits without settling Alcestis’s household", () => {
+    const t = traveler(openGreekGate(greekStart()))
+      .move("well")
+      .take(WATER)
+      .move(COURTYARD)
+      .give(WATER, DIONE)
+      .take(BREAD)
+      .move(PHERAE);
+    const pack = () => t.s.packs[PACK];
+    const cloth = `${ALCESTIS}-object`;
+    const originalCloth = structuredClone(t.s.items[cloth]);
+    const serveBread = () => {
+      const { action } = cardPlay(t.s, [BREAD, PHERAE_SERVANT]);
+      expect(action).toMatchObject({
+        kind: "give",
+        item: BREAD,
+        target: PHERAE_SERVANT,
+      });
+      expect(packGiveChoice(t.s, action)?.choiceId).toBe(PHERAE_MEAL);
+      t.give(BREAD, PHERAE_SERVANT);
+      expect(pack().receipts[PHERAE_MEAL]).toBe(t.s.turn);
+      expect(pack().receipts[`${ALCESTIS}-hear`]).toBeUndefined();
+      expect(pack().choices[`${ALCESTIS}-outcome`]).toBeUndefined();
+      expect(t.s.usedUp).toContain(BREAD);
+      expect(t.s.gone ?? []).not.toContain(BREAD);
+      expect(t.s.items[BREAD].holder).toBe(COURTYARD);
+      expect(t.s.items[cloth]).toEqual(originalCloth);
+    };
+
+    expect(itemCopies(BREAD)).toEqual([BREAD]);
+    t.act("wait");
+    expect(pack().receipts[PHERAE_MEAL]).toBeUndefined();
+    serveBread();
+    const firstMeal = pack().receipts[PHERAE_MEAL];
+
+    settle(t.move(MARKET), ACHARNAE, "second").move(STALL);
+    stock(t, PUBLIC_SUPPLY).move(PHERAE);
+    serveBread();
+    expect(pack().receipts[PHERAE_MEAL]).toBeGreaterThan(firstMeal);
+    expect(decodeSave(encodeSave(t.s))).toEqual(t.s);
+  }, 60_000);
+
   it("locks a direct supply choice for everyone in a shared battle room", () => {
     const t = settle(at(traveler(greekStart()), MARKET), ACHARNAE, "first");
     const { world } = dispatchShared({

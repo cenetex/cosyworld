@@ -1,3 +1,20 @@
+const ACTIVE_CHOICE_LIMIT = 256;
+const ARCHIVED_CHOICE_LIMIT = 64;
+export const PACK_CHOICE_LIMIT = ACTIVE_CHOICE_LIMIT + ARCHIVED_CHOICE_LIMIT;
+
+export function choiceCountProblem(choices = []) {
+  const archived = choices.filter((choice) => choice.archived === true).length;
+  return choices.length - archived <= ACTIVE_CHOICE_LIMIT && archived <= ARCHIVED_CHOICE_LIMIT
+    ? null
+    : `choices must have at most ${ACTIVE_CHOICE_LIMIT} active and ${ARCHIVED_CHOICE_LIMIT} archived entries`;
+}
+
+export function validChoiceReceipt(condition, choices, keysOk, idOk, intOk) {
+  return keysOk(condition, ["kind", "choiceId", "within"]) && idOk(condition.choiceId) &&
+    (condition.within === undefined || intOk(condition.within, 1, 48)) &&
+    choices.some((choice) => choice.id === condition.choiceId && choice.effects.length > 0 && !choice.archived);
+}
+
 export function choicePresentationProblems(pack, choice, items, choices, keysOk, textOk) {
   const problems = [];
   const prefix = `${pack.id}: choice ${choice.id}`;

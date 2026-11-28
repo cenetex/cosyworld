@@ -88,7 +88,7 @@
       "author": "greek-story-aristophanes-lysistrata-first",
       "seed": "The treasury clerk’s tally for an army wagon that leaves without a single coin.",
       "claims": [
-        {"id": "wagon", "text": "Lysistrata withheld the army chest and the delegations began talking on the treasury steps."}
+        {"id": "wagon", "text": "Lysistrata withheld the army chest and the pay wagon left empty."}
       ]
     },
     "greek-story-aristophanes-thesmophoria-first-answer": {
@@ -187,6 +187,76 @@
       ]
     },
     {
+      "id": "greek-story-aristophanes-lysistrata-hear",
+      "subject": "greek-story-aristophanes-lysistrata-first",
+      "at": "greek-acropolis",
+      "workId": "aristophanes-lysistrata",
+      "on": "talk",
+      "text": "The magistrate sent a wagon for the army’s pay. With the key in my hands I can keep the chest locked. Give it to Lampito if you want her to pledge one chest to hospitality. She can share a loaf now with whoever is at the table.",
+      "requires": [],
+      "effects": [
+        {"kind": "set_flag", "key": "greek-story-aristophanes-lysistrata-heard", "value": true}
+      ],
+      "recap": {
+        "record": "greek-story-aristophanes-lysistrata-record",
+        "answers": [
+          "greek-story-aristophanes-lysistrata-first-answer",
+          "greek-story-aristophanes-lysistrata-second-answer"
+        ]
+      }
+    },
+    {
+      "id": "greek-story-aristophanes-lysistrata-first-answer",
+      "subject": "greek-story-aristophanes-lysistrata-first",
+      "at": "greek-acropolis",
+      "workId": "aristophanes-lysistrata",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Lysistrata keeps the Treasury Key and sends the army’s pay wagon away empty.",
+      "requires": [
+        {"kind": "holding", "item": "greek-story-aristophanes-lysistrata-object", "role": "actor"},
+        {"kind": "choice_unset", "key": "greek-story-aristophanes-lysistrata-outcome"}
+      ],
+      "effects": [
+        {"kind": "choose", "key": "greek-story-aristophanes-lysistrata-outcome", "value": "first"},
+        {"kind": "place_item", "item": "greek-story-aristophanes-lysistrata-object", "holder": "greek-story-aristophanes-lysistrata-first"}
+      ]
+    },
+    {
+      "id": "greek-story-aristophanes-lysistrata-second-answer",
+      "subject": "greek-story-aristophanes-lysistrata-second",
+      "at": "greek-acropolis",
+      "workId": "aristophanes-lysistrata",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Lampito sets the Treasury Key on the coalition’s table and pledges one chest for hospitality during the talks.",
+      "requires": [
+        {"kind": "holding", "item": "greek-story-aristophanes-lysistrata-object", "role": "actor"},
+        {"kind": "choice_unset", "key": "greek-story-aristophanes-lysistrata-outcome"}
+      ],
+      "effects": [
+        {"kind": "choose", "key": "greek-story-aristophanes-lysistrata-outcome", "value": "second"},
+        {"kind": "place_item", "item": "greek-story-aristophanes-lysistrata-object", "place": "greek-acropolis"}
+      ]
+    },
+    {
+      "id": "greek-acropolis-lampito-shares-bread",
+      "subject": "greek-story-aristophanes-lysistrata-second",
+      "at": "greek-acropolis",
+      "workId": "aristophanes-lysistrata",
+      "on": "give",
+      "humanOnly": true,
+      "repeats": true,
+      "text": "Lampito breaks the loaf for those at the table and keeps the audience on the steps open a while longer.",
+      "summary": "Lampito shared Bread at the treasury steps and kept the audience open longer.",
+      "requires": [
+        {"kind": "holding", "item": "greek-bread", "role": "actor"}
+      ],
+      "effects": [
+        {"kind": "retire_item", "item": "greek-bread"}
+      ]
+    },
+    {
       "id": "greek-story-aristophanes-thesmophoria-dispatch-summons",
       "subject": "greek-story-aristophanes-thesmophoria-second",
       "at": "greek-festival",
@@ -199,6 +269,21 @@
         {"kind": "knows", "topic": "claim:greek-drama:greek-story-aristophanes-thesmophoria-record:greek-story-aristophanes-thesmophoria-second-answer", "role": "actor"}
       ],
       "effects": [{"kind": "trust", "level": 1}]
+    },
+    {
+      "id": "greek-assembly-register-bread",
+      "subject": "greek-story-aristophanes-assemblywomen-first",
+      "at": "greek-assembly",
+      "on": "give",
+      "humanOnly": true,
+      "label": "Give Bread for the common table",
+      "text": "Praxagora sets the Bread on the common table and enters it in the register for anyone who needs a meal.",
+      "requires": [
+        {"kind": "holding", "item": "greek-bread", "role": "actor"}
+      ],
+      "effects": [
+        {"kind": "place_item", "item": "greek-bread", "place": "greek-assembly"}
+      ]
     },
     {
       "id": "greek-story-aristophanes-wealth-sow-last-furrow",
