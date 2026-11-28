@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createHash } from "node:crypto";
 import { newTable, applyTable, canVisit } from "../v2/card-game/world.mjs";
+import { seeded } from "./helpers/play.mjs";
 
 describe("shared card table authority", () => {
   it("matches the frozen C transcript for custody, full rooms, and seeded interleavings", () => {
@@ -22,11 +23,7 @@ describe("shared card table authority", () => {
     add(2, 3);
     add(1, 3);
     add(3, 3);
-    let seed = 94832;
-    const random = (n) => {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      return seed % n;
-    };
+    const random = seeded(94832);
     for (let n = 0; n < 3000; n++)
       add(random(13), random(10) - 1, random(10) - 1, random(11) - 1);
     const transcript = createHash("sha256");

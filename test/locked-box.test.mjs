@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
   TAROT_BACK,
@@ -19,19 +19,11 @@ import { questsOf } from "../v2/card-game/want.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 import { isArcanum } from "../v2/card-game/world/arcana.mjs";
+import { act } from "./helpers/play.mjs";
 
-function act(s, kind, fields = {}) {
-  const action = legalActions(s).find(
-    (a) =>
-      a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
-  );
-  const result = play(s, action, s.revision);
-  expect(result.ok, `${kind} ${result.error}`).toBe(true);
-  return result.state;
-}
 const walk = (s, place) =>
   greekTravelTargets(s.actors.vale.place, `greek-${place}`).reduce(
-    (w, target) => act(w, "move", { target }),
+    (w, target) => act(w, { kind: "move", target }),
     s,
   );
 
@@ -112,7 +104,7 @@ describe("locked boxes", () => {
       cards: [],
     });
     s = acceptBox(s, "greek-battlefield");
-    s = act(act(s, "talk", { target: "greek-guard" }), "accept", { target: "greek-guard" });
+    s = act(act(s, { kind: "talk", target: "greek-guard" }), { kind: "accept", target: "greek-guard" });
     expect(questsOf(s, "vale")[0].from).toBe("quest:from:greek-guard");
     expect(questsOf(s, "vale").map((w) => w.from)).toContain(
       "quest:box:greek-battlefield",
@@ -123,17 +115,20 @@ describe("locked boxes", () => {
     expect(isLockedBox(s, "greek-battlefield")).toBe(true);
     // The bread buys the decree, the decree Creon's writ, and the writ in
     // the guard's hands opens the way.
-    s = act(walk(s, "courtyard"), "take", { item: "greek-bread" });
-    s = act(walk(s, "gate"), "trade", {
+    s = act(walk(s, "courtyard"), { kind: "take", item: "greek-bread" });
+    s = act(walk(s, "gate"), {
+      kind: "trade",
       item: "greek-bread",
       receive: "greek-decree",
     });
     expect(isLockedBox(s, "greek-battlefield")).toBe(true);
-    s = act(walk(s, "palace"), "trade", {
+    s = act(walk(s, "palace"), {
+      kind: "trade",
       item: "greek-decree",
       receive: "greek-creon-writ",
     });
-    s = act(walk(s, "gate"), "give", {
+    s = act(walk(s, "gate"), {
+      kind: "give",
       item: "greek-creon-writ",
       target: "greek-guard",
     });

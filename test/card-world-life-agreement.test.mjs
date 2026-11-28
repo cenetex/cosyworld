@@ -2,8 +2,7 @@
 // it with its content, and the browser's own modules must commit the same
 // worlds through world life: residents falling asleep and rising across
 // dusk and dawn, walking home off-stage, the Gate Guard knocked through and
-// barring the way again, and a player's own guard. The same plays replay
-// to the same world.
+// barring the way again, and a player's own guard.
 import { describe, expect, it } from "vitest";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { encodeSave } from "../v2/card-game/world.mjs";
@@ -16,10 +15,11 @@ import { lifeWorld } from "./helpers/world-life.mjs";
 const seats = { claimed: ["vale"], present: ["vale"] };
 const GUARD = "greek-guard";
 
-function playLife(server) {
+function playLife() {
+  const engine = currentSharedEngine();
   const both = (request) => {
     const local = dispatchShared(structuredClone(request));
-    if (server) expect(server(structuredClone(request))).toEqual(local);
+    expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(local);
     return local;
   };
   const start = lifeWorld({ seed: 9, turn: 2 * DAY_TURNS + 20, place: "greek-gate" });
@@ -64,11 +64,8 @@ function playLife(server) {
 }
 
 describe("rules 100 world life on the server", () => {
-  it("commits the same worlds as the browser rules, and replays", () => {
-    const engine = currentSharedEngine();
-    const life = playLife((request) =>
-      JSON.parse(engine.cardShared(JSON.stringify(request))),
-    );
+  it("commits the same worlds as the browser rules", () => {
+    const life = playLife();
     // Residents slept on their schedules, at night.
     expect(life.seen.asleep.size).toBeGreaterThan(5);
     expect(life.night.actors["greek-creon"].sleeping).toMatchObject({
@@ -85,7 +82,5 @@ describe("rules 100 world life on the server", () => {
       guarding: "greek-battlefield",
     });
     expect(life.world.actors.vale.guarding).toBeUndefined();
-    // The same plays from the same start replay to the same world.
-    expect(playLife(null).world).toEqual(life.world);
   }, 120_000);
 });

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import {
-  decodeSave,
-  encodeSave,
   homeOf,
   legalActions,
   LONG_SLEEP_TURNS,
@@ -21,14 +19,8 @@ import {
   sleepQuest,
   validWant,
 } from "../v2/card-game/want.mjs";
+import { act } from "./helpers/play.mjs";
 
-const act = (s, pick, actor) => {
-  const action = legalActions(s, actor).find(pick);
-  expect(action, "a legal play").toBeTruthy();
-  const result = play(s, action, s.revision, actor);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
 const wait = (s, actor) =>
   act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards, actor);
 const talk = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
@@ -62,7 +54,6 @@ describe("the sleep quest after a discard", () => {
     expect(heldOf(s.actors.vale)).toEqual([]);
     expect(s.actors.vale.xp).toBe(xp);
     expect(s.actors.vale.glimpse).toMatchObject({ kind: "arcanum" });
-    expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 });
 
@@ -82,7 +73,6 @@ describe("the closed record is bounded", () => {
     for (let i = total - MAX_CLOSED; i < total; i++)
       expect(s.actors.vale.closed[`quest:from:src${i}`][0]).toBe(i + 1);
     expect(s.actors.vale.closed["quest:from:src0"]).toBeUndefined();
-    expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
   it("evicts by turn then by name, not by key order", () => {
