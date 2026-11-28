@@ -1,6 +1,5 @@
-// World life (rules 100): residents keep a home and a range, walk home when
-// displaced, and take a step at dawn and dusk where no player is (residentRound
-// in world.mjs). Sleep and Guard have their own modules. Walks use id order.
+// World life (rules 100): residents keep a home and range, return when displaced, and
+// walk offstage at dawn and dusk in ID order. Sleep and Guard have their own modules.
 //
 // `world-life.json` has global and per-pack defaults, resident `range` (hops),
 // `sails`, `sleep` (clock turns or null), `guards` and guardable ways. The

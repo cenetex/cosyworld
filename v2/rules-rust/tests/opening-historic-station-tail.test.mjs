@@ -96,8 +96,11 @@ test("the historic Station tail reproduces the full pinned saved world", async (
         assert.equal(actual.world.actors.moth.place, "station");
         assert.equal(actual.world.actors.keeper.sleeping, undefined);
         assert.equal(actual.world.log.at(-1).text, "The keeper wakes.");
-        assert.equal(reply.events.length, seed === 17 ? 4 : 3);
-        if (seed === 17) awakeSample = { wants, request };
+        assert.deepEqual(
+          reply.events.map(({ actorId }) => actorId),
+          seed === 99 ? ["vale", "moth", "ada", "keeper"] : ["vale", "moth", "keeper"],
+        );
+        if (seed === 99) awakeSample = { wants, request };
       } else {
         sample = request;
       }
