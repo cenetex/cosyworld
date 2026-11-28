@@ -1,4 +1,3 @@
-// Authored bedtimes scatter by run seed, with Pip and Nix active at night.
 import { packPeople } from "./pack-registry.mjs";
 import { humanAvatar } from "./human-cast.mjs";
 import { runHash } from "./pack-rules.mjs";

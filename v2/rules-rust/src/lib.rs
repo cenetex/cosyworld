@@ -259,9 +259,12 @@ pub fn reduce(request: &Value) -> Value {
             | "opening_station_read_wants"
             | "opening_station_departure_wants",
         ) => opening_wants::round_projection(request).unwrap_or(Value::Null),
-        Some("opening_second_attic_life" | "opening_second_pond_life" | "opening_station_life") => {
-            opening_quiet_life::opening_day_projection(request).unwrap_or(Value::Null)
-        }
+        Some(
+            "opening_second_attic_life"
+            | "opening_second_pond_life"
+            | "opening_station_life"
+            | "opening_station_departure_life",
+        ) => opening_quiet_life::opening_day_projection(request).unwrap_or(Value::Null),
         Some("opening_history_walkers") => {
             opening_history_walkers::projection(request).unwrap_or(Value::Null)
         }

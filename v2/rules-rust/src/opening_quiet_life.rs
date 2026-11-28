@@ -1,8 +1,8 @@
 use super::{
     create_geography::Geography,
     initial_wants::{People, Person},
-    opening_content, opening_mirror_move, opening_play, opening_station_move,
-    opening_visitor_routes,
+    opening_content, opening_mirror_move, opening_play, opening_second_attic_tail,
+    opening_station_move, opening_visitor_routes, opening_wants,
     pack_state::Catalog,
 };
 use serde_json::{json, Value};
@@ -116,7 +116,6 @@ pub(super) fn verify_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
 }
 
 pub(super) fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
-    let turn = world["turn"].as_u64()?;
     let room = world["actors"]["vale"]["place"].as_str()?.to_owned();
     let cast: &[&str] = match room.as_str() {
         "attic" => &[],
@@ -125,6 +124,33 @@ pub(super) fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Opti
         "station" => &["moth", "keeper"],
         _ => return None,
     };
+    verify_quiet_day(world, geo, &room, cast)
+}
+
+pub(super) fn verify_station_departure(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
+    opening_wants::station_departure_turn(before, world, geo)?;
+    opening_second_attic_tail::no_arcana(world, geo)?;
+    opening_second_attic_tail::no_sleepers(world)?;
+    let room = world["actors"]["vale"]["place"].as_str()?.to_owned();
+    for (id, actor) in world["actors"].as_object()? {
+        if id != "vale" && actor["place"] == room && geo.entity_active(world, id)? {
+            return None;
+        }
+    }
+    verify_quiet_day(world, geo, &room, &[])
+}
+
+fn verify_quiet_day(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    room: &str,
+    cast: &[&str],
+) -> Option<()> {
+    let turn = world["turn"].as_u64()?;
     if world.get("began").is_some_and(|t| t != 0)
         || world["sharedVersion"] != 1
         || (room != "attic" && world["items"]["lamp"]["holder"] != "vale")
@@ -195,9 +221,14 @@ pub(super) fn opening_day_projection(request: &Value) -> Option<Value> {
         "opening_second_attic_life" => verify_second_attic(&mut world, &geo)?,
         "opening_second_pond_life" => verify_second_pond(&mut world, &geo)?,
         "opening_station_life" => verify_station(&mut world, &geo)?,
+        "opening_station_departure_life" => {
+            verify_station_departure(request.get("before")?, &mut world, &geo)?
+        }
         _ => return None,
     }
-    Some(json!({"ok":true, "world":world}))
+    let mut response = json!({"ok":true});
+    response["world"] = world;
+    Some(response)
 }
 
 pub(super) fn verify_home_levels(world: &Value, geo: &Geography) -> Option<()> {
