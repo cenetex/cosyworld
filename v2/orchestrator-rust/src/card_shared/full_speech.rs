@@ -1,4 +1,3 @@
-//! Shared narration reads committed scene facts and writes character replies.
 use super::{full_world::actor_id, store::Result};
 use crate::ai_gateway::{AiConfig, ModelCapability};
 use crate::routes::card_game::narrative::{shared_lines_with_introduction, Introduction};

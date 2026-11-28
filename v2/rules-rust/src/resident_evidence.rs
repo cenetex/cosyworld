@@ -16,7 +16,7 @@ impl ResidentEvidence {
         world: &mut Value,
         cast: &[&str],
         visible_items: &[&str],
-        mut detail: Value,
+        detail: Value,
         retain: bool,
     ) -> Option<()> {
         if !matches!(
@@ -26,6 +26,32 @@ impl ResidentEvidence {
         ) {
             return None;
         }
+        self.stamp(world, cast, visible_items, detail, retain)
+    }
+
+    pub(super) fn narrate(
+        &self,
+        world: &mut Value,
+        cast: &[&str],
+        visible_items: &[&str],
+        place: &str,
+        text: &str,
+    ) -> Option<()> {
+        let detail = json!({
+            "speaker":"World", "text":text, "kind":"narration", "actorId":null,
+            "locationId":place,
+        });
+        self.stamp(world, cast, visible_items, detail, true)
+    }
+
+    fn stamp(
+        &self,
+        world: &mut Value,
+        cast: &[&str],
+        visible_items: &[&str],
+        mut detail: Value,
+        retain: bool,
+    ) -> Option<()> {
         let seq = world["eventSeq"].as_u64()?.checked_add(1)?;
         if seq > MAX_REVISION {
             return None;
