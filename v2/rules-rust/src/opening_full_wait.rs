@@ -39,7 +39,7 @@ pub(super) fn quiet_opening(world: &Value) -> Option<()> {
     Some(())
 }
 
-fn visible_items<'a>(
+pub(super) fn visible_items<'a>(
     world: &Value,
     geo: &Geography,
     authored: &'a Order,

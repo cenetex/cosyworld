@@ -33,7 +33,6 @@ function scatter(id, turn) {
   }
   return h % DWELL_SPREAD;
 }
-// A resident just arrived: it may move again after its stay.
 export function startDwell(s, id) {
   s.actors[id].dwellUntil = s.turn + DWELL_TURNS + scatter(id, s.turn);
 }

@@ -301,6 +301,21 @@ pub(super) fn person_step<'a>(
     geo: &Geography<'a>,
     actor: &str,
 ) -> Option<Option<&'a str>> {
+    Some(person_routes(world, geo, actor)?.direct)
+}
+
+#[derive(Default)]
+pub(super) struct PersonRoutes<'a> {
+    pub(super) direct: Option<&'a str>,
+    pub(super) attic: Option<&'a str>,
+    pub(super) pond: Option<&'a str>,
+}
+
+pub(super) fn person_routes<'a>(
+    world: &mut Value,
+    geo: &Geography<'a>,
+    actor: &str,
+) -> Option<PersonRoutes<'a>> {
     let turn = world["turn"].as_u64()?;
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
     let avatar = entries(&geo.files()["v2/card-game/shared-cast.json"]["avatars"])
@@ -326,11 +341,38 @@ pub(super) fn person_step<'a>(
     if from == target {
         return None;
     }
-    let mut visited = BTreeSet::from([from.as_str()]);
-    let mut queue = VecDeque::from([(from.as_str(), None, None)]);
+    search(world, geo, actor, &from, &target)
+}
+
+pub(super) fn reaches_from(
+    world: &mut Value,
+    geo: &Geography,
+    actor: &str,
+    from: &str,
+    target: &str,
+) -> Option<bool> {
+    Some(from == target || search(world, geo, actor, from, target)?.direct.is_some())
+}
+
+fn search<'a>(
+    world: &mut Value,
+    geo: &Geography<'a>,
+    actor: &str,
+    from: &str,
+    target: &str,
+) -> Option<PersonRoutes<'a>> {
+    let mut visited = BTreeSet::from([from]);
+    let mut queue = VecDeque::from([(from, None, None)]);
+    let mut routes = PersonRoutes::default();
     while let Some((here, previous, first)) = queue.pop_front() {
         if here == target {
-            return Some(first);
+            routes.direct = first;
+            break;
+        }
+        match here {
+            "attic" => routes.attic = first,
+            "pond" => routes.pond = first,
+            _ => {}
         }
         let slot = world["actors"].get_mut(actor)?.get_mut("place")?;
         let saved = std::mem::replace(slot, json!(here));
@@ -342,7 +384,7 @@ pub(super) fn person_step<'a>(
             }
         }
     }
-    Some(None)
+    Some(routes)
 }
 
 pub(super) fn person_step_projection(request: &Value) -> Option<Value> {
