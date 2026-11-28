@@ -446,7 +446,35 @@ fn verify_keeper_quest_ship_boarding(
     action: &str,
     carried: Option<&str>,
 ) -> Result<()> {
-    let (mut c, mut state, mut calls) = commit_keeper_quest_ship_call(id, seed, visitors)?;
+    let (mut c, state, calls, boarded) =
+        commit_keeper_quest_ship_boarding(id, seed, visitors, action, carried)?;
+    verify_opening_journal(&mut c, id, &calls)?;
+    let view = seated_reload(&c, id, &state, "greek-ship", &["greek-harbor"], 14)?;
+    assert_eq!(
+        view["world"]["actors"]["ada"]["place"],
+        state.game["actors"]["ada"]["place"]
+    );
+    assert_eq!(
+        view["world"]["speechVoices"]["vale"],
+        state.game["speechVoices"]["vale"]
+    );
+    assert_eq!(
+        view["world"]["items"]["cloth"],
+        state.game["items"]["cloth"]
+    );
+    assert_eq!(view["actions"], boarded["actions"]);
+    assert!(view["world"]["memories"]["ada"].get("learning").is_none());
+    Ok(())
+}
+
+fn commit_keeper_quest_ship_boarding(
+    id: &str,
+    seed: Option<u32>,
+    visitors: &[(&str, &str, &str, &str)],
+    action: &str,
+    carried: Option<&str>,
+) -> Result<(Connection, World, Vec<&'static str>, Value)> {
+    let (c, mut state, mut calls) = commit_keeper_quest_ship_call(id, seed, visitors)?;
     let seq = state.game["eventSeq"].as_u64().unwrap() + 1;
     let lamp = state.game["items"]["lamp"].clone();
     let mut cloth = state.game["items"]["cloth"].clone();
@@ -526,16 +554,119 @@ fn verify_keeper_quest_ship_boarding(
         .collect();
     assert_eq!(action_keys, keys);
     assert_eq!(calls.len(), 12);
-    verify_opening_journal(&mut c, id, &calls)?;
-    let view = seated_reload(&c, id, &state, "greek-ship", &["greek-harbor"], 14)?;
+    Ok((c, state, calls, boarded))
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_first_ship_course() -> Result<()> {
+    verify_keeper_quest_ship_course(
+        "first-ship-course",
+        Some(17),
+        &[],
+        "move:vale::greek-ship",
+        None,
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_first_ship_course_with_sage() -> Result<()> {
+    verify_keeper_quest_ship_course(
+        "first-ship-course-with-sage",
+        None,
+        SHIP_CALL_VISITORS,
+        "move:vale:cloth:greek-ship",
+        Some("cloth"),
+    )
+}
+
+fn verify_keeper_quest_ship_course(
+    id: &str,
+    seed: Option<u32>,
+    visitors: &[(&str, &str, &str, &str)],
+    board: &str,
+    carried: Option<&str>,
+) -> Result<()> {
+    let (mut c, mut state, mut calls, boarded) =
+        commit_keeper_quest_ship_boarding(id, seed, visitors, board, carried)?;
+    let course_key = "course:vale::greek-harbor";
+    let seq = state.game["eventSeq"]
+        .as_u64()
+        .ok_or("Missing event sequence.")?;
+    let arrival = state.game["arrival"].clone();
+    let lamp = state.game["items"]["lamp"].clone();
+    let cloth = state.game["items"]["cloth"].clone();
+    let course_reply = commit_keeper_play(&c, id, &mut state, &mut calls, course_key, 14)?;
+    let [course, castoff] = course_reply["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected the Course action followed by the ship's cast-off");
+    };
+    let (cast, witnesses, ada, tavi) = if visitors.is_empty() {
+        (json!(["vale"]), json!(["vale", "cloth"]), "loft", "hill")
+    } else {
+        (
+            json!(["ada", "vale"]),
+            json!(["vale", "ada", "cloth"]),
+            "greek-ship",
+            "forest-oak",
+        )
+    };
+    let items = json!([{"id":"cloth","holder":"vale"}]);
     assert_eq!(
-        view["world"]["actors"]["ada"]["place"],
-        world["actors"]["ada"]["place"]
+        course,
+        &json!({
+            "seq":seq+1, "turn":9, "speaker":"World", "kind":"action", "actorId":"vale",
+            "text":"Vale sets the ship's course for The Wine-Dark Harbor.",
+            "locationId":"greek-ship", "fromLocationId":"greek-ship", "targetId":"greek-harbor",
+            "verb":"course", "cast":cast, "witnesses":witnesses, "itemId":null, "items":items,
+            "light":false,
+        })
     );
-    assert_eq!(view["world"]["speechVoices"]["vale"], voices);
-    assert_eq!(view["world"]["items"]["cloth"], cloth);
-    assert_eq!(view["actions"], boarded["actions"]);
-    assert!(view["world"]["memories"]["ada"].get("learning").is_none());
+    assert_eq!(
+        castoff,
+        &json!({
+            "seq":seq+2, "turn":9, "speaker":"World", "kind":"narration", "actorId":null,
+            "text":"The Charybdis casts off for The Wine-Dark Harbor.",
+            "locationId":"greek-ship", "cast":cast, "items":items, "light":false,
+        })
+    );
+    let world = &state.game;
+    assert_eq!(world["turn"], 9);
+    assert_eq!(world["eventSeq"], seq + 2);
+    assert_eq!(world["log"].as_array().unwrap().last(), Some(castoff));
+    assert_eq!(world["arrival"], arrival);
+    assert_eq!(world["items"]["lamp"], lamp);
+    assert_eq!(world["items"]["cloth"], cloth);
+    assert_eq!(world["actors"]["vale"]["place"], "greek-ship");
+    assert_eq!(world["actors"]["ada"]["place"], ada);
+    assert_eq!(world["actors"]["tavi"]["place"], tavi);
+    assert_eq!(
+        world["actors"]["keeper"]["contact"],
+        json!({"moth":[9,0], "vale":[7,0]})
+    );
+    assert_eq!(
+        world["transports"]["greek-ship"],
+        json!({
+            "version":3, "phase":"sea", "dock":"pond", "destination":"greek-harbor",
+            "riders":[], "since":9, "recall":null,
+        })
+    );
+    assert_eq!(course_reply["room"], "greek-ship");
+    assert_eq!(course_reply["exits"], json!([]));
+    let mut actions = boarded["actions"].as_array().unwrap().clone();
+    actions.retain(|action| action["key"] != course_key);
+    assert_eq!(course_reply["actions"], json!(actions));
+    assert_eq!(world["speechVoices"]["vale"], json!(["vale"]));
+
+    assert_eq!(calls.len(), 13);
+    verify_opening_journal(&mut c, id, &calls)?;
+    let view = seated_reload(&c, id, &state, "greek-ship", &[], 15)?;
+    assert_eq!(view["actions"], course_reply["actions"]);
+    assert_eq!(view["world"]["speechVoices"], world["speechVoices"]);
+    assert_eq!(view["world"]["transports"], world["transports"]);
+    assert_eq!(
+        view["world"]["log"].as_array().unwrap().last(),
+        Some(castoff)
+    );
+    assert!(view["world"]["memories"]["ada"].get("subjects").is_none());
     Ok(())
 }
 
