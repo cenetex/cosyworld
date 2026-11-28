@@ -13,10 +13,12 @@ fn count(value: &Value) -> Option<u64> {
     value.as_u64().filter(|count| *count <= MAX_SAFE_INTEGER)
 }
 
-fn valid_text(text: &str, limit: usize) -> bool {
-    !text
-        .trim_matches(|c: char| c == '\u{feff}' || (c.is_whitespace() && c != '\u{85}'))
-        .is_empty()
+pub(super) fn trim_text(text: &str) -> &str {
+    text.trim_matches(|c: char| c == '\u{feff}' || (c.is_whitespace() && c != '\u{85}'))
+}
+
+pub(super) fn valid_text(text: &str, limit: usize) -> bool {
+    !trim_text(text).is_empty()
         && text.encode_utf16().count() <= limit
         && !text.bytes().any(|b| b < 32 || b == 127)
 }
@@ -67,7 +69,7 @@ fn last_turn(value: &Value) -> Option<u64> {
     count(&value.as_array()?.last()?["turn"])
 }
 
-fn opening_world(request: &Value) -> Option<&Value> {
+pub(super) fn opening_world(request: &Value) -> Option<&Value> {
     let world = &request["world"];
     let actors = world["actors"].as_object()?;
     let lamp = &world["items"]["lamp"];

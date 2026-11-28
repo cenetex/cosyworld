@@ -214,7 +214,6 @@ impl World {
                 request["disclosures"] = command["disclosures"].clone();
                 let result = reduce(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
-                // Committed text can finish after its speaker disconnects.
                 self.guard(&next, SeatAction::Text, a)?;
                 *self = next;
                 return Ok(result);

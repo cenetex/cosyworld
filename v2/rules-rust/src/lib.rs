@@ -12,6 +12,7 @@ mod join;
 mod opening;
 mod opening_play;
 mod opening_reflection;
+mod opening_speech;
 mod profiles;
 mod reset;
 
@@ -96,6 +97,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
         Some("join_state") => opening::join_state(request).unwrap_or(Value::Null),
+        Some("speech") => opening_speech::reduce(request).unwrap_or(Value::Null),
         _ => Value::Null,
     }
 }
