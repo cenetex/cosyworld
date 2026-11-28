@@ -313,7 +313,6 @@ try {
     await card("forest-cottage").waitFor({ state: "attached" });
     await ready();
     await assertLitShut();
-    // The one way on waits at the row's right end (#2272).
     assert.equal(
       await page
         .locator("#hand > .card-frame:not([hidden]) > .card")

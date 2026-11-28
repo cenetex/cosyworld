@@ -2,12 +2,23 @@ use super::{opening_play::attic_stairs_requirements, Geography};
 use serde_json::{json, Value};
 
 pub(super) fn no_crossing_unlocks(world: &Value, geography: &Geography) -> Option<()> {
+    no_crossing_unlocks_except(world, geography, None)
+}
+
+pub(super) fn no_crossing_unlocks_except(
+    world: &Value,
+    geography: &Geography,
+    allowed: Option<&str>,
+) -> Option<()> {
     for pack in geography.packs() {
         for crossing in pack["crossings"].as_array()? {
             if crossing["unlockWhen"].is_null() {
                 continue;
             }
             let id = crossing["id"].as_str()?;
+            if allowed == Some(id) {
+                continue;
+            }
             let pack_id = pack["id"].as_str()?;
             let discovered = world["crossings"][id]["discovered"].as_bool()?;
             if !discovered

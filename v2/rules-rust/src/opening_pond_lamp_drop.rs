@@ -36,7 +36,7 @@ fn drop_text(geo: &Geography<'_>) -> Option<String> {
     Some(format!("{vale} puts {lamp} in {pond}."))
 }
 
-fn quiet_cloth(world: &Value, geo: &Geography<'_>, arrival: u64) -> Option<()> {
+pub(super) fn quiet_cloth(world: &Value, geo: &Geography<'_>, arrival: u64) -> Option<()> {
     let actors = world["actors"].as_object()?;
     let vale = actors.get(VALE)?;
     if world["eventSeq"] != arrival

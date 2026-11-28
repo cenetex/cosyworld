@@ -75,6 +75,7 @@ export function browserRules(bytes) {
           "opening_keeper_return_gift",
           "opening_keeper_abandon_reply",
           "opening_pond_ask",
+          "opening_pond_call",
           "opening_station_residents",
           "opening_pond_place_returns",
           "opening_pond_resident_sleep",
