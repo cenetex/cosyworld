@@ -2,7 +2,7 @@ use super::{
     create, initial_wants, opening_attic_rest, opening_content, opening_full_move,
     opening_held_items, opening_mirror_move, opening_quiet_life, opening_resident_sleep,
     opening_roaming, opening_second_attic_lamp, opening_settlement, opening_station_move,
-    opening_station_read, opening_wait_response, pack_state::Catalog, Geography,
+    opening_station_read, opening_wait_response, opening_wants, pack_state::Catalog, Geography,
 };
 use serde_json::{json, Value};
 
@@ -315,14 +315,28 @@ pub(super) fn settle_historic_station(
         || before["turn"] != 481
         || before["actors"]["vale"]["place"] != POND
         || before["eventSeq"].as_u64()?.checked_add(1)? != arrival
-        || world["eventSeq"] != arrival
-        || before["actors"][PIP]["sleeping"] != world["actors"][PIP]["sleeping"]
         || !solo(world)
         || world["playerActorId"] != "vale"
     {
         return None;
     }
-    opening_resident_sleep::sleeping_pip_at_pond(world, geo, arrival)?;
+    if world["actors"][PIP]["place"] == STATION {
+        let slept = json!({"since":481,"place":STATION,"until":482});
+        if before["actors"][PIP]["place"] != POND
+            || !before["actors"][PIP]["sleeping"].is_null()
+            || before["actors"][KEEPER]["sleeping"] != slept
+        {
+            return None;
+        }
+        opening_wants::verify_awake_station(world, geo)?;
+    } else {
+        if world["eventSeq"] != arrival
+            || before["actors"][PIP]["sleeping"] != world["actors"][PIP]["sleeping"]
+        {
+            return None;
+        }
+        opening_resident_sleep::sleeping_pip_at_pond(world, geo, arrival)?;
+    }
     opening_quiet_life::verify_home_levels(world, geo)?;
     verify_quiet_facts(before, world, geo)?;
     opening_attic_rest::settle_visit_speech(before, world, false)?;

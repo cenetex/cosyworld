@@ -10,6 +10,7 @@ const phase = "historic_station";
 
 function captureTail(source) {
   for (const [name, line] of [
+    ["beforeWants", "    reviseStalledWants(\n      next,"],
     ["before", "    settleHomeLevels(next);"],
     ["after", "    validateWorld(next);\n    let slept = next;"],
   ]) {
@@ -31,19 +32,28 @@ test("the historic Station tail reproduces the full pinned saved world", async (
     return reply.world;
   };
   let sample;
-  for (const seed of [undefined, 2, 42, 4242]) {
+  let awakeSample;
+  for (const [seed, dry] of [
+    [undefined, false], [2, false], [42, false], [4242, false],
+    [17, false], [17, true], [99, false], [99, true],
+  ]) {
     const saved = run({ op: "create", history: true, seed });
     const revived = run({ op: "create", save: JSON.stringify(saved) });
-    const stowed = run({
-      ...seats,
-      op: "hold",
-      world: revived,
-      choice: { item: null, revision: revived.revision },
-    });
+    let ready = revived;
+    if (dry) {
+      Object.assign(ready.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+    } else {
+      ready = run({
+        ...seats,
+        op: "hold",
+        world: revived,
+        choice: { item: null, revision: revived.revision },
+      });
+    }
     const pond = run({
       ...seats,
       op: "play",
-      world: stowed,
+      world: ready,
       action: "move:vale::pond",
     });
     for (const sorted of [false, true]) {
@@ -61,7 +71,14 @@ test("the historic Station tail reproduces the full pinned saved world", async (
         ),
       );
       assert.equal(reply.ok, true, reply.error);
-      const { before, after } = JSON.parse(JSON.stringify(reference.tail));
+      const { beforeWants, before, after } = JSON.parse(JSON.stringify(reference.tail));
+      const label = `${seed} dry=${dry} sorted=${sorted}`;
+      const wants = { op: "opening_station_wants", world: beforeWants };
+      const settled = wasm(wants);
+      const wantDifference = Object.keys(before).find(
+        (key) => !isDeepStrictEqual(settled?.world[key], before[key]),
+      );
+      assert.ok(isDeepStrictEqual(settled, { ok: true, world: before }), `${label} wants ${wantDifference}`);
       const request = { op, phase, before: source, world: before };
       const actual = wasm(request);
       const differing = Object.keys(after).find(
@@ -69,13 +86,21 @@ test("the historic Station tail reproduces the full pinned saved world", async (
       );
       assert.ok(
         isDeepStrictEqual(actual, { ok: true, world: after }),
-        `${seed} ${sorted} ${differing}`,
+        `${label} tail ${differing}`,
       );
       assert.deepEqual(actual.world.actors.vale.waitSpeech, {
         place: "station",
         turn: null,
       });
-      sample = request;
+      if (seed === 17 || seed === 99) {
+        assert.equal(actual.world.actors.moth.place, "station");
+        assert.equal(actual.world.actors.keeper.sleeping, undefined);
+        assert.equal(actual.world.log.at(-1).text, "The keeper wakes.");
+        assert.equal(reply.events.length, seed === 17 ? 4 : 3);
+        if (seed === 17) awakeSample = { wants, request };
+      } else {
+        sample = request;
+      }
     }
   }
   for (const change of [
@@ -92,5 +117,16 @@ test("the historic Station tail reproduces the full pinned saved world", async (
     const request = structuredClone(sample);
     change(request);
     assert.equal(wasm(request), null);
+  }
+  for (const change of [
+    (world) => { world.log.at(-1).actorId = "moth"; },
+    (world) => { world.log.at(-2).fromLocationId = "station"; },
+    (world) => { world.actors.moth.visited.pop(); },
+  ]) {
+    for (const saved of [awakeSample.request, awakeSample.wants]) {
+      const request = structuredClone(saved);
+      change(request.world);
+      assert.equal(wasm(request), null);
+    }
   }
 });
