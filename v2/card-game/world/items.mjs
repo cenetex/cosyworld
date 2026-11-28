@@ -1,7 +1,6 @@
 import { entityActive } from "../pack-registry.mjs";
 
-// Holder chains are a few links deep, so the walk tracks visits only when a
-// chain runs long enough to hide a loop: the common case allocates nothing.
+// Shallow holder walks avoid allocating a cycle-detection set.
 const SHORT_CHAIN = 32;
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;

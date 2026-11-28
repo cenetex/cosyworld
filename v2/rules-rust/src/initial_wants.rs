@@ -1,5 +1,5 @@
 use super::{create_geography::Geography, seed};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) struct People<'a> {
@@ -182,7 +182,10 @@ fn initial_met(world: &Value, id: &str, want: &Value) -> Option<bool> {
 }
 
 pub(super) fn root<'a>(world: &'a Value, item: &str) -> Option<&'a str> {
-    let items = world["items"].as_object()?;
+    root_in(world["items"].as_object()?, item)
+}
+
+pub(super) fn root_in<'a>(items: &'a Map<String, Value>, item: &str) -> Option<&'a str> {
     let mut holder = items.get(item)?["holder"].as_str()?;
     let mut seen = BTreeSet::new();
     while let Some(container) = items.get(holder) {
