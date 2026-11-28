@@ -44,6 +44,7 @@ mod opening_roaming;
 mod opening_roster;
 pub mod opening_rumours;
 mod opening_second_attic_lamp;
+mod opening_second_attic_tail;
 mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
@@ -230,6 +231,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_second_attic_lamp") => {
             opening_second_attic_lamp::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_second_attic_tail") => {
+            opening_second_attic_tail::projection(request).unwrap_or(Value::Null)
         }
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
