@@ -15,7 +15,7 @@ use super::{
     opening_second_attic_lamp, opening_second_attic_tail, opening_second_round, opening_settlement,
     opening_station_move::{self, rue_arrived},
     opening_station_quest_drop_learning::confirm_pip_wait,
-    opening_station_read::{after_first_log, keeper_book_claim},
+    opening_station_read::{after_first_log, first_log_history, keeper_book_claim},
     opening_station_read_wait::{observe_place, record_wait_learning},
     opening_view, opening_visitor_routes, opening_wants,
     pack_state::Catalog,
@@ -109,12 +109,18 @@ fn settled_first_read(world: &Value) -> Option<[&Value; 2]> {
     let [.., read, wait] = world["log"].as_array()?.as_slice() else {
         return None;
     };
-    let next = seq.checked_add(1)?;
+    if world["eventSeq"] != seq.checked_add(1)? {
+        return None;
+    }
+    witnessed_read_wait(world, read, wait, seq)?;
+    Some([read, wait])
+}
+
+fn witnessed_read_wait(world: &Value, read: &Value, wait: &Value, seq: u64) -> Option<()> {
     let learned = &world["knowledge"]["known"][VALE][KEEPER_QUEST];
     (read["seq"] == seq
-        && wait["seq"] == next
-        && world["eventSeq"] == next
-        && wait["turn"] == world["turn"]
+        && wait["seq"] == seq.checked_add(1)?
+        && wait["turn"] == 3
         && wait["kind"] == "action"
         && wait["verb"] == "wait"
         && wait["actorId"] == PIP
@@ -123,7 +129,7 @@ fn settled_first_read(world: &Value) -> Option<[&Value; 2]> {
         && wait["witnesses"] == read["witnesses"]
         && wait["cast"] == read["cast"]
         && *learned == keeper_read_fact(seq))
-    .then_some([read, wait])
+    .then_some(())
 }
 
 fn keeper_read_fact(seq: u64) -> Value {
@@ -314,6 +320,7 @@ fn station_scene<'a>(
     let met_keeper = world["opening"]["met"][KEEPER].as_u64()?;
     let after_read = turn == 3 && met_keeper == 2 && settled_first_read(world).is_some();
     let arrival_turn = turn - u64::from(train_abandoned(world));
+    let after_gift = keeper_abandoned(world);
     let historic = historic_station(world);
     let actors = world["actors"].as_object()?;
     let vale = actors.get(VALE)?;
@@ -325,7 +332,7 @@ fn station_scene<'a>(
         || (awake_historic && (!historic || rue_arrived(world)))
         || !(turn..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
         || world["opening"]["crossed"] != true
-        || (met_keeper != arrival_turn && !after_read)
+        || (met_keeper != arrival_turn && !after_read && !(after_gift && met_keeper == 2))
         || world["opening"]["met"][PIP] != met_keeper.checked_sub(1)?
         || !world["disabledPacks"].is_null()
         || !world["standoffs"].as_array()?.is_empty()
@@ -337,11 +344,15 @@ fn station_scene<'a>(
             .any(|key| entries(&world[*key]).any(|id| id == WAYFINDER || id == "routes"))
         || vale["waitSpeech"] != json!({"place":STATION,"turn":null})
         || !vale["arcana"].is_null()
-        || (!vale["closed"].is_null() && !train_abandoned(world))
+        || (!vale["closed"].is_null() && !train_abandoned(world) && !after_gift)
         || lamp["lit"] != false
         || fuel.fuel_place != STATION
         || lamp["fuel"] != fuel.fuel_rooms * 4
-        || !(vale["heldItem"].is_null() || (vale["heldItem"] == LAMP && fuel.fuel_rooms == 0))
+        || !(if after_gift {
+            vale["heldItem"] == "cloth" && actors.get(PIP)?["heldItem"].is_null()
+        } else {
+            vale["heldItem"].is_null() || (vale["heldItem"] == LAMP && fuel.fuel_rooms == 0)
+        })
     {
         return None;
     }
@@ -393,6 +404,11 @@ fn station_scene<'a>(
     }
     let items = world["items"].as_object()?;
     for (id, holder) in ITEMS {
+        let holder = if after_gift && id == "cloth" {
+            VALE
+        } else {
+            holder
+        };
         if items.get(id)?["holder"] != holder || !geo.entity_active(world, id)? {
             return None;
         }
@@ -441,8 +457,12 @@ fn actions(
 ) -> Option<Vec<Value>> {
     let name = |id: &str| profiles[id]["name"].as_str();
     let vale = name(VALE)?;
-    let lamp = item_as_named(name(LAMP)?);
     let station = name(STATION)?;
+    let items = authored.items.iter().map(String::as_str);
+    let owned: Vec<_> = items
+        .clone()
+        .filter(|id| world["items"][*id]["holder"] == VALE)
+        .collect();
     let wait = format!("{vale} waits one turn.");
     let mut out = vec![offer("wait", None, None, wait, &[])];
     for to in EXITS {
@@ -462,13 +482,16 @@ fn actions(
         }
         let go = format!("{vale} goes to {destination}.");
         out.push(offer("move", None, Some(to), go, &[to]));
-        let carry = format!("{vale} carries {lamp} to {destination}.");
-        out.push(offer("move", Some(LAMP), Some(to), carry, &[LAMP, to]));
+        for &id in &owned {
+            let item = item_as_named(name(id)?);
+            let carry = format!("{vale} carries {item} to {destination}.");
+            out.push(offer("move", Some(id), Some(to), carry, &[id, to]));
+        }
     }
     for &other in company {
         let resident = name(other)?;
         let stake = match other {
-            PIP => Some("cloth"),
+            PIP => (world["items"]["cloth"]["holder"] == PIP).then_some("cloth"),
             KEEPER => Some("oil"),
             RUE => None,
             _ => return None,
@@ -485,20 +508,21 @@ fn actions(
         let talk = format!("{vale} has a conversation with {resident}.");
         out.push(offer("talk", None, Some(other), talk, &[other]));
     }
-    let mut trades = Vec::new();
-    for id in authored.items.iter().map(String::as_str) {
+    let mut wanted = Vec::new();
+    for id in items {
         let holder = world["items"][id]["holder"].as_str()?;
         match (id, holder) {
-            (LAMP, VALE) => {
-                let drop = format!("{vale} puts {lamp} in {station}.");
-                out.push(offer("drop", Some(LAMP), Some(STATION), drop, &[LAMP]));
+            (LAMP | "cloth", VALE) => {
+                let item = item_as_named(name(id)?);
+                let drop = format!("{vale} puts {item} in {station}.");
+                out.push(offer("drop", Some(id), Some(STATION), drop, &[id]));
                 for &other in company {
                     out.push(offer(
                         "give",
-                        Some(LAMP),
+                        Some(id),
                         Some(other),
-                        format!("{vale} gives {lamp} to {}.", name(other)?),
-                        &[LAMP, other],
+                        format!("{vale} gives {item} to {}.", name(other)?),
+                        &[id, other],
                     ));
                 }
             }
@@ -523,16 +547,7 @@ fn actions(
                     format!("{vale} asks {resident} for {}.", item_as_named(item)),
                     &[id, holder],
                 ));
-                let mut trade = offer(
-                    "trade",
-                    Some(LAMP),
-                    Some(holder),
-                    format!("{vale} trades {lamp} for {resident}’s {item}."),
-                    &[LAMP, id],
-                );
-                trade["receive"] = json!(id);
-                trade["key"] = json!(format!("trade:{VALE}:{LAMP}:{holder}:{id}"));
-                trades.push(trade);
+                wanted.push((id, holder, item, resident));
             }
             ("keeper-log", STATION) => {
                 let text = format!("{vale} reads {}.", item_as_named(name(id)?));
@@ -543,7 +558,21 @@ fn actions(
             _ => {}
         }
     }
-    out.extend(trades);
+    for payment in owned {
+        let item = item_as_named(name(payment)?);
+        for &(id, holder, reward, resident) in &wanted {
+            let mut trade = offer(
+                "trade",
+                Some(payment),
+                Some(holder),
+                format!("{vale} trades {item} for {resident}’s {reward}."),
+                &[payment, id],
+            );
+            trade["receive"] = json!(id);
+            trade["key"] = json!(format!("trade:{VALE}:{payment}:{holder}:{id}"));
+            out.push(trade);
+        }
+    }
     if !train_accepted && !train_abandoned(world) {
         let text = format!("{vale} accepts the closed box's quest.");
         let mut train = offer("accept", None, None, text, &[]);
@@ -1001,6 +1030,106 @@ pub(super) fn keeper_abandoned(world: &Value) -> bool {
         && vale["closed"] == json!({(KEEPER_FROM):[4,KEEPER_TERMS]})
 }
 
+fn keeper_abandon_events<'a>(world: &'a Value, geo: &Geography<'_>) -> Option<&'a [Value]> {
+    if !keeper_abandoned(world) {
+        return None;
+    }
+    let log = world["log"].as_array()?;
+    let [.., read, wait, drop, gift] = log.as_slice() else {
+        return None;
+    };
+    let read_seq = first_log_history(world, Some(drop))?;
+    witnessed_read_wait(world, read, wait, read_seq)?;
+    keeper_book_claim(world, geo)?;
+    let seq = read_seq.checked_add(3)?;
+    let events = log.get(log.len().checked_sub(2)?..)?;
+    let forest = &geo.files()["v2/card-game/forest.json"];
+    let vale = forest["people"][VALE]["name"].as_str()?;
+    let pip = forest["people"][PIP]["name"].as_str()?;
+    let cloth = forest["things"]["cloth"]["name"].as_str()?;
+    let goal = keeper_call_goal(
+        cloth,
+        forest["places"][POND]["name"].as_str()?,
+        forest["things"][LAMP]["name"].as_str()?,
+    );
+    let cast = gift["cast"].as_array()?;
+    let cloth_id = |item: &&Value| item["id"] == "cloth";
+    (drop["seq"] == seq.checked_sub(1)?
+        && gift["seq"] == seq
+        && world["eventSeq"] == seq
+        && events.iter().all(|event| {
+            event["turn"] == 4
+                && event["kind"] == "action"
+                && event["speaker"] == "World"
+                && event["locationId"] == STATION
+                && event["generated"] != true
+                && event["cast"] == gift["cast"]
+                && event["witnesses"] == wait["witnesses"]
+                && event["light"] == false
+        })
+        && cast.len() == 3
+        && [VALE, PIP, KEEPER]
+            .iter()
+            .all(|id| cast.iter().any(|member| member == id))
+        && drop["actorId"] == VALE
+        && drop["verb"] == "drop"
+        && drop["text"] == format!("{vale} abandons their quest to {goal}.")
+        && entries(&drop["items"]).find(cloth_id)?["holder"] == PIP
+        && gift["actorId"] == PIP
+        && gift["verb"] == "give"
+        && gift["itemId"] == "cloth"
+        && gift["targetId"] == VALE
+        && gift["fromLocationId"] == STATION
+        && gift["accepted"] == true
+        && entries(&gift["items"]).find(cloth_id)?["holder"] == VALE
+        && gift["text"] == format!("{pip} gives {} to {vale}.", item_as_named(cloth)))
+    .then_some(events)
+}
+
+pub fn completed_keeper_abandon(
+    mut world: Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    before_seq: u64,
+    profiles: Value,
+) -> Option<Value> {
+    let events = keeper_abandon_events(&world, geo)?;
+    if events.first()?["seq"] != before_seq.checked_add(1)? {
+        return None;
+    }
+    let events = json!(events);
+    let (plans, profiles) = station_projection(&world, geo, authored, order, false, false, || {
+        Some(profiles)
+    })?;
+    world["speechVoices"][VALE] = json!([VALE]);
+    let mut response = station_response(opening::stored_response(world)?, plans, profiles);
+    response["events"] = events;
+    Some(response)
+}
+
+pub(super) fn keeper_abandon_reply(request: &Value) -> Option<Value> {
+    if request["actor"] != VALE
+        || opening::seats(&request["claimed"])? != [VALE]
+        || opening::seats(&request["present"])? != [VALE]
+    {
+        return None;
+    }
+    let world = request.get("world")?;
+    let order = opening_roster::actor_order(request, world)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    completed_keeper_abandon(
+        world.clone(),
+        &geo,
+        &authored,
+        &order,
+        request["beforeSeq"].as_u64()?,
+        profiles::project(&files)?,
+    )
+}
+
 fn abandonment_events(world: &Value) -> Option<&[Value]> {
     let log = world["log"].as_array()?;
     let events = log.get(log.len().checked_sub(2)?..)?;
@@ -1218,10 +1347,11 @@ fn project_private(request: &Value, present: &[&str], awake_historic: bool) -> O
     let world = request.get("world")?;
     let train_accepted = world["actors"][VALE]["want"]["from"] == "quest:box:train";
     let abandoned = train_abandoned(world);
+    let after_gift = keeper_abandoned(world);
     let after_read = world["turn"] == 3 && settled_first_read(world).is_some();
     let named = if after_read {
         &[]
-    } else if abandoned {
+    } else if abandoned || after_gift {
         &[VALE]
     } else {
         voices(world)
@@ -1236,7 +1366,7 @@ fn project_private(request: &Value, present: &[&str], awake_historic: bool) -> O
     if abandoned {
         opening_station_move::abandoned_train_arrival(world)?;
         abandonment_events(world)?;
-    } else if !after_read {
+    } else if !after_read && !after_gift {
         arrival_events(
             world,
             response_chronology(world)?.checked_sub(1)?,
@@ -1247,6 +1377,9 @@ fn project_private(request: &Value, present: &[&str], awake_historic: bool) -> O
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
+    if after_gift {
+        keeper_abandon_events(world, &geo)?;
+    }
     let actor_order = super::opening_roster::actor_order(request, world)?;
     let (plans, profiles) = station_projection(
         world,

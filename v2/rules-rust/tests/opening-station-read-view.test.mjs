@@ -9,6 +9,7 @@ const keeperQuest = "accept:vale::keeper";
 const abandon = "drop:vale:::0";
 const abandonOp = "opening_keeper_abandon";
 const giftOp = "opening_keeper_abandon_gift";
+const replyOp = "opening_keeper_abandon_reply";
 
 function traceKeeperAbandon(source) {
   const loop = "    for (const id of residents2) {";
@@ -33,7 +34,7 @@ ${loop}`,
     );
 }
 
-test("Keeper Log reading, abandonment, and Pip’s gift match pinned states", async () => {
+test("Keeper Log reading, abandonment, Pip’s gift, and reload match pinned states", async () => {
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(traceKeeperAbandon);
   const run = (request) => {
@@ -186,6 +187,31 @@ test("Keeper Log reading, abandonment, and Pip’s gift match pinned states", as
     assert.equal(gift.world.actors.vale.heldItem, "cloth");
     assert.equal(gift.world.memories.moth.learning.at(-1).reward, -5);
     assert.equal(wasm({ ...giving, world: gift.world }), null);
+    const complete = {
+      ...seats,
+      op: replyOp,
+      beforeSeq: drop.world.eventSeq,
+      world: { ...fullDrop.world, speechVoices: gift.world.speechVoices },
+    };
+    const reply = wasm(complete);
+    assert.ok(isDeepStrictEqual(reply, fullDrop), `drop reply ${seed}`);
+    assert.deepEqual(reply.world.speechVoices.vale, ["vale"]);
+    assert.equal(
+      wasm({ ...complete, beforeSeq: complete.beforeSeq - 1 }),
+      null,
+    );
+    assert.equal(wasm({ ...complete, present: [] }), null);
+    assert.equal(wasm({ ...complete, world: stage }), null);
+    for (const present of [["vale"], []]) {
+      const request = { ...seats, op: "view", world: reply.world, present };
+      assert.ok(
+        isDeepStrictEqual(wasm(request), run(request)),
+        `drop private ${seed}/${present}`,
+      );
+    }
+    const forged = structuredClone(reply.world);
+    forged.log.at(-1).targetId = "keeper";
+    assert.equal(wasm({ ...seats, op: "view", world: forged }), null);
     const invalid = structuredClone(stage);
     invalid.knowledge.pending.push({ factId: "unsettled" });
     const saved = structuredClone(invalid);

@@ -43,7 +43,11 @@ pub(super) fn read_world(request: &Value) -> Option<&Value> {
 }
 
 pub(super) fn after_first_log(world: &Value) -> Option<u64> {
-    if world["turn"] != 3
+    first_log_history(world, None)
+}
+
+pub(super) fn first_log_history(world: &Value, following: Option<&Value>) -> Option<u64> {
+    if world["turn"] != 3 + u64::from(following.is_some())
         || world.get("began").is_some()
         || world["schema"] != 8
         || world["sharedVersion"] != 1
@@ -68,7 +72,8 @@ pub(super) fn after_first_log(world: &Value) -> Option<u64> {
     let station_seq = station["seq"].as_u64()?;
     let read = actions.next()?;
     let read_seq = read["seq"].as_u64()?;
-    (actions.next().is_none()
+    (actions.next() == following
+        && actions.next().is_none()
         && moves(pond, "attic", "pond", 1)
         && pond["seq"].as_u64()? < station_seq
         && moves(station, "pond", STATION, 2)
