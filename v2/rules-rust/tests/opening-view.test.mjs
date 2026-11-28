@@ -109,7 +109,7 @@ test("the view preserves private fields only for the viewer", async () => {
   }
 });
 
-test("the opening view declines other viewers, a stowed lamp, and changed attic content", async () => {
+test("the opening view declines other viewers and changed attic content", async () => {
   const { pinned, wasm } = await reducers();
   const { world } = success(pinned, { op: "create", seed: 17, history: true });
   const request = { ...solo, op: "view", world };
@@ -128,11 +128,79 @@ test("the opening view declines other viewers, a stowed lamp, and changed attic 
   assert.equal(wasm(request, JSON.stringify(content)), null);
   assert.equal(wasm({ ...request, actor: "mara" }), null);
   assert.equal(wasm({ ...request, claimed: [], present: [] }), null);
-  const stowed = success(pinned, {
+});
+
+function stowLamp(pinned, world) {
+  return success(pinned, {
     ...solo,
     world,
     op: "hold",
     choice: { item: null, revision: world.revision },
   }).world;
-  assert.equal(wasm({ ...request, world: stowed }), null);
+}
+
+test("the stowed lamp view exposes the mirror crossing and legal travel options", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [0, 17, 4242]) {
+    for (const history of [false, true]) {
+      const { world: fresh } = success(pinned, { op: "create", seed, history });
+      const { world: accepted } = success(pinned, {
+        ...solo,
+        op: "play",
+        world: fresh,
+        action: key,
+      });
+      for (const state of [fresh, accepted]) {
+        const world = stowLamp(pinned, state);
+        for (const present of [["vale"], []]) {
+          const request = { ...solo, op: "view", world, present };
+          const projected = view(
+            pinned,
+            wasm,
+            request,
+            `stowed lamp, seed ${seed}`,
+          );
+          assert.deepEqual(projected.exits, ["pond"]);
+          assert.deepEqual(
+            projected.actions.map(({ key }) => key),
+            [
+              "wait:vale::",
+              "move:vale::pond",
+              "move:vale:lamp:pond",
+              "drop:vale:lamp:attic",
+            ],
+          );
+          assert.equal(projected.world.actors.vale.want, null);
+        }
+      }
+    }
+  }
+});
+
+test("pond capacity depends on whether Vale is present", async () => {
+  const { pinned, wasm } = await reducers();
+  const { world } = success(pinned, { op: "create", seed: 17, history: true });
+  const stowed = stowLamp(pinned, world);
+  const pond = ["mara", "ash", "nell", "tavi"];
+  for (const id of pond) stowed.actors[id].place = "pond";
+  const request = {
+    op: "view",
+    world: stowed,
+    actor: "vale",
+    claimed: ["vale", ...pond],
+    present: ["vale", ...pond],
+  };
+  const present = view(pinned, wasm, request, "present viewer at a full pond");
+  assert.deepEqual(present.exits, []);
+  assert.deepEqual(
+    present.actions.map(({ key }) => key),
+    ["wait:vale::", "drop:vale:lamp:attic"],
+  );
+  const away = view(
+    pinned,
+    wasm,
+    { ...request, present: pond },
+    "away viewer at a full pond",
+  );
+  assert.deepEqual(away.exits, ["pond"]);
 });
