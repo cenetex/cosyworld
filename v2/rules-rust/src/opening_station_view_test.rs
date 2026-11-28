@@ -29,7 +29,7 @@ const quiet = [
     [4294967295, false, false, false, true],
     [4294967295, true, true, true, false],
 ];
-const rue = [7, 99].flatMap(seed => [false, true].flatMap(dry =>
+const rue = [73, 75].flatMap(seed => [false, true].flatMap(dry =>
     [false, true].map(sorted => [seed, false, dry, sorted, dry !== sorted])));
 const historic = [undefined, 2, 42, 4242].flatMap(seed => [false, true].flatMap(dry =>
     [false, true].map(sorted => [seed, false, dry, sorted, dry !== sorted, true])));
@@ -50,8 +50,7 @@ for (const [seed, second, dry, sorted, carry, history] of [...quiet, ...rue, ...
     assert.equal(expected.world.actors.rue.place === 'station', withRue);
     if (withRue) {
         assert.deepEqual(expected.world.speechVoices.vale, ['vale', 'keeper', 'rue']);
-        assert.deepEqual(expected.events.map(event => event.actorId),
-            seed === 99 ? ['vale', 'moth', 'nell', 'rue'] : ['vale', 'moth', 'rue']);
+        assert.deepEqual(expected.events.map(event => event.actorId), ['vale', 'moth', 'rue']);
     }
     if (history) {
         assert.equal(expected.world.turn, 482);

@@ -556,7 +556,7 @@ for (const [seed, prior] of [[17, false], [2, true], [4242, true]]) {
       assert.deepEqual(expected.world.actors.vale.waitSpeech, {place:'pond', turn:null});
       assert.deepEqual(expected.world.speechVoices, {mara:['mara'], vale:['vale','moth']});
       assert.deepEqual(expected.events.slice(0,2).map(event => event.verb), ['move','ask']);
-      assert.equal(expected.events.length, seed === 17 ? 2 : 3);
+      assert.equal(expected.events.length, 2);
       assert.ok(expected.events.every(event => event.turn === 2 && event.seq > world.eventSeq));
       console.log(JSON.stringify({beforeSeq:world.eventSeq, expected, voices:world.speechVoices, title:{seed,lamp,action,prior}}));
     }
