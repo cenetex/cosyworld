@@ -77,6 +77,23 @@ pub(super) fn historic_arrival(world: &Value) -> Option<u64> {
     arrived_from_pond(world, 482, false, false)
 }
 
+pub(super) fn historic_follow(world: &Value) -> Option<u64> {
+    let seq = historic_arrival(world)?.checked_add(1)?;
+    let pip = &world["actors"]["moth"];
+    let follow = world["log"]
+        .as_array()?
+        .iter()
+        .find(|entry| entry["seq"] == seq)?;
+    (pip["place"] == STATION
+        && pip["sleeping"].is_null()
+        && follow["kind"] == "action"
+        && follow["actorId"] == "moth"
+        && follow["generated"] != true
+        && follow["itemId"].is_null()
+        && move_event(follow, 482, POND, STATION))
+    .then_some(seq)
+}
+
 pub(super) fn abandoned_train_arrival(world: &Value) -> Option<u64> {
     let prior = world["turn"].as_u64()?.checked_sub(1)?;
     (matches!(prior, 2 | 3)

@@ -261,6 +261,42 @@ pub(super) fn confirm_historic_idle(
     if !scheduled_sleep(&world["actors"][KEEPER], STATION)? {
         opening_hub_residents::at_home(world, geo, KEEPER, "oil")?;
     }
+    confirm_historic_visitors(world, geo)
+}
+
+pub(super) fn confirm_awake_visitors(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    order: &[&str],
+) -> Option<()> {
+    let follow = opening_station_move::historic_follow(world)?;
+    let cast = opening_roster::known_actors(world, geo, order, Some(STATION))?;
+    if world["eventSeq"] != follow
+        || world["log"].as_array()?.last()?["seq"] != follow
+        || world["playerActorId"] != VALE
+        || ["heldActors", "controlledActors", "presentActors"]
+            .iter()
+            .any(|key| world[*key] != json!([VALE]))
+        || world["actors"][VALE]["visited"] != json!(["attic", POND, STATION])
+        || geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
+        || !world["standoffs"].as_array()?.is_empty()
+        || world["conversations"]
+            .as_array()?
+            .iter()
+            .any(|record| record["turn"].as_u64().is_none_or(|turn| turn >= 482))
+        || !world["disabledPacks"].is_null()
+        || world["actors"][KEEPER]["place"] != STATION
+        || !scheduled_sleep(&world["actors"][KEEPER], STATION)?
+        || geo.entity_active(world, "boardyai")?
+        || cast.len() != 3
+        || ![VALE, PIP, KEEPER].iter().all(|id| cast.contains(id))
+    {
+        return None;
+    }
+    confirm_historic_visitors(world, geo)
+}
+
+fn confirm_historic_visitors(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     opening_crossings::no_crossing_unlocks(world, geo)?;
     let custody = Custody::new(world)?;
     for avatar in geo.files()["v2/card-game/shared-cast.json"]["avatars"].as_array()? {
@@ -317,10 +353,14 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = saved.clone();
     let resident = &request["resident"];
-    if !resident.is_null() && (world["began"] != 480 || (resident != PIP && resident != KEEPER)) {
+    if !resident.is_null()
+        && (world["began"] != 480 || !matches!(resident.as_str()?, PIP | KEEPER | "visitors"))
+    {
         return None;
     }
-    if resident.is_null() && world.get("began").is_some() {
+    if resident == "visitors" {
+        confirm_awake_visitors(&mut world, &geo, &order)?;
+    } else if resident.is_null() && world.get("began").is_some() {
         confirm_historic_idle(&mut world, &geo, &order)?;
     } else {
         let evidence = ResidentEvidence::new(&files)?;

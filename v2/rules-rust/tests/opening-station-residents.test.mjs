@@ -10,15 +10,23 @@ const op = "opening_station_residents";
 function captureResidents(source) {
   const marker =
     "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
+  const after = "    const rings2 = next.log.filter(";
   assert.equal(source.split(marker).length, 2);
-  return source.replace(
-    marker,
-    `      const chosen = read2 ?? plan(next, id).action;
+  assert.equal(source.split(after).length, 2);
+  return source
+    .replace(
+      after,
+      `    if (next.began === 480 && next.actors.vale.place === "station") globalThis.hub.afterVisitors = structuredClone(next);
+${after}`,
+    )
+    .replace(
+      marker,
+      `      const chosen = read2 ?? plan(next, id).action;
       const capture = next.actors.vale.place === "station" && (id === "moth" || id === "keeper");
       const before = capture && structuredClone(next);
       perform(next, chosen, round2, residents2);
       if (capture) globalThis.hub[id] = {key: chosen.key, before, after: structuredClone(next)};`,
-  );
+    );
 }
 
 test("Pip follows to Station with pinned memories and Keeper waits silently", async () => {
@@ -136,6 +144,7 @@ test("Pip follows Vale after historic Pond arrival while Keeper remains asleep",
     return result.world;
   };
   let saved;
+  let awake;
   for (const seed of [17, 99]) {
     const initial = run({ op: "create", history: true, seed });
     const reopened = run({ op: "create", save: JSON.stringify(initial) });
@@ -165,7 +174,9 @@ test("Pip follows Vale after historic Pond arrival while Keeper remains asleep",
         };
         const reply = JSON.parse(reference.cardShared(JSON.stringify(request)));
         assert.equal(reply.ok, true, reply.error);
-        const { moth, keeper } = JSON.parse(JSON.stringify(reference.hub));
+        const { moth, keeper, afterVisitors } = JSON.parse(
+          JSON.stringify(reference.hub),
+        );
         assert.equal(keeper, undefined);
         assert.equal(moth.key, "move:moth::station");
         assert.deepEqual(moth.before.actors.keeper.sleeping, {
@@ -187,6 +198,18 @@ test("Pip follows Vale after historic Pond arrival while Keeper remains asleep",
           actual.world.actors.keeper.sleeping,
           moth.before.actors.keeper.sleeping,
         );
+        const visitors = wasm({ op, resident: "visitors", world: moth.after });
+        if (seed === 99) {
+          assert.deepEqual(afterVisitors, moth.after, label);
+          assert.ok(
+            isDeepStrictEqual(visitors, { ok: true, world: afterVisitors }),
+            label,
+          );
+          awake = moth.after;
+        } else {
+          assert.equal(afterVisitors.log.at(-1).actorId, "orin", label);
+          assert.equal(visitors, null, label);
+        }
         assert.equal(wasm(request), null);
         saved = moth.before;
       }
@@ -198,4 +221,22 @@ test("Pip follows Vale after historic Pond arrival while Keeper remains asleep",
   const currentConversation = structuredClone(saved);
   currentConversation.conversations.push({ turn: saved.turn });
   assert.equal(wasm({ ...diagnostic, world: currentConversation }), null);
+  for (const change of [
+    (world) => {
+      world.log.at(-1).actorId = "keeper";
+    },
+    (world) => {
+      delete world.actors.keeper.sleeping;
+    },
+    (world) => {
+      world.actors.orin.heldItem = null;
+    },
+    (world) => {
+      world.actors.ada.place = "station";
+    },
+  ]) {
+    const world = structuredClone(awake);
+    change(world);
+    assert.equal(wasm({ op, resident: "visitors", world }), null);
+  }
 });
