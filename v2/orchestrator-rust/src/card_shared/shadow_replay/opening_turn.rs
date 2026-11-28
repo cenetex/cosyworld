@@ -15,6 +15,7 @@ const WAIT: (&str, PlayAssertion) = ("wait:vale::", check_wait);
 const SECOND_WAIT: (&str, PlayAssertion) = (WAIT.0, check_silent_wait);
 const DROP: (&str, PlayAssertion) = ("drop:vale:lamp:attic", check_lamp_drop);
 const TAKE: (&str, PlayAssertion) = ("take:vale:lamp:", check_lamp_take);
+const BARE_POND_MOVE: (&str, PlayAssertion) = ("move:vale::pond", check_bare_pond_move);
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
@@ -52,7 +53,7 @@ fn sqlite_rules_wasm_parity_replays_the_first_bare_pond_move() -> Result<()> {
         "first-bare-pond-move",
         unseeded_opening()?,
         true,
-        &[("move:vale::pond", check_bare_pond_move)],
+        &[BARE_POND_MOVE],
     )
 }
 
@@ -94,6 +95,16 @@ fn sqlite_rules_wasm_parity_replays_the_second_attic_lamp_take() -> Result<()> {
         unseeded_opening()?,
         false,
         &[DROP, TAKE],
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_second_bare_pond_move() -> Result<()> {
+    replay_opening_turns(
+        "second-bare-pond-move",
+        unseeded_opening()?,
+        true,
+        &[WAIT, BARE_POND_MOVE],
     )
 }
 
