@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+mod join;
 mod opening;
 mod opening_reflection;
 mod reset;
@@ -91,6 +92,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("hold") => opening::hold(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
+        Some("join_state") => opening::join_state(request).unwrap_or(Value::Null),
         _ => Value::Null,
     }
 }
