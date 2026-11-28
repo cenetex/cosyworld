@@ -46,7 +46,11 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     Some(json!({"ok": true, "world": world}))
 }
 
-pub(super) fn mount(world: &mut Value, files: &Value) -> Option<()> {
+fn mount(world: &mut Value, files: &Value) -> Option<()> {
+    mount_catalog(world, files, &Catalog::from_files(files)?)
+}
+
+pub(super) fn mount_catalog(world: &mut Value, files: &Value, catalog: &Catalog) -> Option<()> {
     let world = world.as_object_mut()?;
     if ["packs", "crossings", "transports"]
         .iter()
@@ -69,7 +73,6 @@ pub(super) fn mount(world: &mut Value, files: &Value) -> Option<()> {
             mounted.add_actor(id, actor["place"].as_str()?, None)?;
         }
     }
-    let catalog = Catalog::from_files(files)?;
     for pack in catalog.packs() {
         mounted.add_pack(pack)?;
     }

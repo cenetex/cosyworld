@@ -9,16 +9,20 @@ use std::collections::{BTreeMap, BTreeSet};
 type Edge<'a> = (&'a str, &'a str);
 
 pub(super) fn mount(files: &Value) -> Option<Value> {
-    let mut world = hub(files)?;
-    pack_state::mount(&mut world, files)?;
     let catalog = Catalog::from_files(files)?;
-    progress(&mut world, files, catalog.packs())?;
-    let geography = Geography::new(files, catalog.packs())?;
+    let geo = Geography::new(files, catalog.packs())?;
     let people = People::new(files, catalog.packs())?;
+    prepare(files, &catalog, &geo, &people)
+}
+
+fn prepare(files: &Value, catalog: &Catalog, geo: &Geography, people: &People) -> Option<Value> {
+    let mut world = hub(files)?;
+    pack_state::mount_catalog(&mut world, files, catalog)?;
+    progress(&mut world, files, catalog.packs())?;
     world["doors"] = seed::place_doors(files, 0, None)?;
-    people.install(&mut world, &geography)?;
+    people.install(&mut world, geo)?;
     seed::place_wayfinder(&mut world, files)?;
-    opening_candidates::fill(&mut world, &geography, &people, files)?;
+    opening_candidates::fill(&mut world, geo, people, files)?;
     Some(world)
 }
 
@@ -224,8 +228,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if !request["save"].is_null() {
         return validate::import_refusal(request);
     }
-    if !request["seed"].is_null()
-        || !request["hidden"].is_null()
+    if !request["hidden"].is_null()
         || !request["homecoming"].is_null()
         || !(request["absent"].is_null() || request["absent"] == json!([]))
         || !matches!(request["actor"].as_str(), None | Some("vale" | ""))
@@ -240,22 +243,26 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         return None;
     }
     let files = content.get("files")?;
-    let world = fresh(files, None, request["history"] == true)?;
+    let seed = match request.get("seed") {
+        None | Some(Value::Null) => None,
+        Some(seed) => Some(u32::try_from(seed.as_u64()?).ok()?),
+    };
+    let world = fresh(files, seed, request["history"] == true)?;
     opening_view::create_response(world, files, "vale")
 }
 
 pub(super) fn fresh(files: &Value, seed: Option<u32>, history: bool) -> Option<Value> {
-    if seed.is_some() {
-        return None;
-    }
-    let mut world = mount(files)?;
     let catalog = Catalog::from_files(files)?;
     let geo = Geography::new(files, catalog.packs())?;
     let people = People::new(files, catalog.packs())?;
+    let mut world = prepare(files, &catalog, &geo, &people)?;
     opening_evidence::install(&mut world, files)?;
     settle_guards(&mut world, &geo, &people)?;
     settle_hands_and_lamp(&mut world, &geo)?;
     settle_station(&mut world, files, &geo)?;
+    if let Some(seed) = seed {
+        seed::seed_fresh(&mut world, files, seed)?;
+    }
     if history {
         opening_history::begin(&mut world, files)?;
     }

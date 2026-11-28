@@ -260,14 +260,13 @@ fn pick_want<'a>(
             range.insert(("person", id));
         } else if reach.contains(id) {
             range.insert(("place", id));
-        } else if items.contains_key(id)
-            && value_of(world, geo, context, actor, person, id)? > floor
-        {
+        } else if items.contains_key(id) {
             let holder = initial_wants::root(world, id)?;
-            let own_want = &world["actors"][holder]["want"];
+            let other_want = &world["actors"][holder]["want"];
             if holder != actor
                 && context.regions.contains_key(holder)
-                && (own_want["kind"] != "item" || own_want["target"] != id)
+                && (other_want["kind"] != "item" || other_want["target"] != id)
+                && value_of(world, geo, context, actor, person, id)? > floor
             {
                 range.insert(("item", id));
             }

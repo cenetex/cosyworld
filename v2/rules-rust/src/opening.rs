@@ -150,16 +150,19 @@ fn holds_lamp(item: &Value) -> Option<bool> {
 }
 
 pub(super) fn stored_response(mut world: Value) -> Option<Value> {
-    let world = world.as_object_mut()?;
+    let fields = world.as_object_mut()?;
     for transient in [
         "playerActorId",
         "controlledActors",
         "presentActors",
         "heldActors",
     ] {
-        world.remove(transient);
+        fields.remove(transient);
     }
-    Some(json!({"ok": true, "world": world}))
+    let mut response = serde_json::Map::new();
+    response.insert("ok".into(), Value::Bool(true));
+    response.insert("world".into(), world);
+    Some(Value::Object(response))
 }
 
 pub(super) fn presence(request: &Value) -> Option<Value> {
