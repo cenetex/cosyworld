@@ -179,23 +179,23 @@ describe("deploy workflow", () => {
     expect(rustLint).toContain("bash v2/scripts/check-main-size.sh");
     expect(rustLint).toContain("bash v2/scripts/check-rust-lint.sh");
     expect(gate).toContain(
-      "needs: [deployment-impact, release-owner, production-node-gate, production-unit, production-rust-gate, production-rust-lint]",
+      "needs: [release-owner, production-node-gate, production-unit, production-rust-gate, production-rust-lint]",
     );
     expect(gate).toContain('test "$NODE_RESULT" = success');
     expect(gate).toContain('test "$UNIT_RESULT" = success');
     expect(gate).toContain('test "$RUST_RESULT" = success');
     expect(gate).toContain('test "$RUST_LINT_RESULT" = success');
     expect(job("primary-backup", "primary-fly")).toContain(
-      "needs: [deployment-impact, release-owner]",
+      "needs: [release-owner]",
     );
     expect(job("primary-fly", "lonelyforest-image")).toContain(
-      "needs: [deployment-impact, release-owner, production-gate, primary-image, primary-backup]",
+      "needs: [release-owner, production-gate, primary-image, primary-backup]",
     );
     expect(job("lonelyforest-backup", "lonelyforest-fly")).toContain(
-      "needs: [deployment-impact, release-owner]",
+      "needs: [release-owner]",
     );
     expect(job("lonelyforest-fly", "deploy-outcome")).toContain(
-      "needs: [deployment-impact, release-owner, production-gate, lonelyforest-image, lonelyforest-backup]",
+      "needs: [release-owner, production-gate, lonelyforest-image, lonelyforest-backup]",
     );
     // The card-only server has no classic worldpack bundle to compare (#1652).
     expect(workflow).not.toContain("check-deploy-worldpack");
@@ -212,7 +212,7 @@ describe("deploy workflow", () => {
     expect(base).toContain("base: ${{ steps.checked.outputs.base || needs.dev-plan.outputs.base }}");
     expect(base).toContain("node scripts/last-dev-rollout.mjs --checked");
     expect(job("dev-plan", "dev-checks-base")).not.toContain("--checked");
-    expect(job("dev-deploy", "deployment-impact")).toContain("needs: [dev-plan, dev-image]");
+    expect(job("dev-deploy", "release-owner")).toContain("needs: [dev-plan, dev-image]");
     const called = readFileSync(
       new URL("../../.github/workflows/fast-check.yml", import.meta.url),
       "utf8",
@@ -227,7 +227,7 @@ describe("deploy workflow", () => {
       "runs-on: ${{ vars.DEV_DEPLOY_RUNNER == 'fly' && fromJSON('[\"self-hosted\",\"fly\",\"cosyworld\"]') || 'ubuntu-latest' }}";
     for (const [name, next] of [
       ["dev-plan", "dev-checks"],
-      ["dev-deploy", "deployment-impact"],
+      ["dev-deploy", "release-owner"],
     ]) {
       const devJob = job(name, next);
       expect(devJob).toContain(fly);
@@ -246,8 +246,8 @@ describe("deploy workflow", () => {
     const train =
       "github.ref == 'refs/heads/main' &&\n      (((github.event_name == 'push' || github.event_name == 'schedule') && vars.COSYWORLD_DEV_TRAIN != 'off') ||\n       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))";
     // The plan, the image build and the rollout.
-    const dev = job("dev-plan", "deployment-impact");
-    const impact = job("deployment-impact", "release-owner");
+    const dev = job("dev-plan", "release-owner");
+    const impact = job("release-owner", "production-node-gate");
     const nodeGate = job("production-node-gate", "production-unit");
     const unitGate = job("production-unit", "production-rust-gate");
     const rustGate = job("production-rust-gate", "production-rust-lint");
@@ -256,8 +256,7 @@ describe("deploy workflow", () => {
     const primaryBackup = job("primary-backup", "primary-fly");
     const primaryFly = job("primary-fly", "lonelyforest-image");
 
-    // Every release job hangs off the impact job, which runs only for tags
-    // and production dispatches.
+
     expect(dev).toContain(`if: >-\n      ${train}`);
     expect(dev).toContain(
       "needs: dev-plan\n    if: needs.dev-plan.outputs.deploy == 'true'",
@@ -275,7 +274,7 @@ describe("deploy workflow", () => {
     // train, so no train holds the .dev group for them.
     for (const rust of [nodeGate, unitGate, rustGate, rustLint]) {
       expect(rust).toContain(
-        "needs: [deployment-impact, release-owner]\n    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'\n",
+        "needs: [release-owner]\n    if: needs.release-owner.outputs.owns == 'true'\n",
       );
       expect(rust).not.toContain("dev-deploy");
     }
@@ -475,9 +474,9 @@ describe("deploy workflow", () => {
   it("shares a commit image while each app keeps its own registry and rollout gates", () => {
     const primary = job("primary-image", "primary-backup");
     const forest = job("lonelyforest-image", "lonelyforest-backup");
-    expect(primary).toContain("needs: [deployment-impact, release-owner]");
+    expect(primary).toContain("needs: [release-owner]");
     expect(forest).toContain(
-      "needs: [deployment-impact, release-owner, primary-image]",
+      "needs: [release-owner, primary-image]",
     );
     expect(forest).toContain("!cancelled()");
     expect(forest).toContain("needs.primary-image.result == 'skipped'");
@@ -544,13 +543,8 @@ describe("deploy workflow", () => {
   });
 
   it("skips docs-only deploys and reuses release compilation work", () => {
-    const impact = job("deployment-impact", "production-node-gate");
-    const primaryFly = job("primary-fly", "lonelyforest-image");
-
-    expect(impact).toContain("scripts/check-deployment-impact.mjs");
-    expect(primaryFly).toContain(
-      "needs.deployment-impact.outputs.deploy == 'true'",
-    );
+    const dev = job("dev-plan", "dev-checks-base");
+    expect(dev).toContain("scripts/plan-dev-deploy.sh");
     expect(dockerfile).toContain("id=cosyworld-release-target-v1");
     expect(dockerfile).toContain(
       "from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked",
@@ -648,7 +642,7 @@ describe("deploy workflow", () => {
   it("queues .dev and production apart and keeps their rollouts apart", () => {
     expect(workflow).toContain("cancel-in-progress: false");
     expect(workflow).not.toContain("group: deploy-${{ github.ref }}");
-    const dev = job("dev-deploy", "deployment-impact");
+    const dev = job("dev-deploy", "release-owner");
     expect(dev).toContain("bash scripts/serialize-primary-rollout.sh dev");
     // The wait is the last step before the rollout.
     expect(dev.indexOf("- name: Wait for production deploys")).toBeLessThan(
