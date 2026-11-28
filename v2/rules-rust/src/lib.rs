@@ -50,6 +50,7 @@ mod opening_second_round;
 mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
+mod opening_station_move;
 mod opening_take;
 mod opening_take_response;
 mod opening_view;
@@ -193,6 +194,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_mirror_move") => {
             opening_mirror_move::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_station_move") => {
+            opening_station_move::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_pond_rumours") => {
             opening_pond_rumours::projection(request).unwrap_or(Value::Null)

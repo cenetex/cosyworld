@@ -58,6 +58,7 @@ export function browserRules(bytes) {
         [
           "opening_wait_roster",
           "opening_mirror_move",
+          "opening_station_move",
           "opening_pond_ask",
           "opening_pond_place_returns",
           "opening_pond_resident_sleep",
