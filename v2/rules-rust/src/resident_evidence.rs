@@ -11,6 +11,10 @@ impl ResidentEvidence {
         Some(Self(profiles))
     }
 
+    pub(super) fn into_profiles(self) -> Value {
+        Value::Object(self.0)
+    }
+
     pub fn record(
         &self,
         world: &mut Value,

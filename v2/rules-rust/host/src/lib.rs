@@ -151,7 +151,7 @@ fn encode_request(
                 | "opening_pond_ask"
                 | "opening_full_move"
         )
-    ) || (attic_play
+    ) || ((attic_play || pond_play)
         && request
             .get("world")
             .is_some_and(|world| world["began"] == 480));

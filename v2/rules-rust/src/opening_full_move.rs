@@ -43,9 +43,9 @@ fn quiet_ways(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<()> 
     opening_crossings::no_crossing_unlocks(world, geo)
 }
 
-pub(super) fn progress(
+fn progress(
     request: &Value,
-    finish: impl FnOnce(Value, &Geography<'_>, u64) -> Option<Value>,
+    finish: impl FnOnce(Value, &Geography<'_>, u64, ResidentEvidence) -> Option<Value>,
 ) -> Option<Value> {
     let (before, carry) = opening_mirror_move::move_world(request)?;
     opening_full_wait::quiet_opening(before)?;
@@ -110,20 +110,23 @@ pub(super) fn progress(
     if historic {
         opening_pond_rumours::settle(&mut world, &geo, before_seq)?;
     }
-    finish(world, &geo, before_seq)
+    finish(world, &geo, before_seq, evidence)
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
-    if request["world"]["turn"] != 0 {
-        return None;
-    }
-    progress(request, |world, geo, before_seq| {
-        super::opening_pond_view::completed_move_response(world, geo, before_seq, &["vale"])
+    progress(request, |world, geo, before_seq, evidence| {
+        super::opening_pond_view::completed_move_response_with_profiles(
+            world,
+            geo,
+            before_seq,
+            &["vale"],
+            || Some(evidence.into_profiles()),
+        )
     })
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
-    progress(request, |world, _, _| {
+    progress(request, |world, _, _, _| {
         let mut response = json!({"ok":true});
         response["world"] = world;
         Some(response)
