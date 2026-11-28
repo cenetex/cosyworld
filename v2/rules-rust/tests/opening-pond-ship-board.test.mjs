@@ -77,15 +77,25 @@ test("Vale's first boarding of The Charybdis matches the pinned Move and settlem
         "accept:vale::keeper",
         "move:vale::pond",
         "move:vale::station",
-        "move:vale::pond",
       ])
         world = play(world, action);
+      const lastRoom = seed === 17 && sorted;
+      if (lastRoom)
+        for (const item of ["lamp", "cloth"])
+          world = run({
+            ...seats,
+            op: "hold",
+            world,
+            choice: { item, revision: world.revision },
+          });
+      world = play(world, "move:vale::pond");
       if (sorted)
         world.actors = Object.fromEntries(
           Object.entries(world.actors).toSorted(),
         );
       world = play(world, "drop:vale:lamp:pond");
       assert.equal(world.transports[ship].dock, "pond");
+      assert.equal(world.items.lamp.fuel, lastRoom ? 4 : 8);
       if (seed === 17 && !sorted)
         world = run({
           ...seats,
