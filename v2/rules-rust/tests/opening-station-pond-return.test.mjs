@@ -30,6 +30,7 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
   let sample;
   let complete;
   let view;
+  let calledView;
   for (const [seed, dry, spoken, sorted] of [
     [undefined, false, false, false],
     [0, true, false, true],
@@ -149,6 +150,48 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
           assert.ok(!Object.hasOwn(projected, "events"));
         }
       }
+      if (key === "move:vale::pond") {
+        const withCloth = play(reply.world, "move:vale::station");
+        assert.equal(withCloth.actors.vale.heldItem, "cloth");
+        const ready = play(withCloth, "move:vale::pond");
+        const called = pinned({
+          ...seats,
+          op: "play",
+          world: ready,
+          action: "drop:vale:lamp:pond",
+        });
+        assert.equal(called.ok, true, called.error);
+        const request = {
+          ...seats,
+          op: "opening_pond_call_view",
+          world: called.world,
+          beforeSeq: ready.eventSeq,
+        };
+        const signal = called.world.crossings["pond-greek-harbor"];
+        assert.equal(signal.discovered, !dry);
+        if (dry) {
+          assert.equal(wasm(request), null);
+        } else {
+          assert.ok(isDeepStrictEqual(wasm(request), called), label);
+          const spoken = run({
+            ...seats,
+            op: "speech",
+            room: "pond",
+            world: called.world,
+            lines: [{ actorId: "vale", text: "The ship has come." }],
+          });
+          for (const [world, present] of [
+            [called.world, seats.present],
+            [spoken, []],
+          ]) {
+            calledView = { ...seats, op: "view", world, present };
+            assert.ok(
+              isDeepStrictEqual(wasm(calledView), pinned(calledView)),
+              `ship reload ${label}`,
+            );
+          }
+        }
+      }
       sample = request;
     }
     assert.equal(
@@ -173,6 +216,9 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
   }
   assert.equal(wasm({ ...sample, op, revision: sample.revision - 1 }), null);
   assert.equal(wasm({ ...complete, beforeSeq: complete.beforeSeq - 1 }), null);
+  const wrongDock = structuredClone(calledView.world);
+  wrongDock.transports["greek-ship"].dock = "greek-harbor";
+  assert.equal(wasm({ ...calledView, world: wrongDock }), null);
   for (const mutate of [
     (world) => {
       delete world.knowledge.known.vale["quest:keeper:pond"];

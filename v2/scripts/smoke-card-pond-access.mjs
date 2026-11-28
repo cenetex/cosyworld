@@ -300,7 +300,6 @@ try {
     await ready();
     await assertLitShut();
     await painted("attic-lit");
-    // Lit with the cloth here, the mirror still shows only the room.
     const clothed = await state();
     clothed.items.cloth.holder = "attic";
     await page.evaluate(

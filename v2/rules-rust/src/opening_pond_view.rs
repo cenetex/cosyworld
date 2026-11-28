@@ -455,6 +455,9 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     if world["turn"] == 4 && world.get("began").is_none() {
         return super::opening_pond_return_view::private_view(request);
     }
+    if world["turn"] == 7 && world.get("began").is_none() {
+        return super::opening_pond_call_view::private_view(request);
+    }
     if world["speechVoices"][VALE] != json!([VALE, PIP]) {
         return None;
     }
