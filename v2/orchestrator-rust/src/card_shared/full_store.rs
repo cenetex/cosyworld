@@ -344,8 +344,7 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
     let room = w.room(a)?;
     let here = w.present[a] == 1;
     let projected = w.project(a)?;
-    // A committed play belongs to this avatar even after its scene leaves the
-    // recent history. Claims, queued plays and other avatars keep this false.
+    // Only this avatar's committed plays count, even after their scenes leave recent history.
     let music_started: bool = c
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM card_full_log WHERE world=? AND json_extract(command,'$.actor')=? AND json_extract(command,'$.op')='play')",
