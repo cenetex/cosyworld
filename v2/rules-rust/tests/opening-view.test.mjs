@@ -336,3 +336,69 @@ test("the private view after the first attic Drop projects the grounded lamp", a
     }
   }
 });
+
+test("the private second Take view preserves the carried lamp and earlier Drop", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [undefined, 2, 17, 42, 4242, 4_294_967_295]) {
+    const { world: fresh } = success(pinned, { op: "create", seed });
+    for (const lamp of ["held", "stowed", "dry"]) {
+      const world =
+        lamp === "stowed" ? stowLamp(pinned, fresh) : structuredClone(fresh);
+      if (lamp === "dry")
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      const dropped = success(pinned, {
+        ...solo,
+        op: "play",
+        world,
+        action: "drop:vale:lamp:attic",
+      });
+      const taken = success(pinned, {
+        ...solo,
+        op: "play",
+        world: dropped.world,
+        action: "take:vale:lamp:",
+      });
+      assert.equal(taken.world.turn, 2);
+      assert.ok(Object.hasOwn(taken.world.memories.mara, "subjects"));
+      const spoken = success(pinned, {
+        ...solo,
+        op: "speech",
+        world: taken.world,
+        room: "attic",
+        lines: [
+          { actorId: "vale", text: "I take the lamp again." },
+          { entityId: "attic", text: "The floorboards settle." },
+        ],
+      });
+      for (const state of [taken.world, spoken.world]) {
+        for (const present of [solo.present, []]) {
+          const label = `seed ${seed}, ${lamp} lamp, present ${present}, seq ${state.eventSeq}`;
+          const reply = view(
+            pinned,
+            wasm,
+            { ...solo, present, op: "view", world: state },
+            label,
+          );
+          assert.deepEqual(reply.world.speechVoices.vale, ["vale"]);
+          assert.deepEqual(reply.world.memories.vale, state.memories.vale);
+          assert.equal(reply.world.memories.mara.subjects, undefined);
+          assert.deepEqual(reply.world.presentActors, present);
+          assert.deepEqual(reply.exits, lamp === "dry" ? ["pond"] : []);
+          assert.equal(
+            reply.actions.some(
+              (action) => action.key === "move:vale:lamp:pond",
+            ),
+            lamp === "dry",
+          );
+          assert.equal(
+            reply.actions.some((action) => action.sleep),
+            false,
+          );
+        }
+      }
+      const forged = structuredClone(taken.world);
+      forged.log.find((entry) => entry.verb === "drop").itemId = "cloth";
+      assert.equal(wasm({ ...solo, op: "view", world: forged }), null);
+    }
+  }
+});
