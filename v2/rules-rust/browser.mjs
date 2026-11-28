@@ -40,11 +40,15 @@ export function browserRules(bytes) {
       )
         throw new Error("Invalid rules WASM pack content or request");
       const key =
-        typeof request.action === "string" ? request.action : request.action?.key;
+        typeof request.action === "string"
+          ? request.action
+          : request.action?.key;
+      const atticPlay =
+        request.op === "play" &&
+        (key === "wait:vale::" || key === "drop:vale:lamp:attic");
       const ordered =
         ["opening_wait_roster", "opening_mirror_move"].includes(request.op) ||
-        (request.op === "play" &&
-          (key === "wait:vale::" || key === "drop:vale:lamp:attic"));
+        atticPlay;
       const actors = ordered ? request.world?.actors : null;
       const actorOrder =
         actors && typeof actors === "object" && !Array.isArray(actors)
@@ -52,9 +56,7 @@ export function browserRules(bytes) {
           : undefined;
       const cards =
         request.op === "opening_place_return" ||
-        (request.op === "play" &&
-          key === "wait:vale::" &&
-          request.world?.began === 480)
+        (atticPlay && request.world?.began === 480)
           ? request.world?.placeCard
           : null;
       const placeCardOrder =

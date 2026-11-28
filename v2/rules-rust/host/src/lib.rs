@@ -129,10 +129,10 @@ fn encode_request(
         .get("action")
         .and_then(|action| action.as_str().or_else(|| action["key"].as_str()))
         .filter(|_| op == Some("play"));
-    let ordered = matches!(op, Some("opening_wait_roster" | "opening_mirror_move"))
-        || matches!(play, Some("wait:vale::" | "drop:vale:lamp:attic"));
+    let attic_play = matches!(play, Some("wait:vale::" | "drop:vale:lamp:attic"));
+    let ordered = matches!(op, Some("opening_wait_roster" | "opening_mirror_move")) || attic_play;
     let ordered_cards = op == Some("opening_place_return")
-        || (play == Some("wait:vale::")
+        || (attic_play
             && request
                 .get("world")
                 .is_some_and(|world| world["began"] == 480));
@@ -246,6 +246,14 @@ mod tests {
             .unwrap()
             .keys()
             .collect();
+        assert_eq!(encoded["placeCardOrder"], json!(keys));
+        let drop = json!({
+            "op":"play", "action":{"key":"drop:vale:lamp:attic"},
+            "world":{"began":480,"placeCard":returns["world"]["placeCard"]},
+            "placeCardOrder":["other"]
+        });
+        let input = encode_request(&drop, Some(pack), false).unwrap();
+        let encoded: Value = serde_json::from_slice(&input).unwrap();
         assert_eq!(encoded["placeCardOrder"], json!(keys));
         let long = "x".repeat(MAX_JSON_BYTES + 1);
         assert!(encode_request(&json!({"op":"view"}), Some(&long), false).is_err());

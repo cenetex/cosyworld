@@ -13,6 +13,26 @@ const ROOM: &str = "attic";
 const LAMP: &str = "lamp";
 pub(super) const DROP: &str = "drop:vale:lamp:attic";
 
+pub(super) fn grounding_committed(world: &Value) -> Option<()> {
+    if world["items"][LAMP]["holder"] != ROOM
+        || world["actors"][VALE].get("heldItem") != Some(&Value::Null)
+    {
+        return None;
+    }
+    let mut actions = world["log"].as_array()?.iter().filter(|entry| {
+        entry["kind"] == "action" && entry["actorId"] == VALE && entry["generated"] != true
+    });
+    let drop = actions.next()?;
+    (drop["verb"] == "drop"
+        && drop["turn"] == world["turn"]
+        && drop["itemId"] == LAMP
+        && drop["locationId"] == ROOM
+        && drop["fromLocationId"] == ROOM
+        && drop["targetId"] == ROOM
+        && actions.next().is_none())
+    .then_some(())
+}
+
 pub(super) fn drop_world(request: &Value) -> Option<&Value> {
     let world = opening::supported_world(request)?;
     let action = &request["action"];

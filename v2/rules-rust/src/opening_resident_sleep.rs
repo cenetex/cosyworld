@@ -220,10 +220,12 @@ pub(super) fn historic_attic(world: &Value) -> Option<i64> {
         || !vale_only(&world["controlledActors"])
         || !vale_only(&world["presentActors"])
         || world["actors"]["vale"]["place"] != "attic"
-        || world["items"]["lamp"]["holder"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
     {
         return None;
+    }
+    if world["items"]["lamp"]["holder"] != "vale" {
+        super::opening_drop::grounding_committed(world)?;
     }
     Some(turn)
 }
@@ -321,4 +323,28 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let mut response = json!({"ok":true});
     response["world"] = world;
     Some(response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_grounded_lamp_needs_vales_first_committed_drop() {
+        let mut world = json!({
+            "turn":481, "began":480, "standoffs":[],
+            "controlledActors":["vale"], "presentActors":["vale"],
+            "actors":{"vale":{"place":"attic","heldItem":null}},
+            "items":{"lamp":{"holder":"attic"}}, "log":[]
+        });
+        assert_eq!(historic_attic(&world), None);
+        world["log"] = json!([{
+            "kind":"action", "actorId":"vale", "verb":"drop", "turn":481,
+            "itemId":"lamp", "locationId":"attic",
+            "fromLocationId":"attic", "targetId":"attic"
+        }]);
+        assert_eq!(historic_attic(&world), Some(481));
+        world["actors"]["vale"]["heldItem"] = json!("lamp");
+        assert_eq!(historic_attic(&world), None);
+    }
 }

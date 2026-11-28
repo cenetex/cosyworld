@@ -123,7 +123,6 @@ pub(super) async fn generate(
     introduction: Option<&Introduction>,
 ) -> Result<Value> {
     let (payload, ids) = prepared(actor, work)?;
-    // A silent play voices no one: it finishes with no lines and no model call.
     if ids.is_empty() {
         return Ok(json!([]));
     }
