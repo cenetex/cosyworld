@@ -16,8 +16,7 @@ test("quiet Pond-to-Station plays return the complete pinned reply", async () =>
   let sample;
   for (const seed of [undefined, 0, 2, 7, 17, 42, 99, 4242, 4_294_967_295]) {
     for (const waited of [false, true]) {
-      const rueArrives = seed === 7 || seed === 99;
-      if (rueArrives && waited) continue;
+      if (waited && (seed === 7 || seed === 99)) continue;
       for (const stowed of [false, true]) {
         let world = run({ op: "create", seed });
         if (stowed) {
@@ -68,7 +67,14 @@ test("quiet Pond-to-Station plays return the complete pinned reply", async () =>
             isDeepStrictEqual(actual, expected),
             `${label} ${field} ${part}`,
           );
-          if (rueArrives) {
+          if (
+            expected.events.some(
+              ({ actorId, verb, locationId }) =>
+                actorId === "rue" &&
+                verb === "move" &&
+                locationId === "station",
+            )
+          ) {
             assert.deepEqual(actual.world.speechVoices.vale, [
               "vale",
               "keeper",
