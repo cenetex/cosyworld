@@ -1,6 +1,34 @@
 use super::{opening, opening_play, opening_play::Mirror};
 use serde_json::{json, Value};
 
+pub fn create_response(world: Value, files: &Value, actor: &str) -> Option<Value> {
+    let vale = world["actors"].get("vale")?;
+    if actor != "vale"
+        || world["schema"] != 8
+        || world["sharedVersion"] != 1
+        || world["revision"].as_u64() != Some(opening::unplayed_turn(&world)?)
+        || vale["place"] != "attic"
+        || vale["heldItem"] != "lamp"
+        || vale.get("want") != Some(&Value::Null)
+        || world["items"]["lamp"]["lit"] != true
+        || !world["placeCard"]["attic"].is_null()
+    {
+        return None;
+    }
+    opening_play::attic_state(&world)?;
+    opening_play::attic_content(files)?;
+    if other_attic_content(files)? {
+        return None;
+    }
+    opening_play::attic_response(
+        opening::stored_response(world)?,
+        files,
+        Mirror::Shut {
+            quest_accepted: false,
+        },
+    )
+}
+
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     let world = opening::supported_world(request)?;
     if request["actor"] != "vale"
@@ -110,4 +138,57 @@ fn pack_adds_attic_cards(pack: &Value) -> bool {
                     .is_some_and(|docks| docks.iter().any(|dock| dock == "attic"))
             })
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_response_keeps_saved_memories_and_drops_only_seat_context() {
+        let content: Value = serde_json::from_str(include_str!(
+            "../../orchestrator-rust/src/card_shared/content.json"
+        ))
+        .unwrap();
+        let files = &content["files"];
+        let mut saved_world = json!({
+            "schema": 8, "sharedVersion": 1, "revision": 0, "turn": 0,
+            "actors": {
+                "vale": {"place": "attic", "heldItem": "lamp", "want": null},
+                "mara": {"place": "station", "heldItem": null, "want": null}
+            },
+            "items": {"lamp": {"holder": "vale", "lit": true}},
+            "doors": {}, "standoffs": [], "log": [], "usedUp": [],
+            "memories": {"mara": {
+                "events": [], "reflections": [], "learning": [],
+                "subjects": {}, "innerLife": {"thoughts": ["A fresh memory."]}
+            }}
+        });
+        let mut world = saved_world.clone();
+        world["playerActorId"] = json!("vale");
+        for field in ["heldActors", "controlledActors", "presentActors"] {
+            world[field] = json!(["vale"]);
+        }
+        assert!(create_response(world.clone(), files, "mara").is_none());
+        let response = create_response(world, files, "vale").unwrap();
+        assert_eq!(response["world"], saved_world);
+        assert_eq!(response["actor"], "vale");
+        assert_eq!(response["room"], "attic");
+        assert_eq!(response["exits"], json!([]));
+        assert_eq!(
+            response["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|action| action["key"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            [
+                "wait:vale::",
+                "drop:vale:lamp:attic",
+                "accept:vale::box:pond"
+            ]
+        );
+        saved_world["revision"] = json!(1);
+        assert!(create_response(saved_world, files, "vale").is_none());
+    }
 }
