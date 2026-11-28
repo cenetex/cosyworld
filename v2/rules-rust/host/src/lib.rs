@@ -165,6 +165,7 @@ fn encode_request(
                 | "opening_keeper_abandon_gift"
                 | "opening_keeper_return_gift"
                 | "opening_keeper_abandon_reply"
+                | "opening_keeper_return_reply"
                 | "opening_pond_ask"
                 | "opening_pond_call"
                 | "opening_station_residents"

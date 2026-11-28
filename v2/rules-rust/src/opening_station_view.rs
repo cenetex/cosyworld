@@ -17,8 +17,8 @@ use super::{
     opening_station_move::{self, rue_arrived},
     opening_station_quest_drop_learning::confirm_pip_wait,
     opening_station_read::{
-        first_log_history, keeper_book_claim, keeper_want, settled_first_read, witnessed_read_wait,
-        KEEPER_FROM,
+        first_log_history, keeper_book_claim, keeper_want, keeper_want_from_read,
+        settled_first_read, witnessed_read_wait, KEEPER_FROM,
     },
     opening_station_read_wait::{observe_place, record_wait_learning},
     opening_view, opening_visitor_routes, opening_wants,
@@ -28,6 +28,9 @@ use super::{
     Geography,
 };
 use serde_json::{json, Value};
+
+#[path = "opening_station_return_view.rs"]
+pub(super) mod keeper_return;
 
 const VALE: &str = "vale";
 const PIP: &str = "moth";
@@ -244,7 +247,8 @@ fn station_scene<'a>(
     let met_keeper = world["opening"]["met"][KEEPER].as_u64()?;
     let after_read = turn == 3 && met_keeper == 2 && settled_first_read(world).is_some();
     let arrival_turn = turn - u64::from(train_abandoned(world));
-    let after_gift = keeper_abandoned(world);
+    let returned = keeper_return::active(world);
+    let after_gift = keeper_abandoned(world) || returned;
     let historic = historic_station(world);
     let actors = world["actors"].as_object()?;
     let vale = actors.get(VALE)?;
@@ -291,10 +295,16 @@ fn station_scene<'a>(
             return None;
         }
     } else if !vale["want"].is_null()
-        && (!after_read
-            || vale.get("content").is_some()
+        && (vale.get("content").is_some()
             || vale.get("offered").is_some()
-            || vale["want"] != keeper_want(world, geo)?)
+            || vale["want"]
+                != match (after_read, returned) {
+                    (true, false) => keeper_want(world, geo)?,
+                    (false, true) => {
+                        keeper_want_from_read(world, geo, keeper_return::read_seq(world)?)?
+                    }
+                    _ => return None,
+                })
     {
         return None;
     }
@@ -532,24 +542,24 @@ fn station_projection(
     station_paths(world, geo)?;
     let profiles = profile_source()?;
     let mut plans = actions(world, geo, authored, &profiles, &company, train_accepted)?;
-    if world["turn"] == 3
+    let after_read = world["turn"] == 3
         && world["opening"]["met"][KEEPER] == 2
-        && settled_first_read(world).is_some()
+        && settled_first_read(world).is_some();
+    if keeper_return::active(world)
+        || (after_read && world["actors"][VALE]["want"]["from"] == KEEPER_FROM)
     {
+        let name = |id: &str| profiles[id]["name"].as_str();
+        let goal = keeper_call_goal(name("cloth")?, name(POND)?, name(LAMP)?);
+        plans.push(abandon_offer(format!(
+            "{} abandons their quest to {goal}.",
+            name(VALE)?
+        )));
+    } else if after_read {
         let vale = profiles[VALE]["name"].as_str()?;
-        if world["actors"][VALE]["want"]["from"] == KEEPER_FROM {
-            let cloth = profiles["cloth"]["name"].as_str()?;
-            let pond = profiles[POND]["name"].as_str()?;
-            let lamp = profiles[LAMP]["name"].as_str()?;
-            let goal = keeper_call_goal(cloth, pond, lamp);
-            let text = format!("{vale} abandons their quest to {goal}.");
-            plans.push(abandon_offer(text));
-        } else {
-            let index = plans.iter().position(|plan| plan["key"] == ACCEPT_TRAIN)?;
-            let keeper = profiles[KEEPER]["name"].as_str()?;
-            let text = format!("{vale} accepts {keeper}'s quest.");
-            plans.insert(index, offer("accept", None, Some(KEEPER), text, &[]));
-        }
+        let index = plans.iter().position(|plan| plan["key"] == ACCEPT_TRAIN)?;
+        let keeper = profiles[KEEPER]["name"].as_str()?;
+        let text = format!("{vale} accepts {keeper}'s quest.");
+        plans.insert(index, offer("accept", None, Some(KEEPER), text, &[]));
     }
     Some((plans, profiles))
 }
@@ -1007,34 +1017,24 @@ fn keeper_abandon_events<'a>(world: &'a Value, geo: &Geography<'_>) -> Option<&'
     let events = log.get(log.len().checked_sub(2)?..)?;
     let forest = &geo.files()["v2/card-game/forest.json"];
     let vale = forest["people"][VALE]["name"].as_str()?;
-    let pip = forest["people"][PIP]["name"].as_str()?;
     let cloth = forest["things"]["cloth"]["name"].as_str()?;
     let goal = keeper_call_goal(
         cloth,
         forest["places"][POND]["name"].as_str()?,
         forest["things"][LAMP]["name"].as_str()?,
     );
-    let cast = gift["cast"].as_array()?;
-    let cloth_id = |item: &&Value| item["id"] == "cloth";
-    (events.iter().all(|event| {
-        event["turn"] == 4
-            && event["kind"] == "action"
-            && event["speaker"] == "World"
-            && event["locationId"] == STATION
-            && event["generated"] != true
-            && event["cast"] == gift["cast"]
-            && event["witnesses"] == wait["witnesses"]
-            && event["light"] == false
-    }) && cast.len() == 3
-        && [VALE, PIP, KEEPER]
-            .iter()
-            .all(|id| cast.iter().any(|member| member == id))
+    keeper_return::witnessed_gift(gift, wait, geo, 4)?;
+    (drop["turn"] == 4
+        && drop["kind"] == "action"
+        && drop["speaker"] == "World"
+        && drop["locationId"] == STATION
+        && drop["generated"] != true
+        && drop["cast"] == gift["cast"]
+        && drop["witnesses"] == wait["witnesses"]
+        && drop["light"] == false
         && drop["text"] == format!("{vale} abandons their quest to {goal}.")
-        && entries(&drop["items"]).find(cloth_id)?["holder"] == PIP
-        && gift["fromLocationId"] == STATION
-        && entries(&gift["items"]).find(cloth_id)?["holder"] == VALE
-        && gift["text"] == format!("{pip} gives {} to {vale}.", item_as_named(cloth)))
-    .then_some(events)
+        && entries(&drop["items"]).find(|item| item["id"] == "cloth")?["holder"] == PIP)
+        .then_some(events)
 }
 
 pub fn completed_keeper_abandon(
@@ -1057,28 +1057,6 @@ pub fn completed_keeper_abandon(
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = events;
     Some(response)
-}
-
-pub(super) fn keeper_abandon_reply(request: &Value) -> Option<Value> {
-    if request["actor"] != VALE
-        || opening::seats(&request["claimed"])? != [VALE]
-        || opening::seats(&request["present"])? != [VALE]
-    {
-        return None;
-    }
-    let world = request.get("world")?;
-    let order = opening_roster::actor_order(request, world)?;
-    let (files, authored) = opening_content::wait_files(request)?;
-    let catalog = Catalog::from_files(&files)?;
-    let geo = Geography::new(&files, catalog.packs())?;
-    completed_keeper_abandon(
-        world.clone(),
-        &geo,
-        &authored,
-        &order,
-        request["beforeSeq"].as_u64()?,
-        profiles::project(&files)?,
-    )
 }
 
 fn abandonment_events(world: &Value) -> Option<&[Value]> {
@@ -1338,7 +1316,8 @@ fn project_private(request: &Value, present: &[&str], awake_historic: bool) -> O
     let world = request.get("world")?;
     let train_accepted = world["actors"][VALE]["want"]["from"] == "quest:box:train";
     let abandoned = train_abandoned(world);
-    let after_gift = keeper_abandoned(world);
+    let returned = keeper_return::active(world);
+    let after_gift = keeper_abandoned(world) || returned;
     let after_read = world["turn"] == 3 && settled_first_read(world).is_some();
     let named = if after_read {
         &[]
@@ -1368,7 +1347,9 @@ fn project_private(request: &Value, present: &[&str], awake_historic: bool) -> O
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    if after_gift {
+    if returned {
+        keeper_return::events(world, &geo)?;
+    } else if after_gift {
         keeper_abandon_events(world, &geo)?;
     }
     let actor_order = super::opening_roster::actor_order(request, world)?;

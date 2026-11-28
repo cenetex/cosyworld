@@ -140,8 +140,7 @@ export function validLearning(world, actor, lessons, profiles) {
   return valid;
 }
 
-// Public character text remains available on cards. A player's own inner life
-// belongs to that player; resident inner life stays with the simulation.
+// Cards retain public character text. Private inner life stays with its player or the simulation.
 export function privateView(world, actor) {
   const view = structuredClone(world);
   for (const [id, memory] of Object.entries(view.memories)) {

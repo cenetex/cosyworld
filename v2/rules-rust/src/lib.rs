@@ -248,7 +248,10 @@ pub fn reduce(request: &Value) -> Value {
             opening_station_keeper_gift::projection(request, true).unwrap_or(Value::Null)
         }
         Some("opening_keeper_abandon_reply") => {
-            opening_station_view::keeper_abandon_reply(request).unwrap_or(Value::Null)
+            opening_station_view::keeper_return::projection(request, false).unwrap_or(Value::Null)
+        }
+        Some("opening_keeper_return_reply") => {
+            opening_station_view::keeper_return::projection(request, true).unwrap_or(Value::Null)
         }
         Some("opening_station_train_quest") => {
             opening_station_view::accept_train(request).unwrap_or(Value::Null)
