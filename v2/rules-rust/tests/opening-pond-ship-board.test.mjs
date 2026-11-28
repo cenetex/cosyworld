@@ -26,9 +26,13 @@ function captureBoarding(source) {
     ["late", "    noteRumours(s, next, wantAPI(next), wantAPI(s));"],
   ]) {
     assert.equal(source.split(cut).length, 2, name);
+    const course =
+      name === "late"
+        ? "    if (next.turn === 9) globalThis.underWay = structuredClone(next);\n"
+        : "";
     source = source.replace(
       cut,
-      `    if (next.turn === 8) globalThis.${name} = structuredClone(next);\n${cut}`,
+      `${course}    if (next.turn === 8) globalThis.${name} = structuredClone(next);\n${cut}`,
     );
   }
   const plan =

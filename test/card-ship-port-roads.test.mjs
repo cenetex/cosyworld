@@ -496,7 +496,6 @@ describe("ports reachable on foot or by a free leg home", () => {
   it("walks the land route home from Piraeus along the open Long Walls", () => {
     let s = openDoorStart();
     s = holding(s, "greek-creon-writ", "greek-guard");
-    // Roaming residents aboard go ashore: the ship is empty.
     for (const a of Object.values(s.actors))
       if (a.place === "greek-ship") a.place = "greek-piraeus";
     s.actors.vale.place = "greek-piraeus";

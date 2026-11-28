@@ -38,14 +38,20 @@ pub(super) fn boarding_world(request: &Value) -> Option<(&Value, bool)> {
 }
 
 pub(super) fn arrival_event(world: &Value) -> Option<&Value> {
+    if world["turn"] != 8 || world["transports"][SHIP]["since"] != 8 {
+        return None;
+    }
+    boarding_event(world)
+}
+
+pub(super) fn boarding_event(world: &Value) -> Option<&Value> {
     let seq = world["arrival"]["seq"].as_u64()?;
     let event = world["log"]
         .as_array()?
         .iter()
         .find(|event| event["seq"] == seq)?;
     let vale = &world["actors"][VALE];
-    (world["turn"] == 8
-        && world["arrival"] == json!({"seq":seq,"fromLocationId":POND,"locationId":SHIP})
+    (world["arrival"] == json!({"seq":seq,"fromLocationId":POND,"locationId":SHIP})
         && event["turn"] == 8
         && vale_action(event)
         && event["verb"] == "move"
@@ -55,9 +61,8 @@ pub(super) fn arrival_event(world: &Value) -> Option<&Value> {
         && (event["itemId"].is_null() || event["itemId"] == CLOTH)
         && vale["place"] == SHIP
         && vale["crossed"] == 2
-        && vale["visited"] == json!(["attic", POND, "station", SHIP])
-        && world["transports"][SHIP]["since"] == 8)
-        .then_some(event)
+        && vale["visited"] == json!(["attic", POND, "station", SHIP]))
+    .then_some(event)
 }
 
 pub(super) fn arrival(world: &Value) -> Option<u64> {
