@@ -158,8 +158,7 @@ fn sqlite_rules_wasm_parity_opening_reflection() {
     assert_eq!(replayed, Some(world));
 }
 
-// A reflection that fails, or has no speech before it, leaves the journal and
-// the world as they were.
+// The journal records a reflection only after prior speech and a successful result.
 #[test]
 fn refused_or_orphan_reflections_leave_the_world_whole() {
     let (path, mut c, id) = fixture();
