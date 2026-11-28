@@ -1,7 +1,8 @@
 use super::{
     create_geography::Geography,
     initial_wants::{People, Person},
-    opening_visitor_routes,
+    opening_content, opening_play, opening_visitor_routes,
+    pack_state::Catalog,
 };
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, VecDeque};
@@ -95,10 +96,21 @@ fn can_walk_home<'a>(
 }
 
 pub(super) fn verify(world: &mut Value, geo: &Geography) -> Option<()> {
+    if world["turn"].as_u64()? != 1 {
+        return None;
+    }
+    verify_opening_day(world, geo)
+}
+
+pub(super) fn verify_second_attic(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    opening_play::second_attic_plays(world)?;
+    verify_opening_day(world, geo)
+}
+
+fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let room = world["actors"]["vale"]["place"].as_str()?.to_owned();
-    if turn != 1
-        || world.get("began").is_some_and(|t| t != 0)
+    if world.get("began").is_some_and(|t| t != 0)
         || world["sharedVersion"] != 1
         || !matches!(room.as_str(), "attic" | "pond")
         || (room == "pond" && world["items"]["lamp"]["holder"] != "vale")
@@ -160,6 +172,15 @@ pub(super) fn verify(world: &mut Value, geo: &Geography) -> Option<()> {
         }
     }
     Some(())
+}
+
+pub(super) fn second_attic_projection(request: &Value) -> Option<Value> {
+    let (files, _) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let mut world = request.get("world")?.clone();
+    verify_second_attic(&mut world, &geo)?;
+    Some(json!({"ok":true, "world":world}))
 }
 
 fn home_level_due(world: &Value, geo: &Geography, id: &str, person: &Person) -> Option<bool> {

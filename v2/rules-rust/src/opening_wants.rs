@@ -220,39 +220,7 @@ fn settle_wants(
 }
 
 pub(super) fn settle_second_attic(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
-    if world["turn"] != 2
-        || world.get("began").is_some_and(|began| began != 0)
-        || world["sharedVersion"] != 1
-        || world["actors"]["vale"]["place"] != "attic"
-        || world["actors"]["vale"].get("want") != Some(&Value::Null)
-        || world["heldActors"] != json!(["vale"])
-        || world["controlledActors"] != json!(["vale"])
-        || world["presentActors"] != json!(["vale"])
-        || world["playerActorId"] != "vale"
-        || !world["elysiumEncounters"].is_null()
-        || !world["hidden"].is_null()
-        || !world["absent"].is_null()
-        || !world["gone"].is_null()
-    {
-        return None;
-    }
-    let mut plays = world["log"].as_array()?.iter().filter(|event| {
-        event["actorId"] == "vale" && event["kind"] == "action" && event["generated"] != true
-    });
-    let first = plays.next()?;
-    let second = plays.next()?;
-    if first["turn"] != 1
-        || second["turn"] != 2
-        || first["locationId"] != "attic"
-        || second["locationId"] != "attic"
-        || !matches!(
-            (first["verb"].as_str(), second["verb"].as_str()),
-            (Some("wait"), Some("wait")) | (Some("drop"), Some("take"))
-        )
-        || plays.next().is_some()
-    {
-        return None;
-    }
+    opening_play::second_attic_plays(world)?;
     settle_wants(world, geo, 2, false, false, opening_company::fade_trust)
 }
 

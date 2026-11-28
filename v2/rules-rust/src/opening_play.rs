@@ -49,6 +49,40 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     }
 }
 
+pub(super) fn second_attic_plays(world: &Value) -> Option<(&Value, &Value)> {
+    if world["turn"] != 2
+        || world.get("began").is_some_and(|began| began != 0)
+        || world["sharedVersion"] != 1
+        || world["actors"]["vale"]["place"] != "attic"
+        || world["actors"]["vale"].get("want") != Some(&Value::Null)
+        || world["heldActors"] != json!(["vale"])
+        || world["controlledActors"] != json!(["vale"])
+        || world["presentActors"] != json!(["vale"])
+        || world["playerActorId"] != "vale"
+        || !world["elysiumEncounters"].is_null()
+        || !world["hidden"].is_null()
+        || !world["absent"].is_null()
+        || !world["gone"].is_null()
+    {
+        return None;
+    }
+    let mut plays = world["log"].as_array()?.iter().filter(|event| {
+        event["actorId"] == "vale" && event["kind"] == "action" && event["generated"] != true
+    });
+    let first = plays.next()?;
+    let second = plays.next()?;
+    (first["turn"] == 1
+        && second["turn"] == 2
+        && first["locationId"] == "attic"
+        && second["locationId"] == "attic"
+        && matches!(
+            (first["verb"].as_str(), second["verb"].as_str()),
+            (Some("wait"), Some("wait")) | (Some("drop"), Some("take"))
+        )
+        && plays.next().is_none())
+    .then_some((first, second))
+}
+
 fn refusal(world: &Value, error: &str) -> Option<Value> {
     let mut response = opening::stored_response(world.clone())?;
     response["ok"] = json!(false);
