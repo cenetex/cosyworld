@@ -43,3 +43,52 @@ test("place card completion requiring narration stays outside the quiet slice", 
   );
   assert.equal(wasm({ ...request, op: "opening_place_cards" }), null);
 });
+
+test("one returned place card records the pinned history completion and memory", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const { seed, packRoom } of [
+    { seed: 2 },
+    { seed: 42 },
+    { packRoom: "ratiradio-broadcast-booth" },
+  ]) {
+    for (const stowed of [false, true]) {
+      let { world } = pinned({ op: "create", seed, history: true });
+      if (packRoom) {
+        assert.ok(world.placeCard[packRoom]);
+        world.placeCard = { [packRoom]: world.placeCard[packRoom] };
+      }
+      if (stowed) {
+        world = pinned({
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        }).world;
+      }
+      const request = { ...seats, world, action: "wait:vale::" };
+      const expected = pinned({ ...request, op: "play" });
+      assert.equal(expected.ok, true, expected.error);
+      const event = expected.events[1];
+      assert.equal(event.verb, "want_met");
+      assert.deepEqual(wasm({ ...request, op: "opening_place_return" }), {
+        ok: true,
+        event,
+        placeCard: expected.world.placeCard,
+        placeMet: expected.world.placeMet,
+        memories: Object.fromEntries(
+          ["vale", "attic", "lamp"].map((id) => [
+            id,
+            expected.world.memories[id],
+          ]),
+        ),
+      });
+    }
+  }
+  const { world } = pinned({ op: "create", history: true });
+  const request = { ...seats, world, action: "wait:vale::" };
+  const expected = pinned({ ...request, op: "play" });
+  assert.ok(
+    expected.events.filter((entry) => entry.verb === "want_met").length > 1,
+  );
+  assert.equal(wasm({ ...request, op: "opening_place_return" }), null);
+});

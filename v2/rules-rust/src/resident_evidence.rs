@@ -19,7 +19,10 @@ impl ResidentEvidence {
         mut detail: Value,
         retain: bool,
     ) -> Option<()> {
-        if detail["kind"] != "action" || !matches!(detail["verb"].as_str(), Some("take" | "move")) {
+        if !matches!(
+            (detail["kind"].as_str(), detail["verb"].as_str()),
+            (Some("action"), Some("take" | "move")) | (Some("narration"), Some("want_met"))
+        ) {
             return None;
         }
         let seq = world["eventSeq"].as_u64()?.checked_add(1)?;

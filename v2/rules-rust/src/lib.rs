@@ -152,6 +152,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_place_cards") => {
             opening_place_cards::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_place_return") => {
+            opening_place_cards::returned_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
         Some("opening_history_walkers") => {
             opening_history_walkers::projection(request).unwrap_or(Value::Null)

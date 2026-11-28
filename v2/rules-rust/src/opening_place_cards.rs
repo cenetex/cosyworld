@@ -1,4 +1,6 @@
-use super::{opening, opening_wait, pack_state::Catalog, Geography};
+use super::{
+    opening, opening_wait, pack_state::Catalog, resident_evidence::ResidentEvidence, Geography,
+};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -112,6 +114,22 @@ impl<'a> Deck<'a> {
         }
         Some(())
     }
+
+    pub(super) fn settle_return(
+        &self,
+        world: &mut Value,
+        geo: &Geography,
+        evidence: &ResidentEvidence,
+    ) -> Option<Option<Value>> {
+        let returned =
+            completed_at_home(world)?.map(|(home, item)| (home.to_owned(), item.to_owned()));
+        let event = match returned {
+            Some((home, item)) => Some(record_return(world, geo, evidence, &home, &item)?),
+            None => None,
+        };
+        self.settle(world, geo, Some("attic"))?;
+        Some(event)
+    }
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
@@ -123,4 +141,90 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     }
     Deck::new(&world, &geo)?.settle(&mut world, &geo, Some("attic"))?;
     Some(json!({"ok":true,"placeCard":world["placeCard"]}))
+}
+
+fn completed_at_home(world: &Value) -> Option<Option<(&str, &str)>> {
+    let mut returned = None;
+    for (home, card) in world["placeCard"].as_object().into_iter().flatten() {
+        let item = card.as_str()?;
+        if world["items"].get(item)?["holder"] == *home
+            && !includes(&world["gone"], item)
+            && !includes(&world["usedUp"], item)
+            && !includes(&world["placeMet"][home], item)
+        {
+            if returned.is_some() {
+                return None;
+            }
+            returned = Some((home.as_str(), item));
+        }
+    }
+    Some(returned)
+}
+
+fn record_return(
+    world: &mut Value,
+    geo: &Geography,
+    evidence: &ResidentEvidence,
+    home: &str,
+    item: &str,
+) -> Option<Value> {
+    let from = format!("quest:place:{home}");
+    for actor in world["actors"].as_object()?.values() {
+        let held = actor["under"].as_array().into_iter().flatten();
+        if std::iter::once(&actor["want"])
+            .chain(held)
+            .any(|want| want["from"] == from)
+        {
+            return None;
+        }
+    }
+    let files = geo.files();
+    let forest = &files["v2/card-game/forest.json"];
+    let place = forest["places"][home]["name"].as_str().or_else(|| {
+        geo.packs()
+            .find_map(|pack| pack["places"][home]["name"].as_str())
+    })?;
+    let belonging = forest["things"]
+        .get(item)
+        .or_else(|| geo.packs().find_map(|pack| pack["items"].get(item)))?;
+    if belonging["holder"] != home {
+        return None;
+    }
+    let vale = forest["people"]["vale"]["name"].as_str()?;
+    let turn = world["turn"].as_u64()?;
+    let terms = json!(["place", home, [["items", [item]], ["verb", "lay"]], null]);
+    let key = format!("vale:place:{home}:{turn}::{terms}");
+    let event = json!({
+        "speaker":"World", "text":format!("{vale} reaches {place}."),
+        "kind":"narration", "actorId":"vale", "locationId":"attic", "verb":"want_met", "ownerId":home,
+        "wantMet":{"kind":"place","target":home}, "wantKey":key,
+    });
+    let fields = world.as_object_mut()?;
+    let met = fields.entry("placeMet").or_insert_with(|| json!({}));
+    met.as_object_mut()?
+        .entry(home)
+        .or_insert_with(|| json!([]))
+        .as_array_mut()?
+        .push(json!(item));
+    evidence.record(world, &["vale"], &["lamp"], event, true)?;
+    world["log"].as_array()?.last().cloned()
+}
+
+pub(super) fn returned_projection(request: &Value) -> Option<Value> {
+    if request["claimed"] != json!(["vale"]) || request["present"] != json!(["vale"]) {
+        return None;
+    }
+    let (mut world, _, files) = opening_wait::begin(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let deck = Deck::new(&world, &geo)?;
+    let evidence = ResidentEvidence::new(&files)?;
+    let event = deck.settle_return(&mut world, &geo, &evidence)??;
+    Some(json!({
+        "ok":true, "event":event, "placeCard":world["placeCard"], "placeMet":world["placeMet"],
+        "memories":{
+            "vale":world["memories"]["vale"], "attic":world["memories"]["attic"],
+            "lamp":world["memories"]["lamp"],
+        },
+    }))
 }
