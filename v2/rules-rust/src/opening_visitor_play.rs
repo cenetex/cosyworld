@@ -135,6 +135,61 @@ fn quiet_departure_wait(
     opening_crossings::no_crossing_unlocks(world, geo)
 }
 
+fn record_station_meeting(world: &mut Value, geo: &Geography, actor: &str) -> Option<()> {
+    let turn = world["turn"].as_u64()?;
+    let incumbents = ["vale", "moth", "keeper"];
+    if turn != 2
+        || incumbents.iter().any(|id| {
+            world["actors"][id]["place"] != "station"
+                || world["opening"]["met"][id]
+                    .as_u64()
+                    .is_none_or(|met| met > turn)
+        })
+        || world["opening"]["met"].get(actor).is_some()
+        || !world["packs"]["shared-homes"]["met"][actor].is_null()
+        || geo.packs().any(|pack| {
+            entries(&pack["choices"]).any(|choice| {
+                choice["on"] == "meet" && (choice["at"].is_null() || choice["at"] == "station")
+            })
+        })
+        || world["packs"].as_object()?.values().any(|pack| {
+            pack["recitals"]
+                .as_object()
+                .into_iter()
+                .flat_map(|map| map.values())
+                .any(|recital| recital["actor"] == actor && recital["visit"].is_null())
+        })
+    {
+        return None;
+    }
+    for &id in &incumbents {
+        if !geo.entity_active(world, id)? {
+            return None;
+        }
+    }
+    for (id, person) in world["actors"].as_object()? {
+        if person["place"] == "station"
+            && id != actor
+            && !incumbents.contains(&id.as_str())
+            && geo.entity_active(world, id)?
+        {
+            return None;
+        }
+    }
+    world["opening"]["met"]
+        .as_object_mut()?
+        .insert(actor.to_owned(), json!(turn));
+    world["packs"]["shared-homes"]["met"]
+        .as_object_mut()?
+        .insert(actor.to_owned(), json!(turn));
+    Some(())
+}
+
+struct Visitor<'a> {
+    actor: &'a str,
+    station_meeting: bool,
+}
+
 pub(super) fn perform(
     world: &mut Value,
     geo: &Geography,
@@ -144,7 +199,31 @@ pub(super) fn perform(
     custody: &mut Custody,
     actor: &str,
 ) -> Option<()> {
+    perform_visitor(
+        world,
+        geo,
+        authored,
+        order,
+        evidence,
+        custody,
+        Visitor {
+            actor,
+            station_meeting: false,
+        },
+    )
+}
+
+fn perform_visitor(
+    world: &mut Value,
+    geo: &Geography,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+    custody: &mut Custody,
+    visitor: Visitor<'_>,
+) -> Option<()> {
     let turn = quiet_turn(world)?;
+    let actor = visitor.actor;
     let avatar = entries(&geo.files()["v2/card-game/shared-cast.json"]["avatars"])
         .find(|avatar| avatar["id"] == actor)?;
     let home = avatar["home"]["id"].as_str()?;
@@ -215,7 +294,8 @@ pub(super) fn perform(
     let crossing = entries(&homes["crossings"])
         .find(|crossing| crossing["from"] == home && crossing["to"] == to)?;
     let id = crossing["id"].as_str()?;
-    if (to == "station" && world["actors"]["vale"]["place"] == to)
+    let meeting = to == "station" && world["actors"]["vale"]["place"] == to;
+    if (meeting && !visitor.station_meeting)
         || world["doors"][home] != to
         || crossing["retired"] == true
         || !crossing["signal"].is_null()
@@ -256,6 +336,9 @@ pub(super) fn perform(
     a["crossed"] = json!(1);
     a["dwellUntil"] = json!(dwell);
     opening_crossings::no_crossing_unlocks(world, geo)?;
+    if meeting {
+        record_station_meeting(world, geo, actor)?;
+    }
     let cast = opening_roster::known_actors(world, geo, order, Some(to))?;
     let items = opening_full_wait::visible_items(world, geo, authored, to)?;
     let detail = json!({
@@ -285,14 +368,17 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let evidence = ResidentEvidence::new(&files)?;
     let mut custody = Custody::new(saved)?;
     let mut world = saved.clone();
-    perform(
+    perform_visitor(
         &mut world,
         &geo,
         &authored,
         &order,
         &evidence,
         &mut custody,
-        request["actor"].as_str()?,
+        Visitor {
+            actor: request["actor"].as_str()?,
+            station_meeting: true,
+        },
     )?;
     Some(json!({"ok":true,"world":world}))
 }
