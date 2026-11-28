@@ -43,7 +43,6 @@ pub(super) fn save(c: &Connection) -> Result<()> {
         params![current(), REVISION, current_text()],
     )
     .map_err(sql_error)?;
-    // An existing row must hold the same bytes; rows are never rewritten.
     match stored(c, current())? {
         Some(text) if text == current_text() => Ok(()),
         _ => Err(MISSING.into()),

@@ -296,8 +296,14 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     let all = std::env::var("COSYWORLD_REPLAY_ALL").as_deref() == Ok("1");
     let full = std::env::var("COSYWORLD_REQUIRE_FULL_REPLAY").as_deref() == Ok("1");
     let proof = std::env::var_os("COSYWORLD_EPOCH_PROOF");
-    if proof.is_some() && !(all && full) {
-        return Err("Epoch proof export requires all active worlds and strict replay.".into());
+    let check = std::env::var_os("COSYWORLD_EPOCH_CHECK");
+    if proof.is_some() && check.is_some() {
+        return Err("Choose either epoch proof export or a read-only proof check.".into());
+    }
+    if (proof.is_some() || check.is_some()) && !(all && full) {
+        return Err(
+            "Epoch proof export and checking require all active worlds and strict replay.".into(),
+        );
     }
     let (mut c, world) = match (std::env::var_os("COSYWORLD_REPLAY_DB"), world, all) {
         (Some(path), world, all) if world.is_none() == all => {
@@ -339,6 +345,11 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     }
     if let Some(path) = proof {
         return proof::export(std::path::Path::new(&path), &bytes, &report, &direct);
+    }
+    if let Some(path) = check {
+        proof::check(std::path::Path::new(&path), &bytes, &report, &direct)?;
+        println!("Epoch proof matches the verified journal snapshot and WASM candidate.");
+        return Ok(());
     }
     report.require_coverage(full)?;
     direct.require_coverage(full)

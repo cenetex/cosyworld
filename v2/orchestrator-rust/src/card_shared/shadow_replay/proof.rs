@@ -5,10 +5,13 @@ use serde::Serialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{self, OpenOptions},
-    io::{self, Write},
+    fs::{self, File, OpenOptions},
+    io::{self, Read, Write},
     path::Path,
 };
+
+const PROOF_MISMATCH: &str =
+    "The epoch proof differs from this verified journal snapshot or candidate.";
 
 #[derive(Debug, PartialEq, Serialize)]
 pub(super) struct Head {
@@ -62,6 +65,29 @@ pub(super) fn export(
     journal: &Report,
     direct: &direct::Report,
 ) -> Result<()> {
+    let bytes = canonical_bytes(artifact, journal, direct)?;
+    publish(path, &bytes).map_err(|err| format!("Could not publish the epoch proof: {err}"))
+}
+
+pub(super) fn check(
+    path: &Path,
+    artifact: &[u8],
+    journal: &Report,
+    direct: &direct::Report,
+) -> Result<()> {
+    let expected = canonical_bytes(artifact, journal, direct)?;
+    let limit = u64::try_from(expected.len()).map_err(|err| err.to_string())? + 1;
+    let mut recorded = Vec::new();
+    File::open(path)
+        .and_then(|file| file.take(limit).read_to_end(&mut recorded))
+        .map_err(|err| format!("Could not read the epoch proof: {err}"))?;
+    if recorded != expected {
+        return Err(PROOF_MISMATCH.into());
+    }
+    Ok(())
+}
+
+fn canonical_bytes(artifact: &[u8], journal: &Report, direct: &direct::Report) -> Result<Vec<u8>> {
     journal.require_coverage(true)?;
     direct.require_coverage(true)?;
     let mut heads: Vec<_> = journal.heads.iter().collect();
@@ -79,7 +105,7 @@ pub(super) fn export(
     });
     let mut bytes = serde_json::to_vec_pretty(&proof).map_err(|err| err.to_string())?;
     bytes.push(b'\n');
-    publish(path, &bytes).map_err(|err| format!("Could not publish the epoch proof: {err}"))
+    Ok(bytes)
 }
 
 fn publish(path: &Path, bytes: &[u8]) -> io::Result<()> {
@@ -168,6 +194,21 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
     assert_eq!(bytes, fs::read(&second).unwrap());
     assert!(export(&output, b"different", &journal, &direct).is_err());
     assert_eq!(bytes, fs::read(&output).unwrap());
+    check(&output, artifact, &journal, &direct)?;
+    assert_eq!(
+        check(&output, b"different", &journal, &direct).unwrap_err(),
+        PROOF_MISMATCH
+    );
+    assert!(check(&output, artifact, &incomplete, &direct).is_err());
+    direct.unsupported.push("create-fresh");
+    assert!(check(&output, artifact, &journal, &direct).is_err());
+    direct.unsupported.clear();
+    let padded = root.0.join("padded.json");
+    fs::write(&padded, [&bytes[..], b"\n"].concat()).unwrap();
+    assert_eq!(
+        check(&padded, artifact, &journal, &direct).unwrap_err(),
+        PROOF_MISMATCH
+    );
 
     let proof: Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(proof["format"], "cosyworld-epoch-readiness/v2");
@@ -205,6 +246,40 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
     drop(snapshot);
     drop(read);
     assert!(before == fs::read(&db).unwrap());
+    let read_changed_copy = |name: &str| -> Result<Report> {
+        let path = root.0.join(name);
+        c.backup(MAIN_DB, &path, None).map_err(sql_error)?;
+        let before = fs::read(&path).unwrap();
+        let mut read = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(sql_error)?;
+        let snapshot = read.transaction().map_err(sql_error)?;
+        let worlds = active_worlds(&snapshot)?;
+        let report = verify_worlds(&snapshot, &worlds, journal_oracle)?;
+        drop(snapshot);
+        drop(read);
+        assert_eq!(before, fs::read(&path).unwrap());
+        Ok(report)
+    };
+    c.execute_batch("UPDATE card_full_log SET at=at+1 WHERE seq=2")
+        .map_err(sql_error)?;
+    let timestamp = read_changed_copy("changed-timestamp.sqlite")?;
+    assert_eq!(
+        check(&output, artifact, &timestamp, &direct).unwrap_err(),
+        PROOF_MISMATCH
+    );
+
+    c.execute_batch(
+        "UPDATE card_full_log SET at=at-1 WHERE seq=2;
+         UPDATE card_full_log SET seq=5 WHERE seq=3;
+         UPDATE card_full_checkpoints SET seq=5 WHERE world='shadow-replay';",
+    )
+    .map_err(sql_error)?;
+    let head = read_changed_copy("changed-head.sqlite")?;
+    assert_eq!(
+        check(&output, artifact, &head, &direct).unwrap_err(),
+        PROOF_MISMATCH
+    );
+    assert_eq!(bytes, fs::read(&output).unwrap());
     Ok(())
 }
 
