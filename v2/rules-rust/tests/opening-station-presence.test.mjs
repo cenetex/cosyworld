@@ -14,15 +14,24 @@ test("fresh Station Presence preserves both pinned arrival horizons and Rue's me
   };
   let firstArrival;
   let rueArrival;
-  for (const [seed, waited, dry, rue] of [
-    [undefined, false, false, false],
-    [undefined, true, false, false],
-    [2, false, true, false],
-    [2, true, true, false],
-    [7, false, false, true],
-    [99, false, true, true],
+  for (const [seed, waited, dry, rueTarget] of [
+    [undefined, false, false, null],
+    [undefined, true, false, null],
+    [2, false, true, null],
+    [2, true, true, null],
+    [7, false, false, "moth"],
+    [99, false, true, "vale"],
   ]) {
     let world = run({ op: "create", seed });
+    const rue = rueTarget !== null;
+    if (rue) {
+      world.actors.rue.want = {
+        kind: "person",
+        target: rueTarget,
+        since: 0,
+        refusals: 0,
+      };
+    }
     if (dry) {
       Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
     } else {
