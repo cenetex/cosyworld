@@ -245,7 +245,7 @@ pub(super) fn pond_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
     locked_ship.then_some(())
 }
 
-fn offer(
+pub(super) fn offer(
     kind: &str,
     item: Option<&str>,
     target: Option<&str>,
