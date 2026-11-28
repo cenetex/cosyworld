@@ -50,7 +50,6 @@ const SAVED_STEP_VERBS = ["threaten", "attack"];
 
 // A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
-// A rest lasts a few turns after a want is met, wherever it was met.
 export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
 export const REST_TURNS = 3;

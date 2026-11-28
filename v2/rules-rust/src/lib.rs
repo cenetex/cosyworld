@@ -32,6 +32,7 @@ mod opening_view;
 mod opening_visitor_routes;
 mod opening_wait;
 mod opening_wait_response;
+mod opening_wants;
 mod pack_state;
 mod profiles;
 mod reset;
@@ -140,6 +141,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_place_cards") => {
             opening_place_cards::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
