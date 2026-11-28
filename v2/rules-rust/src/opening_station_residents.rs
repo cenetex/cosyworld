@@ -317,14 +317,20 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = saved.clone();
     let resident = &request["resident"];
-    if !resident.is_null() && (resident != PIP || world["began"] != 480) {
+    if !resident.is_null() && (world["began"] != 480 || (resident != PIP && resident != KEEPER)) {
         return None;
     }
     if resident.is_null() && world.get("began").is_some() {
         confirm_historic_idle(&mut world, &geo, &order)?;
     } else {
         let evidence = ResidentEvidence::new(&files)?;
-        settle(&mut world, &geo, &authored, &order, &evidence)?;
+        if resident == KEEPER {
+            opening_resident_sleep::wake_station_keeper(
+                &mut world, &geo, &authored, &order, &evidence,
+            )?;
+        } else {
+            settle(&mut world, &geo, &authored, &order, &evidence)?;
+        }
     }
     Some(json!({"ok":true,"world":world}))
 }

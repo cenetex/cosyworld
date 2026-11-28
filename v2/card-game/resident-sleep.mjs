@@ -37,7 +37,6 @@ export function bedtime(s, id) {
   }
   return null;
 }
-// A resident's sleep, unlike a player's, records when it rises.
 export const residentAsleep = (s, id) =>
   s.actors[id]?.sleeping?.until !== undefined;
 
