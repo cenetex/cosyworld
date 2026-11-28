@@ -15,9 +15,8 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
         "first-attic-wait",
         "wait:vale::",
         unseeded_opening()?,
-        |_, reply| {
-            assert_eq!(reply["events"][0]["verb"], "wait");
-        },
+        false,
+        check_wait,
     )
 }
 
@@ -27,6 +26,7 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_drop() -> Result<()> {
         "first-attic-drop",
         "drop:vale:lamp:attic",
         unseeded_opening()?,
+        false,
         check_lamp_drop,
     )
 }
@@ -37,9 +37,8 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_wait_after_history() -> Resu
         "first-attic-wait-after-history",
         "wait:vale::",
         historic_opening()?,
-        |_, reply| {
-            assert_eq!(reply["events"][0]["verb"], "wait");
-        },
+        false,
+        check_wait,
     )
 }
 
@@ -49,8 +48,48 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_drop_after_history() -> Resu
         "first-attic-drop-after-history",
         "drop:vale:lamp:attic",
         historic_opening()?,
+        false,
         check_lamp_drop,
     )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_first_bare_pond_move() -> Result<()> {
+    replay_first_attic_turn(
+        "first-bare-pond-move",
+        "move:vale::pond",
+        unseeded_opening()?,
+        true,
+        |lamp, reply| {
+            let event = &reply["events"][0];
+            assert_eq!(event["verb"], "move");
+            assert_eq!(event["fromLocationId"], "attic");
+            assert_eq!(event["locationId"], "pond");
+            assert_eq!(event["itemId"], Value::Null);
+            assert_eq!(event["targetId"], "pond");
+            assert_eq!(event["light"], false);
+            let world = &reply["world"];
+            assert_eq!(world["actors"]["vale"]["place"], "pond");
+            assert_eq!(world["actors"]["vale"]["heldItem"], Value::Null);
+            assert_eq!(world["opening"]["crossed"], true);
+            assert_eq!(
+                world["arrival"],
+                json!({"seq":event["seq"],"fromLocationId":"attic","locationId":"pond"})
+            );
+            let carried = &world["items"]["lamp"];
+            assert_eq!(carried["holder"], "vale");
+            assert_eq!(carried["lit"], false);
+            assert_eq!(carried["fuelPlace"], "pond");
+            assert_eq!(carried["fuelVisit"], false);
+            assert_eq!(carried["fuel"], lamp["fuel"]);
+            assert_eq!(world["speechVoices"]["vale"], json!(["vale", "moth"]));
+        },
+    )
+}
+
+fn check_wait(_: &Value, reply: &Value) {
+    assert_eq!(reply["events"][0]["verb"], "wait");
+    assert_eq!(reply["world"]["speechVoices"]["vale"], json!(["vale"]));
 }
 
 fn check_lamp_drop(lamp: &Value, reply: &Value) {
@@ -67,6 +106,7 @@ fn check_lamp_drop(lamp: &Value, reply: &Value) {
     assert_eq!(dropped["lit"], true);
     assert_eq!(dropped["fuelRooms"], lamp["fuelRooms"]);
     assert_eq!(dropped["fuel"], lamp["fuel"]);
+    assert_eq!(world["speechVoices"]["vale"], json!(["vale"]));
 }
 
 fn historic_opening() -> Result<World> {
@@ -92,6 +132,7 @@ fn replay_first_attic_turn(
     id: &str,
     action: &str,
     mut state: World,
+    stow_lamp: bool,
     check_reply: impl FnOnce(&Value, &Value),
 ) -> Result<()> {
     let guest = Rules::new(&read_candidate()?)?;
@@ -106,10 +147,20 @@ fn replay_first_attic_turn(
     let incoming = state.request("play", actor_index("vale")?);
     assert_eq!(incoming["claimed"], json!(["vale"]));
     assert_eq!(incoming["present"], json!(["vale"]));
+    let mut calls = vec!["join_state", "presence"];
+    if stow_lamp {
+        let hold = json!({"op":"hold","actor":"vale","choice":{"item":null,"revision":state.game["revision"]}});
+        assert_eq!(full_store::commit(&c, id, &mut state, hold, 4)?["ok"], true);
+        assert_eq!(state.game["actors"]["vale"]["heldItem"], Value::Null);
+        assert_eq!(state.game["opened"]["pond"], json!(["vale"]));
+        assert_eq!(state.game["items"]["lamp"]["lit"], false);
+        calls.push("hold");
+    }
+    calls.push("play");
     let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
     let lamp = state.game["items"]["lamp"].clone();
     let command = json!({"op":"play", "actor":"vale", "action":action});
-    let accepted = full_store::commit(&c, id, &mut state, command, 4)?;
+    let accepted = full_store::commit(&c, id, &mut state, command, 4 + i64::from(stow_lamp))?;
     assert_eq!(accepted["ok"], true);
     assert_eq!(accepted["world"], state.game);
     assert_eq!(accepted["events"][0]["actorId"], "vale");
@@ -119,7 +170,6 @@ fn replay_first_attic_turn(
     assert_eq!(state.game["turn"], turn + 1);
     assert_eq!(accepted["events"][0]["turn"], turn + 1);
     assert_eq!(state.game["revision"], revision + 1);
-    assert_eq!(state.game["speechVoices"]["vale"], json!(["vale"]));
     check_reply(&lamp, &accepted);
 
     c.pragma_update(None, "query_only", true)
@@ -132,7 +182,7 @@ fn replay_first_attic_turn(
         observed.push(request["op"].as_str().unwrap_or_default().to_owned());
         reduce_candidate(&guest, pack, request)
     })?;
-    assert_eq!(observed, ["join_state", "presence", "play"]);
+    assert_eq!(observed, calls);
     assert_eq!(report.checked, observed.len());
     report.require_coverage(true)?;
     println!(
