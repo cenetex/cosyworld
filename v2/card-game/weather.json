@@ -28,24 +28,32 @@
       "court": [
         "greek-courtyard",
         "greek-well",
-        "greek-palace"
+        "greek-palace",
+        "greek-oedipus-court",
+        "greek-jocasta-rooms",
+        "greek-heracles-altar"
       ],
       "open": [
         "greek-gate",
         "greek-battlefield",
         "greek-polynices-hollow",
-        "greek-road-thebes"
+        "greek-road-thebes",
+        "greek-cadmea-street",
+        "greek-seven-gates"
       ],
       "grove": [
         "greek-sanctuary",
-        "greek-cithaeron"
+        "greek-cithaeron",
+        "greek-cithaeron-shrine"
       ]
     },
     "attica": {
       "court": [
         "greek-athens",
         "greek-acropolis",
-        "greek-acharnae"
+        "greek-acharnae",
+        "greek-acharnae-stall",
+        "greek-areopagus"
       ],
       "coast": [
         "greek-piraeus",
@@ -89,7 +97,8 @@
         "greek-argos-palace",
         "greek-mycenae-palace",
         "greek-corinth",
-        "greek-troezen"
+        "greek-troezen",
+        "greek-argive-jury"
       ],
       "shelter": [
         "greek-argive-farm"
@@ -97,13 +106,17 @@
     },
     "phocis": {
       "court": [
-        "greek-delphi"
+        "greek-delphi",
+        "greek-ion-court"
       ],
       "open": [
         "greek-road-sacred-way"
       ]
     },
     "thessaly": {
+      "coast": [
+        "greek-pagasae"
+      ],
       "shelter": [
         "greek-trachis"
       ],
@@ -177,6 +190,9 @@
     "scythia": {
       "open": [
         "greek-scythian-crag"
+      ],
+      "coast": [
+        "greek-road-scythia"
       ]
     },
     "heights": {
@@ -191,7 +207,8 @@
     },
     "sea": {
       "coast": [
-        "greek-ship"
+        "greek-ship",
+        "greek-scylla"
       ]
     },
     "willows": {

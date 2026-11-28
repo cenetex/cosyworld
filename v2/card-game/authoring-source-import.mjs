@@ -1,5 +1,6 @@
 // Selected repository files supply the source and media for one editable pack.
 import { assetMetadata, DRAFT_LIMITS, importPack } from "./authoring-draft.mjs";
+import { compilePackSituations } from "./card-pack-situations.mjs";
 const need = (ok, text) => {
   if (!ok) throw new Error(text);
 };
@@ -108,18 +109,37 @@ export async function importSourcePack({
     });
     return value;
   }
-  const pack = await source(packPath),
+  const base = await source(packPath),
     bridge = bridgePath ? await source(bridgePath) : null;
   need(
-    pack?.schemaVersion === 1 &&
-      typeof pack.id === "string" &&
-      pack.id.length > 0 &&
+    base?.schemaVersion === 1 &&
+      typeof base.id === "string" &&
+      base.id.length > 0 &&
       (bridge === null ||
-        (bridge.schemaVersion === 1 && bridge.pack === pack.id)),
+        (bridge.schemaVersion === 1 && bridge.pack === base.id)),
     "Choose a version 1 pack and its matching bridge.",
   );
-  // Validate JSON depth and node count before walking its media references.
-  importPack({ pack, bridge, sources });
+  importPack({ pack: base, bridge, sources });
+  const situationRoot = `${packPath.slice(0, packPath.lastIndexOf("/") + 1)}situations/`;
+  const situationPaths = [...selected.keys()]
+    .filter(
+      (path) =>
+        path.startsWith(situationRoot) &&
+        path.endsWith(".json") &&
+        !path.slice(situationRoot.length).includes("/"),
+    )
+    .sort();
+  need(
+    situationPaths.length + sources.length <= 512 &&
+      situationPaths.reduce((sum, path) => sum + selected.get(path).size, 0) <=
+        DRAFT_LIMITS.metadata,
+    "Choose up to 512 source files with situation JSON within 10 MiB in total.",
+  );
+  const sidecars = new Map();
+  for (const path of situationPaths) sidecars.set(path, await source(path));
+  const pack = compilePackSituations(base, sidecars);
+  // Validate JSON depth and node count before walking media references.
+  if (pack !== base) importPack({ pack, bridge, sources });
   const root =
     cardRoot === undefined
       ? cardDirectory(packPath)

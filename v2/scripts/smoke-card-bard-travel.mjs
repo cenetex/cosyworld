@@ -151,7 +151,7 @@ try {
         await clearSelection(page);
         await selectCard(page, "greek-courtyard");
         const wait = page.locator("#card-actions")
-          .getByRole("button", { name: "Wait", exact: true });
+          .getByRole("button", { name: /^Wait(?: for .+)?$/u });
         if (!(await wait.count()))
           for (let tap = 0; tap < 2; tap++)
             await selectCard(page, "greek-courtyard");

@@ -6,6 +6,7 @@ import {
   packThings,
 } from "./pack-registry.mjs";
 import { grievanceActive } from "./knowledge.mjs";
+import { matchesWantedItem } from "./want.mjs";
 import forest from "./forest.json" with { type: "json" };
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
@@ -80,7 +81,7 @@ export function valueOf(s, actor, item) {
   }
   // The wanted item is worth more than anything spare.
   const want = s.actors[actor]?.want;
-  if (want?.kind === "item" && want.target === item) value += 6;
+  if (matchesWantedItem(want, item)) value += 6;
   return Math.max(1, value) + attachmentValue(s, actor, item);
 }
 function bundleValue(s, actor, item) {

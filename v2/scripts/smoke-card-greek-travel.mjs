@@ -231,7 +231,7 @@ try {
         if (kind === "wait") {
           const wait = page
             .locator("#card-actions")
-            .getByRole("button", { name: "Wait", exact: true });
+            .getByRole("button", { name: /^Wait(?: for .+)?$/u });
           // Choosing the same cards after Wait offers Sleep. Choose Mara
           // afresh so each wait calls the ship and keeps the voyage moving.
           if (!(await wait.count())) {

@@ -5,17 +5,24 @@ import {
   localRoadEnds,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
+import { lanePath } from "../v2/card-game/pack-transport.mjs";
 
 const pack = packDefinition("greek-drama");
 const places = pack.places;
 const isRoad = (id) => Array.isArray(places[id]?.road);
+const shipPlaces = new Set(
+  Object.values(pack.transports).map(({ place }) => place),
+);
+const isTownPlace = (id) => places[id] && !isRoad(id) && !shipPlaces.has(id);
+const PAGASAE = "greek-pagasae";
+const SCYLLA = "greek-scylla";
 
 // A town is a group of places joined by direct links, either way. Roads and
-// the ship are not part of any town.
+// ships sit outside the towns.
 function towns() {
   const town = {};
   for (const start of Object.keys(places)) {
-    if (isRoad(start) || start === "greek-ship" || town[start]) continue;
+    if (!isTownPlace(start) || town[start]) continue;
     const queue = [start];
     town[start] = start;
     while (queue.length) {
@@ -24,7 +31,7 @@ function towns() {
         places[id].exits?.includes(here),
       );
       for (const next of [...(places[here].exits || []), ...back])
-        if (!isRoad(next) && places[next] && !town[next]) {
+        if (isTownPlace(next) && !town[next]) {
           town[next] = start;
           queue.push(next);
         }
@@ -36,17 +43,10 @@ function towns() {
 const ROADS = [
   ["greek-road-sacred-way", "greek-athens", "greek-delphi"],
   ["greek-oeta", "greek-delphi", "greek-trachis"],
+  ["greek-road-royal", "greek-troy", "greek-susa"],
+  ["greek-road-scythia", "greek-tauris", "greek-scythian-crag"],
 ];
-// Greek revision 16 makes the Far Shores one-place ship stops: their roads,
-// Susa and the Scythian Crag retire.
-const RETIRED = [
-  "greek-road-royal",
-  "greek-road-black-sea",
-  "greek-road-colonists",
-  "greek-susa",
-  "greek-scythian-crag",
-];
-// Rules 94 retires them into Piraeus: no ship calls there now.
+const RETIRED = ["greek-road-black-sea", "greek-road-colonists"];
 const FAR_SHORES = [
   "greek-lemnos",
   "greek-thrace",
@@ -56,6 +56,10 @@ const FAR_SHORES = [
 const CUT = [
   ["greek-athens", "greek-delphi"],
   ["greek-delphi", "greek-trachis"],
+  ["greek-troy", "greek-susa"],
+  ["greek-tauris", "greek-scythian-crag"],
+  ["greek-piraeus", "greek-lemnos"],
+  ["greek-piraeus", "greek-thrace"],
   ["greek-piraeus", "greek-tauris"],
   ["greek-piraeus", "greek-sicily"],
   ["greek-aulis", "greek-greek-camp"],
@@ -88,9 +92,9 @@ describe("purposeful Greek roads", () => {
       expect(between, `${a} and ${b} share one road`).toEqual([road]);
     }
     for (const id of RETIRED) expect(places[id].retired, id).toBe(true);
-    for (const id of FAR_SHORES) expect(places[id].retired, id).toBe(true);
     expect(town["greek-pherae"]).toBe(town["greek-trachis"]);
     expect(town["greek-thetis"]).toBe(town["greek-trachis"]);
+    expect(town[PAGASAE]).toBe(town["greek-pherae"]);
     expect(town["greek-aulis"]).toBe(town["greek-gate"]);
     expect(town["greek-greek-camp"]).toBe(town["greek-troy"]);
   });
@@ -98,7 +102,7 @@ describe("purposeful Greek roads", () => {
   it("makes every inter-town step in Greece a road or a sea lane", () => {
     const town = towns();
     for (const [id, place] of Object.entries(places)) {
-      if (isRoad(id) || id === "greek-ship" || place.retired) continue;
+      if (!isTownPlace(id) || place.retired) continue;
       for (const next of place.exits || [])
         if (!isRoad(next))
           expect(town[next], `${id} -> ${next}`).toBe(town[id]);
@@ -128,16 +132,38 @@ describe("purposeful Greek roads", () => {
       expect(seen.get(places[road].backdrop)).toBe(road);
   });
 
-  it("walks each new road in both directions in an open world", () => {
-    const w = createWorld({ packScopes: { "greek-drama": "full" } });
+  it("offers each new road in both directions in a new world", () => {
+    const w = createWorld();
     for (const [road, a, b] of ROADS) {
       expect(exits(w, a, "vale")).toContain(road);
       expect(exits(w, b, "vale")).toContain(road);
       expect(exits(w, road, "vale")).toEqual(expect.arrayContaining([a, b]));
     }
+  });
+
+  it("connects each Far Shore to Pagasae in both directions aboard the Scylla", () => {
+    const w = createWorld();
+    const ship = pack.transports[SCYLLA];
+    expect(ship.at).toBe(PAGASAE);
+    expect(exits(w, "greek-pherae", "vale")).toContain(PAGASAE);
+    expect(exits(w, PAGASAE, "vale")).toContain("greek-pherae");
+    expect(w.items["greek-provisions"].holder).not.toBe(SCYLLA);
+    for (const id of [PAGASAE, ...FAR_SHORES]) {
+      expect(entityActive(w, id), id).toBe(true);
+      expect(ship.docks, id).toContain(id);
+      expect(
+        pack.crossings.some(
+          (crossing) =>
+            crossing.from === id &&
+            crossing.transport === SCYLLA &&
+            !crossing.retired,
+        ),
+        `${id} has a boarding crossing`,
+      ).toBe(true);
+    }
     for (const id of FAR_SHORES) {
-      expect(places[id].retired, id).toBe(true);
-      expect(places[id].exits, id).toEqual(["greek-piraeus"]);
+      expect(lanePath(w, SCYLLA, PAGASAE, id), id).not.toBeNull();
+      expect(lanePath(w, SCYLLA, id, PAGASAE), id).not.toBeNull();
     }
   });
 });

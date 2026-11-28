@@ -1,0 +1,29 @@
+{
+  "choices": [
+    {
+      "id": "greek-dione-recover-wheat",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "text": "Dione has the sack of wheat brought back from Piraeus. Bring her water to bake another loaf.",
+      "on": "talk",
+      "humanOnly": true,
+      "repeats": true,
+      "requires": [
+        { "kind": "item_used_up", "item": "greek-bread" },
+        { "kind": "item_used_up", "item": "greek-provisions" },
+        { "kind": "item_at", "item": "greek-wheat", "place": "greek-piraeus" },
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "gate_open",
+            "from": "greek-gate",
+            "to": "greek-battlefield"
+          }
+        }
+      ],
+      "effects": [
+        { "kind": "fetch_item", "item": "greek-wheat", "from": "greek-piraeus" }
+      ]
+    }
+  ]
+}

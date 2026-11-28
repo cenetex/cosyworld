@@ -25,9 +25,8 @@ const at = (s, place) => {
 const canMove = (s, to) =>
   legalActions(s).some((a) => a.kind === "move" && a.target === to && !a.item);
 
-// The one the pack leaves unsealed on purpose: the guard draws his own way
-// (rules 100). Patroclus is a sealed card of the Charybdis (#2620).
-const NOT_BOXES = new Set(["greek-gate>greek-battlefield"]);
+// The guard draws his own way. Cilissa appears when the court files its order.
+const NOT_BOXES = new Set(["greek-gate>greek-battlefield", "greek-cilissa"]);
 
 describe("the Greek pack's locked boxes", () => {
   const gatedRoutes = pack.routes.filter(
@@ -37,7 +36,7 @@ describe("the Greek pack's locked boxes", () => {
     ([, a]) => a.requires?.length,
   );
 
-  it("seals every gated way and conditional resident, bar the guard", () => {
+  it("seals the gated ways and residents that show locked cards", () => {
     for (const r of gatedRoutes) {
       const key = `${r.from}>${r.to}`;
       if (NOT_BOXES.has(key)) expect(r.sealed, key).toBeUndefined();
@@ -47,6 +46,18 @@ describe("the Greek pack's locked boxes", () => {
       if (NOT_BOXES.has(id)) expect(a.sealed, id).toBeUndefined();
       else expect(a.sealed, id).toBeTruthy();
     }
+  });
+
+  it("shows Cilissa at the tomb once Athena files the witness order", () => {
+    const s = at(full(), "greek-argos-tomb");
+    const cilissa = "greek-cilissa";
+    choices(s)["greek-atreid-account"] = "aeschylus";
+    expect(availableCards(s)).not.toContain(cilissa);
+    expect(isLockedBox(s, cilissa)).toBe(false);
+
+    flags(s)["greek-areopagus-household-evidence-filed"] = true;
+    expect(availableCards(s)).toContain(cilissa);
+    expect(isLockedBox(s, cilissa)).toBe(false);
   });
 
   it("writes no sentence for any lock", () => {
@@ -66,16 +77,15 @@ describe("the Greek pack's locked boxes", () => {
       if (r.sealed) expect(r.sealed.quest, `${r.from}>${r.to}`).toBeTruthy();
   });
 
-  it("draws Helen's Egyptian road locked at the harbor, and opens it with the choice", () => {
+  it("draws Helen's Trojan road locked at the harbor, and opens it with the choice", () => {
     const s = at(full(), "greek-harbor");
-    const card = "greek-egypt-tomb";
+    const card = "greek-troy-beach";
     expect(availableCards(s)).toContain(card);
     expect(isLockedBox(s, card)).toBe(true);
-    // The choice that opens it is a Give of the tablet to one avatar.
     expect(lockText(s, card)).toMatch(/^Give Helen’s Account Tablet to .+/u);
     expect(blindLockText(s, card)).not.toMatch(/Helen|Tablet/u);
     expect(canMove(s, card)).toBe(false);
-    choices(s)["greek-helen-account"] = "egypt";
+    choices(s)["greek-helen-account"] = "troy";
     expect(isLockedBox(s, card)).toBe(false);
     expect(canMove(s, card)).toBe(true);
   });
@@ -94,7 +104,7 @@ describe("the Greek pack's locked boxes", () => {
     expect(new Set(wants).size).toBe(3);
   });
 
-  it("locks the Open Door's people on their own things, never on a flag", () => {
+  it("shows the Open Door's item locks and lets the Acharnae order bring out Thaleia", () => {
     const s = at(full(), "greek-athens");
     expect(flags(s)["greek-burial-performed"]).toBeFalsy();
     const ids = [
@@ -107,7 +117,7 @@ describe("the Greek pack's locked boxes", () => {
     for (const id of ids) {
       const read = JSON.stringify(pack.avatars[id].requires);
       expect(read, id).toMatch(/"kind":"item_(near|at)"/u);
-      expect(read, id).not.toMatch(/"kind":"(flag|choice)"/u);
+      if (id !== "greek-quay-host") expect(read, id).not.toMatch(/"kind":"(flag|choice)"/u);
       const w = {
         ...s,
         actors: {
@@ -117,8 +127,12 @@ describe("the Greek pack's locked boxes", () => {
       };
       expect(isLockedBox(w, id), id).toBe(true);
       expect(lockText(w, id), id).toMatch(/^(Bring .+ to|Lay .+ in) .+/u);
+      if (id === "greek-quay-host") {
+        choices(w)["greek-story-aristophanes-acharnians-outcome"] = "second";
+        expect(isLockedBox(w, id)).toBe(false);
+      }
     }
-    // Marathon's keeper is a rumour in new worlds and keeps no lock.
+    // Marathon starts with a conversation. The blanket gates the rest of the tale.
     expect(pack.avatars["greek-marathon-keeper"].requires).toBeUndefined();
   });
 });

@@ -27,6 +27,7 @@ import {
   packPeople,
   packFixtures,
   packThings,
+  itemCopies,
   crossings,
   transports,
   fixturesAt,
@@ -96,9 +97,36 @@ function objectPlace(s, item) {
   }
   return s.actors[holder]?.place || holder;
 }
+// An alternate stock can have a gate of its own. It cannot satisfy that gate
+// by being the copy whose availability the gate is still checking.
+const checkingStock = new Set();
+function matchingStock(s, target, predicate) {
+  return itemCopies(target).find((id) => {
+    if (usedUp(s, id) || !predicate(id)) return false;
+    if (id === target) return true;
+    if (checkingStock.has(id)) return false;
+    checkingStock.add(id);
+    try {
+      return entityActive(s, id);
+    } finally {
+      checkingStock.delete(id);
+    }
+  });
+}
+export function presentStock(s, c) {
+  return matchingStock(s, c.item, (id) =>
+    c.kind === "item_at"
+      ? s.items[id]?.holder === c.place
+      : Boolean(s.items[id] && objectPlace(s, id) === c.place),
+  );
+}
 export function conditionMet(s, c, senses, packId = null, actor = null) {
   const state = s.packs?.[packId];
   switch (c.kind) {
+    case "item_used_up":
+      return usedUp(s, c.item);
+    case "receipt":
+      return Boolean(state?.receipts && Object.hasOwn(state.receipts, c.choiceId));
     case "sound":
       return !!senses && c.at.some((place) => soundAt(s, place, senses));
     case "light":
@@ -149,9 +177,10 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         )
       );
     case "holding":
-      return (
-        s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) &&
-        !usedUp(s, c.item)
+      return Boolean(
+        matchingStock(s, c.item, (id) =>
+          s.items[id]?.holder === (c.role === "actor" ? actor : c.actor),
+        ),
       );
     // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
     case "upgraded":
@@ -192,25 +221,24 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
     // Enough travellers stand together in one place: a lock for two.
     case "humans_at":
       return sharedEnabled(s) && roomHumanCount(s, c.place) >= c.minimum;
-    case "item_near": {
-      if (usedUp(s, c.item)) return false;
-      let holder = s.items[c.item]?.holder;
-      const seen = new Set([c.item]);
-      while (s.items[holder] && !seen.has(holder)) {
-        seen.add(holder);
-        holder = s.items[holder].holder;
-      }
-      return (
-        (!controlledByHuman(s, holder) || humanPresent(s, holder)) &&
-        objectPlace(s, c.item) === c.place
-      );
-    }
-    case "item_present":
+    case "item_near":
       return Boolean(
-        s.items[c.item] &&
-          !usedUp(s, c.item) &&
-          objectPlace(s, c.item) === c.place,
+        matchingStock(s, c.item, (id) => {
+          let holder = s.items[id]?.holder;
+          const seen = new Set([id]);
+          while (s.items[holder] && !seen.has(holder)) {
+            seen.add(holder);
+            holder = s.items[holder].holder;
+          }
+          return (
+            (!controlledByHuman(s, holder) || humanPresent(s, holder)) &&
+            objectPlace(s, id) === c.place
+          );
+        }),
       );
+    case "item_present":
+    case "item_at":
+      return Boolean(presentStock(s, c));
     // Any thing tagged c.tag, carried by someone present at c.place.
     case "tag_held":
       // A worn upgrade of that name counts as carrying the tag (#1873).
@@ -231,8 +259,6 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
           );
         })
       );
-    case "item_at":
-      return s.items[c.item]?.holder === c.place && !usedUp(s, c.item);
     case "arcana_called":
       return calledTravelers(s).length > 0;
     case "arcana_selling":

@@ -225,7 +225,7 @@ describe("named card actions", () => {
     // The context button names the item and never plays (#2018, #2023).
     const actions = body("renderActions");
     expect(actions).toContain(
-      "`You have too many items to take ${theName(crowded).toLowerCase()}`",
+      "`You can carry three items. Put one down to take ${theName(crowded).toLowerCase()}.`",
     );
     expect(actions).toContain('actions.map(readout).join(". ") || crowdedWords || hint]');
     expect(actions).toContain("blockPlay(blocked, kind);");

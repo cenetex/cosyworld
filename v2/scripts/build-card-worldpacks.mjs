@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { admitStore } from "./card-store-admission.mjs";
+import { compilePackSituations } from "./card-pack-situations.mjs";
 import {
   packProblems,
   packWarnings,
@@ -29,7 +30,10 @@ if (
 const bridgeEntries = {};
 const sources = (table.packs || []).map((id) => [
   id,
-  read(`content/${id}/card-world.json`),
+  compilePackSituations(
+    read(`content/${id}/card-world.json`),
+    path.join(v2, "content", id, "situations"),
+  ),
   read(`worlds/${id}/card-bridge.json`),
 ]);
 sources.push(...admitStore(v2, table, { check }));
@@ -97,7 +101,13 @@ for (const pack of packs) {
   }
   // Media must exist and match its extension, since the table serves it verbatim.
   const media = [
-    ...Object.values(pack.places || {}).flatMap((p) => [p.backdrop, p.art]),
+    ...Object.values(pack.places || {}).flatMap((p) => [
+      p.backdrop,
+      p.art,
+      ...(Array.isArray(p.backdrops)
+        ? p.backdrops.map((b) => b?.backdrop)
+        : []),
+    ]),
     ...Object.values(pack.places || {}).flatMap((p) =>
       (Array.isArray(p.music) ? p.music : []).map(
         (track) => `assets/music/${track?.file}`,

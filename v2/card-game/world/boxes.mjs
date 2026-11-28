@@ -30,6 +30,7 @@ import {
   packThings,
   transports,
 } from "../pack-registry.mjs";
+import { craftSupplies } from "../pack-items.mjs";
 import { conditionMet } from "../pack-rules.mjs";
 import {
   knowsLane,
@@ -339,15 +340,23 @@ function conditionGoal(s, packId, conditions, actor) {
   return null;
 }
 function craftedGoal(s, id, actor) {
-  const { by, consumes } = packThings[id].locked,
+  const { by } = packThings[id].locked,
     home = packThings[id].home;
-  const held = consumes.find((c) => rootHolder(s, c) === actor);
+  const supplies = craftSupplies(s, id);
+  const missing = supplies.filter((slot) => !slot.selected);
+  if (!missing.length) return null;
+  const selected = new Set(supplies.map((slot) => slot.selected));
+  const held = missing
+    .flatMap((slot) => slot.copies)
+    .find((copy) => !selected.has(copy) && rootHolder(s, copy) === actor);
   if (held)
     return { kind: "item", target: held, step: { verb: "give", to: by } };
-  const missing = consumes.find((c) => ![by, home].includes(rootHolder(s, c)));
-  return missing
-    ? { kind: "item", target: missing, step: { verb: "bring", at: home } }
-    : null;
+  const { copies, expected } = missing[0];
+  return {
+    kind: "item",
+    target: copies.find((copy) => !selected.has(copy)) ?? expected,
+    step: { verb: "bring", at: home },
+  };
 }
 // A sealed route names its quest; the rest is read from its conditions.
 const questGoal = ({ kind, target, to }) => ({

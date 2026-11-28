@@ -13,6 +13,7 @@ import { MAX_RESOLVE } from "./combat-beats.mjs";
 import { imageUrl } from "./images.mjs";
 import { availableCards } from "./cards.mjs";
 import { notBehindOwners, tableQuests } from "./quest-hand.mjs";
+import { greekJournal } from "./greek-journal.mjs";
 
 export function characterSheet(world, { known = () => false, withheldTarot, caption = (text) => text } = {}) {
   const actor = currentActor(world), person = world.actors[actor];
@@ -48,6 +49,7 @@ export function characterSheet(world, { known = () => false, withheldTarot, capt
     items: carried(world, actor).map((id) => label(id, "An unrevealed item")),
     total: slots.length,
     cards, slots,
+    greek: greekJournal(world, actor, known),
     progress: withheldTarot === undefined && record.need.length
       ? `${record.done.filter((id) => record.need.includes(id)).length} of ${record.need.length} required cards collected`
       : "",
@@ -145,6 +147,20 @@ export function characterSheetSection(sheet, { viewCard, persona }) {
     element("p", "sheet-note", sheet.items.length ? sheet.items.join(" · ") : "Empty hands."));
   root.append(hero);
   if (persona) root.append(persona);
-  root.append(facts, tarot, quests, items);
+  root.append(facts, tarot, quests);
+  if (sheet.greek?.length) {
+    const journal = element("section", "sheet-section");
+    journal.append(element("h3", "", "Greek plays"));
+    for (const story of sheet.greek) {
+      const row = element("div", "sheet-quest");
+      row.append(element("h4", "", `${story.title} · ${story.author}`));
+      const summary = [story.era, story.place, story.account, story.personal, story.settled ? "World decision recorded" : ""].filter(Boolean).join(" · ");
+      if (summary) row.append(element("p", "", summary));
+      if (story.next) row.append(element("p", "", story.next));
+      journal.append(row);
+    }
+    root.append(journal);
+  }
+  root.append(items);
   return root;
 }

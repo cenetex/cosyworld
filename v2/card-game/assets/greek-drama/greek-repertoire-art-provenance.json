@@ -1,0 +1,67 @@
+{
+  "tool": "image_gen",
+  "generated": "2026-11-27",
+  "encoding": "WebP quality 94 with lossless alpha, original canvas dimensions",
+  "assets": [
+    {
+      "file": "cilissa.webp",
+      "generatedFile": "exec-017196b3-189a-43d8-91ce-4d21d68a3b4f.png",
+      "prompt": "Original realistic painted cutout for a mythic ancient Greek narrative card game, 2:3 portrait canvas, full body including complete sandals and hair with breathing room, standing three-quarter view slightly facing left, clear readable silhouette, muted earth / patinated bronze / worn linen colors, detailed but softened matte oil-paint surfaces, entirely transparent alpha background, no elements beyond the character, no cast floor shadow, no frame, no lettering. Cilissa, historical-mythic Orestes's household nurse at Mycenae, around 62, independent grounded woman with deeply observant face and gray streaked dark hair controlled under a simple faded olive linen head wrap, brown-gray layered working tunic and terracotta-dyed narrow sash. She is calmly ready to give testimony after a long walk. Hands naturally holding a small undyed linen bundle at waist, practical sandaled feet. Distinct from a wealthy matron and from a goddess. No jewelry besides a plain bronze cloak pin. Plain respectful likeness with gentle earth-lit skin, legible at small size.",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true,
+      "generatedSha256": "e244312d165d78998167f496457bf6f18d5b8ab0258fb7bc9a5963f2cca0c36d",
+      "sha256": "37dbc282f6e592f777a1958fdcb310638459514c583249d6d09ad8869cec962f"
+    },
+    {
+      "file": "hoopoe.webp",
+      "generatedFile": "exec-78341ddf-b0d7-411c-bb6f-82aa2b610fda.png",
+      "prompt": "Original realistic painted cutout for a mythic ancient Greek narrative card game, 2:3 portrait canvas, full body including complete sandals and hair with breathing room, standing three-quarter view slightly facing left, clear readable silhouette, muted earth / patinated bronze / worn linen colors, detailed but softened matte oil-paint surfaces, entirely transparent alpha background, no elements beyond the character, no cast floor shadow, no frame, no lettering. The Hoopoe, Tereus from Aristophanes's Birds, a gently fantastical expressive middle-aged Greek man transformed into a bird king with a distinctive standing fan crest of warm russet copper feathers tipped black, a readable human face with a short dark beard, narrow pointed nose, and knotted black-and-cream feather mantle folded over a simple russet chiton. No gigantic wings blocking silhouette, no modern clothing or accessories. One hand holding a plain olivewood walking staff grounded near his right foot. Mythic stage character with wry welcoming presence, original and no existing franchise resemblance.",
+      "width": 1024,
+      "height": 1536,
+      "hasAlpha": true,
+      "generatedSha256": "f3b5e18c40df5b4131fc86b417048ad29ff159af1a92f14ee3ba1f02b685a6cf",
+      "sha256": "cd1db110a66b055b9130591ab8f82598b6234e96ce594f0b74dc9e1a5fbff704"
+    },
+    {
+      "file": "areopagus-court.webp",
+      "generatedFile": "exec-d819e8e0-f1ee-4154-8a0d-b12d33c589c6.png",
+      "prompt": "Original environment art for CosyWorld, the Wine-Dark Sea Greek narrative tabletop game. Ultra-wide 16:9 landscape, immersive realistic matte oil-painted game environment matched to an established warmly naturalistic ancient Greece pack. Ground-level lens at standing height with a broad clear bottom third of walkable ground for separately placed character cards. Clear layered forms, tactile weathered stone, dusty muted ochre and olive, directional sunlight, believable air and scale. Set is empty of people or creatures. Landscape only, opaque, no text, no icons, no panels, no logo, no vignette or borders. The ancient Athenian Areopagus on the rocky hill below the Acropolis, seen from the natural limestone hearing terrace. Low rough limestone witness benches with a small dark bronze voting bowl and a handful of smooth ballot pebbles off to the right midground, a short rock-cut approach on the left; the low rugged hill crest and Classical Acropolis skyline recede beyond through Attic golden haze. Grasses at distant edges. Plain exposed ancient tribunal, no monumental colonnaded courtyard. Quiet impartial atmosphere before any verdict, bright late afternoon, large empty flat limestone foreground.",
+      "width": 1672,
+      "height": 941,
+      "hasAlpha": false,
+      "generatedSha256": "397bb3afb8eebafba5ecbb09215ea649467eebe1c857d9042fdbfa227fb48222",
+      "sha256": "0791fb65fbbe92b6936ddf2540cd05e53f0fbaef4b559b5edef903cdddb8c43f"
+    },
+    {
+      "file": "scythian-crag-fork.webp",
+      "generatedFile": "exec-ef2805fa-b0a0-47aa-abd7-1bf6f7de1a6c.png",
+      "prompt": "Original environment art for CosyWorld, the Wine-Dark Sea Greek narrative tabletop game. Ultra-wide 16:9 landscape, immersive realistic matte oil-painted game environment matched to an established warmly naturalistic ancient Greece pack. Ground-level lens at standing height with a broad clear bottom third of walkable ground for separately placed character cards. Clear layered forms, tactile weathered stone, dusty muted ochre and olive, directional sunlight, believable air and scale. Set is empty of people or creatures. Landscape only, opaque, no text, no icons, no panels, no logo, no vignette or borders. The Scythian Crag in the far Black Sea country, a look across a bare rugged rocky cleft and high wind-carved granite crags. A clear visible dirt path bends and divides around a natural standing boulder and climbs two traversable directions, one suggested descending toward distant cool hazy sea, the other going behind a rock shoulder. Sparse desaturated mountain grasses, soft blue-grey air and warm stone, late morning. No prisoner, chains, letters, torches, signs or finished human intervention. Place the rocky fork at mid-depth and leave front stone dusty, broad and clear.",
+      "width": 1672,
+      "height": 941,
+      "hasAlpha": false,
+      "generatedSha256": "e8a859bef88c539d60595a89b99a33cdad170287cd066fd512382a6d673d7f9a",
+      "sha256": "f07d6a94fd2dda2fd6920f66bcbc54a173cb209c6fe8ce528faacbc8d6dfded8"
+    },
+    {
+      "file": "hoopoe-thicket.webp",
+      "generatedFile": "exec-de97c311-e533-41c7-8326-51f374010191.png",
+      "prompt": "Original environment art for CosyWorld, the Wine-Dark Sea Greek narrative tabletop game. Ultra-wide 16:9 landscape, immersive realistic matte oil-painted game environment matched to an established warmly naturalistic ancient Greece pack. Ground-level lens at standing height with a broad clear bottom third of walkable ground for separately placed character cards. Clear layered forms, tactile weathered stone, dusty muted ochre and olive, directional sunlight, believable air and scale. Set is empty of people or creatures. Landscape only, opaque, no text, no icons, no panels, no logo, no vignette or borders. The Hoopoe’s Thicket from Aristophanes, a sun-dappled Greek olive and thorn clearing with wind-twisted trees and incidental small twig perches high to the sides. To the left mid-depth the builders have set a few bundles of reeds and survey stakes in a loose stack, low and modest. Beyond the clearing some dusty low hills seen through the leaves. No finished Cloud City, no lit smoke gate, no characters, no birds, no magical glow. Broad hard-packed sunlit clearing in foreground, a inviting place to make a civic decision.",
+      "width": 1672,
+      "height": 941,
+      "hasAlpha": false,
+      "generatedSha256": "8df3a6e6b0ed6e96e359056c2aecdbdd9fe81c2b06762164cd3831d009b251f5",
+      "sha256": "d21aca7896ecb0e7315ebdbc7d7f8bfee300db86e04a92d0c856937fe7eaf8ab"
+    },
+    {
+      "file": "assembly-hill.webp",
+      "generatedFile": "exec-6ff7b3a2-aa4b-4c3d-a817-71ce71319648.png",
+      "prompt": "Original environment art for CosyWorld, the Wine-Dark Sea Greek narrative tabletop game. Ultra-wide 16:9 landscape, immersive realistic matte oil-painted game environment matched to an established warmly naturalistic ancient Greece pack. Ground-level lens at standing height with a broad clear bottom third of walkable ground for separately placed character cards. Clear layered forms, tactile weathered stone, dusty muted ochre and olive, directional sunlight, believable air and scale. Set is empty of people or creatures. Landscape only, opaque, no text, no icons, no panels, no logo, no vignette or borders. The Assembly Hill of Athens from Aristophanes's Assemblywomen, an open-air Pnyx-like meeting terrace of worn porous limestone, shallow roughly hewn amphitheater benches curving naturally around the hill, a low plain rock speaker’s bema in the middle distance. On one side midground, a few plain barley sacks and terracotta cooking pot with a stone-lined stand, tucked safely out of the walking space. Autumn morning sky and distant Athenian hills. No grand roof or palace. Leave broad open floor in foreground for standing characters and choices.",
+      "width": 1672,
+      "height": 941,
+      "hasAlpha": false,
+      "generatedSha256": "5abd9ab606d9f9a85ec732ea3d20c6b9983792b0c403f786676afb2a1c3269bc",
+      "sha256": "c2e6f7250d7721bc5a854b5f5bea44f7504f0f4a23506e9bba8e687b50643ca4"
+    }
+  ]
+}

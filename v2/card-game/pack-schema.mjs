@@ -1,18 +1,17 @@
-// The closed vocabulary for card-table world packs and their bridges.
-// The build script and the browser registry both use this one validator, so
-// an authored pack either loads exactly as checked or does not load at all.
 import { distinctQuestStages, safeId, stagedQuestFactId, validFactText } from "./knowledge.mjs";
-import { BOOK_KEYS, bookProblems } from "./book-schema.mjs";
+import { BOOK_KEYS, bookProblems, knowledgeAuthor } from "./book-schema.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { RARITY_WEIGHTS } from "./pack-specials.mjs";
-import { forGoodWarnings, itemCycleProblems } from "./pack-items-schema.mjs";
+import { ITEM_IDENTITY_FIELDS, forGoodWarnings, itemCycleProblems, itemPlacementEffect } from "./pack-items-schema.mjs";
+import { choicePresentationProblems } from "./pack-choice-schema.mjs";
+import { laneProblems } from "./pack-transport-schema.mjs";
+
+export { laneProblems, MAX_LANES } from "./pack-transport-schema.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
 
-// Mounted packs keep distinct public identities. The topic budget leaves room
-// for witnessed events in the shared knowledge store.
 export function packCompositionProblems(packs) {
   const problems = [],
     seen = new Map(),
@@ -57,8 +56,6 @@ export const SIGNAL_VERBS = [
   "talk",
   "move",
 ];
-// Conditions a crossing can require. Each kind is evaluated by pack-rules.mjs
-// from the shared world state; add a kind there, here, and in a test together.
 export const CONDITION_KINDS = [
   "sound",
   "light",
@@ -67,9 +64,11 @@ export const CONDITION_KINDS = [
   "choice",
   "choice_unset",
   "flag",
+  "receipt",
   "holding",
   "trusted",
   "item_at",
+  "item_used_up",
   "item_present",
   "item_near",
   "tag_held",
@@ -126,52 +125,6 @@ export function waitWordsOk(t) {
   );
 }
 const intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
-// The sea is an authored graph. A lane joins two docks and is two-way unless
-// marked one-way. Each dock has at most four lanes.
-export const MAX_LANES = 4;
-export function laneProblems(t, warnings = []) {
-  const out = [];
-  if (!Array.isArray(t.lanes) || !t.lanes.length) return ["needs sea lanes"];
-  const docks = Array.isArray(t.docks) ? t.docks : [];
-  const seen = new Set(),
-    neighbours = new Map(docks.map((d) => [d, new Set()])),
-    leaving = new Set();
-  for (const lane of t.lanes) {
-    if (
-      !keysOk(lane, [
-        "from",
-        "to",
-        "oneWay",
-        "opensWith",
-        "spends",
-        "sealed",
-      ]) ||
-      (lane.sealed !== undefined && (!lane.opensWith || lane.sealed !== true)) ||
-      !docks.includes(lane.from) ||
-      !docks.includes(lane.to) ||
-      lane.from === lane.to ||
-      (lane.oneWay !== undefined && lane.oneWay !== true)
-    ) {
-      out.push("has a lane that does not join two of its docks");
-      continue;
-    }
-    const ways = [`${lane.from}>${lane.to}`];
-    if (!lane.oneWay) ways.push(`${lane.to}>${lane.from}`);
-    if (ways.some((way) => seen.has(way)))
-      out.push(`repeats the lane ${ways[0]}`);
-    for (const way of ways) seen.add(way);
-    neighbours.get(lane.from).add(lane.to);
-    neighbours.get(lane.to).add(lane.from);
-    leaving.add(lane.from);
-    if (!lane.oneWay) leaving.add(lane.to);
-  }
-  for (const [dock, set] of neighbours) {
-    if (set.size > MAX_LANES)
-      out.push(`dock ${dock} has more than ${MAX_LANES} lanes`);
-    if (!leaving.has(dock)) warnings.push(`dock ${dock} has no lane out`);
-  }
-  return out;
-}
 // A pack's specials pool: places, residents and things drawn once per run.
 // The entry stays core, and an anchor is a core place.
 function specialsProblems(pack) {
@@ -383,7 +336,7 @@ export function packProblems(
   for (const [key, required, max] of [
     ["places", true, 128],
     ["avatars", true, 128],
-    ["items", false, 128],
+    ["items", false, 256],
     ["fixtures", false, 32],
     ["transports", false, 8],
   ]) {
@@ -421,7 +374,7 @@ export function packProblems(
     if (
       !check(
         Array.isArray(c.effects) &&
-          c.effects.length > 0 &&
+          (c.effects.length > 0 || (c.on === "talk" && c.humanOnly === true)) &&
           c.effects.length <= 12 &&
           c.effects.every(record),
         `choice ${c.id} effects must be a bounded record list`,
@@ -945,9 +898,14 @@ export function packProblems(
       switch (c.kind) {
         case "in_hand":
         case "grounded":
+        case "item_used_up":
           ok =
             keysOk(c, ["kind", "item"]) &&
             (hub.items.includes(c.item) || owns(items, c.item));
+          break;
+        case "receipt":
+          ok = keysOk(c, ["kind", "choiceId"]) && idOk(c.choiceId) &&
+            (pack.choices || []).some((entry) => entry.id === c.choiceId && entry.effects.length > 0 && !entry.archived);
           break;
         case "actor_at":
           ok = keysOk(c, ["kind", "place"]) && anyPlace(c.place);
@@ -1127,29 +1085,18 @@ export function packProblems(
             (c.dock === AT_SEA || anyPlace(c.dock));
           break;
         case "knows": {
-          // `topics` accepts any one of several facts, so a needed fact can
-          // come from more than one person or place.
+          // A fact can come from a speaker or an authored record.
           const named = Array.isArray(c.topics) ? c.topics : [c.topic];
+          const authors = named.map((id) => knowledgeAuthor(pack, id));
           ok =
             (c.topics === undefined
               ? keysOk(c, ["kind", "topic", "role"])
               : keysOk(c, ["kind", "topics", "role"]) &&
                 named.length >= 2 &&
                 named.length <= 4 &&
-                new Set(named).size === named.length &&
-                new Set(
-                  named.map(
-                    (id) =>
-                      (pack.topics || []).find((topic) => topic.id === id)
-                        ?.speaker,
-                  ),
-                ).size === named.length) &&
+                new Set(authors).size === named.length) &&
             c.role === "actor" &&
-            named.every(
-              (id) =>
-                idOk(id) &&
-                (pack.topics || []).some((topic) => topic.id === id),
-            );
+            authors.every(Boolean);
           break;
         }
       }
@@ -1172,8 +1119,10 @@ export function packProblems(
             "choice",
             "choice_unset",
             "flag",
+            "receipt",
             "holding",
             "item_at",
+            "item_used_up",
             "item_near",
             "item_present",
             "shared_world",
@@ -1225,7 +1174,7 @@ export function packProblems(
         check(
           !persistent ||
             savedCondition(c, scope) ||
-            (scope === "traveler" && c?.kind === "trusted"),
+            ((scope === "traveler" || scope === "humanChoice") && c?.kind === "trusted"),
           `${what} must use saved state or human presence conditions`,
         );
       });
@@ -1310,17 +1259,15 @@ export function packProblems(
   for (const [id, i] of Object.entries(items)) {
     check(
       keysOk(i, [
-        "name",
+        ...ITEM_IDENTITY_FIELDS,
+        "type",
         "text",
         "persona",
         "seed",
         "records",
         ...BOOK_KEYS,
         "holder",
-        "art",
         "requires",
-        "startLevel",
-        "tags",
         "home",
         "regrow",
         "startsUsed",
@@ -1445,6 +1392,9 @@ export function packProblems(
         "for",
         "repeats",
         "archived",
+        "humanOnly",
+        "recap",
+        "fullHandsText",
       ]) &&
         idOk(c.id) &&
         (c.on === undefined ||
@@ -1469,6 +1419,7 @@ export function packProblems(
             Boolean(avatars[c.subject]))) &&
         (c.for === undefined || humanAvatarIds.includes(c.for)) &&
         (c.archived === undefined || c.archived === true) &&
+        (c.humanOnly === undefined || c.humanOnly === true) &&
         !choiceIds.has(c.id) &&
         own.includes(c.subject) &&
         owns(places, c.at) &&
@@ -1480,7 +1431,8 @@ export function packProblems(
       `choice ${c.id} is invalid`,
     );
     choiceIds.add(c.id);
-    requirements(c.requires, `choice ${c.id} requires`);
+    problems.push(...choicePresentationProblems(pack, c, items, choices, keysOk, textOk));
+    requirements(c.requires, `choice ${c.id} requires`, true, c.humanOnly ? "humanChoice" : undefined);
     for (const e of c.effects) {
       let valid = false;
       if (e.kind === "choose") {
@@ -1496,17 +1448,8 @@ export function packProblems(
           typeof e.value === "boolean";
         flags.add(e.key);
       }
-      if (e.kind === "place_item")
-        valid =
-          keysOk(e, ["kind", "item", "place"]) &&
-          owns(items, e.item) &&
-          e.place === c.at &&
-          (c.requires || []).some(
-            (r) =>
-              r.kind === "holding" &&
-              r.item === e.item &&
-              (r.role === "actor" || r.actor === hub.player),
-          );
+      if (["place_item", "fetch_item"].includes(e.kind))
+        valid = itemPlacementEffect(items, places, hub.player, c, e);
       // A meeting hides one of the pack's things somewhere in the world.
       if (e.kind === "hide_item")
         valid =
@@ -1517,7 +1460,7 @@ export function packProblems(
         valid =
           keysOk(e, ["kind", "level"]) &&
           intOk(e.level, 1, 3) &&
-          (c.on === "meet" || c.on === "talk") &&
+          (c.on === "meet" || c.on === "talk" || (c.on === "give" && c.humanOnly)) &&
           Boolean(avatars[c.subject]);
       if (e.kind === "give_item")
         valid =
@@ -1537,7 +1480,7 @@ export function packProblems(
           (e.forGood === undefined ||
             (e.forGood === true &&
               e.waitAtHome === undefined &&
-              owns(items, e.item))) &&
+              owns(items, e.item) && !items[e.item].tags?.includes("staple"))) &&
           (e.waitAtHome === undefined ||
             (e.waitAtHome === true &&
               items[e.item]?.home &&
@@ -1571,7 +1514,7 @@ export function packProblems(
         idOk(journey.after) &&
         Array.isArray(journey.path) &&
         journey.path.length >= 2 &&
-        journey.path.length <= 8 &&
+        journey.path.length <= 13 &&
         new Set(journey.path).size === journey.path.length &&
         journey.path[0] === avatar.place &&
         journey.path.every((place) => owns(places, place)) &&
@@ -1961,19 +1904,24 @@ export function packProblems(
       `${name} needs a distinct id and only known fields`,
     );
     crossingIds.add(c?.id);
+    const fromOwnPack = owns(places, c.from);
+    const toOwnPack = owns(places, c.to);
+    const transportDocks = owns(pack.transports, c.transport)
+      ? pack.transports[c.transport].docks
+      : [];
+    const boardsTransport =
+      Array.isArray(transportDocks) &&
+      c.from !== c.to &&
+      transportDocks.includes(c.from) &&
+      transportDocks.includes(c.to);
     if (c.transport !== undefined)
-      check(
-        owns(pack.transports, c.transport) &&
-          Array.isArray(pack.transports[c.transport].docks) &&
-          pack.transports[c.transport].docks.includes(c.from) &&
-          pack.transports[c.transport].docks?.includes(c.to),
-        `${name} has an invalid transport`,
-      );
+      check(boardsTransport, `${name} has an invalid transport`);
     check(
       anyPlace(c?.from) &&
         anyPlace(c?.to) &&
-        owns(places, c.from) !== owns(places, c.to),
-      `${name} must join a hub place or mounted place to this pack`,
+        (fromOwnPack !== toOwnPack ||
+          (fromOwnPack && toOwnPack && boardsTransport)),
+      `${name} must join a hub or mounted place to this pack or board a transport from two of its docks`,
     );
     check(
       TRAVELERS.includes(c?.travelers) && textOk(c?.travel, 80),

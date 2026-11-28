@@ -1,7 +1,7 @@
 // Talk reveals what a person wants: one first-person line from their want.
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
-import { layMet, lostOf, questTerms } from "./want.mjs";
+import { holdsAsWanted, layMet, lostOf, questTerms, wantedItems } from "./want.mjs";
 import { offerFrom } from "./offer-chance.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import forest from "./forest.json" with { type: "json" };
@@ -44,15 +44,6 @@ export function stagedWants(world, id) {
 export const wantOf = (world, id) =>
   world.actors?.[id]?.want || authoredWant(id);
 
-const rootOf = (world, item) => {
-  let holder = world.items[item]?.holder;
-  const seen = new Set([item]);
-  while (world.items[holder] && !seen.has(holder)) {
-    seen.add(holder);
-    holder = world.items[holder].holder;
-  }
-  return holder;
-};
 const article = (name) => (/^(the|a|an) /iu.test(name) ? name : `the ${name}`);
 export const callWords = (want, name) =>
   `call the ship: hold ${name("cloth")} at ${name(want.target)} while ${name("lamp")} burns on the ground there`;
@@ -65,7 +56,7 @@ function met(world, id, want) {
   const here = world.actors[id].place;
   // Holding a food it wants to eat is not eating it (rules 102).
   if (want.kind === "item")
-    return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
+    return want.step?.verb !== "eat" && holdsAsWanted(world, id, want);
   if (want.step?.verb === "lay") return layMet(world, want);
   if (want.kind === "place") return here === want.target;
   return world.actors[want.target]?.place === here;
@@ -100,6 +91,7 @@ export function revealed(world, id, want, listener) {
       // A made thing still locked is wanted all the same (rules 102), and a
       // sealed one (rules 133).
       (entityActive(world, want.target) ||
+        wantedItems(want).some((id) => id !== want.target && entityActive(world, id)) ||
         Boolean(packThings[want.target]?.locked) ||
         Boolean(packThings[want.target]?.sealed)) &&
       !(want.kind === "item" && !world.items[want.target]) &&

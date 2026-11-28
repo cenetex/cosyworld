@@ -9,6 +9,8 @@ import {
   isFood,
   freed,
   isPackActor,
+  itemCopies,
+  itemTypeMatches,
   neverBack,
   spentByChoice,
   packDefinition,
@@ -56,20 +58,22 @@ export const REST_TURNS = 3;
 export const CONTENT_TURNS = 24;
 
 // A pack's residents become known once the player has found a way in.
-export const knownActors = (s) =>
-  [
-    ...new Set([
-      ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
-      ...(s.controlledActors || []),
-    ]),
-  ].filter(
-    (id) =>
-      entityActive(s, id) &&
-      (!isPackActor(id) ||
-        id === BOARDY ||
-        packDiscovered(s, packOf(id).id) ||
-        s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
-  );
+export function knownActors(s, place) {
+  const discovered = new Map();
+  const ids = new Set([
+    ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
+    ...(s.controlledActors || []),
+  ]);
+  return [...ids].filter((id) => {
+    if (place !== undefined && s.actors[id]?.place !== place) return false;
+    if (isPackActor(id) && id !== BOARDY) {
+      const pack = packPeople[id].packId;
+      if (!discovered.has(pack)) discovered.set(pack, packDiscovered(s, pack));
+      if (!discovered.get(pack) && s.packs?.[pack]?.met?.[id] === undefined) return false;
+    }
+    return entityActive(s, id);
+  });
+}
 export const wantless = (id) => forest.people[id]?.wants === false;
 export const travels = (id, s = null) =>
   (!isPackActor(id) && forest.people[id]?.travels !== false) ||
@@ -114,6 +118,19 @@ export const startXp = (id) =>
   rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
+// A want keeps its authored target for quest identity. Only fulfillment can
+// use another instance, and a want for a particular light stays exact.
+export const wantedItems = (want) =>
+  want?.kind !== "item"
+    ? []
+    : want.lit === undefined
+      ? itemCopies(want.target)
+      : [want.target];
+export const matchesWantedItem = (want, item) =>
+  want?.kind === "item" &&
+  (want.lit === undefined
+    ? itemTypeMatches(want.target, item)
+    : want.target === item);
 export { questTerms };
 export const sameQuest = (left, right) =>
   questTerms(left) === questTerms(right);
@@ -257,18 +274,24 @@ const validTarget = (s, kind, target) =>
       : kind === "connect"
         ? target === CONNECT_TARGET
         : true;
-export const lostOf = (s, w) =>
-  w
-    ? [
-        w.target,
-        w.step?.to,
-        w.step?.with,
-        w.step?.at,
-        ...(w.step?.items || []).filter(
-          (id) => !(w.step.finish && spentByChoice(s, id)),
-        ),
-      ].find((id) => typeof id === "string" && neverBack(s, id))
-    : undefined;
+const copyCanReturn = (s, expected, copies) =>
+  copies.some(
+    (id) => id !== expected && Object.hasOwn(s.items, id) && !neverBack(s, id),
+  );
+export function lostOf(s, w) {
+  if (!w) return undefined;
+  return [
+    copyCanReturn(s, w.target, wantedItems(w)) ? undefined : w.target,
+    w.step?.to,
+    w.step?.with,
+    w.step?.at,
+    ...(w.step?.items || []).filter(
+      (id) =>
+        !(w.step.finish && spentByChoice(s, id)) &&
+        !copyCanReturn(s, id, layItemCopies(w, id)),
+    ),
+  ].find((id) => typeof id === "string" && neverBack(s, id));
+}
 
 // An authored want as the actor holds it: its kind, target, light and step.
 const heldWant = (s, w) => ({
@@ -393,10 +416,7 @@ export function wantCandidates(
       owner !== actor &&
       person &&
       within(s.actors[owner].place) &&
-      !(
-        s.actors[owner].want?.kind === "item" &&
-        s.actors[owner].want.target === id
-      ) &&
+      !matchesWantedItem(s.actors[owner].want, id) &&
       api.valueOf(actor, id) > floor &&
       (wide || !api.obtainable || api.obtainable(actor, id))
     );
@@ -481,16 +501,39 @@ const placeOfItem = (s, item) => {
   const root = rootOf(s, item);
   return s.actors[root]?.place ?? root;
 };
+const anyWantedItem = (s, want, test) =>
+  wantedItems(want).some(
+    (id) =>
+      Object.hasOwn(s.items, id) &&
+      test(id) &&
+      (id === want.target || entityActive(s, id)),
+  );
 const together = (s, a, b) =>
   Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
-export function layMet(world, { target, step, lit }) {
+export function layItemCopies({ step, lit }, item) {
+  if (lit) return [item];
+  // A specific stock card named in another slot can meet only that slot.
+  return itemCopies(item).filter(
+    (id) => id === item || !step.items.includes(id),
+  );
+}
+export function missingLayItems(world, want) {
+  const { target, step, lit } = want;
+  return step.items.filter(
+    (item) =>
+      !layItemCopies(want, item).some(
+        (id) =>
+          world.items[id]?.holder === target &&
+          (id === item || entityActive(world, id)) &&
+          (!lit || Boolean(world.items[id].lit)),
+      ),
+  );
+}
+export function layMet(world, want) {
+  const { target, step } = want;
   if (step.finish)
     return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
-  return step.items.every(
-    (item) =>
-      world.items[item]?.holder === target &&
-      (!lit || Boolean(world.items[item].lit)),
-  );
+  return !missingLayItems(world, want).length;
 }
 
 function stepMet(s, actor, want, action) {
@@ -500,18 +543,21 @@ function stepMet(s, actor, want, action) {
       action?.kind === kind &&
       action.actor === actor &&
       (verb === "give"
-        ? action.item === want.target && action.target === to && action.accepted
+        ? matchesWantedItem(want, action.item) &&
+          action.target === to &&
+          action.accepted
         : action.target === want.target);
   if (verb === "call") return false; // settled with the crossing's exact predicate
   if (verb === "lay") return layMet(s, want);
-  if (verb === "find") return placeOfItem(s, want.target) === me.place;
+  if (verb === "find")
+    return anyWantedItem(s, want, (item) => placeOfItem(s, item) === me.place);
   // Eat (rules 102): this avatar eats the food, there and with that
   // companion if named, once the companion agrees; or the companion it
   // named eats it with this avatar.
   if (verb === "eat")
     return Boolean(
       action?.kind === "eat" &&
-        action.item === want.target &&
+        matchesWantedItem(want, action.item) &&
         action.accepted !== false &&
         (!at || me.place === at) &&
         ((action.actor === actor &&
@@ -530,7 +576,7 @@ function stepMet(s, actor, want, action) {
   // Bring with no one to bring it to: home, as a homecoming wants.
   if (verb === "bring")
     return (
-      rootOf(s, want.target) === actor &&
+      anyWantedItem(s, want, (item) => rootOf(s, item) === actor) &&
       me.place === at &&
       (!to || together(s, actor, to))
     );
@@ -575,7 +621,7 @@ function questMet(s, actor, want, talk, action) {
         action?.kind === "give" &&
         action.accepted === true &&
         action.target === actor &&
-        action.item === want.target)
+        matchesWantedItem(want, action.item))
     );
   if (want.kind === "place") return s.actors[actor].place === want.target;
   return Boolean(
@@ -591,14 +637,14 @@ function questMet(s, actor, want, talk, action) {
 export const meetsItemWant = (s, actor, item, action = null) => {
   const w = wantOf(s, actor);
   return Boolean(
-    w && w.kind === "item" && w.target === item &&
-      questMet(s, actor, w, null, action),
+    matchesWantedItem(w, item) && questMet(s, actor, w, null, action),
   );
 };
 // An item want may name the item's light: then it is met only in the
 // actor's own hands, lit (or dark) and uncovered, as a moth wants a flame.
 export function holdsAsWanted(s, actor, want) {
-  if (want.lit === undefined) return rootOf(s, want.target) === actor;
+  if (want.lit === undefined)
+    return anyWantedItem(s, want, (item) => rootOf(s, item) === actor);
   const item = s.items[want.target];
   return (
     item.holder === actor &&
@@ -748,18 +794,13 @@ function commitMet(s, id, api, met, held = null) {
 
 export function refuseWant(s, actor, item, api) {
   const want = wantOf(s, actor);
-  if (want?.kind !== "item" || want.target !== item || api.player(actor))
-    return;
+  if (!matchesWantedItem(want, item) || api.player(actor)) return;
   if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;
   want.refusals = Math.min(REFUSAL_LIMIT, want.refusals + 1);
 }
 export const quietWant = (s, actor, item) => {
   const want = s.actors[actor]?.want;
-  return Boolean(
-    want?.kind === "item" &&
-      want.target === item &&
-      want.refusals >= REFUSAL_LIMIT,
-  );
+  return matchesWantedItem(want, item) && want.refusals >= REFUSAL_LIMIT;
 };
 function giveUp(s, actor, api) {
   const a = s.actors[actor],
@@ -784,8 +825,12 @@ export function reviseStalledWants(s, actors, api, before = s) {
     if (
       a.want?.kind === "item" &&
       a.want.refusals &&
-      before.items[a.want.target] &&
-      rootOf(before, a.want.target) !== rootOf(s, a.want.target)
+      wantedItems(a.want).some(
+        (item) =>
+          before.items[item] &&
+          s.items[item] &&
+          rootOf(before, item) !== rootOf(s, item),
+      )
     )
       a.want.refusals -= Math.min(
         a.want.refusals,

@@ -42,8 +42,44 @@ edition, exact passage, and reuse basis before bundling it. The reader's
 separate code, assets, apparatus, and alignments have not been licensed by
 this attribution.
 
-Card art has its own provenance under
-[`v2/card-game/assets/greek/`](../../card-game/assets/greek/).
+Card art has its own [provenance](../../card-game/assets/greek-drama/PROVENANCE.md).
+
+## The towns and shores
+
+The repertoire lives in the places of the plays. The Cadmea district leads to
+the gates and households of earlier Thebes. Athens and its countryside lead
+to the assembly, the Thinkery, Acharnae Market and the Underworld landing.
+The road from Athens reaches Apollo’s precinct at Delphi and continues over
+Oeta to Trachis and the northern households.
+
+The Charybdis serves Black Pond, the Wine-Dark Harbor, Piraeus, and the
+Signal Jetty. To reach the Scylla, walk from the Wine-Dark Harbor through
+Thebes, Cithaeron, Eleusis, Athens, Delphi, and Trachis. Follow the shore
+path from Pherae to Pagasae. The walk uses the ordinary City Gate passage
+and joins the ships’ separate harbors. [Second-ship route study](https://github.com/cenetex/cosyworld/issues/1405#issuecomment-6525332229)
+
+From Pagasae, the Scylla sails to Sicily, Lemnos, and, once Helen’s Egyptian
+account opens, Proteus’s Tomb. From Lemnos the ship can continue to Thrace
+and Tauris, or to the Trojan landing once Myrto’s invitation opens Ajax’s
+camp. The Scythian Coast Road and Royal Road continue inland from Tauris
+and Troy. The two ships follow the earlier distinction between the Charybdis
+and the proposed Scylla. [Rules 94 route design](https://github.com/cenetex/cosyworld/pull/2110)
+
+New encounters use original dialogue and practical choices. The traveler
+brings an object to a person involved, and the action changes who can use it
+or what can happen there. At Acharnae the public truce opens a market stall
+and puts salt bread on the table. Thaleia can then bake more Bread from Water
+once the shared loaf is spent. The private sale backs one basket of Travel
+Provisions through Dicaeopolis’s bond and Thaleia’s personal trust. On the
+Areopagus, a traveler can read Cilissa’s posted testimony and ask the Furies’
+leader to open a bench for the palace-door witnesses. The places keep the
+generations of their plays, including the reign of Oedipus, the siege of
+Thebes and the later burial.
+
+The Court on the Areopagus, the Scythian Crag, the Hoopoe’s Thicket and the
+Assembly Hill have their own paintings. Cilissa and the Hoopoe have their own
+portraits. Other new locations, residents and objects can share existing
+CosyWorld art. The narration and illustrations are original adaptations.
 
 ## The Open Door
 
@@ -62,15 +98,16 @@ The five-place Attic section develops three works from the same repertoire:
   These include Ismene's ritual, the daughters' recovery, Polyneices's plea,
   Oedipus's passing and Theseus's final promise.
 
-Colonus is a named earlier tale. Marathon belongs to a separate generation
-under Demophon. Their present keepers, physical gifts and closing responses
-are original connective scenes. The public hearing at the Agora, the
-negotiated burial truce, Thaleia's quay work and the two present Eleusis
-answers are original adaptations. Marathon's public hearing is explicitly
-an alternate ending within the keeper's tale.
+Colonus takes place before the Theban brothers die. Oedipus asks the traveler
+to lay oil so his daughters have a light at the boundary. Theseus brings
+the daughters back and offers them refuge. Marathon belongs to the reign of
+Demophon. The king asks for a blanket from Piraeus to shelter the children.
+The captive’s bond decides whether Eurystheus remains in public custody for
+a hearing or passes into Alcmene’s keeping.
 
-[The Open Door guide](OPEN-DOOR.md) gives the scene order, facts and original
-choices. All prose and verses added for this section are original writing.
+The oil and blanket, the public hearing at the Agora, the negotiated burial
+truce, Thaleia’s quay work and the new custody outcomes are original
+adaptations.
 
 Myrine of Argos is an original household representative in the homecoming
 scenes. Her agreed walk from Eleusis to Piraeus, the two forms of care,

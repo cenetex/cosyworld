@@ -20,6 +20,7 @@ export const TRANSPORT_VERSION = 3;
 // course cards in the current hand.
 export const VOYAGE = "@voyage";
 const PHASES = ["docked", "course", "sea", "arrived"];
+const atBerth = (state) => state.phase === "docked" || state.phase === "arrived";
 
 const shipAt = (place) =>
   Object.entries(transports).find(([, t]) => t.place === place) || null;
@@ -125,15 +126,6 @@ export function learnLane(s, actor, from, to) {
   );
   return true;
 }
-// A gated lane is open only while its authored conditions hold (a thing from
-// that world aboard), whoever knows it. Knowing it is information only.
-const laneGate = (t, from, to) =>
-  (t.lanes || []).find(
-    (lane) =>
-      lane.opensWith &&
-      ((lane.from === from && lane.to === to) ||
-        (!lane.oneWay && lane.from === to && lane.to === from)),
-  )?.opensWith ?? null;
 // The authored lane a ship sails from one dock to another, or null.
 export const laneBetween = (t, from, to) =>
   (t.lanes || []).find(
@@ -141,6 +133,7 @@ export const laneBetween = (t, from, to) =>
       (lane.from === from && lane.to === to) ||
       (!lane.oneWay && lane.from === to && lane.to === from),
   ) ?? null;
+const laneGate = (t, from, to) => laneBetween(t, from, to)?.opensWith ?? null;
 export const laneGated = (from, to) =>
   Object.values(transports).some((t) => laneGate(t, from, to));
 // The authored conditions that open a gated lane, or null.
@@ -148,12 +141,13 @@ export const laneConditions = (from, to) =>
   Object.values(transports)
     .map((t) => laneGate(t, from, to))
     .find(Boolean) ?? null;
-const openLanes = (s, t, dock, actor = null) =>
+const openLanes = (s, t, dock, actor = null, emptyRecall = false) =>
   lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;
-    const gate = laneGate(t, dock, to);
-    return gate
-      ? conditionsMet(s, t.packId, gate)
+    const lane = laneBetween(t, dock, to);
+    return lane?.opensWith
+      ? (emptyRecall && lane.emptyRecall === true) ||
+          conditionsMet(s, t.packId, lane.opensWith)
       : knowsLane(s, actor, dock, to);
   });
 // A gated lane marked `sealed`, shut from the dock where the ship lies, shows
@@ -164,7 +158,7 @@ export function shutLanes(s, place) {
   if (!found) return [];
   const [id, t] = found,
     state = read(s, id);
-  if (!["docked", "arrived"].includes(state.phase)) return [];
+  if (!atBerth(state)) return [];
   return (t.lanes || [])
     .filter(
       (lane) =>
@@ -195,14 +189,21 @@ export function berthOpen(s, place) {
 }
 
 // Shortest open lane path between two docks, or null.
-export function lanePath(s, id, from, to, actor = null) {
+export function lanePath(
+  s,
+  id,
+  from,
+  to,
+  actor = null,
+  { emptyRecall = false } = {},
+) {
   const t = transports[id];
   const queue = [[from]],
     seen = new Set([from]);
   for (let i = 0; i < queue.length; i++) {
     const path = queue[i];
     if (path.at(-1) === to) return path;
-    for (const next of openLanes(s, t, path.at(-1), actor)) {
+    for (const next of openLanes(s, t, path.at(-1), actor, emptyRecall)) {
       if (seen.has(next)) continue;
       seen.add(next);
       queue.push([...path, next]);
@@ -289,15 +290,15 @@ const humanAboard = (s, t) =>
 const playerAvatar = (s, who) =>
   controlledByHuman(s, who) || Boolean(humanAvatar(who));
 
-// Riders sailed in on the last voyage. Only they can step ashore, and only
-// at the arrival port. A person who boarded here cannot step straight back.
+// Arrived riders can step ashore. A player with no available course can
+// also return to the dock.
 export function canDisembark(s, id, actor) {
   const state = read(s, id);
-  return Boolean(
-    actor &&
-      state.phase === "arrived" &&
-      s.actors[actor]?.place === transports[id].place &&
-      state.riders.includes(actor),
+  if (!atBerth(state) || s.actors[actor]?.place !== transports[id].place)
+    return false;
+  return (
+    state.riders.includes(actor) ||
+    (controlledByHuman(s, actor) && !courseOptions(s, id, actor).length)
   );
 }
 
@@ -306,7 +307,7 @@ export function canDisembark(s, id, actor) {
 export function courseOptions(s, id, actor = null) {
   const t = transports[id],
     state = read(s, id);
-  if (!["docked", "arrived"].includes(state.phase)) return [];
+  if (!atBerth(state)) return [];
   if (actor && s.actors[actor]?.place !== t.place) return [];
   if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
   return openLanes(s, t, state.dock, actor);
@@ -349,32 +350,69 @@ export function courseToward(s, place, target, actor = null) {
   return lanePath(s, found[0], dock, target, actor)?.[1] ?? null;
 }
 
+const transportName = (t) => packPlaces[t.place].name;
+const berthsAt = (s, place) =>
+  Object.entries(transports).filter(([id, t]) =>
+    t.docks.includes(place) && transportUnlocked(s, id) &&
+    entityActive(s, t.place) && entityActive(s, place),
+  );
+
+function callPath(s, id, place, turn) {
+  const state = read(s, id);
+  if (
+    !transportUnlocked(s, id) ||
+    state.phase !== "docked" ||
+    state.dock === place ||
+    (state.since === turn && turn > 0) ||
+    passengers(s, id).length
+  )
+    return null;
+  return lanePath(s, id, state.dock, place, null, { emptyRecall: true });
+}
+
+const approachText = (name, remaining) =>
+  `${name} is ${remaining} sea ${remaining === 1 ? "leg" : "legs"} away.`;
+
+export function transportWait(s, action) {
+  if (!controlledByHuman(s, action.actor)) return action;
+  const place = s.actors[action.actor].place;
+  const berth = berthsAt(s, place).find(([id]) =>
+    callPath(s, id, place, s.turn + 1),
+  );
+  if (!berth) return action;
+  const name = transportName(berth[1]).replace(/^The /u, "");
+  return { ...action, label: `Wait for ${name}` };
+}
+
 // An empty docked ship comes one lane closer to a human waiting at a port.
-export function waitForTransport(s, place, actor) {
-  if (controlledByHuman(s, actor)) callTransport(s, place);
+export function waitForTransport(s, place, actor, log = null) {
+  if (!controlledByHuman(s, actor)) return;
+  callTransport(s, place, false, (t, remaining) => {
+    const name = transportName(t);
+    const text = remaining
+      ? approachText(name, remaining)
+      : `${name} has reached the berth.`;
+    log?.(text, place);
+  });
 }
 
 // A traveller waiting to board brings the empty ship one lane closer. The
 // ship moves at most one lane in a world round, however many people wait.
 // A resident's call never takes the ship away from a human at its dock.
-export function callTransport(s, place, resident = false) {
+export function callTransport(s, place, resident = false, onApproach = null) {
   for (const [id, t] of Object.entries(transports)) {
     if (!t.docks.includes(place)) continue;
     const state = own(s, id);
     if (
-      (resident &&
-        Object.entries(s.actors).some(
-          ([who, a]) => a.place === state.dock && controlledByHuman(s, who),
-        )) ||
-      !transportUnlocked(s, id) ||
-      state.phase !== "docked" ||
-      state.dock === place ||
-      (state.since === s.turn && s.turn > 0) ||
-      passengers(s, id).length
+      resident && Object.entries(s.actors).some(
+        ([who, a]) => a.place === state.dock && controlledByHuman(s, who),
+      )
     )
       continue;
-    const path = lanePath(s, id, state.dock, place);
-    if (path) Object.assign(state, { dock: path[1], since: s.turn });
+    const path = callPath(s, id, place, s.turn);
+    if (!path) continue;
+    Object.assign(state, { dock: path[1], since: s.turn });
+    onApproach?.(t, path.length - 2);
   }
 }
 
@@ -486,7 +524,7 @@ export function sailTransports(s) {
   return events;
 }
 
-// Card exits aboard are the Disembark port for riders plus the course cards.
+// Card exits aboard are the Disembark port when available and the course cards.
 // A planner (previous set) looks through the ship to every dock it can reach.
 export function transportExits(s, place, previous = null, actor = null) {
   const found = shipAt(place);
@@ -522,12 +560,9 @@ export function transportCrossing(s, from, to) {
       const c = crossings.find((c) => c.transport === id && c.from === from);
       return { ...c, to, travel: "aboard", travelLabel: "Board" };
     }
-    if (
-      from === t.place &&
-      t.docks.includes(to) &&
-      read(s, id).phase === "arrived" &&
-      read(s, id).dock === to
-    ) {
+    if (from === t.place && t.docks.includes(to)) {
+      const state = read(s, id);
+      if (!atBerth(state) || state.dock !== to) continue;
       const c = crossings.find((c) => c.transport === id && c.from === to);
       return {
         ...c,
@@ -544,7 +579,22 @@ export function transportCrossing(s, from, to) {
 // Talk and the place card describe where the ship is.
 export function transportScenery(s, place, nameOf) {
   const found = shipAt(place);
-  if (!found) return [];
+  if (!found) {
+    return berthsAt(s, place).map(([id, t]) => {
+      const state = read(s, id), name = transportName(t);
+      if (!atBerth(state)) return `${name} is underway and cannot answer a call.`;
+      if (state.dock === place)
+        return state.phase === "arrived"
+          ? `${name} has arrived at the berth.`
+          : `${name} is at the berth.`;
+      if (passengers(s, id).length)
+        return `${name} has passengers aboard and cannot answer a call.`;
+      const path = callPath(s, id, place, s.turn + 1);
+      return path
+        ? `${approachText(name, path.length - 1)} Wait here to bring it closer.`
+        : `${name} cannot be called from this berth right now.`;
+    });
+  }
   const state = read(s, found[0]);
   if (state.phase === "sea")
     return [`The ship is at sea, bound for ${nameOf(state.destination)}.`];

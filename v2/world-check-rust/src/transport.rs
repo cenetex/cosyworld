@@ -88,6 +88,9 @@ fn check_lanes(transport: &Transport) -> Result<(), String> {
             || lane
                 .sealed
                 .is_some_and(|sealed| !sealed || lane.opens_with.is_none())
+            || lane
+                .empty_recall
+                .is_some_and(|empty_recall| !empty_recall || lane.opens_with.is_none())
         {
             return Err(format!(
                 "has an invalid gate on the lane from {from} to {to}"
@@ -119,10 +122,14 @@ mod tests {
     fn rejects_invalid_initial_dock_and_duplicate_lanes() {
         let v2 = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
         let (pack, mut bridge) = pack_sources(&v2, "greek-drama").unwrap();
+        let docks: BTreeSet<_> = bridge
+            .transports
+            .values()
+            .flat_map(|transport| transport.docks.iter().cloned())
+            .collect();
+        let known = |place: &str| docks.contains(place);
         let transport = bridge.transports.get_mut("greek-ship").unwrap();
         let dock = std::mem::replace(&mut transport.at, "unknown-dock".into());
-        let docks = transport.docks.clone();
-        let known = |place: &str| docks.iter().any(|dock| dock == place);
         assert!(check(&pack, &bridge, known)
             .unwrap_err()
             .contains("initial dock"));
@@ -138,5 +145,21 @@ mod tests {
         assert!(check(&pack, &bridge, known)
             .unwrap_err()
             .contains("repeats the lane"));
+    }
+
+    #[test]
+    fn checks_empty_recall_on_a_gated_lane() {
+        let v2 = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let (_, mut bridge) = pack_sources(&v2, "greek-drama").unwrap();
+        let transport = bridge.transports.get_mut("greek-ship").unwrap();
+        assert!(check_lanes(transport).is_ok());
+        let lane = transport
+            .lanes
+            .iter_mut()
+            .find(|lane| lane.empty_recall == Some(true))
+            .unwrap();
+        lane.sealed = None;
+        lane.opens_with = None;
+        assert!(check_lanes(transport).unwrap_err().contains("invalid gate"));
     }
 }

@@ -641,14 +641,14 @@ try {
         .filter((f) => !f.hidden && f.dataset.holder === id).map((f) => f.dataset.questId ?? f.querySelector(".card").dataset.card), gate),
         ["greek-shovel", "greek-battlefield", `offer:${gate}`], "it fans after the place's things");
       assert.equal(await card.getAttribute("data-unrevealed"), "true");
-      assert.doesNotMatch(await surfaces(page), /wine skin/iu);
+      assert.doesNotMatch(await surfaces(page), /\bwine\b(?!-dark)/iu);
       await card.scrollIntoViewIfNeeded();
       await t.shot("place-card-down");
       await page.locator('#card-actions [data-action="wait"]').click();
       await t.ready();
       assert.equal(await fold.getAttribute("data-face"), "up", "a play there turns it");
       await tapCard(card);
-      const words = "The Theban City Gate asks for the Wine Skin back, which lies at the Theban Courtyard";
+      const words = "The Theban City Gate asks for the Wine back, which lies at the Theban Courtyard";
       assert.equal(await page.locator(".action-beat-text").textContent(), words);
       assert.equal(await card.getAttribute("aria-label"), words);
       assert.equal(await t.oneButton(), 0);

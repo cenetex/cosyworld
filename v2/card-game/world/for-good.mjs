@@ -2,6 +2,8 @@ import forest from "../forest.json" with { type: "json" };
 import { useUpForGood } from "../item-use.mjs";
 import { neverBack, packPeople, packThings } from "../pack-registry.mjs";
 
+export const canSacrifice = (id) => !packThings[id]?.tags?.includes("staple");
+
 const restOf = (id) =>
   packThings[id]?.home ??
   packThings[id]?.holder ??

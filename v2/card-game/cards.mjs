@@ -310,7 +310,7 @@ function selectionPlay(world, selected, available = availableCards(world)) {
     if (id === currentActor(world)) return single(find("guard") || wait);
     if (people[id])
       return single(
-        find("talk", null, id) || find("attack", null, id),
+        authored() || find("talk", null, id) || find("attack", null, id),
         sealedReason(world, id) || `Meet ${nameOf(id)} here.`,
       );
     if (sealedReason(world, id)) return single(null, sealedReason(world, id));
@@ -570,9 +570,12 @@ export function restPlays(world, actions, again, cards = []) {
     (asleep ? !cards.length : again) &&
     actions.some(plainWait) &&
     legalActions(world).find((a) => a.sleep);
-  return actions.map((a) =>
-    shownPlay(world, sleep && plainWait(a) ? sleep : a, cards),
-  );
+  return actions.flatMap((a) => {
+    const shown = shownPlay(world, a, cards);
+    if (!sleep || !plainWait(a)) return [shown];
+    const rest = shownPlay(world, sleep, cards);
+    return a.label && !asleep ? [shown, rest] : [rest];
+  });
 }
 
 export function cardObservation(world, id) {

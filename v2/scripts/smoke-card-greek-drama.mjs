@@ -1,4 +1,5 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
+import { nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { clearSelection, endStandoff, holdItem, selectCard, setLampFuel } from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 import assert from "node:assert/strict";
@@ -169,7 +170,7 @@ try {
         for (const step of steps) await travel(step);
         return;
       }
-      if (id === "greek-ship")
+      if (id === "greek-ship" || id === "greek-scylla")
         for (
           let n = 0;
           n < 32 &&
@@ -222,6 +223,32 @@ try {
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
       assert.equal(await page.textContent("#place-title"), places[id].name);
       if (boarding) await clearSelection(page);
+    };
+    const restore = async (world) => {
+      await page.evaluate(
+        ({ key, value }) => {
+          localStorage.setItem(key, value);
+          window.dispatchEvent(
+            new StorageEvent("storage", { key, newValue: value }),
+          );
+        },
+        { key, value: encodeSave(world) },
+      );
+      await page.waitForFunction(
+        (name) => document.querySelector("#place-title")?.textContent === name,
+        places[world.actors.vale.place].name,
+      );
+      await ready();
+    };
+    const sailScylla = async (destination) => {
+      await travel("greek-scylla");
+      let s = await state();
+      for (let i = 0; i < 8 && s.actors.vale.place !== destination; i++) {
+        const action = nextVoyagePlay(s, "vale", destination);
+        await playCard(action.kind === "wait" ? "vale" : action.target);
+        s = await state();
+      }
+      assert.equal(s.actors.vale.place, destination);
     };
     const artReady = async () => {
       await page.waitForFunction(() =>
@@ -300,13 +327,15 @@ try {
       branch === "egypt" ? "greek-troy-beach" : "greek-egypt-tomb";
     const evidence = `greek-${branch}-testimony`;
     const otherAccountLocked = async () => {
-      assert.equal(await card(opposite).getAttribute("data-locked"), "true");
+      if (branch === "egypt")
+        assert.equal(await card(opposite).getAttribute("data-locked"), "true");
+      else assert.equal(await card(opposite).count(), 0);
       assert.equal(
         legalActions(await state()).some(
           (action) => action.kind === "move" && action.target === opposite,
         ),
         false,
-        "The other account stays a locked road, never a legal destination",
+        "The other account is never a legal destination",
       );
     };
     await travel("greek-harbor");
@@ -328,7 +357,21 @@ try {
     );
     if (branch === "troy") await travel("greek-harbor");
     await otherAccountLocked();
-    await travel(destination);
+    if (branch === "egypt") {
+      const shore = await state();
+      assert.equal(
+        legalActions(shore).some(
+          (action) => action.kind === "move" && action.target === destination,
+        ),
+        false,
+        "Egypt has no walk from the harbor",
+      );
+      // The port journeys cover the inland walk. Start the browser voyage at
+      // Pagasae with the same witnesses, choices and possessions.
+      shore.actors.vale.place = "greek-pagasae";
+      await restore(shore);
+      await sailScylla(destination);
+    } else await travel(destination);
     await playCard(evidence);
     assert.equal(rootHolder(await state(), evidence), "vale");
     await page.reload();
@@ -339,7 +382,12 @@ try {
       path: new URL(`helen-${branch}-${width}.png`, output).pathname,
       fullPage: true,
     });
-    await travel("greek-harbor");
+    if (branch === "egypt") {
+      await sailScylla("greek-pagasae");
+      const shore = await state();
+      shore.actors.vale.place = "greek-harbor";
+      await restore(shore);
+    } else await travel("greek-harbor");
     await otherAccountLocked();
     await travel("pond");
     current = await state();
@@ -364,20 +412,7 @@ try {
       "move",
       "greek-harbor",
     );
-    await page.evaluate(
-      ({ key, value }) => {
-        localStorage.setItem(key, value);
-        window.dispatchEvent(
-          new StorageEvent("storage", { key, newValue: value }),
-        );
-      },
-      { key, value: encodeSave(updated) },
-    );
-    await page.waitForFunction(
-      (name) => document.querySelector("#place-title")?.textContent === name,
-      places["greek-harbor"].name,
-    );
-    await ready();
+    await restore(updated);
     await otherAccountLocked();
     await travel("pond");
     assert.equal(rootHolder(await state(), evidence), "vale");

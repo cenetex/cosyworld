@@ -1,0 +1,608 @@
+{
+  "supplies": {
+    "greek-antigone-grave-honey-supply": {
+      "item": "greek-antigone-grave-honey",
+      "at": "greek-polynices-hollow",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-polynices-honey-offered",
+          "value": true
+        }
+      ]
+    },
+    "greek-aeschylean-electra-offering-supply": {
+      "item": "greek-antigone-grave-honey",
+      "at": "greek-argos-tomb",
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-atreid-aeschylus-refusal" }
+      ]
+    },
+    "greek-areopagus-first-offering-supply": {
+      "item": "greek-antigone-grave-honey",
+      "at": "greek-areopagus",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-eumenides-outcome",
+          "value": "second"
+        }
+      ]
+    },
+    "greek-io-trail-figs-supply": {
+      "item": "greek-figs",
+      "at": "greek-scythian-crag",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-prometheus-bound-outcome",
+          "value": "first"
+        }
+      ]
+    }
+  },
+  "items": {
+    "greek-susa-council-barley": {
+      "name": "Council Ration of Barley",
+      "holder": "greek-susa",
+      "art": "assets/greek-drama/wheat.png",
+      "seed": "Atossa’s household issues barley to the messenger once the council sits.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-persians-outcome",
+          "value": "first"
+        }
+      ],
+      "tags": ["food"],
+      "home": "greek-susa"
+    },
+    "greek-danaids-vote-writ": {
+      "name": "Summons to the Argive Assembly",
+      "holder": "greek-argos-sanctuary",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "seed": "The altar keeper posts Pelasgus’s summons for those who will speak for the Danaids.",
+      "lifecycle": "fixed",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-suppliant-women-outcome",
+          "value": "first"
+        }
+      ],
+      "author": "greek-story-aeschylus-suppliant-women-first",
+      "claims": [
+        {
+          "id": "assembly",
+          "text": "Pelasgus calls the citizens of Argos to hear whether the daughters of Danaus may have shelter.",
+          "about": "greek-argos-sanctuary"
+        }
+      ]
+    },
+    "greek-crag-fork-marker": {
+      "name": "The Oceanid’s Fork Marker",
+      "holder": "greek-scythian-crag",
+      "art": "assets/greek-drama/testimony.png",
+      "seed": "A fixed marker beside the tablet in the cleft at the fork.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-prometheus-bound-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-aeschylus-prometheus-bound-second",
+      "lifecycle": "fixed",
+      "claims": [
+        {
+          "id": "marker",
+          "text": "The Oceanid keeps Prometheus’s directions in the cleft by the fork for travelers who come after Io.",
+          "about": "greek-scythian-crag"
+        }
+      ]
+    },
+    "greek-aeschylean-welcome-seal": {
+      "name": "The Elders’ Welcome Seal",
+      "holder": "greek-argos-palace",
+      "art": "assets/greek-drama/household-token.png",
+      "seed": "A seal carried out from the palace by an elder who saw the welcome.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-agamemnon-outcome",
+          "value": "first"
+        }
+      ],
+      "author": "greek-story-aeschylus-agamemnon-first",
+      "claims": [
+        {
+          "id": "welcome",
+          "text": "The elders saw Agamemnon cross the purple cloth at the Argive palace door.",
+          "about": "greek-argos-palace"
+        }
+      ]
+    },
+    "greek-aeschylean-cassandra-deposition": {
+      "name": "Cassandra’s Deposition",
+      "holder": "greek-argos-palace",
+      "art": "assets/greek-drama/palace-testimony.png",
+      "seed": "A portable account taken down beside Cassandra’s bench.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-agamemnon-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-aeschylus-agamemnon-second",
+      "claims": [
+        {
+          "id": "warning",
+          "text": "Cassandra sat outside with the elders and warned them of what she feared would happen inside the house.",
+          "about": "greek-argos-palace"
+        }
+      ]
+    },
+    "greek-areopagus-witness-order": {
+      "name": "The Areopagus Witness Order",
+      "holder": "greek-areopagus",
+      "art": "assets/greek-drama/creon-writ.webp",
+      "seed": "The order asks travelers to meet Cilissa, Orestes’s nurse, at Agamemnon’s tomb.",
+      "lifecycle": "fixed",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-areopagus-household-evidence-filed",
+          "value": true
+        }
+      ],
+      "author": "greek-story-aeschylus-eumenides-first",
+      "records": [
+        "greek-areopagus-file-atreid-evidence",
+        "greek-areopagus-admit-atreid-witnesses",
+        "greek-areopagus-open-witness-bench"
+      ],
+      "recordText": {
+        "greek-areopagus-file-atreid-evidence": "Athena filed the Argive evidence and asked travelers to escort Cilissa from Agamemnon’s tomb to testify in Orestes’s case.",
+        "greek-areopagus-admit-atreid-witnesses": "The Furies’ leader admitted the named household witnesses to the court’s waiting stones and reserved the first bench for them.",
+        "greek-areopagus-open-witness-bench": "After Cilissa testified about the voices at the palace door, the Furies’ leader opened the witness bench for their own accounts and provided water for those waiting."
+      }
+    },
+    "greek-ajax-appeal-witness-seal": {
+      "name": "The Vigil’s Witness Seal",
+      "holder": "greek-ajax-landing",
+      "art": "assets/greek-drama/household-token.png",
+      "seed": "A seal left at the landing for travelers who witnessed the appeal.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "appeal"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-account-ready",
+          "value": true
+        }
+      ],
+      "author": "greek-ajax-teucer",
+      "claims": [
+        {
+          "id": "appeal",
+          "text": "Teucer signed that the appeal was witnessed and Ajax was buried after it.",
+          "about": "greek-ajax-grave"
+        }
+      ]
+    },
+    "greek-antigone-grave-honey": {
+      "name": "Honey",
+      "holder": "greek-sanctuary",
+      "art": "assets/greek-drama/grove-honey.png",
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            { "kind": "flag", "key": "greek-burial-performed", "value": true },
+            { "kind": "receipt", "choiceId": "greek-atreid-aeschylus-refusal" },
+            {
+              "kind": "choice",
+              "key": "greek-story-aeschylus-eumenides-outcome",
+              "value": "second"
+            }
+          ]
+        }
+      ],
+      "tags": ["food"],
+      "home": "greek-sanctuary",
+      "startsUsed": true,
+      "regrow": "dawn",
+      "absentReturn": true
+    },
+    "greek-trachis-guard-ration": {
+      "name": "Ration for Lichas’s Watch",
+      "holder": "greek-trachis",
+      "art": "assets/greek-drama/provision-basket.png",
+      "seed": "The watch receives this ration when Lichas leaves with the sealed chest.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-sophocles-women-of-trachis-outcome",
+          "value": "second"
+        }
+      ],
+      "tags": ["food"],
+      "home": "greek-trachis"
+    },
+    "greek-oedipus-public-witness-list": {
+      "name": "The Herald’s Witness List",
+      "holder": "greek-oedipus-court",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "seed": "A public tablet records the two men called to speak on the steps.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-sophocles-oedipus-tyrannus-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-sophocles-oedipus-tyrannus-second",
+      "lifecycle": "fixed",
+      "claims": [
+        {
+          "id": "summons",
+          "text": "Oedipus called the shepherd and the messenger from Corinth to give evidence side by side before the city.",
+          "about": "greek-oedipus-court"
+        }
+      ]
+    },
+    "greek-mycenae-hearing-cup": {
+      "name": "Cup for the Palace Hearing",
+      "holder": "greek-mycenae-palace",
+      "art": "assets/greek-drama/grove-cup.png",
+      "seed": "Orestes leaves a cup at the door where the palace witnesses are to gather.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-response",
+          "value": "hearing"
+        }
+      ],
+      "tags": ["drink"],
+      "home": "greek-mycenae-palace"
+    },
+    "greek-lemnos-crew-food": {
+      "name": "The Crew’s Food Ashore",
+      "holder": "greek-lemnos",
+      "art": "assets/greek-drama/provision-basket.png",
+      "seed": "Philoctetes makes the ship’s people carry food ashore before hearing their terms.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-sophocles-philoctetes-outcome",
+          "value": "first"
+        }
+      ],
+      "tags": ["food"],
+      "home": "greek-lemnos"
+    },
+    "greek-lemnos-neoptolemus-water": {
+      "type": "greek-water-jar",
+      "holder": "greek-lemnos",
+      "home": "greek-lemnos",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-sophocles-philoctetes-outcome",
+          "value": "second"
+        }
+      ]
+    },
+    "greek-colonus-private-household-seal": {
+      "name": "Theseus’s Household Seal",
+      "holder": "greek-colonus",
+      "art": "assets/greek-drama/household-token.png",
+      "seed": "The seal gives the daughters a private welcome without naming them on the grove’s roll.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-open-door-colonus-done",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-colonus-household-welcome",
+          "value": true
+        }
+      ],
+      "author": "greek-colonus-theseus",
+      "claims": [
+        {
+          "id": "household",
+          "text": "Theseus pledged a place in his own house for Oedipus’s daughters and left their names off the public roll.",
+          "about": "greek-colonus"
+        }
+      ]
+    }
+  },
+  "choices": [
+    {
+      "id": "greek-polynices-grave-offering",
+      "subject": "greek-polynices-hollow",
+      "at": "greek-polynices-hollow",
+      "humanOnly": true,
+      "workId": "sophocles-antigone",
+      "label": "Pour honey at the grave",
+      "text": "The honey stays in the earth at Polynices’s grave. Antigone’s burial has a place for those who come to mourn him.",
+      "requires": [
+        { "kind": "flag", "key": "greek-burial-performed", "value": true }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-polynices-honey-offered",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-electra-tomb-offering",
+      "subject": "greek-electra-aeschylus",
+      "at": "greek-argos-tomb",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aeschylus-libation-bearers",
+      "text": "Electra pours honey at her father’s tomb. She thanks the traveler for letting the dead be remembered without swearing revenge.",
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-atreid-aeschylus-refusal" }
+      ],
+      "effects": [{ "kind": "trust", "level": 1 }]
+    },
+    {
+      "id": "greek-furies-welcome-offering",
+      "subject": "greek-story-aeschylus-eumenides-second",
+      "at": "greek-areopagus",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aeschylus-eumenides",
+      "text": "The Fury takes a dish of honey to the place Athens has promised her people. She welcomes the traveler who has come to mark the agreement.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-eumenides-outcome",
+          "value": "second"
+        }
+      ],
+      "effects": [{ "kind": "trust", "level": 1 }]
+    },
+    {
+      "id": "greek-areopagus-file-atreid-evidence",
+      "subject": "greek-story-aeschylus-eumenides-first",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "label": "File the Argive household testimony",
+      "text": "Athena enters the household evidence beside Orestes’s case and posts a witness order. Read it before visiting Cilissa, who is waiting at Agamemnon’s tomb.",
+      "summary": "Athena filed the Argive household evidence and issued a witness order separately from the ballot.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-story-aeschylus-eumenides-heard",
+          "value": true
+        },
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "holding",
+                  "item": "greek-tomb-testimony",
+                  "role": "actor"
+                },
+                {
+                  "kind": "holding",
+                  "item": "greek-aeschylean-welcome-seal",
+                  "role": "actor"
+                },
+                {
+                  "kind": "holding",
+                  "item": "greek-aeschylean-cassandra-deposition",
+                  "role": "actor"
+                }
+              ]
+            },
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "claim:greek-drama:greek-tomb-testimony:meeting",
+                  "role": "actor"
+                },
+                {
+                  "kind": "knows",
+                  "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+                  "role": "actor"
+                },
+                {
+                  "kind": "knows",
+                  "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal",
+                  "role": "actor"
+                }
+              ]
+            },
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "claim:greek-drama:greek-aeschylean-welcome-seal:welcome",
+                  "role": "actor"
+                },
+                {
+                  "kind": "knows",
+                  "topic": "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning",
+                  "role": "actor"
+                },
+                {
+                  "kind": "knows",
+                  "topic": "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer",
+                  "role": "actor"
+                },
+                {
+                  "kind": "knows",
+                  "topic": "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer",
+                  "role": "actor"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-areopagus-household-evidence-filed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-areopagus-admit-atreid-witnesses",
+      "subject": "greek-story-aeschylus-eumenides-second",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "The Fury checks the names on the posted order. She gives the witnesses the first bench and asks you to stand with them until the clerk calls their names.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-areopagus-household-evidence-filed",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-areopagus-witnesses-admitted",
+          "value": true
+        },
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-areopagus-explain-household-proof",
+      "subject": "greek-story-aeschylus-eumenides-first",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "Athena says, “Bring me Electra’s tablet from Agamemnon’s tomb, or tell me what you read there. I can also enter a record from the Argive Palace Threshold. An account of another household will not answer for this one.”",
+      "requires": [
+        { "kind": "choice", "key": "greek-atreid-account", "value": "aeschylus" },
+        { "kind": "flag", "key": "greek-story-aeschylus-eumenides-heard", "value": true },
+        { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": false }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-areopagus-question-from-tomb",
+      "subject": "greek-story-aeschylus-eumenides-first",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "Athena says, “Electra’s tablet tells who met at the tomb. It leaves the palace summons unanswered. Read my Witness Order, then ask Cilissa who sent her for Aegisthus.”",
+      "requires": [
+        { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": true },
+        { "kind": "flag", "key": "greek-areopagus-cilissa-heard", "value": false },
+        {
+          "kind": "any",
+          "conditions": [
+            { "kind": "holding", "item": "greek-tomb-testimony", "role": "actor" },
+            { "kind": "knows", "topic": "claim:greek-drama:greek-tomb-testimony:meeting", "role": "actor" },
+            { "kind": "knows", "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing", "role": "actor" },
+            { "kind": "knows", "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-refusal", "role": "actor" }
+          ]
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-areopagus-question-from-palace",
+      "subject": "greek-story-aeschylus-eumenides-second",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "The Furies’ leader says, “Your palace account concerns Agamemnon’s welcome. Cilissa can tell us what happened later at that same door. Read Athena’s order and ask Cilissa what the women there told her to change.”",
+      "requires": [
+        { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": true },
+        { "kind": "flag", "key": "greek-areopagus-cilissa-heard", "value": false },
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "any",
+              "conditions": [
+                { "kind": "holding", "item": "greek-aeschylean-welcome-seal", "role": "actor" },
+                { "kind": "holding", "item": "greek-aeschylean-cassandra-deposition", "role": "actor" }
+              ]
+            },
+            {
+              "kind": "any",
+              "conditions": [
+                { "kind": "knows", "topic": "claim:greek-drama:greek-aeschylean-welcome-seal:welcome", "role": "actor" },
+                { "kind": "knows", "topic": "claim:greek-drama:greek-aeschylean-cassandra-deposition:warning", "role": "actor" },
+                { "kind": "knows", "topic": "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-first-answer", "role": "actor" },
+                { "kind": "knows", "topic": "claim:greek-drama:greek-story-aeschylus-agamemnon-record:greek-story-aeschylus-agamemnon-second-answer", "role": "actor" }
+              ]
+            }
+          ]
+        }
+      ],
+      "effects": []
+    }
+  ]
+}

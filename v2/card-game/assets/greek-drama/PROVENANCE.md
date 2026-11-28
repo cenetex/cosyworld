@@ -5,6 +5,13 @@ painted settings, item sprites and character portraits. The repository's existin
 [MIT license](../../../../LICENSE) applies. No image, illustration, character
 design, or page asset from the Greek Drama Reader is reproduced.
 
+## Pagasae and the Scylla
+
+Pagasae Anchorage and the Scylla each have day and night paintings. The
+Scylla’s travel card uses the same indigo hull and cream wave pattern as her
+deck paintings. All five images were generated with `image_gen` on 2026-11-27.
+See the [prompts and checksums](scylla-art-provenance.json).
+
 ## Chthonic character portraits
 
 The fifteen `chthonic-*.png` portraits were generated with the built-in
@@ -193,3 +200,15 @@ scenery:
 Both places are day only.
 [salvaged-backdrops-provenance.json](salvaged-backdrops-provenance.json)
 keeps their source records.
+
+## Greek repertoire scenes and portraits
+
+The built-in `image_gen` tool made four daytime stage paintings for the
+Court on the Areopagus, the Scythian Crag, the Hoopoe’s Thicket and the
+Assembly Hill, and two transparent portraits for Cilissa and the Hoopoe.
+Each WebP keeps the source canvas dimensions. The stage paintings are
+1672 × 941 and the portraits are 1024 × 1536. The image builder generates
+the game’s smaller variants.
+
+[greek-repertoire-art-provenance.json](greek-repertoire-art-provenance.json)
+records the prompts, generated files, dimensions and checksums.

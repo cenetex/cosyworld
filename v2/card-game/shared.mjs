@@ -9,6 +9,7 @@ import { signedEnvelopes } from "./signed-words.mjs";
 import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
 import { profiles } from "./memory.mjs";
 import { isLegacyElysiumLine } from "./elysium-models.mjs";
+import { nativeDisclosure } from "./knowledge.mjs";
 
 export const humanAvatars = roster.avatars;
 const $ = (id) => document.getElementById(id);
@@ -572,16 +573,22 @@ export function sharedReadingState(state, placeKnown) {
   if (placeKnown) return state;
   return {
     ...state,
+    coveredRoom: true,
     history: (state.history || []).filter(
       (scene) => scene.opening && scene.actor === state.actor,
     ),
   };
 }
 
+const roomClues = (state, room) => state.coveredRoom ? [] :
+  (state.world?.log || []).filter((entry) =>
+    entry.locationId === room && nativeDisclosure(entry, state.actor),
+  );
+
 export function sharedNextLine(state, room, seq) {
   const earliest = state.world?.log?.[0]?.seq ?? 0;
-  return roomScenes(state, room)
-    .flatMap((scene) => scene.lines)
+  return [...roomClues(state, room), ...roomScenes(state, room).flatMap((scene) => scene.lines)]
+    .sort((a, b) => a.seq - b.seq)
     .find((line) => line.seq > seq && line.seq >= earliest);
 }
 
@@ -591,7 +598,9 @@ export function sharedReadingLine(state, room, saved = null) {
   const scenes = roomScenes(state, room);
   const log = state.world?.log || [];
   const earliest = log[0]?.seq ?? 0;
-  const lines = scenes.flatMap((scene) => scene.lines)
+  const clues = roomClues(state, room);
+  const lines = [...clues, ...scenes.flatMap((scene) => scene.lines)]
+    .sort((a, b) => a.seq - b.seq)
     .filter((line) => line.seq >= earliest);
   if (saved?.room === room && saved.actor === state.actor && saved.seed === state.world?.run?.seed &&
       Number.isFinite(saved.seq) && saved.seq >= 0) {
@@ -603,7 +612,9 @@ export function sharedReadingLine(state, room, saved = null) {
     const next = lines.find((line) => line.seq > saved.seq);
     if (next) return next;
   }
-  return scenes.at(-1)?.lines.find((line) => line.seq >= earliest) || null;
+  const latest = scenes.at(-1)?.lines.find((line) => line.seq >= earliest);
+  const clue = clues.at(-1);
+  return (clue && (!latest || clue.seq > latest.seq || clue.turn === latest.turn) ? clue : latest) ?? null;
 }
 
 // Select a saved scene's line; imported local log entries have no such record.

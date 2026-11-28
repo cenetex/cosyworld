@@ -42,7 +42,8 @@ fn released(pack: &Pack, place: &str) -> bool {
 }
 
 fn pack_sources(v2: &Path, id: &str) -> Result<(Pack, Bridge), String> {
-    let pack: Pack = load(&v2.join("content").join(id).join("card-world.json"))?;
+    let directory = v2.join("content").join(id);
+    let mut pack: Pack = load(&directory.join("card-world.json"))?;
     let bridge: Bridge = load(&v2.join("worlds").join(id).join("card-bridge.json"))?;
     if pack.schema_version != 1
         || pack.id != id
@@ -70,6 +71,7 @@ fn pack_sources(v2: &Path, id: &str) -> Result<(Pack, Bridge), String> {
             return Err(format!("{id}: invalid place id or exits at {place_id}"));
         }
     }
+    release::add_encounter_choices(&mut pack, &directory.join("situations/00-encounters.json"))?;
     release::check(&pack)?;
     Ok((pack, bridge))
 }

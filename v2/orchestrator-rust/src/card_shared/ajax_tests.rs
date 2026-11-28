@@ -45,7 +45,7 @@ fn play(
         json!({"op":"play", "actor":if actor == 0 {"vale"} else {"mara"}, "action":selected}),
         now(),
     )
-    .unwrap()
+    .unwrap_or_else(|error| panic!("Ajax play {fields:?} for {who} failed: {error}"))
 }
 
 fn talk(c: &rusqlite::Connection, id: &str, world: &mut World, actor: usize, topic: &str) {
@@ -57,26 +57,22 @@ fn talk(c: &rusqlite::Connection, id: &str, world: &mut World, actor: usize, top
         &[("kind", "talk"), ("target", "greek-ajax-teucer")],
     );
     let actor = if actor == 0 { "vale" } else { "mara" };
-    let disclosure = &result["context"]["disclosures"][0];
-    assert_eq!(disclosure["factId"], topic);
-    assert!(world.game["knowledge"]["known"][actor].get(topic).is_none());
-    let confirmed = json!({"factId":topic,"speaker":"greek-ajax-teucer",
-        "listener":actor,"eventSeq":disclosure["eventSeq"]});
-    full_store::commit(
-        c,
-        id,
-        world,
-        json!({
-            "op":"speech", "actor":actor,
-            "room":"greek-greek-camp",
-            "lines":[
-                {"actorId":actor, "text":"Tell me your account for Dione."},
-                {"actorId":"greek-ajax-teucer", "text":disclosure["text"], "disclosed":confirmed}
-            ]
-        }),
-        now(),
-    )
-    .unwrap();
+    assert!(result["context"]["disclosures"]
+        .as_array()
+        .is_none_or(|disclosures| disclosures.iter().all(|fact| fact["factId"] != topic)));
+    let heard = world.game["log"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|line| {
+            line["turn"] == world.game["turn"]
+                && line["targetId"] == actor
+                && line["disclosedFactId"] == topic
+        })
+        .expect("Teucer's authored testimony");
+    assert_eq!(heard["actorId"], "greek-ajax-teucer");
+    assert_eq!(heard["witnesses"], json!(["greek-ajax-teucer", actor]));
+    assert!(heard["generated"].is_null());
     assert!(world.game["knowledge"]["known"][actor].get(topic).is_some());
 }
 
@@ -93,7 +89,18 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
         .args([
             "--input-type=module",
             "-e",
-            "import { ajaxGrave } from './test/helpers/greek-ajax.mjs'; console.log(JSON.stringify(ajaxGrave('appeal', false)));",
+            "import { ajaxGrave } from './test/helpers/greek-ajax.mjs';\
+             import { learnLane } from './v2/card-game/pack-transport.mjs';\
+             import { startDwell } from './v2/card-game/world/dwell.mjs';\
+             const world = ajaxGrave('appeal', false);\
+             startDwell(world, 'greek-ajax-teucer');\
+             const dione = world.actors['greek-baker'];\
+             dione.place = 'greek-courtyard';\
+             delete dione.sleeping;\
+             dione.want = {kind:'place',target:dione.place,step:{verb:'lay',items:['greek-water-jar']},since:world.turn,refusals:0};\
+             startDwell(world, 'greek-baker');\
+             learnLane(world, 'mara', 'greek-pagasae', 'greek-lemnos');\
+             console.log(JSON.stringify(world));",
         ])
         .output()
         .expect("Node 24 creates the Ajax source fixture");
@@ -209,13 +216,38 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         world.game["packs"]["greek-drama"]["receipts"]["greek-ajax-record-appeal"],
         signed
     );
-    // Home from the landing by the Northern Road, outside the City Gate:
-    // the Charybdis never calls at Troy (rules 94).
+    for target in ["greek-ajax-landing", "greek-scylla"] {
+        play(
+            &c,
+            &id,
+            &mut world,
+            1,
+            &[("kind", "move"), ("target", target)],
+        );
+    }
+    for target in ["greek-lemnos", "greek-pagasae"] {
+        play(
+            &c,
+            &id,
+            &mut world,
+            1,
+            &[("kind", "course"), ("target", target)],
+        );
+        play(&c, &id, &mut world, 1, &[("kind", "wait")]);
+    }
     for target in [
-        "greek-ajax-landing",
-        "greek-road-north",
-        "greek-harbor",
-        "greek-road-thebes",
+        "greek-pagasae",
+        "greek-pherae",
+        "greek-trachis",
+        "greek-oeta",
+        "greek-delphi",
+        "greek-road-sacred-way",
+        "greek-athens",
+        "greek-road-athens-eleusis",
+        "greek-eleusis",
+        "greek-cithaeron",
+        "greek-battlefield",
+        "greek-gate",
         "greek-courtyard",
     ] {
         play(

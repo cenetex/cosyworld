@@ -1,11 +1,8 @@
 import { legalActions, play } from "../../v2/card-game/world.mjs";
-import {
-  narrativeContext,
-  applyGeneratedText,
-} from "../../v2/card-game/narrative.mjs";
 import { greekStart, playGreek as playOpenDoor } from "./open-door.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
+import { openGreekGate } from "./greek-gate.mjs";
 
 export const ajaxState = (world) => world.packs["greek-drama"];
 export function ajaxChoice(world, id) {
@@ -36,7 +33,7 @@ export const ajaxMove = (world, ...places) =>
 
 let start;
 export function ajaxStart() {
-  start ||= greekStart({ full: true });
+  start ||= openGreekGate(greekStart({ full: true }));
   return structuredClone(start);
 }
 
@@ -49,30 +46,31 @@ export function ajaxTalk(
     (a) => a.kind === "talk" && a.target === target,
   );
   if (!action) throw new Error(`Missing ${target} Talk for ${actor}`);
-  const result = play(world, action, world.revision);
+  const result = play(world, action, world.revision, actor);
   if (!result.ok) throw new Error(result.error);
-  const context = narrativeContext(result.state, action);
-  const disclosure = context.disclosures?.[0];
-  if (disclosure?.factId !== topicId)
-    throw new Error(`Expected ${topicId}, reserved ${disclosure?.factId}`);
-  const { factId, speaker, listener, eventSeq } = disclosure;
-  return applyGeneratedText(result.state, context, {
-    revision: context.revision,
-    model: "fixture",
-    entries: context.entities.map(({ id }) => ({
-      id,
-      text: id === speaker ? disclosure.text : "I have heard the account.",
-      ...(id === speaker && {
-        disclosed: { factId, speaker, listener, eventSeq },
-      }),
-    })),
-  });
+  const disclosure = result.state.log.findLast((entry) =>
+    entry.turn === result.state.turn && !entry.generated &&
+    entry.actorId === target && entry.targetId === actor && entry.disclosedFactId,
+  );
+  if (disclosure?.disclosedFactId !== topicId)
+    throw new Error(`Expected ${topicId}, heard ${disclosure?.disclosedFactId}`);
+  return result.state;
 }
 
-export function ajaxCamp() {
+function reachCamp() {
   let world = ajaxMove(ajaxStart(), "greek-harbor");
   world = ajaxChoice(world, "invitation");
-  return ajaxMove(world, "greek-ajax-landing", "greek-greek-camp");
+  world = ajaxMove(world, "greek-pagasae");
+  world = ajaxTalk(world, "lane:greek-pagasae>greek-lemnos", {
+    target: "greek-pagasae-pilot",
+  });
+  return ajaxMove(world, "greek-scylla", "greek-ajax-landing", "greek-greek-camp");
+}
+
+let camp;
+export function ajaxCamp() {
+  camp ||= reachCamp();
+  return structuredClone(camp);
 }
 
 export function ajaxShieldKeeper(world) {
@@ -123,7 +121,8 @@ export function ajaxJourney(route = "public") {
   let world = ajaxMove(
     ajaxAccount(route),
     "greek-ajax-landing",
-    "greek-harbor",
+    "greek-scylla",
+    "greek-pagasae",
     "greek-courtyard",
   );
   return ajaxChoice(world, `return-${route}`);

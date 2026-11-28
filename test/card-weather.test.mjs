@@ -1,6 +1,7 @@
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { describe, expect, it } from "vitest";
 import { locationWeather, WEATHER_TURNS } from "../v2/card-game/weather.mjs";
+import weatherConfig from "../v2/card-game/weather.json" with { type: "json" };
 import {
   createWorld,
   decodeSave,
@@ -20,7 +21,10 @@ import { dispatchShared, load } from "../v2/card-game/shared-world.mjs";
 describe("regional Greece weather", () => {
   it("covers every Greek location and keeps local scenery within its region", () => {
     const ids = Object.keys(packPlaces).filter((id) => id.startsWith("greek-"));
-    expect(ids).toHaveLength(70);
+    const mapped = Object.values(weatherConfig.places)
+      .flatMap((region) => Object.values(region).flat())
+      .filter((id) => id.startsWith("greek-"));
+    expect(mapped.sort()).toEqual(ids.sort());
     for (let turn = 0; turn < WEATHER_TURNS * 8; turn++) {
       const regions = new Map();
       for (const id of ids) {
@@ -40,6 +44,14 @@ describe("regional Greece weather", () => {
     expect(new Set([coast.variant, court.variant, grove.variant]).size).toBe(3);
     expect(locationWeather(world, "greek-athens").condition).toBe("cloud");
     expect(locationWeather(world, "greek-thinkery").exposure).toBe("shelter");
+    expect(locationWeather(world, "greek-pagasae")).toMatchObject({
+      region: "thessaly",
+      condition: locationWeather(world, "greek-pherae").condition,
+      exposure: "coast",
+    });
+    expect(locationWeather(world, "greek-scylla")).toEqual(
+      locationWeather(world, "greek-ship"),
+    );
     expect(locationWeather(world, "greek-underworld")).toMatchObject({
       condition: "mist",
       exposure: "underground",

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "The Charybdis sails between Black Pond and the Wine-Dark Harbor with no cargo. It needs Travel Provisions aboard for Piraeus and a Hoppy Cat thing for the Signal Jetty. Every way back toward Black Pond is free. To call it, lay the burning Lamp at Black Pond while holding the Black cloth.",
+  "description": "The Charybdis sails from Black Pond to the Wine-Dark Harbor and takes provisions to reach Piraeus. The Signal Jetty takes a Hoppy Cat thing aboard. To call the Charybdis, lay the burning Lamp at Black Pond while holding the Black cloth. Walk to Pagasae from Pherae to board the Scylla for Lemnos, Thrace, Tauris and Sicily. The Egyptian and Trojan accounts open two further berths.",
   "entries": [
     {
       "joins": "hub",
@@ -42,9 +42,7 @@
         {
           "kind": "light",
           "item": "lamp",
-          "at": [
-            "pond"
-          ]
+          "at": ["pond"]
         },
         {
           "kind": "in_hand",
@@ -108,29 +106,22 @@
     {
       "id": "greek-ajax-landing-ship",
       "from": "greek-ajax-landing",
-      "to": "pond",
+      "to": "greek-lemnos",
       "travelers": "any",
-      "travel": "aboard the ship",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-ajax-open",
-          "value": true
-        }
-      ],
+      "travel": "aboard the Scylla",
+      "requires": [],
+      "transport": "greek-scylla",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Greek ship waits at the camp landing.",
-        "closed": "The shared ship is sailing elsewhere. The camp landing waits for its return.",
-        "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp",
+        "open": "The path from the landing leads up to the Greek camp.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
         "backdrop": "assets/greek-drama/ajax-landing-ship-at-berth.webp",
         "focus": {
           "x": 80,
           "y": 50
         }
-      },
-      "retired": true
+      }
     },
     {
       "id": "hoppycat-signal-jetty-ship",
@@ -142,8 +133,7 @@
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Charybdis waits at the end of the jetty.",
-        "closed": "The Charybdis is sailing elsewhere. The jetty points out over open water.",
+        "open": "Mooring posts stand at the end of the jetty.",
         "cardName": "The Charybdis",
         "cardArt": "assets/greek-drama/ship-card.webp",
         "backdrop": "assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
@@ -170,84 +160,98 @@
       "retired": true
     },
     {
+      "id": "greek-pagasae-ship",
+      "from": "greek-pagasae",
+      "to": "greek-lemnos",
+      "travelers": "any",
+      "travel": "aboard the Scylla",
+      "requires": [],
+      "transport": "greek-scylla",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The path from Pherae ends at the mooring stones.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp"
+      }
+    },
+    {
       "id": "greek-lemnos-ship",
       "from": "greek-lemnos",
-      "to": "pond",
+      "to": "greek-pagasae",
       "travelers": "any",
-      "travel": "aboard the ship",
+      "travel": "aboard the Scylla",
       "requires": [],
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Greek ship waits offshore.",
-        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
-        "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "open": "The mooring lies below Philoctetes’s cave.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
+        "backdrop": "assets/greek-drama/lemnian-cave-day.webp"
       },
-      "retired": true
+      "transport": "greek-scylla"
     },
     {
       "id": "greek-thrace-ship",
       "from": "greek-thrace",
-      "to": "pond",
+      "to": "greek-lemnos",
       "travelers": "any",
-      "travel": "aboard the ship",
+      "travel": "aboard the Scylla",
       "requires": [],
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Greek ship waits offshore.",
-        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
-        "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "open": "The landing is below the shore where Hecuba keeps watch.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
+        "backdrop": "assets/greek-drama/thracian-shore-day.webp"
       },
-      "retired": true
+      "transport": "greek-scylla"
     },
     {
       "id": "greek-egypt-tomb-ship",
       "from": "greek-egypt-tomb",
-      "to": "pond",
+      "to": "greek-pagasae",
       "travelers": "any",
-      "travel": "aboard the ship",
+      "travel": "aboard the Scylla",
       "requires": [],
+      "transport": "greek-scylla",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Greek ship waits offshore.",
-        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
-        "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
-      },
-      "retired": true
+        "open": "The path from the landing climbs to Proteus’s tomb.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp"
+      }
     },
     {
       "id": "greek-tauris-ship",
       "from": "greek-tauris",
-      "to": "pond",
+      "to": "greek-thrace",
       "travelers": "any",
-      "travel": "aboard the ship",
+      "travel": "aboard the Scylla",
       "requires": [],
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Greek ship waits offshore.",
-        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
-        "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "open": "The Scythian Coast Road climbs inland from the landing.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
+        "backdrop": "assets/greek-drama/tauris-shore-scene.webp"
       },
-      "retired": true
+      "transport": "greek-scylla"
     },
     {
       "id": "greek-sicily-ship",
       "from": "greek-sicily",
-      "to": "pond",
+      "to": "greek-pagasae",
       "travelers": "any",
-      "travel": "aboard the ship",
+      "travel": "aboard the Scylla",
       "requires": [],
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Greek ship waits offshore.",
-        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
-        "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "open": "The mooring lies below Polyphemus’s cave.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp",
+        "backdrop": "assets/greek-drama/book-three-lemnos-day.webp"
       },
-      "retired": true
+      "transport": "greek-scylla"
     }
   ],
   "transports": {
@@ -275,7 +279,8 @@
               "place": "greek-ship"
             }
           ],
-          "sealed": true
+          "sealed": true,
+          "emptyRecall": true
         },
         {
           "from": "greek-piraeus",
@@ -319,6 +324,48 @@
       ],
       "at": "greek-harbor",
       "shipmaster": "greek-shipmaster",
+      "waitVerb": "Sail",
+      "waitSentence": "{actor} sails on."
+    },
+    "greek-scylla": {
+      "place": "greek-scylla",
+      "docks": [
+        "greek-pagasae",
+        "greek-lemnos",
+        "greek-thrace",
+        "greek-tauris",
+        "greek-sicily",
+        "greek-egypt-tomb",
+        "greek-ajax-landing"
+      ],
+      "lanes": [
+        {
+          "from": "greek-pagasae",
+          "to": "greek-lemnos"
+        },
+        {
+          "from": "greek-lemnos",
+          "to": "greek-thrace"
+        },
+        {
+          "from": "greek-thrace",
+          "to": "greek-tauris"
+        },
+        {
+          "from": "greek-lemnos",
+          "to": "greek-ajax-landing"
+        },
+        {
+          "from": "greek-pagasae",
+          "to": "greek-sicily"
+        },
+        {
+          "from": "greek-pagasae",
+          "to": "greek-egypt-tomb"
+        }
+      ],
+      "at": "greek-pagasae",
+      "shipmaster": "greek-pagasae-pilot",
       "waitVerb": "Sail",
       "waitSentence": "{actor} sails on."
     }

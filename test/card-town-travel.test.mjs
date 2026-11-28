@@ -20,6 +20,7 @@ describe("local town visits and road history", () => {
 
   it("keeps one road between towns and direct visits inside each town", () => {
     const w = createWorld({ packScopes: { "greek-drama": "full" } });
+    w.packs["greek-drama"].flags["greek-ajax-open"] = true;
     const roads = Object.entries(packDefinition("greek-drama").places).filter(
       ([id, p]) => p.road && entityActive(w, id),
     );
@@ -56,10 +57,12 @@ describe("local town visits and road history", () => {
       "greek-oeta",
       "greek-road-athens-eleusis",
       "greek-road-athens-piraeus",
-      "greek-road-north",
+      "greek-road-royal",
       "greek-road-sacred-way",
+      "greek-road-scythia",
       "greek-road-thebes",
     ]);
+    expect(entityActive(w, "greek-road-north")).toBe(false);
     expect(entityActive(w, "greek-athens-harbor")).toBe(false);
   });
 

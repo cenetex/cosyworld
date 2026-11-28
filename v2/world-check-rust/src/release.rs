@@ -1,6 +1,44 @@
-use super::{distinct, schema::Pack, valid_id};
+use super::{distinct, load, schema::Pack, valid_id};
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::path::Path;
+
+#[derive(Deserialize)]
+struct Catalog {
+    encounters: BTreeMap<String, Encounter>,
+}
+
+#[derive(Deserialize)]
+struct Encounter {
+    stem: Option<String>,
+    at: String,
+}
+
+pub(super) fn add_encounter_choices(pack: &mut Pack, path: &Path) -> Result<(), String> {
+    if !path
+        .try_exists()
+        .map_err(|error| format!("{}: {error}", path.display()))?
+    {
+        return Ok(());
+    }
+    let Catalog { encounters } = load(path)?;
+    for (work, encounter) in encounters {
+        let stem = format!("greek-story-{}", encounter.stem.as_deref().unwrap_or(&work));
+        for (suffix, subject) in [
+            ("hear", "first"),
+            ("first-answer", "first"),
+            ("second-answer", "second"),
+        ] {
+            pack.choices.push(BTreeMap::from([
+                ("id".into(), Value::String(format!("{stem}-{suffix}"))),
+                ("at".into(), Value::String(encounter.at.clone())),
+                ("subject".into(), Value::String(format!("{stem}-{subject}"))),
+            ]));
+        }
+    }
+    Ok(())
+}
 
 pub(super) fn check(pack: &Pack) -> Result<(), String> {
     let problem = |message: &str| format!("{}: {message}", pack.id);
@@ -140,5 +178,20 @@ mod tests {
         input["avatars"]["hare"]["place"] = json!("hall");
         input["recital"] = json!({"actor": "hare"});
         assert!(validate(input).is_ok());
+    }
+
+    #[test]
+    fn checks_released_encounters_defined_in_the_catalog() {
+        let v2 = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let (mut pack, _) = crate::pack_sources(&v2, "greek-drama").unwrap();
+        let id = "greek-story-aeschylus-persians-first-answer";
+        let choice = pack
+            .choices
+            .iter_mut()
+            .find(|choice| choice["id"] == id)
+            .unwrap();
+        assert_eq!(choice["subject"], "greek-story-aeschylus-persians-first");
+        choice.insert("at".into(), json!("unknown-place"));
+        assert!(check(&pack).unwrap_err().contains(id));
     }
 }

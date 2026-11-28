@@ -156,6 +156,7 @@ describe("authored opening and voyage quests", () => {
     const source = greek(),
       ship = source.bridge.transports["greek-ship"];
     const index = ship.lanes.findIndex((lane) => lane.sealed);
+    expect(ship.lanes[index].emptyRecall).toBe(true);
     const next = apply(
       source,
       changeLaneRequirements(source, "greek-ship", index, []),
@@ -163,6 +164,7 @@ describe("authored opening and voyage quests", () => {
     const rest = { ...ship.lanes[index] };
     delete rest.opensWith;
     delete rest.sealed;
+    delete rest.emptyRecall;
     expect(next.bridge.transports["greek-ship"].lanes[index]).toEqual(rest);
   });
   it("clears an opening quest and restores the sealed card with Undo", () => {

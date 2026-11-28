@@ -48,21 +48,42 @@ function wait(world) {
 }
 
 describe("day and night in Greece", () => {
-  it("gives released places and painted Trojan shores a night painting on the saved world clock", () => {
+  it("changes the authored Greek night paintings on the saved world clock", () => {
     let world = createWorld({ packScopes: { "greek-drama": "full" } });
     world.actors.vale.place = "greek-courtyard";
-    // A temporary vector backdrop, and the Cithaeron road, have no night
-    // painting until they are painted.
+    // These places have day and night paintings, including borrowed ones at new ports.
     const places = [
-      ...greek.release.places.filter(
-        (place) =>
-          place !== "greek-cithaeron" &&
-          !greek.places[place].backdrop?.endsWith(".svg"),
-      ),
+      "greek-harbor",
+      "greek-courtyard",
+      "greek-well",
+      "greek-gate",
+      "greek-battlefield",
+      "greek-palace",
+      "greek-sanctuary",
+      "greek-ship",
+      "greek-scylla",
+      "greek-athens",
+      "greek-piraeus",
+      "greek-pagasae",
+      "greek-colonus",
+      "greek-eleusis",
+      "greek-road-thebes",
+      "greek-road-athens-piraeus",
+      "greek-road-athens-eleusis",
+      "greek-polynices-hollow",
+      "greek-greek-camp",
+      "greek-ajax-landing",
+      "greek-ajax-household",
+      "greek-ajax-grave",
+      "greek-troy-beach",
+      "greek-argos-palace",
+      "greek-argos-tomb",
+      "greek-mycenae-palace",
+      "greek-argive-farm",
+      "greek-marathon",
       "greek-aulis",
       "greek-troy",
       "greek-trojan-camp",
-      "greek-troy-beach",
       "greek-lemnos",
       "greek-thrace",
     ];
@@ -93,6 +114,8 @@ describe("day and night in Greece", () => {
     ["greek-road-athens-eleusis", "sacred-way-dipylon", "on the Sacred Way"],
     ["greek-marathon", "open-door-marathon", "at Marathon Altar"],
     ["greek-ship", "ship-deck", "aboard the Charybdis"],
+    ["greek-pagasae", "pagasae-anchorage", "at Pagasae Anchorage"],
+    ["greek-scylla", "scylla-deck", "aboard the Scylla"],
   ])(
     "gives %s its own night painting and place facts",
     (place, file, where) => {
@@ -110,6 +133,18 @@ describe("day and night in Greece", () => {
       ).toContain(`It is night ${where}.`);
     },
   );
+
+  it("keeps Scylla’s own deck paintings while she is at sea", () => {
+    const world = createWorld();
+    world.transports["greek-scylla"].phase = "sea";
+    expect(backdrop("greek-scylla", world)).toBe(
+      "./assets/greek-drama/scylla-deck.webp",
+    );
+    world.turn = DAYLIGHT_TURNS;
+    expect(backdrop("greek-scylla", world)).toBe(
+      "./assets/greek-drama/scylla-deck-night.webp",
+    );
+  });
 
   it.each(atticRoads)(
     "keeps both approach cards and the scene for %s in the same light",

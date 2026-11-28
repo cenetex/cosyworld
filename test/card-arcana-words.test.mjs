@@ -142,12 +142,12 @@ describe("the words of a level card", () => {
   it("words the Empress and the Emperor by their desires, hidden until found", () => {
     const s = createWorld({ seed: 7 });
     expect(words(s, "arcanum-3")).toBe(
-      `eat ${UNKNOWN.item} with ${UNKNOWN.person}`,
+      `drink ${UNKNOWN.item} with ${UNKNOWN.person}`,
     );
     expect(words(s, "arcanum-4")).toBe(`rest ${UNKNOWN.place}`);
     const empress = bindingOf(s, cardOf("arcanum-3"), "vale");
     expect(words(s, "arcanum-3", () => true)).toBe(
-      `eat ${nameOf(empress.thing)} with ${nameOf(empress.someone)}`,
+      `drink ${nameOf(empress.thing)} with ${nameOf(empress.someone)}`,
     );
     const emperor = bindingOf(s, cardOf("arcanum-4"), "vale");
     expect(words(s, "arcanum-4", () => true)).toBe(
@@ -177,7 +177,7 @@ describe("the words of a level card", () => {
       7: "sail The Charybdis",
       9: "walk alone at night holding the lit Lamp",
       10: "eat Dried Figs and find Dried Figs",
-      14: "drink Wine Skin with someone",
+      14: "drink Wine with someone",
       15: "keep Lamp",
       18: "walk at night with no light",
     };

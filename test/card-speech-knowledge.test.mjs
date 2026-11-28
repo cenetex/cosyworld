@@ -4,7 +4,6 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { createElysiumPortrait } from "../v2/card-game/elysium-portrait.mjs";
-import { commitDisclosure } from "../v2/card-game/knowledge.mjs";
 import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { revealedBeat } from "../v2/card-game/presentation.mjs";
 import {
@@ -87,7 +86,7 @@ describe("speech knows only uncovered cards (#1575)", () => {
     expect(visible(forgetCovered(s, full, () => false))).toContain(text);
   });
 
-  it("keeps a fresh area's deferred clue confined to the selected Talk and its confirmed reply", () => {
+  it("shows a fresh area's native clue only as the named traveler's authorized reply", () => {
     const camp = ajaxCamp();
     const speaker = "greek-ajax-teucer";
     const hiddenPerson = "greek-ajax-tecmessa";
@@ -97,25 +96,20 @@ describe("speech knows only uncovered cards (#1575)", () => {
     const world = result.state;
     const seen = new Set([...camp.actors.vale.visited, ...availableCards(camp)]);
     const covered = (id) => !seen.has(id) || isLockedBox(world, id);
-    const full = narrativeContext(world, talk);
     const { concealed, disclosures, ...limited } = narrativeContext(world, talk, covered);
-    const [clue] = disclosures;
+    const clue = world.log.findLast((line) => line.disclosedFactId === "greek-ajax-shield-teucer");
     expect(covered(hiddenPerson)).toBe(true);
     expect(concealed).toContain(hiddenPerson);
-    expect(disclosures).toEqual(full.disclosures);
-    expect(clue).toMatchObject({ factId: "greek-ajax-shield-teucer", speaker, listener: "vale", deferred: true });
+    expect(disclosures?.length ?? 0).toBe(0);
+    expect(clue).toMatchObject({ actorId: speaker, targetId: "vale", witnesses: [speaker, "vale"] });
     expect(clue.text).toContain("Tecmessa");
     expect(JSON.stringify(limited)).not.toContain("Tecmessa");
-    expect(narrativeContext(world, talk, (id) => id === speaker || covered(id)).disclosures).toEqual([]);
 
     const text = "Tecmessa cares for Eurysaces while Mara waits.";
-    const line = { kind: "dialogue", generated: true, text, disclosedFactId: clue.factId };
+    const line = { ...clue, text };
     const portrait = createElysiumPortrait(null, () => {});
     const reader = (view = world) => portrait.reader(coveredTextReader(view, covered));
-    expect(reader()(text, line)).toBe("Someone cares for Eurysaces while someone waits.");
-    expect(commitDisclosure(world, clue, speaker, full.location)).toBeTruthy();
-    const exact = { ...line, text: clue.text };
-    expect(revealedBeat({ line: exact, silent: false, actions: [] }, reader()).line.silent).toBe(false);
+    expect(revealedBeat({ line: clue, silent: false, actions: [] }, reader()).line.silent).toBe(false);
     const presented = revealedBeat({ line, silent: false, actions: [{ text }] }, reader());
     expect(presented.line.text).toBe("Tecmessa cares for Eurysaces while someone waits.");
     expect(presented.line.silent).toBe(true);

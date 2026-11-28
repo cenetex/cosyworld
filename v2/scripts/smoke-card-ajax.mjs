@@ -5,6 +5,8 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { currentActor, encodeSave, legalActions } from "../card-game/world.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
+import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
+import { knowsLane } from "../card-game/pack-transport.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { recitalPoem } from "../card-game/pack-recital.mjs";
@@ -20,6 +22,9 @@ import {
 
 const shieldClue = "greek-ajax-shield-teucer";
 const tecmessa = "greek-ajax-tecmessa";
+const pagasae = "greek-pagasae";
+const lemnos = "greek-lemnos";
+const pilot = "greek-pagasae-pilot";
 
 function steps(route) {
   const move = (target) => ({ kind: "move", target });
@@ -34,8 +39,8 @@ function steps(route) {
     move("greek-road-thebes"),
     move("greek-harbor"),
     choose("invitation"),
-    // The Northern Road walks to Troy: the Charybdis never calls there.
-    move("greek-road-north"),
+    ...greekTravelTargets("greek-harbor", "greek-pagasae").map(move),
+    move("greek-scylla"),
     move("greek-ajax-landing"),
     move("greek-greek-camp"),
     choose("learn-shield-teucer"),
@@ -62,10 +67,9 @@ function steps(route) {
     ...(route === "household" ? [] : [take("plea")]),
     choose(`record-${route}`),
     move("greek-ajax-landing"),
-    move("greek-road-north"),
-    move("greek-harbor"),
-    move("greek-road-thebes"),
-    move("greek-courtyard"),
+    move("greek-scylla"),
+    move("greek-pagasae"),
+    ...greekTravelTargets("greek-pagasae", "greek-courtyard").map(move),
     choose(`return-${route}`),
   ];
 }
@@ -98,7 +102,8 @@ export async function checkAjax(browser, origin) {
         )
           failedAssets.push(`${response.status()} ${response.url()}`);
       });
-      let current, clueRequest;
+      let current;
+      const requestedClues = new Set();
       try {
         await page.addInitScript(
           ({ key, save, seen }) => {
@@ -114,24 +119,14 @@ export async function checkAjax(browser, origin) {
         );
         await page.route("**/card-game/text", async (request) => {
           const input = request.request().postDataJSON();
+          for (const { factId } of input.disclosures || []) requestedClues.add(factId);
           const entries = input.entities.map(({ id }) => {
             const disclosure = input.disclosures?.find((fact) => fact.speaker === id);
             if (!disclosure) return { id, text: "I will keep your words in mind." };
             const { factId, listener, speaker, eventSeq, text } = disclosure;
             return { id, text, disclosed: { factId, listener, speaker, eventSeq } };
           });
-          const complete = { revision: input.revision, model: "ajax-browser-fixture", entries };
-          if (!input.disclosures?.some((fact) => fact.factId === shieldClue))
-            return request.fulfill({ json: complete });
-          clueRequest = input;
-          const frames = [
-            ...entries.map((entry) => ({ type: "delta", text: `${JSON.stringify(entry)}\n` })),
-            { type: "complete", ...complete },
-          ];
-          return request.fulfill({
-            contentType: "text/event-stream",
-            body: frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join(""),
-          });
+          return request.fulfill({ json: { revision: input.revision, model: "ajax-browser-fixture", entries } });
         });
         const state = () =>
           page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
@@ -214,12 +209,16 @@ export async function checkAjax(browser, origin) {
             await step(next.target ? next : { kind: next.kind });
           }
           current = { kind, ...fields };
-          if (kind === "move" && fields.target === "greek-ship") {
+          if (kind === "move" && fields.target === "greek-scylla") {
+            const world = await state();
+            if (world.actors.vale.place === pagasae &&
+                !knowsLane(world, "vale", pagasae, lemnos))
+              await step({ kind: "talk", target: pilot });
             for (
               let wait = 0;
               wait < 32 &&
               !legalActions(await state()).some(
-                (a) => a.kind === "move" && a.target === "greek-ship",
+                (a) => a.kind === "move" && a.target === "greek-scylla",
               );
               wait++
             )
@@ -258,7 +257,7 @@ export async function checkAjax(browser, origin) {
           // afresh so each wait is one turn.
           const wait = page
             .locator("#card-actions")
-            .getByRole("button", { name: "Wait", exact: true });
+            .getByRole("button", { name: /^Wait(?: for .+)?$/u });
           if (kind === "wait" && !(await wait.count()))
             for (let n = 0; n < 2; n++)
               await selectCard(page, action.cards?.[0] || "vale", {
@@ -267,13 +266,19 @@ export async function checkAjax(browser, origin) {
           if (kind === "wait") await wait.click();
           else await readyActionButton(page, topic ? "talk" : kind).first().click();
           const learningShield = topic?.id === shieldClue;
-          await settle(learningShield ? "Tecmessa" : "");
+          const learningLemnos = kind === "talk" && fields.target === pilot;
+          await settle(learningShield ? "Tecmessa" : learningLemnos ? "Lemnian Cave" : "");
           const after = await state();
           assert.equal(after.turn, before.turn + 1, "Each action commits once");
           if (learningShield) {
-            assert(clueRequest.concealed.includes(tecmessa));
-            assert(clueRequest.disclosures[0].text.includes("Tecmessa"));
-            assert(after.log.some((line) => line.generated && line.disclosedFactId === shieldClue));
+            assert(!requestedClues.has(shieldClue));
+            assert(after.log.some((line) => !line.generated && line.disclosedFactId === shieldClue));
+          }
+          if (learningLemnos) {
+            assert(knowsLane(after, "vale", pagasae, lemnos));
+            const lane = `lane:${pagasae}>${lemnos}`;
+            assert(!requestedClues.has(lane));
+            assert(after.log.some((line) => !line.generated && line.disclosedFactId === lane));
           }
           if (choiceId)
             assert.equal(
@@ -303,6 +308,7 @@ export async function checkAjax(browser, origin) {
           }
         }
         const world = await state();
+        assert.equal(world.transports["greek-scylla"].dock, "greek-pagasae");
         assert.equal(
           world.packs["greek-drama"].choices["greek-ajax-return"],
           route,

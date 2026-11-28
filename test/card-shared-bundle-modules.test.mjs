@@ -34,6 +34,7 @@ const RULES = [
   "memory.mjs",
   "motives.mjs",
   "offer-chance.mjs",
+  "pack-choice-schema.mjs",
   "pack-items-schema.mjs",
   "book-schema.mjs",
   "pack-items.mjs",
@@ -46,6 +47,7 @@ const RULES = [
   "pack-specials.mjs",
   "pack-toggle.mjs",
   "pack-transport.mjs",
+  "pack-transport-schema.mjs",
   "pond-lamp-loan.mjs",
   "quest-call.mjs", // rules 207: crossing completion and sourced call facts
   "quest-deck.mjs",

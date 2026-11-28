@@ -71,7 +71,7 @@ describe("Dione's bread", () => {
     // Locked at her courtyard, the box names who makes it from what.
     expect(locked(s, "greek-bread")).toBe(true);
     expect(availableCards(s)).toContain("greek-bread");
-    expect(lockText(s, "greek-bread")).toMatch(/Water Jar/);
+    expect(lockText(s, "greek-bread")).toMatch(/Water/);
     // Dione starts with the wheat; its home is far away at Piraeus.
     expect(s.items["greek-wheat"].holder).toBe("greek-baker");
     expect(pack.items["greek-wheat"].home).toBe("greek-piraeus");
@@ -314,7 +314,7 @@ describe("the Charybdis's provisions", () => {
   it("are made at the harbour, sail, stay aboard and go home locked when eaten", () => {
     let s = walk(relock(greekErrands().water), "harbor");
     expect(locked(s, "greek-provisions")).toBe(true);
-    expect(lockText(s, "greek-provisions")).toMatch(/Courtyard Bread/);
+    expect(lockText(s, "greek-provisions")).toMatch(/Bread/);
     s = pack3(s);
     expect(locked(s, "greek-provisions")).toBe(false);
     expect(s.items["greek-provisions"].holder).toBe("greek-harbor");

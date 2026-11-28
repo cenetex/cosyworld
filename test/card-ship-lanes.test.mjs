@@ -8,6 +8,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { applyGeneratedText, narrativeContext } from "../v2/card-game/narrative.mjs";
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import {
   knowsLane,
   learnLane,
@@ -19,13 +20,17 @@ import { stowProvisions } from "./helpers/provisions.mjs";
 
 const players = ["vale", "mara"];
 const reload = (s) => decodeSave(encodeSave(s));
-function setup(dock) {
+function setup(
+  dock,
+  packScopes = { "greek-drama": "full" },
+  ship = "greek-ship",
+) {
   const s = dispatchShared({
     op: "create",
-    save: encodeSave(createWorld({ packScopes: { "greek-drama": "full" } })),
+    save: encodeSave(createWorld({ packScopes })),
   }).world;
   for (const id of players) s.actors[id].place = dock;
-  summonTransport(s, "greek-ship", dock);
+  summonTransport(s, ship, dock);
   s.crossings["pond-greek-harbor"].discovered = true;
   return s;
 }
@@ -78,7 +83,7 @@ const courses = (s, actor) =>
     .sort();
 
 describe("knowing a lane is personal", () => {
-  it("a shore traveller knows the Black Pond lanes, a Greek resident its home sea, Myrto every lane", () => {
+  it("a shore traveller knows the Black Pond lanes and a Greek resident its home sea", () => {
     const s = setup("pond");
     expect(knowsLane(s, "vale", "pond", "greek-harbor")).toBe(true);
     expect(knowsLane(s, "vale", "greek-harbor", "pond")).toBe(true);
@@ -86,11 +91,12 @@ describe("knowing a lane is personal", () => {
     expect(
       knowsLane(s, "greek-antigone", "greek-harbor", "greek-piraeus"),
     ).toBe(true);
-    for (const [from, to] of [
-      ["greek-harbor", "greek-piraeus"],
-      ["greek-marathon", "greek-ajax-landing"],
-    ])
-      expect(knowsLane(s, "greek-shipmaster", from, to)).toBe(true);
+    expect(
+      knowsLane(s, "greek-shipmaster", "greek-harbor", "greek-piraeus"),
+    ).toBe(true);
+    expect(
+      knowsLane(s, "greek-pagasae-pilot", "greek-pagasae", "greek-lemnos"),
+    ).toBe(true);
   });
 
   it("everyone who sails a lane learns it, both ways", () => {
@@ -118,6 +124,64 @@ describe("knowing a lane is personal", () => {
     expect(knowsLane(s, "mara", "greek-piraeus", "greek-harbor")).toBe(true);
     expect(knowsLane(s, "mara", "greek-harbor", "greek-piraeus")).toBe(true);
   });
+
+  it("learns the Scylla lane to Lemnos by Talk and sails both ways without provisions", () => {
+    const pagasae = "greek-pagasae";
+    const lemnos = "greek-lemnos";
+    const scylla = "greek-scylla";
+    const pilot = "greek-pagasae-pilot";
+    let s = setup(pagasae, {}, scylla);
+    stowProvisions(s, "greek-harbor");
+    const charybdisDock = s.transports["greek-ship"].dock;
+    const talk = ask(s, "vale").actions.find(
+      (a) => a.kind === "talk" && a.target === pilot,
+    );
+    expect(talk).toBeDefined();
+    const played = ask(s, "vale", "play", { action: talk });
+    expect(played.ok, played.error).toBe(true);
+    const clue = played.events.find((e) => e.disclosedFactId);
+    expect(clue).toMatchObject({
+      text: "Ships for The Lemnian Cave leave from Pagasae Anchorage.",
+      disclosedFactId: `lane:${pagasae}>${lemnos}`,
+      actorId: pilot,
+      targetId: "vale",
+      witnesses: [pilot, "vale"],
+    });
+    expect(clue.generated).toBeUndefined();
+    s = reload(played.world);
+    expect(knowsLane(s, "vale", pagasae, lemnos)).toBe(true);
+    expect(knowsLane(s, "vale", lemnos, pagasae)).toBe(true);
+    expect(knowsFact(s, "mara", clue.disclosedFactId)).toBe(false);
+    const chart = act(s, "vale", "talk", pilot);
+    expect(knowsLane(chart, "vale", pagasae, "greek-sicily")).toBe(true);
+    const outOfDirections = act(chart, "vale", "talk", pilot);
+    expect(outOfDirections.log.filter((line) => line.actorId === pilot && line.disclosedFactId)
+      .map((line) => line.disclosedFactId)).toEqual([
+      `lane:${pagasae}>${lemnos}`,
+      `lane:${pagasae}>greek-sicily`,
+    ]);
+    expect(knowsLane(outOfDirections, "vale", pagasae, "greek-egypt-tomb")).toBe(false);
+    expect(knowsLane(outOfDirections, "vale", "greek-harbor", "greek-piraeus")).toBe(false);
+    learnLane(s, "mara", pagasae, "greek-sicily");
+    expect(knowsLane(s, "mara", pagasae, lemnos)).toBe(false);
+    expect(ask(s, "vale").exits).not.toContain("greek-ship");
+    s = act(s, "vale", "move", scylla);
+    s = act(s, "mara", "move", scylla);
+    expect(courses(s, "vale")).toContain(lemnos);
+    expect(courses(s, "mara")).toEqual(["greek-sicily"]);
+    s = act(s, "vale", "course", lemnos);
+    s = act(s, "mara", "wait");
+    s = act(s, "vale", "move", lemnos);
+    expect(s.actors.vale.place).toBe(lemnos);
+    expect(knowsLane(s, "mara", lemnos, pagasae)).toBe(true);
+    s = act(s, "mara", "course", pagasae);
+    s = act(s, "mara", "wait");
+    s = act(s, "mara", "move", pagasae);
+    expect(s.actors.mara.place).toBe(pagasae);
+    expect(s.transports["greek-ship"].dock).toBe(charybdisDock);
+    expect(s.items["greek-provisions"].holder).toBe("greek-harbor");
+  });
+
   it("the Travel Provisions aboard open the Wine-Dark Harbor to Piraeus lane for everyone on deck", () => {
     const fresh = (dock, local = createWorld()) => {
       const s = dispatchShared({

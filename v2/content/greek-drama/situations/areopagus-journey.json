@@ -1,0 +1,174 @@
+{
+  "items": {
+    "greek-areopagus-cilissa-testimony": {
+      "name": "Cilissa’s Testimony",
+      "holder": "greek-areopagus",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "seed": "The court’s written account of what Cilissa heard when she was sent for Aegisthus.",
+      "lifecycle": "fixed",
+      "author": "greek-cilissa",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-areopagus-cilissa-heard",
+          "value": true
+        }
+      ],
+      "records": ["greek-areopagus-hear-cilissa"],
+      "recordText": {
+        "greek-areopagus-hear-cilissa": "Cilissa says Clytemnestra sent her for Aegisthus and the women at the palace door urged her to tell him to come alone."
+      }
+    },
+    "greek-areopagus-witness-water": {
+      "name": "Witnesses’ Water",
+      "holder": "greek-areopagus",
+      "home": "greek-areopagus",
+      "art": "assets/greek-drama/water-jar.png",
+      "seed": "The Furies’ leader keeps this jar filled at the court bench for people waiting to speak.",
+      "tags": ["drink", "staple"],
+      "startsUsed": true,
+      "absentReturn": true,
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-areopagus-open-witness-bench" }
+      ]
+    }
+  },
+  "choices": [
+    {
+      "id": "greek-ismene-point-to-argos-evidence",
+      "subject": "greek-ismene",
+      "at": "greek-sanctuary",
+      "workId": "aeschylus-libation-bearers",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Ismene says, “Meet Electra at Agamemnon’s tomb in Argos. Her tablet tells who met there. The palace account is a different source. Athena can hear either at the Areopagus beyond the Acropolis.”",
+      "requires": [
+        { "kind": "choice", "key": "greek-atreid-account", "value": "aeschylus" },
+        { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": false }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-electra-point-to-athenas-court",
+      "subject": "greek-electra-aeschylus",
+      "at": "greek-argos-tomb",
+      "workId": "aeschylus-libation-bearers",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Electra says, “Read the meeting on my tablet or bring it with you. Take the Theban Gate past Cithaeron and Eleusis, then cross Athens to the Acropolis. Ask for Athena at the Areopagus.”",
+      "requires": [
+        { "kind": "flag", "key": "greek-atreid-heard-aeschylus", "value": true },
+        { "kind": "flag", "key": "greek-areopagus-household-evidence-filed", "value": false }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-cilissa-agrees-to-testify",
+      "subject": "greek-cilissa",
+      "at": "greek-argos-tomb",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "Cilissa hears the terms of Athena’s order and agrees to go with you to Athens. She asks to go through the Theban gate and on past Eleusis so she can say in person what she heard at the palace.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-areopagus-household-evidence-filed",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-areopagus-cilissa-agreed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-areopagus-hear-cilissa",
+      "subject": "greek-cilissa",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "Cilissa tells how the palace sent her for Aegisthus and how the women at the door asked her to call him in alone. The clerk posts her testimony beside the witness order for anyone who comes later.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-areopagus-cilissa-agreed",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-areopagus-cilissa-heard",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-areopagus-open-witness-bench",
+      "subject": "greek-story-aeschylus-eumenides-second",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "The Furies’ leader reads the line about the women at the door. She opens the witness bench so they can be heard in their own names and sets out Water for anyone who waits with them.",
+      "requires": [
+        { "kind": "choice", "key": "greek-atreid-account", "value": "aeschylus" },
+        { "kind": "receipt", "choiceId": "greek-areopagus-hear-cilissa" },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa",
+          "role": "actor"
+        }
+      ],
+      "effects": [{ "kind": "drop_item", "item": "greek-areopagus-witness-water" }]
+    },
+    {
+      "id": "greek-areopagus-ask-for-cilissas-statement",
+      "subject": "greek-story-aeschylus-eumenides-second",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "The Furies’ leader points to Cilissa’s posted testimony. “Read what the nurse actually heard at the palace door. Then ask me about opening the witness bench.”",
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-areopagus-hear-cilissa" },
+        {
+          "kind": "not",
+          "condition": { "kind": "receipt", "choiceId": "greek-areopagus-open-witness-bench" }
+        },
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "knows",
+            "topic": "claim:greek-drama:greek-areopagus-cilissa-testimony:greek-areopagus-hear-cilissa",
+            "role": "actor"
+          }
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-areopagus-show-witness-bench",
+      "subject": "greek-story-aeschylus-eumenides-second",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "The Furies’ leader shows you the place where the door witnesses can wait. Anyone may use the water kept at the bench. The clerk has added the arrangement to the Witness Order.",
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-areopagus-open-witness-bench" }
+      ],
+      "effects": []
+    }
+  ]
+}

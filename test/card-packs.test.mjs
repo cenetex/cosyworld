@@ -62,6 +62,8 @@ function clearing() {
 }
 const ringClock = (s) => act(s, "ring", "clearing", null);
 const forest = () => structuredClone(packDefinitions[0]);
+const greek = () =>
+  structuredClone(packDefinitions.find((p) => p.id === "greek-drama"));
 
 describe("world packs on the card table", () => {
   it("compiles packs.json exactly from its pack and bridge sources", () => {
@@ -106,7 +108,10 @@ describe("world packs on the card table", () => {
         (p) => (p.crossings[0].requires[0].kind = "light-or-magic"),
         /condition/,
       ],
-      [(p) => (p.crossings[1].from = "station"), /join a hub place/],
+      [
+        (p) => (p.crossings[1].from = "station"),
+        /join a hub or mounted place to this pack/,
+      ],
       [(p) => (p.crossings[0].signal.steps[0].verb = "sing"), /known verb/],
       [(p) => (p.avatars.bell = p.avatars.badger), /reuse hub ids/],
       [(p) => delete p.avatars.badger.travels, /stage needs/],
@@ -157,8 +162,6 @@ describe("world packs on the card table", () => {
   });
 
   it("validates transport docks, routes, and signal conditions", () => {
-    const greek = () =>
-      structuredClone(packDefinitions.find((p) => p.id === "greek-drama"));
     expect(packProblems(greek(), hub, Object.keys(packPlaces))).toEqual([]);
     for (const mutate of [
       (p) => {
@@ -189,6 +192,43 @@ describe("world packs on the card table", () => {
         packProblems(p, hub, Object.keys(packPlaces)).length,
         String(mutate),
       ).toBeGreaterThan(0);
+    }
+  });
+
+  it("accepts a crossing between two places in one pack only for boarding", () => {
+    const pack = greek();
+    const mounted = Object.keys(packPlaces);
+    const boarding = pack.crossings.find((c) => c.id === "greek-pagasae-ship");
+    expect(boarding).toMatchObject({
+      transport: "greek-scylla",
+      from: "greek-pagasae",
+      to: "greek-lemnos",
+    });
+    expect(packProblems(pack, hub, mounted)).toEqual([]);
+
+    delete boarding.transport;
+    expect(packProblems(pack, hub, mounted)).toContain(
+      "greek-drama: crossing greek-pagasae-ship must join a hub or mounted place to this pack or board a transport from two of its docks",
+    );
+  });
+
+  it("permits authored knowledge of an actual record and rejects forged IDs", () => {
+    const pack = greek();
+    const id = "greek-story-aristophanes-acharnians-second-answer";
+    const book = Object.keys(pack.items).find((key) =>
+      pack.items[key].records?.includes(id),
+    );
+    const proof = `claim:${pack.id}:${book}:${id}`;
+    const choice = pack.choices.find((entry) => entry.id === id);
+    const guard = { kind: "knows", role: "actor", topic: proof };
+    choice.requires.push(guard);
+    const mounted = Object.keys(packPlaces);
+    expect(packProblems(pack, hub, mounted)).toEqual([]);
+    for (const bogus of [`${proof}:extra`, proof.replace(id, "unknown-result")]) {
+      guard.topic = bogus;
+      expect(packProblems(pack, hub, mounted)).toContain(
+        `greek-drama: choice ${id} requires must use the closed condition vocabulary with valid references`,
+      );
     }
   });
 

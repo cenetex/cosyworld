@@ -1,0 +1,374 @@
+{
+  "items": {
+    "greek-hecuba-grave-wreath": {
+      "name": "Polydorus’s Grave Wreath",
+      "holder": "greek-thrace",
+      "art": "assets/greek-drama/olive-branch.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-hecuba-outcome",
+          "value": "first"
+        }
+      ],
+      "author": "greek-story-euripides-hecuba-first",
+      "lifecycle": "fixed",
+      "records": ["greek-story-euripides-hecuba-first-answer"],
+      "recordText": {
+        "greek-story-euripides-hecuba-first-answer": "Hecuba folded the purse into Polydorus’s burial cloth and heard the finder before the Trojan mourners."
+      }
+    },
+    "greek-trojan-amended-boarding-post": {
+      "name": "Amended Boarding Post",
+      "holder": "greek-troy",
+      "art": "assets/greek-drama/refuge-tablet.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-trojan-women-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-euripides-trojan-women-second",
+      "lifecycle": "fixed",
+      "records": ["greek-story-euripides-trojan-women-second-answer"],
+      "recordText": {
+        "greek-story-euripides-trojan-women-second-answer": "Talthybius moved the two sisters to the same boat and posted the changed boarding order."
+      }
+    },
+    "greek-tauris-watch-register": {
+      "name": "Taurian Temple Watch Register",
+      "holder": "greek-tauris",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-tauris-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-euripides-tauris-first",
+      "lifecycle": "fixed",
+      "records": ["greek-story-euripides-tauris-second-answer"],
+      "recordText": {
+        "greek-story-euripides-tauris-second-answer": "Pylades took the letter to the boat while Iphigenia held the other captive and postponed the rite."
+      }
+    },
+    "greek-helen-egypt-passage-mark": {
+      "name": "Egyptian Passage Mark",
+      "holder": "greek-egypt-tomb",
+      "art": "assets/greek-drama/household-token.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-response",
+          "value": "passage"
+        }
+      ],
+      "author": "greek-menelaus-egypt",
+      "lifecycle": "kept",
+      "records": ["greek-helen-egypt-passage"],
+      "recordText": {
+        "greek-helen-egypt-passage": "Menelaus agreed to passage from Proteus’s shore and the Travel Provisions were spent."
+      }
+    },
+    "greek-helen-egypt-shelter-bedroll": {
+      "name": "Tomb Shelter Bedroll",
+      "holder": "greek-egypt-tomb",
+      "art": "assets/greek-drama/return-cloths.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-response",
+          "value": "shelter"
+        }
+      ],
+      "seed": "Helen spreads a linen bedroll beside the tomb for the shelter she requested."
+    },
+    "greek-jocasta-truce-terms": {
+      "name": "Jocasta’s Table of Truce Terms",
+      "holder": "greek-jocasta-rooms",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-phoenician-women-outcome",
+          "value": "first"
+        }
+      ],
+      "author": "greek-story-euripides-phoenician-women-first",
+      "lifecycle": "fixed",
+      "records": ["greek-story-euripides-phoenician-women-first-answer"],
+      "recordText": {
+        "greek-story-euripides-phoenician-women-first-answer": "Jocasta heard both brothers give their terms with the truce bough between them."
+      }
+    },
+    "greek-bacchae-libation-cup": {
+      "name": "Sanctuary Libation Cup",
+      "holder": "greek-cithaeron-shrine",
+      "home": "greek-cithaeron-shrine",
+      "art": "assets/greek-drama/libation-cup.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-bacchae-outcome",
+          "value": "first"
+        }
+      ],
+      "seed": "Cadmus leaves a cup of wine beside the offerings for the household’s rite.",
+      "tags": ["drink"]
+    },
+    "greek-bacchae-forfeit-notice": {
+      "name": "Notice of the Staff’s Forfeit",
+      "holder": "greek-cithaeron-shrine",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-bacchae-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-euripides-bacchae-second",
+      "lifecycle": "fixed",
+      "records": ["greek-story-euripides-bacchae-second-answer"],
+      "recordText": {
+        "greek-story-euripides-bacchae-second-answer": "Pentheus confiscated the staff and sent the household down the hill before continuing his search."
+      }
+    },
+    "greek-aulis-waiting-tent-water": {
+      "type": "greek-water-jar",
+      "holder": "greek-aulis",
+      "home": "greek-aulis",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-iphigenia-at-aulis-outcome",
+          "value": "first"
+        }
+      ]
+    },
+    "greek-aulis-heralds-stay": {
+      "name": "Herald’s Stay of Procession",
+      "holder": "greek-aulis",
+      "art": "assets/greek-drama/refuge-tablet.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-iphigenia-at-aulis-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-euripides-iphigenia-at-aulis-second",
+      "lifecycle": "fixed",
+      "records": ["greek-story-euripides-iphigenia-at-aulis-second-answer"],
+      "recordText": {
+        "greek-story-euripides-iphigenia-at-aulis-second-answer": "Achilles denied the wedding in public, and the herald stopped the procession to summon Agamemnon."
+      }
+    },
+    "greek-rhesus-bedside-deposition": {
+      "name": "Charioteer’s Bedside Deposition",
+      "holder": "greek-trojan-camp",
+      "art": "assets/greek-drama/testimony.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-rhesus-outcome",
+          "value": "first"
+        }
+      ],
+      "author": "greek-story-euripides-rhesus-first",
+      "lifecycle": "fixed",
+      "records": ["greek-story-euripides-rhesus-first-answer"],
+      "recordText": {
+        "greek-story-euripides-rhesus-first-answer": "The watch heard the wounded charioteer’s account while the healer tended him by lantern light."
+      }
+    },
+    "greek-rhesus-stable-count": {
+      "name": "Trojan Stable Count",
+      "holder": "greek-trojan-camp",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-rhesus-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-euripides-rhesus-second",
+      "lifecycle": "fixed",
+      "records": ["greek-story-euripides-rhesus-second-answer"],
+      "recordText": {
+        "greek-story-euripides-rhesus-second-answer": "Hector counted the surviving teams and posted the missing horses after the stable hands moved the rest."
+      }
+    },
+    "greek-cyclops-silenus-cheese": {
+      "name": "Silenus’s Round of Cheese",
+      "holder": "greek-sicily",
+      "home": "greek-sicily",
+      "art": "assets/greek-drama/bread.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-cyclops-outcome",
+          "value": "first"
+        }
+      ],
+      "seed": "The strangers’ sack holds the round of cheese that Silenus traded for the wine.",
+      "tags": ["food"]
+    },
+    "greek-cyclops-chorus-milk": {
+      "name": "Satyrs’ Chorus Milk",
+      "holder": "greek-sicily",
+      "home": "greek-sicily",
+      "art": "assets/greek-drama/grove-cup.png",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-cyclops-outcome",
+          "value": "second"
+        }
+      ],
+      "seed": "The satyrs leave a cup of goat milk by the churns before they join the drinking song.",
+      "tags": ["drink"]
+    },
+    "greek-helen-pagasae-report": {
+      "name": "Pagasae’s Egyptian Return Notice",
+      "holder": "greek-pagasae",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-response",
+          "value": "passage"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-helen-egypt-pagasae-reported",
+          "value": true
+        }
+      ],
+      "author": "greek-pagasae-pilot",
+      "lifecycle": "fixed",
+      "records": ["greek-helen-egypt-report-pagasae"],
+      "recordText": {
+        "greek-helen-egypt-report-pagasae": "Philon received the Egyptian passage mark and posted Menelaus’s agreement at the Pagasae berth."
+      }
+    }
+  },
+  "choices": [
+    {
+      "id": "greek-tauris-entrust-letter",
+      "workId": "euripides-iphigenia-in-tauris",
+      "subject": "greek-story-euripides-tauris-first",
+      "at": "greek-tauris",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Iphigenia takes her letter from the altar step and puts it in your hands. Give it to her sister Electra at the Jury Yard of Argos so the household will know Orestes left the altar alive.",
+      "fullHandsText": "You can carry three items. Put one down, then speak again.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-tauris-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-tauris-record:greek-story-euripides-tauris-first-answer",
+          "role": "actor"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-story-euripides-tauris-object",
+          "place": "greek-tauris"
+        }
+      ],
+      "effects": [
+        {"kind": "give_item", "item": "greek-story-euripides-tauris-object"}
+      ]
+    },
+    {
+      "id": "greek-tauris-deliver-letter",
+      "workId": "euripides-iphigenia-in-tauris",
+      "subject": "greek-story-euripides-orestes-first",
+      "at": "greek-argive-jury",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Electra unfolds Iphigenia’s letter and writes a receipt on the back. She thanks you for carrying her sister’s account of Orestes’s release and lays it beside the household papers.",
+      "requires": [
+        { "kind": "receipt", "choiceId": "greek-tauris-entrust-letter" },
+        {
+          "kind": "holding",
+          "item": "greek-story-euripides-tauris-object",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-story-euripides-tauris-object",
+          "place": "greek-argive-jury"
+        },
+        { "kind": "trust", "level": 2 }
+      ]
+    },
+    {
+      "id": "greek-helen-egypt-report-pagasae",
+      "subject": "greek-pagasae-pilot",
+      "at": "greek-pagasae",
+      "label": "Give the Egyptian passage mark to Philon",
+      "text": "Philon lays the passage mark beside his ledger and posts Menelaus’s agreement at the mooring stones.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-response",
+          "value": "passage"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-helen-egypt-passage-mark",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-helen-egypt-pagasae-reported",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-helen-egypt-passage-mark",
+          "place": "greek-pagasae"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-helen-egypt-pagasae-reported",
+          "value": true
+        }
+      ],
+      "on": "give",
+      "humanOnly": true
+    }
+  ]
+}

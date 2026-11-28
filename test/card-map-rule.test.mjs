@@ -24,12 +24,12 @@ const TOWNS = {
     "greek-corinth",
     "greek-troezen",
     // Story doors open from the harbor and the Argolid crossroads.
-    "greek-egypt-tomb",
     "greek-troy-beach",
     "greek-argos-tomb",
     "greek-argos-palace",
     "greek-mycenae-palace",
     "greek-argive-farm",
+    "greek-argive-jury",
   ],
   thebes: [
     "greek-courtyard",
@@ -37,6 +37,12 @@ const TOWNS = {
     "greek-gate",
     "greek-sanctuary",
     "greek-palace",
+    "greek-cadmea-street",
+    "greek-seven-gates",
+    "greek-oedipus-court",
+    "greek-jocasta-rooms",
+    "greek-heracles-altar",
+    "greek-cithaeron-shrine",
     // Outside the walls but still Theban: the gate opens onto it directly,
     // by a route that needs the guard to hold the decree there. No road.
     "greek-battlefield",
@@ -51,6 +57,10 @@ const TOWNS = {
     "greek-marathon",
     "greek-attic-farm",
     "greek-acharnae",
+    "greek-acharnae-stall",
+    "greek-underworld",
+    "greek-bird-wilderness",
+    "greek-divine-heights",
   ],
   "athens-city": [
     "greek-athens",
@@ -59,10 +69,12 @@ const TOWNS = {
     "greek-thinkery",
     "greek-demos-house",
     "greek-festival",
+    "greek-areopagus",
+    "greek-jury-house",
   ],
   "athens-harbour": ["greek-piraeus"],
-  delphi: ["greek-delphi"],
-  trachis: ["greek-trachis", "greek-pherae", "greek-thetis"],
+  delphi: ["greek-delphi", "greek-ion-court"],
+  trachis: ["greek-trachis", "greek-pherae", "greek-thetis", "greek-pagasae"],
   troy: [
     "greek-troy",
     "greek-greek-camp",
@@ -71,7 +83,13 @@ const TOWNS = {
     "greek-ajax-household",
     "greek-ajax-grave",
   ],
-  // The Far Shores retired into Piraeus (rules 94): only rumours now.
+  lemnos: ["greek-lemnos"],
+  thrace: ["greek-thrace"],
+  tauris: ["greek-tauris"],
+  sicily: ["greek-sicily"],
+  egypt: ["greek-egypt-tomb"],
+  susa: ["greek-susa"],
+  "scythian-crag": ["greek-scythian-crag"],
   "hoppy-cat-archive": [
     "hoppycat-signal-jetty",
     "hoppycat-halfway-tea-garden",
@@ -112,8 +130,8 @@ const TOWNS = {
 // no cap. Every place counts: there are no interiors (owner, 2026-11-04).
 const LINK_CAP = 3;
 // Still over the cap while their maps are redrawn. Remove each place as its
-// pack lands: Hoppy Cat (#1785), Athens, Argos and the hub; Troy, the Greek
-// Camp and the harbor's story doors belong to the Troy and Far Shores work.
+// pack lands: Hoppy Cat (#1785), the hub, Athens, Argos, the Greek Camp
+// and the harbor's story doors.
 const OVER_CAP_FOR_NOW = new Set([
   "pond",
   "hoppycat-halfway-tea-garden",
@@ -128,9 +146,7 @@ const OVER_CAP_FOR_NOW = new Set([
   "greek-harbor",
   "greek-eleusis",
   "greek-attic-farm",
-  "greek-troy",
   "greek-greek-camp",
-  "greek-marathon",
 ]);
 const ships = new Set(Object.values(transports).map((t) => t.place));
 // A home's door opens at one of its authored places, the world's pick, so
