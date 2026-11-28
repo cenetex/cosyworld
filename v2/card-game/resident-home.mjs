@@ -49,7 +49,6 @@ const recordOk = (r, keys) =>
     (Number.isInteger(r.range) && r.range >= 0 && r.range <= 8)) &&
   (r.sails === undefined || typeof r.sails === "boolean") &&
   (r.sleep === undefined || sleepOk(r.sleep));
-// What is wrong with the world life data against the mounted cast and map.
 export function lifeDataProblems(places, people) {
   const problems = [];
   if (!recordOk(life.defaults, ["range", "sails", "sleep"]))

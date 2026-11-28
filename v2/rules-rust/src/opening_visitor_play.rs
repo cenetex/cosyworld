@@ -2,7 +2,7 @@ use super::{
     authored_order::Order,
     opening_content, opening_crossings, opening_full_wait,
     opening_pickups::{self, Custody},
-    opening_quiet_life, opening_roster, opening_visitor_routes,
+    opening_roster, opening_visitor_routes,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     seed, Geography,
@@ -95,7 +95,7 @@ pub(super) fn perform(
     } else if place == "attic" {
         routes.pond
     } else {
-        let interior = opening_quiet_life::attic_interior(geo)?;
+        let interior = geo.attic_interior()?;
         if interior.contains(home) {
             if routes.attic.is_some()
                 && opening_visitor_routes::reaches_from(world, geo, actor, "pond", &place)?
