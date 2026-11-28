@@ -16,6 +16,7 @@ struct Context<'a> {
     authored: BTreeMap<&'a str, Vec<(&'a str, bool)>>,
     active_people: Vec<&'a str>,
     carried_items: Vec<&'a str>,
+    current_places: BTreeMap<&'a str, String>,
 }
 
 struct Item<'a> {
@@ -100,8 +101,13 @@ fn prepare<'a>(world: &Value, geo: &Geography<'a>, people: &People<'a>) -> Optio
         pack_values: BTreeMap::new(),
         active_people: Vec::new(),
         carried_items: Vec::new(),
+        current_places: BTreeMap::new(),
     };
+    let actors = world["actors"].as_object()?;
     for &id in people.people.keys() {
+        if let Some(place) = actors.get(id).and_then(|actor| actor["place"].as_str()) {
+            context.current_places.insert(id, place.to_owned());
+        }
         if geo.entity_active(world, id)? {
             context.active.insert(id);
         }
@@ -361,7 +367,8 @@ fn pick_want<'a>(
     reach: &BTreeSet<&str>,
     allowed: Option<&BTreeSet<String>>,
 ) -> Option<(Option<Value>, bool)> {
-    let me = &world["actors"][actor];
+    let actors = world["actors"].as_object()?;
+    let me = actors.get(actor)?;
     let here = me["place"].as_str()?;
     let mut floor = i64::MAX;
     if let Some(items) = context.hands.get(actor) {
@@ -387,7 +394,7 @@ fn pick_want<'a>(
         if holder == actor || blocked == Some(id) || is_person(id) || is_place(id) {
             continue;
         }
-        let other_want = &world["actors"][holder]["want"];
+        let other_want = &actors.get(holder)?["want"];
         if (other_want["kind"] != "item" || other_want["target"] != id)
             && value_of(world, context, actor, person, id)? > floor
         {
@@ -414,8 +421,11 @@ fn pick_want<'a>(
     let mut wide = Pool::new();
     for &(kind, id) in &range {
         let place = match kind {
-            "person" => world["actors"][id]["place"].as_str()?,
-            "item" => world["actors"][context.items.get(id)?.root.as_str()]["place"].as_str()?,
+            "person" => context.current_places.get(id)?.as_str(),
+            "item" => context
+                .current_places
+                .get(context.items.get(id)?.root.as_str())?
+                .as_str(),
             _ => id,
         };
         if allowed.is_some_and(|a| !a.contains(place)) {
