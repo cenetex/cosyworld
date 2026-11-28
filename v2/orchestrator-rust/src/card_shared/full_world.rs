@@ -239,7 +239,6 @@ impl World {
         *self = next;
         Ok(result)
     }
-    // Move the world onto another pack content revision under the same rules.
     fn repack(
         &mut self,
         command: &Value,
