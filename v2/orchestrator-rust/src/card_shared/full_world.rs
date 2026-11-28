@@ -195,7 +195,6 @@ impl World {
                 next.game = result["world"].clone();
                 (SeatAction::Play, result)
             }
-            // "+ Find Mara": the quest to talk to the hidden avatar (#1936).
             "seek" => {
                 let result = reduce(&self.version, self.pack.as_deref(), self.request("seek", a))?;
                 next.game = result["world"].clone();

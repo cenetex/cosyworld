@@ -22,6 +22,7 @@ mod opening_reflection;
 pub mod opening_rumours;
 mod opening_speech;
 mod opening_view;
+mod opening_visitor_routes;
 mod pack_state;
 mod profiles;
 mod reset;
@@ -116,6 +117,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("seed_specials") => seed::specials_projection(request).unwrap_or(Value::Null),
         Some("seed_opening") => seed::opening_projection(request).unwrap_or(Value::Null),
         Some("seed_arrivals") => seed_arrivals::projection(request).unwrap_or(Value::Null),
+        Some("visitor_reach") => opening_visitor_routes::projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
