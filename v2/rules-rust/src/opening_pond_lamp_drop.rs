@@ -13,8 +13,9 @@ const LAMP: &str = "lamp";
 const CLOTH: &str = "cloth";
 const KEY: &str = "ratiradio-station-key";
 const SIGNAL: &str = "pond-greek-harbor";
+pub(super) const DROP: &str = "drop:vale:lamp:pond";
 
-fn drop_world(request: &Value) -> Option<&Value> {
+pub(super) fn drop_world(request: &Value) -> Option<&Value> {
     let world = request.get("world")?;
     let action = &request["action"];
     (request["actor"] == VALE
@@ -24,7 +25,7 @@ fn drop_world(request: &Value) -> Option<&Value> {
         && (request["revision"].is_null() || request["revision"] == world["revision"])
         && (request["elysiumPortraits"].is_null() || request["elysiumPortraits"] == json!([]))
         && action["kind"] != "pack"
-        && action.as_str().or_else(|| action["key"].as_str()) == Some("drop:vale:lamp:pond"))
+        && action.as_str().or_else(|| action["key"].as_str()) == Some(DROP))
     .then_some(world)
 }
 

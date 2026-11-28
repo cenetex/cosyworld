@@ -24,6 +24,7 @@ mod opening_crossings;
 mod opening_drop;
 pub mod opening_evidence;
 mod opening_full_move;
+mod opening_full_pond_call;
 mod opening_full_station_move;
 mod opening_full_station_read;
 mod opening_full_wait;

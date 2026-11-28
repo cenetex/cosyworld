@@ -137,7 +137,12 @@ fn encode_request(
     );
     let pond_play = matches!(
         play,
-        Some("move:vale::pond" | "move:vale:lamp:pond" | "move:vale:cloth:pond")
+        Some(
+            "move:vale::pond"
+                | "move:vale:lamp:pond"
+                | "move:vale:cloth:pond"
+                | "drop:vale:lamp:pond"
+        )
     );
     let station_play = matches!(
         play,
