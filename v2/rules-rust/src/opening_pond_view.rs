@@ -1,6 +1,6 @@
 use super::{
     lamp_state, opening, opening_content, opening_pickups::item_as_named, opening_view,
-    pack_state::Catalog, profiles, Geography,
+    opening_wait_response::ordinary_attic_wait, pack_state::Catalog, profiles, Geography,
 };
 use serde_json::{json, Value};
 
@@ -18,12 +18,24 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
 }
 
+fn second_fresh_move(world: &Value) -> bool {
+    world["turn"] == 2 && world.get("began").is_none()
+}
+
 fn arrival(world: &Value) -> Option<u64> {
     let seq = world["arrival"]["seq"].as_u64()?;
     let mut actions = entries(&world["log"]).filter(|entry| {
         entry["kind"] == "action" && entry["actorId"] == VALE && entry["generated"] != true
     });
-    let event = actions.next()?;
+    let first = actions.next()?;
+    let event = if second_fresh_move(world) {
+        if !ordinary_attic_wait(first) || first["turn"] != 1 || first["seq"].as_u64()? >= seq {
+            return None;
+        }
+        actions.next()?
+    } else {
+        first
+    };
     (world["arrival"]["fromLocationId"] == "attic"
         && world["arrival"]["locationId"] == POND
         && event["seq"] == seq
@@ -35,6 +47,30 @@ fn arrival(world: &Value) -> Option<u64> {
         && (event["itemId"].is_null() || event["itemId"] == LAMP)
         && actions.next().is_none())
     .then_some(seq)
+}
+
+fn second_ask(world: &Value, arrival_seq: u64) -> Option<()> {
+    let mut events = world["log"].as_array()?.iter().filter(|entry| {
+        entry["generated"] != true && entry["seq"].as_u64().is_some_and(|seq| seq > arrival_seq)
+    });
+    let ask = events.next()?;
+    if ask["kind"] != "action"
+        || ask["actorId"] != PIP
+        || ask["verb"] != "ask"
+        || ask["turn"] != 2
+        || ask["locationId"] != POND
+        || ask["fromLocationId"] != POND
+        || ask["itemId"] != LAMP
+        || ask["targetId"] != VALE
+        || ask["accepted"] != false
+        || world["actors"][PIP]["lastTalk"] != 2
+        || events.any(|event| {
+            event["turn"] != 2 || event["locationId"] == POND || event["fromLocationId"] == POND
+        })
+    {
+        return None;
+    }
+    Some(())
 }
 
 fn pond_sleeping(world: &Value, geo: &Geography<'_>, began: u64, turn: u64) -> Option<bool> {
@@ -74,7 +110,7 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<bool> {
     want.insert("refusals".into(), json!(1));
     if world["schema"] != 8
         || world["sharedVersion"] != 1
-        || began.checked_add(1)? != turn
+        || (began.checked_add(1)? != turn && !second_fresh_move(world))
         || (world.get("began").is_some()
             && (began == 0 || geo.files()["v2/card-game/world-history.json"]["turns"] != began))
         || !(turn..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
@@ -121,7 +157,10 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<bool> {
             return None;
         }
     }
-    arrival(world)?;
+    let seq = arrival(world)?;
+    if second_fresh_move(world) {
+        second_ask(world, seq)?;
+    }
     for id in [VALE, PIP, POND, STATION, LAMP, CLOTH, KEY] {
         if !geo.entity_active(world, id)? {
             return None;
@@ -429,7 +468,7 @@ mod tests {
     use std::{path::Path, process::Command};
 
     #[test]
-    fn first_pond_moves_project_the_complete_pinned_response() {
+    fn pond_moves_project_the_complete_pinned_response() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let (files, _) = opening_content::wait_files(&json!({
             "packContentJson":include_str!("../../orchestrator-rust/src/card_shared/content.json")
@@ -466,6 +505,31 @@ for (const {seed, history} of options) {
     }
   }
 }
+for (const [seed, prior] of [[17, false], [2, true], [4242, true]]) {
+  for (const lamp of ['stowed', 'dry']) {
+    for (const action of ['move:vale::pond', 'move:vale:lamp:pond']) {
+      let {world} = pinned({op:'create', seed});
+      if (lamp === 'stowed')
+        world = pinned({...seats, op:'hold', world, choice:{item:null, revision:world.revision}}).world;
+      else Object.assign(world.items.lamp, {fuel:0, fuelRooms:0, lit:false});
+      world.speechVoices = {mara:['mara']};
+      world = pinned({...seats, op:'play', world, action:'wait:vale::'}).world;
+      assert.deepEqual(world.speechVoices.vale, ['vale']);
+      if (prior) world = pinned({...seats, op:'speech', room:'attic', world, lines:[
+        {entityId:'attic', actorId:null, text:'The floorboards settle.'},
+      ]}).world;
+      const expected = pinned({...seats, op:'play', world, action});
+      assert.equal(expected.ok, true, expected.error);
+      assert.deepEqual(expected.world.actors.vale.waitSpeech, {place:'pond', turn:null});
+      assert.deepEqual(expected.world.speechVoices, {mara:['mara'], vale:['vale','moth']});
+      assert.deepEqual(expected.events.slice(0,2).map(event => event.verb), ['move','ask']);
+      assert.equal(expected.events.length, seed === 17 ? 2 : 3);
+      assert.ok(expected.events.every(event => event.turn === 2 && event.seq > world.eventSeq));
+      console.log(JSON.stringify({beforeSeq:world.eventSeq, expected, voices:world.speechVoices, title:{seed,lamp,action,prior}}));
+    }
+  }
+}
+
 "#;
         let output = Command::new("node")
             .args(["--input-type=module", "--eval", script])
@@ -478,7 +542,7 @@ for (const {seed, history} of options) {
             String::from_utf8_lossy(&output.stderr)
         );
         let lines = String::from_utf8(output.stdout).unwrap();
-        assert_eq!(lines.lines().count(), 56);
+        assert_eq!(lines.lines().count(), 68);
         for line in lines.lines() {
             let case: Value = serde_json::from_str(line).unwrap();
             let expected = &case["expected"];
