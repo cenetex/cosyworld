@@ -20,6 +20,7 @@ mod opening_candidates;
 mod opening_company;
 mod opening_content;
 mod opening_crossings;
+mod opening_drop;
 pub mod opening_evidence;
 mod opening_full_wait;
 pub mod opening_history;
@@ -141,6 +142,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("visitor_reach") => opening_visitor_routes::projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
+        Some("opening_drop_step") => opening_drop::projection(request).unwrap_or(Value::Null),
         Some("opening_attic_rest") => {
             opening_attic_rest::projection(request).unwrap_or(Value::Null)
         }

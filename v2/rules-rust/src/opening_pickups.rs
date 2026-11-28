@@ -52,7 +52,7 @@ fn another_way(geo: &Geography, home: &str) -> Option<bool> {
     )
 }
 
-fn item_as_named(name: &str) -> String {
+pub(super) fn item_as_named(name: &str) -> String {
     let possessive = name.split_once(['\'', '’']).is_some_and(|(owner, rest)| {
         !owner.is_empty()
             && owner.chars().all(char::is_alphabetic)
