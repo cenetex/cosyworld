@@ -1,4 +1,4 @@
-use super::{opening, opening_play};
+use super::{opening, opening_play, opening_play::Mirror};
 use serde_json::{json, Value};
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
@@ -13,19 +13,41 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         return None;
     }
     let quest = world["actors"]["vale"].get("want")?;
-    let quest_accepted = if quest.is_null() {
-        false
-    } else if *quest == opening_play::pond_quest(world) {
-        true
+    let mirror = if world["items"]["lamp"]["lit"] == true {
+        let quest_accepted = *quest == opening_play::pond_quest(world);
+        if !quest.is_null() && !quest_accepted {
+            return None;
+        }
+        Mirror::Shut { quest_accepted }
     } else {
-        return None;
+        if !quest.is_null()
+            || world["actors"]["vale"].get("heldItem") != Some(&Value::Null)
+            || world["opened"]["pond"] != json!(["vale"])
+        {
+            return None;
+        }
+        Mirror::Open {
+            pond_available: !pond_at_capacity(world, request)?,
+        }
     };
     let files = opening_play::attic_files(world, request)?;
     if other_attic_content(&files)? {
         return None;
     }
     let projected = private_world(world, request)?;
-    opening_play::attic_response(json!({"ok":true,"world":projected}), &files, quest_accepted)
+    opening_play::attic_response(json!({"ok":true,"world":projected}), &files, mirror)
+}
+
+fn pond_at_capacity(world: &Value, request: &Value) -> Option<bool> {
+    let present = opening::seats(&request["present"])?;
+    Some(
+        present.contains(&"vale")
+            && present
+                .iter()
+                .filter(|&&id| world["actors"][id]["place"] == "pond")
+                .count()
+                >= 4,
+    )
 }
 
 fn private_world(world: &Value, request: &Value) -> Option<Value> {
@@ -70,6 +92,7 @@ fn other_attic_content(files: &Value) -> Option<bool> {
 
 fn pack_adds_attic_cards(pack: &Value) -> bool {
     pack["places"].get("attic").is_some()
+        || pack["places"].get("pond").is_some()
         || pack["avatars"].get("vale").is_some()
         || pack["items"].get("lamp").is_some()
         || pack["avatars"]
