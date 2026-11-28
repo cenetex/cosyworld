@@ -165,6 +165,29 @@ test("validation leaves changes outside the reconstructed save unsupported", asy
   assert.equal(wasm(other), null);
 });
 
+test("opening validation uses a saved u32 seed for exact reconstruction", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [0, 4242, 0xffffffff]) {
+    for (const history of [false, true]) {
+      const { world } = pinned({ op: "create", seed, history });
+      for (const saved of [world, hold(pinned, world, null)]) {
+        assert.equal(saved.run.seed, seed);
+        const request = { op: "validate", world: saved, ...seat };
+        const expected = pinned(request);
+        assert.equal(expected.ok, true);
+        assert.deepEqual(
+          wasm(request),
+          expected,
+          `seed ${seed}, history ${history}`,
+        );
+      }
+    }
+  }
+  const { world } = pinned({ op: "create", seed: 4242, history: true });
+  world.run = { seed: 0x100000000 };
+  assert.equal(wasm({ op: "validate", world, ...seat }), null);
+});
+
 test("import preflight refuses definite shape and save header failures", async () => {
   const { pinned, wasm } = await reducers();
   const choose = "Choose a saved world.";

@@ -40,7 +40,7 @@ The Rust rules candidate in `v2/rules-rust` covers lamp fuel, grounded station-d
 
 The candidate reproduces save validation refusals for unsupported schemas, incomplete saves, invalid seats, and malformed lamp metadata. The import preflight also refuses definite shape and save header failures in object and string saves. Direct parity removes the recognized four-frame JavaScript diagnostic suffix for each save entry point and compares every remaining field.
 
-To accept an unseeded Vale opening save, the Rust validator rebuilds it from the authored pack data and the opening history when present. It can also reconstruct the first two quiet lamp holds. Every saved field must match the rebuilt state.
+The Rust validator rebuilds a Vale opening save from the authored pack data, using the saved seed and opening history when present. It can also reconstruct the first two quiet lamp holds. Every saved field must match the rebuilt state.
 
 Replay passes the original, hash-verified pack JSON to the candidate as `packContentJson`. The guest receives these exact bytes in a JSON string, preserving author order for reducers that need it.
 

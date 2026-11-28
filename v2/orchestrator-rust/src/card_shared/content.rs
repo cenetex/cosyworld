@@ -13,7 +13,6 @@ const MISSING: &str = "This world's pack content needs recovery.";
 pub(super) fn hash(text: &str) -> String {
     format!("{:x}", Sha256::digest(text.as_bytes()))
 }
-/// The content revision this binary was built with.
 pub(super) fn current() -> &'static str {
     static HASH: OnceLock<String> = OnceLock::new();
     HASH.get_or_init(|| hash(current_text()))
