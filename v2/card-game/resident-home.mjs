@@ -93,8 +93,7 @@ export function homeOf(id, world) {
     null
   );
 }
-// Home range is measured in hops: zero stays home, Infinity has no limit.
-// null means no home routine, as for players, roamers, journeys and freed residents.
+// Home range is in hops. Zero stays home, Infinity has no limit, and null disables the home routine.
 export function rangeOf(s, id) {
   if (s && unplayedAvatar(s, id)) return Infinity;
   if (own(forest.people, id))
