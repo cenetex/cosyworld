@@ -88,7 +88,11 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
       world.actors = Object.fromEntries(
         Object.entries(world.actors).toSorted(),
       );
-    for (const key of ["move:vale::pond", "move:vale:lamp:pond"]) {
+    for (const key of [
+      "move:vale::pond",
+      "move:vale:lamp:pond",
+      "move:vale:cloth:pond",
+    ]) {
       const request = {
         ...seats,
         op: "play",
@@ -117,7 +121,7 @@ test("Vale returns to Pond carrying Pip's cloth and the Keeper's quest", async (
       assert.equal(event.actorId, "vale");
       assert.equal(event.fromLocationId, "station");
       assert.equal(event.locationId, "pond");
-      assert.equal(event.itemId, key.includes(":lamp:") ? "lamp" : null);
+      assert.equal(event.itemId, key.split(":")[2] || null);
       assert.deepEqual(actual.world.actors.vale.want, world.actors.vale.want);
       assert.deepEqual(
         actual.world.actors.vale.visited,

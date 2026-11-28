@@ -37,9 +37,15 @@ pub(super) fn return_world(request: &Value) -> Option<(&Value, bool)> {
     move_world_to(request, POND)
 }
 
-pub(super) fn cloth_return_world(request: &Value) -> Option<(&Value, bool)> {
-    let (world, carry) = return_world(request)?;
-    (world["turn"] == 5 && world["actors"][VALE]["place"] == STATION).then_some((world, carry))
+pub(super) fn cloth_return_world(request: &Value) -> Option<(&Value, Option<CarriedItem>)> {
+    let (world, key) = move_request(request)?;
+    let item = match key {
+        "move:vale::pond" => None,
+        "move:vale:lamp:pond" => Some(CarriedItem::Lamp),
+        "move:vale:cloth:pond" => Some(CarriedItem::Cloth),
+        _ => return None,
+    };
+    (world["turn"] == 5 && world["actors"][VALE]["place"] == STATION).then_some((world, item))
 }
 
 pub(super) fn behind_world(request: &Value) -> Option<(&Value, bool)> {
@@ -47,9 +53,8 @@ pub(super) fn behind_world(request: &Value) -> Option<(&Value, bool)> {
 }
 
 fn move_world_to<'a>(request: &'a Value, to: &str) -> Option<(&'a Value, bool)> {
-    let before = request.get("world")?;
-    let action = &request["action"];
-    let carry = match (to, action.as_str().or_else(|| action["key"].as_str())?) {
+    let (before, key) = move_request(request)?;
+    let carry = match (to, key) {
         (STATION, "move:vale::station")
         | (POND, "move:vale::pond")
         | (BEHIND, "move:vale::behind-station") => false,
@@ -58,6 +63,12 @@ fn move_world_to<'a>(request: &'a Value, to: &str) -> Option<(&'a Value, bool)> 
         | (BEHIND, "move:vale:lamp:behind-station") => true,
         _ => return None,
     };
+    Some((before, carry))
+}
+
+fn move_request(request: &Value) -> Option<(&Value, &str)> {
+    let before = request.get("world")?;
+    let action = &request["action"];
     if request["actor"] != VALE
         || opening::seats(&request["claimed"])? != [VALE]
         || opening::seats(&request["present"])? != [VALE]
@@ -71,7 +82,7 @@ fn move_world_to<'a>(request: &'a Value, to: &str) -> Option<(&'a Value, bool)> 
     {
         return None;
     }
-    Some((before, carry))
+    Some((before, action.as_str().or_else(|| action["key"].as_str())?))
 }
 
 pub(super) fn quiet_opening(world: &Value) -> bool {
@@ -88,12 +99,20 @@ pub(super) fn quiet_opening(world: &Value) -> bool {
 }
 
 pub(super) fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool {
+    move_between(event, turn, from, to) && (event["itemId"].is_null() || event["itemId"] == LAMP)
+}
+
+pub(super) fn cloth_return_event(event: &Value) -> bool {
+    move_between(event, 6, STATION, POND)
+        && (event["itemId"].is_null() || event["itemId"] == LAMP || event["itemId"] == CLOTH)
+}
+
+fn move_between(event: &Value, turn: u64, from: &str, to: &str) -> bool {
     event["turn"] == turn
         && event["verb"] == "move"
         && event["fromLocationId"] == from
         && event["locationId"] == to
         && event["targetId"] == to
-        && (event["itemId"].is_null() || event["itemId"] == LAMP)
 }
 
 pub(super) fn departure_turn(world: &Value) -> Option<u64> {
@@ -101,18 +120,21 @@ pub(super) fn departure_turn(world: &Value) -> Option<u64> {
     let vale = &world["actors"][VALE];
     let to = vale["place"].as_str()?;
     let event = world["log"].as_array()?.last()?;
-    let allowed = match (turn, to) {
-        (3, BEHIND) | (4, POND) => true,
-        (6, POND) => vale["heldItem"] == CLOTH && vale["want"]["from"] == "quest:from:keeper",
+    let matches_move = match (turn, to) {
+        (3, BEHIND) | (4, POND) => move_event(event, turn, STATION, to),
+        (6, POND) => {
+            vale["heldItem"] == CLOTH
+                && vale["want"]["from"] == "quest:from:keeper"
+                && cloth_return_event(event)
+        }
         _ => false,
     };
-    (allowed
+    (matches_move
         && world["arrival"]["fromLocationId"] == STATION
         && world["arrival"]["locationId"] == to
         && world["arrival"]["seq"] == world["eventSeq"]
         && event["seq"] == world["eventSeq"]
-        && vale_action(event)
-        && move_event(event, turn, STATION, to))
+        && vale_action(event))
     .then_some(turn)
 }
 
@@ -489,11 +511,25 @@ fn departure_witnesses<'a>(
     Some(witnesses)
 }
 
+pub(super) enum CarriedItem {
+    Lamp,
+    Cloth,
+}
+
+impl CarriedItem {
+    fn id(self) -> &'static str {
+        match self {
+            Self::Lamp => LAMP,
+            Self::Cloth => CLOTH,
+        }
+    }
+}
+
 enum Passage {
     Station(bool),
     QuestStation(bool),
     Pond(bool),
-    ClothPond(bool),
+    ClothPond(Option<CarriedItem>),
     Behind(bool),
 }
 
@@ -543,7 +579,7 @@ pub(super) fn begin_cloth_return_with<T>(
     authored: &Order,
     order: &[&str],
     evidence: &ResidentEvidence,
-    carry: bool,
+    item: Option<CarriedItem>,
     prepare: impl FnOnce(&Value) -> Option<T>,
 ) -> Option<(Value, T)> {
     begin_passage(
@@ -552,7 +588,7 @@ pub(super) fn begin_cloth_return_with<T>(
         authored,
         order,
         evidence,
-        Passage::ClothPond(carry),
+        Passage::ClothPond(item),
         prepare,
     )
 }
@@ -608,26 +644,26 @@ fn begin_passage<T>(
     passage: Passage,
     prepare: impl FnOnce(&Value) -> Option<T>,
 ) -> Option<(Value, T)> {
-    let (from, to, carry) = match passage {
+    let (from, to, item) = match passage {
         Passage::Station(carry) => {
             quiet_source(before, geo)?;
-            (POND, STATION, carry)
+            (POND, STATION, carry.then_some(CarriedItem::Lamp))
         }
         Passage::QuestStation(carry) => {
             quiet_quest_station_return(before, geo)?;
-            (POND, STATION, carry)
+            (POND, STATION, carry.then_some(CarriedItem::Lamp))
         }
         Passage::Pond(carry) => {
             quiet_return_source(before, geo)?;
-            (STATION, POND, carry)
+            (STATION, POND, carry.then_some(CarriedItem::Lamp))
         }
-        Passage::ClothPond(carry) => {
+        Passage::ClothPond(item) => {
             quiet_cloth_return_source(before, geo)?;
-            (STATION, POND, carry)
+            (STATION, POND, item)
         }
         Passage::Behind(carry) => {
             quiet_behind_source(before, geo, order)?;
-            (STATION, BEHIND, carry)
+            (STATION, BEHIND, carry.then_some(CarriedItem::Lamp))
         }
     };
     let turn = before["turn"].as_u64()?.checked_add(1)?;
@@ -638,9 +674,10 @@ fn begin_passage<T>(
     let forest = &geo.files()["v2/card-game/forest.json"];
     let vale = forest["people"][VALE]["name"].as_str()?;
     let destination = forest["places"][to]["name"].as_str()?;
-    let text = if carry {
-        let lamp = item_as_named(forest["things"][LAMP]["name"].as_str()?);
-        format!("{vale} carries {lamp} to {destination}.")
+    let item_id = item.map(CarriedItem::id);
+    let text = if let Some(id) = item_id {
+        let carried = item_as_named(forest["things"][id]["name"].as_str()?);
+        format!("{vale} carries {carried} to {destination}.")
     } else {
         format!("{vale} goes to {destination}.")
     };
@@ -691,7 +728,7 @@ fn begin_passage<T>(
     let detail = json!({
         "speaker":"World", "kind":"action", "verb":"move", "actorId":VALE, "text":text,
         "locationId":to, "fromLocationId":from, "witnesses":witnesses,
-        "itemId":carry.then_some(LAMP), "targetId":to,
+        "itemId":item_id, "targetId":to,
     });
     evidence.record(&mut world, &cast, &items, detail, true)?;
     world["arrival"] = json!({"seq":world["eventSeq"], "locationId":to, "fromLocationId":from});
@@ -703,7 +740,7 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         .map(|(world, carry)| (world, Passage::QuestStation(carry)))
         .or_else(|| move_world(request).map(|(world, carry)| (world, Passage::Station(carry))))
         .or_else(|| {
-            cloth_return_world(request).map(|(world, carry)| (world, Passage::ClothPond(carry)))
+            cloth_return_world(request).map(|(world, item)| (world, Passage::ClothPond(item)))
         })
         .or_else(|| return_world(request).map(|(world, carry)| (world, Passage::Pond(carry))))
         .or_else(|| behind_world(request).map(|(world, carry)| (world, Passage::Behind(carry))))?;
@@ -723,8 +760,8 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         Passage::Pond(carry) => {
             begin_return_with(before, &geo, &authored, &order, &evidence, carry, prepare)
         }
-        Passage::ClothPond(carry) => {
-            begin_cloth_return_with(before, &geo, &authored, &order, &evidence, carry, prepare)
+        Passage::ClothPond(item) => {
+            begin_cloth_return_with(before, &geo, &authored, &order, &evidence, item, prepare)
         }
         Passage::Behind(carry) => {
             begin_behind_with(before, &geo, &authored, &order, &evidence, carry, prepare)

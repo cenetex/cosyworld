@@ -3,7 +3,7 @@ use super::{
     opening, opening_content,
     opening_pickups::item_as_named,
     opening_pond_view::offer,
-    opening_station_move::{move_event, quiet_opening},
+    opening_station_move::{cloth_return_event, move_event, quiet_opening},
     opening_view, opening_visitor_routes,
     opening_wait_response::vale_action,
     pack_state::Catalog,
@@ -114,7 +114,7 @@ pub(super) fn cloth_arrival(world: &Value, dropped: bool) -> Option<(u64, u64)> 
     let next = returned.checked_add(1)?;
     if !matches!(world["turn"].as_u64()?, 6 | 7)
         || gift_seq >= returned
-        || !move_event(second_return, 6, STATION, POND)
+        || !cloth_return_event(second_return)
         || world["arrival"] != json!({"seq":returned,"fromLocationId":STATION,"locationId":POND})
     {
         return None;

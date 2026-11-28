@@ -50,7 +50,9 @@ export function browserRules(bytes) {
           key === "take:vale:lamp:");
       const pondPlay =
         request.op === "play" &&
-        (key === "move:vale::pond" || key === "move:vale:lamp:pond");
+        (key === "move:vale::pond" ||
+          key === "move:vale:lamp:pond" ||
+          key === "move:vale:cloth:pond");
       const stationPlay =
         request.op === "play" &&
         (key === "move:vale::station" ||
