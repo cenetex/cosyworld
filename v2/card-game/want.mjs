@@ -201,8 +201,7 @@ export function dropQuest(s, actor, index = 0) {
   closeQuest(a, want, s.turn);
   releaseQuest(a, want);
 }
-// The way back to an active place that rests the avatar, for a rest step
-// whose pack was switched off.
+// Find an active resting place when the original pack is off.
 export const restStep = (s, actor, api) => ({
   ...newWant(
     "place",
