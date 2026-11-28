@@ -27,6 +27,7 @@ mod opening_speech;
 mod opening_view;
 mod opening_visitor_routes;
 mod opening_wait;
+mod opening_wait_response;
 mod pack_state;
 mod profiles;
 mod reset;
@@ -40,6 +41,7 @@ mod validate;
 
 pub use create_geography::Geography;
 pub use opening_view::create_response;
+pub use opening_wait_response::completed_wait_response;
 
 pub const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_WIRE_BYTES: usize = 3 * MAX_JSON_BYTES + 64;

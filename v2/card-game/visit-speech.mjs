@@ -10,7 +10,6 @@ const ordinaryWait = (a) =>
 export function visitSpeech(world, id) {
   const actor = world.actors[id];
   if (actor.waitSpeech?.place === actor.place) return actor.waitSpeech;
-  // Earlier saves use the first retained Wait since their latest arrival.
   const arrival = world.log.findLast((e) => moved(e, id))?.seq ?? 0;
   const waited =
     !actor.waitSpeech &&
