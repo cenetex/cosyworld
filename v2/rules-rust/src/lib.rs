@@ -13,6 +13,7 @@ mod opening;
 mod opening_play;
 mod opening_reflection;
 mod opening_speech;
+mod opening_view;
 mod profiles;
 mod reset;
 
@@ -94,6 +95,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("presence") => opening::presence(request).unwrap_or(Value::Null),
         Some("hold") => opening::hold(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
+        Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
         Some("join_state") => opening::join_state(request).unwrap_or(Value::Null),
