@@ -9,69 +9,60 @@ use crate::card_shared::{
 use serde_json::{json, Value};
 use std::path::Path;
 
+type PlayAssertion = fn(&Value, &Value);
+
+const WAIT: (&str, PlayAssertion) = ("wait:vale::", check_wait);
+const SECOND_WAIT: (&str, PlayAssertion) = (WAIT.0, check_silent_wait);
+const DROP: (&str, PlayAssertion) = ("drop:vale:lamp:attic", check_lamp_drop);
+const TAKE: (&str, PlayAssertion) = ("take:vale:lamp:", check_lamp_take);
+
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
-    replay_first_attic_turn(
-        "first-attic-wait",
-        "wait:vale::",
-        unseeded_opening()?,
-        false,
-        check_wait,
-    )
+    replay_opening_turns("first-attic-wait", unseeded_opening()?, false, &[WAIT])
 }
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_drop() -> Result<()> {
-    replay_first_attic_turn(
-        "first-attic-drop",
-        "drop:vale:lamp:attic",
-        unseeded_opening()?,
-        false,
-        check_lamp_drop,
-    )
+    replay_opening_turns("first-attic-drop", unseeded_opening()?, false, &[DROP])
 }
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait_after_history() -> Result<()> {
-    replay_first_attic_turn(
+    replay_opening_turns(
         "first-attic-wait-after-history",
-        "wait:vale::",
         historic_opening()?,
         false,
-        check_wait,
+        &[WAIT],
     )
 }
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_drop_after_history() -> Result<()> {
-    replay_first_attic_turn(
+    replay_opening_turns(
         "first-attic-drop-after-history",
-        "drop:vale:lamp:attic",
         historic_opening()?,
         false,
-        check_lamp_drop,
+        &[DROP],
     )
 }
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_bare_pond_move() -> Result<()> {
-    replay_first_attic_turn(
+    replay_opening_turns(
         "first-bare-pond-move",
-        "move:vale::pond",
         unseeded_opening()?,
         true,
-        check_bare_pond_move,
+        &[("move:vale::pond", check_bare_pond_move)],
     )
 }
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_bare_pond_move_after_history() -> Result<()> {
-    replay_first_attic_turn(
+    replay_opening_turns(
         "first-bare-pond-move-after-history",
-        "move:vale::pond",
         historic_opening()?,
         true,
-        |lamp, reply| {
+        &[("move:vale::pond", |lamp, reply| {
             check_bare_pond_move(lamp, reply);
             let world = &reply["world"];
             let ask = &reply["events"][1];
@@ -82,7 +73,27 @@ fn sqlite_rules_wasm_parity_replays_the_first_bare_pond_move_after_history() -> 
             let moth = &world["actors"]["moth"];
             assert_eq!(moth["want"]["refusals"], 1);
             assert_eq!(moth["sleeping"]["since"], world["turn"]);
-        },
+        })],
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_second_attic_wait() -> Result<()> {
+    replay_opening_turns(
+        "second-attic-wait",
+        unseeded_opening()?,
+        false,
+        &[WAIT, SECOND_WAIT],
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_second_attic_lamp_take() -> Result<()> {
+    replay_opening_turns(
+        "second-attic-lamp-take",
+        unseeded_opening()?,
+        false,
+        &[DROP, TAKE],
     )
 }
 
@@ -116,6 +127,11 @@ fn check_wait(_: &Value, reply: &Value) {
     assert_eq!(reply["world"]["speechVoices"]["vale"], json!(["vale"]));
 }
 
+fn check_silent_wait(_: &Value, reply: &Value) {
+    assert_eq!(reply["events"][0]["verb"], "wait");
+    assert_eq!(reply["world"]["speechVoices"]["vale"], json!([]));
+}
+
 fn check_lamp_drop(lamp: &Value, reply: &Value) {
     let event = &reply["events"][0];
     assert_eq!(event["verb"], "drop");
@@ -131,6 +147,20 @@ fn check_lamp_drop(lamp: &Value, reply: &Value) {
     assert_eq!(dropped["fuelRooms"], lamp["fuelRooms"]);
     assert_eq!(dropped["fuel"], lamp["fuel"]);
     assert_eq!(world["speechVoices"]["vale"], json!(["vale"]));
+}
+
+fn check_lamp_take(lamp: &Value, reply: &Value) {
+    let event = &reply["events"][0];
+    assert_eq!(event["verb"], "take");
+    assert_eq!(event["itemId"], "lamp");
+    assert_eq!(event["locationId"], "attic");
+    let world = &reply["world"];
+    let taken = &world["items"]["lamp"];
+    assert_eq!(lamp["holder"], "attic");
+    assert_eq!(world["actors"]["vale"]["heldItem"], "lamp");
+    assert_eq!(taken["holder"], "vale");
+    assert_eq!(taken["lit"], true);
+    assert_eq!(taken["fuel"], lamp["fuel"]);
 }
 
 fn historic_opening() -> Result<World> {
@@ -152,18 +182,16 @@ fn unseeded_opening() -> Result<World> {
     Ok(state)
 }
 
-fn replay_first_attic_turn(
+fn replay_opening_turns(
     id: &str,
-    action: &str,
     mut state: World,
     stow_lamp: bool,
-    check_reply: impl FnOnce(&Value, &Value),
+    plays: &[(&str, PlayAssertion)],
 ) -> Result<()> {
     let guest = Rules::new(&read_candidate()?)?;
     let mut c = store::open(Path::new(":memory:"))?;
     full_store::schema(&c)?;
     store::create(&c, id, "opening-owner", 1)?;
-    let turn = state.game["turn"].as_u64().ok_or("Missing turn.")?;
     full_store::seed(&c, id, &state, id, 1)?;
     for (time, op) in [(2, "claim"), (3, "enter")] {
         full_store::commit(&c, id, &mut state, json!({"op":op, "actor":"vale"}), time)?;
@@ -180,21 +208,26 @@ fn replay_first_attic_turn(
         assert_eq!(state.game["items"]["lamp"]["lit"], false);
         calls.push("hold");
     }
-    calls.push("play");
-    let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
-    let lamp = state.game["items"]["lamp"].clone();
-    let command = json!({"op":"play", "actor":"vale", "action":action});
-    let accepted = full_store::commit(&c, id, &mut state, command, 4 + i64::from(stow_lamp))?;
-    assert_eq!(accepted["ok"], true);
-    assert_eq!(accepted["world"], state.game);
-    assert_eq!(accepted["events"][0]["actorId"], "vale");
-    assert!(accepted["events"]
-        .as_array()
-        .is_some_and(|events| events.len() > 1));
-    assert_eq!(state.game["turn"], turn + 1);
-    assert_eq!(accepted["events"][0]["turn"], turn + 1);
-    assert_eq!(state.game["revision"], revision + 1);
-    check_reply(&lamp, &accepted);
+    let first_play_time = 4 + i64::from(stow_lamp);
+    for (time, &(action, check_reply)) in (first_play_time..).zip(plays) {
+        let turn = state.game["turn"].as_u64().ok_or("Missing turn.")?;
+        let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
+        let lamp = state.game["items"]["lamp"].clone();
+        let command = json!({"op":"play", "actor":"vale", "action":action});
+        let accepted = full_store::commit(&c, id, &mut state, command, time)?;
+        assert_eq!(accepted["ok"], true);
+        assert_eq!(accepted["world"], state.game);
+        assert_eq!(accepted["events"][0]["actorId"], "vale");
+        let minimum_events = 1 + usize::from(time == first_play_time);
+        assert!(accepted["events"]
+            .as_array()
+            .is_some_and(|events| events.len() >= minimum_events));
+        assert_eq!(state.game["turn"], turn + 1);
+        assert_eq!(accepted["events"][0]["turn"], turn + 1);
+        assert_eq!(state.game["revision"], revision + 1);
+        check_reply(&lamp, &accepted);
+        calls.push("play");
+    }
 
     c.pragma_update(None, "query_only", true)
         .map_err(sql_error)?;

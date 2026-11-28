@@ -324,8 +324,7 @@ pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Resul
 pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result<Value> {
     let w = world(c, id, now)?;
     let actor = store::member(c, id, user)?;
-    // Bound avatars belong to someone even while released; the owner may
-    // free one (#1825). `holders` names each holder without their id.
+    // An owner can free even a released bound avatar (#1825). `holders` omits account IDs.
     let bound = super::bindings::bound(c, id)?;
     let holders = super::bindings::holders(c, id)?;
     let owner = super::bindings::owner(c, id, user)?;
