@@ -138,6 +138,7 @@ fn encode_request(
                 | "opening_mirror_move"
                 | "opening_pond_ask"
                 | "opening_pond_place_returns"
+                | "opening_pond_resident_sleep"
                 | "opening_full_move"
         )
     ) || attic_play

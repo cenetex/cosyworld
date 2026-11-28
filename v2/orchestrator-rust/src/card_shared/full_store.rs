@@ -275,8 +275,7 @@ pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Resul
         .map_err(sql_error)?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(sql_error)?;
-    // Words cut off with their worker are silence like any failed words:
-    // the play's voices show "…" and nothing waits or retries.
+    // Interrupted speech stays silent, with "…" in the view and no retry.
     for (play, room, text) in interrupted {
         let mut scene: Value = serde_json::from_str(&text).map_err(sql_error)?;
         let voices = scene["actor"]

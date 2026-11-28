@@ -37,8 +37,20 @@ impl ResidentEvidence {
         place: &str,
         text: &str,
     ) -> Option<()> {
+        self.narrate_by(world, cast, visible_items, None, place, text)
+    }
+
+    pub(super) fn narrate_by(
+        &self,
+        world: &mut Value,
+        cast: &[&str],
+        visible_items: &[&str],
+        actor: Option<&str>,
+        place: &str,
+        text: &str,
+    ) -> Option<()> {
         let detail = json!({
-            "speaker":"World", "text":text, "kind":"narration", "actorId":null,
+            "speaker":"World", "text":text, "kind":"narration", "actorId":actor,
             "locationId":place,
         });
         self.stamp(world, cast, visible_items, detail, true)

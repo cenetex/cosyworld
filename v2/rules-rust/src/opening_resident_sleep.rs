@@ -1,8 +1,10 @@
 use super::{
+    authored_order::Order,
     create_geography::Geography,
     initial_wants::{People, Person},
-    opening_content, opening_quiet_life,
+    opening_content, opening_mirror_move, opening_quiet_life, opening_roster,
     pack_state::Catalog,
+    resident_evidence::ResidentEvidence,
     seed::hash,
 };
 use serde_json::{json, Value};
@@ -213,19 +215,50 @@ fn vale_only(seats: &Value) -> bool {
         .is_some_and(|seats| seats.len() == 1 && seats[0] == "vale")
 }
 
-pub(super) fn historic_attic(world: &Value) -> Option<i64> {
+fn historic_first_round(world: &Value) -> Option<i64> {
     let turn = world["turn"].as_i64()?;
     if turn != 481
         || world["began"] != 480
         || !vale_only(&world["controlledActors"])
         || !vale_only(&world["presentActors"])
-        || world["actors"]["vale"]["place"] != "attic"
         || !world["standoffs"].as_array()?.is_empty()
     {
         return None;
     }
+    Some(turn)
+}
+
+pub(super) fn historic_attic(world: &Value) -> Option<i64> {
+    let turn = historic_first_round(world)?;
+    if world["actors"]["vale"]["place"] != "attic" {
+        return None;
+    }
     if world["items"]["lamp"]["holder"] != "vale" {
         super::opening_drop::grounding_committed(world)?;
+    }
+    Some(turn)
+}
+
+pub(super) fn historic_pond(world: &Value) -> Option<i64> {
+    let turn = historic_first_round(world)?;
+    let arrival = &world["arrival"];
+    let seq = arrival["seq"].as_u64()?;
+    if world["actors"]["vale"]["place"] != "pond"
+        || world["items"]["lamp"]["holder"] != "vale"
+        || world["opening"]["crossed"] != true
+        || arrival["locationId"] != "pond"
+        || arrival["fromLocationId"] != "attic"
+        || !world["log"].as_array()?.iter().any(|event| {
+            event["seq"] == seq
+                && event["turn"] == turn
+                && event["actorId"] == "vale"
+                && event["kind"] == "action"
+                && event["verb"] == "move"
+                && event["locationId"] == "pond"
+                && event["fromLocationId"] == "attic"
+        })
+    {
+        return None;
     }
     Some(turn)
 }
@@ -236,7 +269,55 @@ pub(super) fn settle(
     residents: &Residents<'_>,
 ) -> Option<()> {
     let turn = historic_attic(world)?;
-    super::opening_roster::validate_arrivals(world)?;
+    settle_at(world, geo, residents, turn, "attic", |_, _| None)
+}
+
+pub(super) fn settle_pond(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    residents: &Residents<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+) -> Option<()> {
+    let turn = historic_pond(world)?;
+    let bard = world["log"].as_array()?.last()?;
+    if bard["seq"] != world["eventSeq"]
+        || bard["seq"].as_u64()? <= world["arrival"]["seq"].as_u64()?
+        || bard["turn"] != turn
+        || bard["actorId"] != "greek-rhapsode"
+        || bard["kind"] != "action"
+        || bard["verb"] != "move"
+    {
+        return None;
+    }
+    settle_at(world, geo, residents, turn, "pond", |world, id| {
+        if id != "moth" {
+            return None;
+        }
+        let name = residents.people.people.get(id)?.data["name"].as_str()?;
+        let cast = opening_roster::known_actors(world, geo, order, Some("pond"))?;
+        let items = opening_mirror_move::pond_items(world, geo, authored)?;
+        evidence.narrate_by(
+            world,
+            &cast,
+            &items,
+            Some(id),
+            "pond",
+            &format!("{name} falls asleep."),
+        )
+    })
+}
+
+fn settle_at(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    residents: &Residents<'_>,
+    turn: i64,
+    observed: &str,
+    mut narrate_sleep: impl FnMut(&mut Value, &str) -> Option<()>,
+) -> Option<()> {
+    opening_roster::validate_arrivals(world)?;
     if world["sharedVersion"] != 1
         || !vale_only(&world["heldActors"])
         || !world["homecoming"].is_null()
@@ -285,7 +366,7 @@ pub(super) fn settle(
         let clear_homeward = at_home && actor["homeward"] == true;
         if wake {
             sleeping["until"].as_i64()?;
-            if here == "attic" {
+            if here == observed {
                 return None;
             }
             world["actors"][id].as_object_mut()?.remove("sleeping");
@@ -299,12 +380,13 @@ pub(super) fn settle(
                     continue;
                 }
             }
-            if here == "attic" {
-                return None;
-            }
+            let visible = here == observed;
             let sleep = json!({"since":turn,"place":here,"until":end});
             world["actors"][id]["slept"] = json!(start);
             world["actors"][id]["sleeping"] = sleep;
+            if visible {
+                narrate_sleep(world, id)?;
+            }
         }
         if clear_homeward {
             world["actors"][id].as_object_mut()?.remove("homeward");
@@ -319,6 +401,21 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let geo = Geography::new(&files, catalog.packs())?;
     let mut world = request.get("world")?.clone();
     settle(&mut world, &geo, &Residents::new(&geo)?)?;
+    let mut response = json!({"ok":true});
+    response["world"] = world;
+    Some(response)
+}
+
+pub(super) fn pond_projection(request: &Value) -> Option<Value> {
+    let before = request.get("world")?;
+    let order = opening_roster::actor_order(request, before)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let residents = Residents::new(&geo)?;
+    let evidence = ResidentEvidence::new(&files)?;
+    let mut world = before.clone();
+    settle_pond(&mut world, &geo, &residents, &authored, &order, &evidence)?;
     let mut response = json!({"ok":true});
     response["world"] = world;
     Some(response)
