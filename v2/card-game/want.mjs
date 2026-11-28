@@ -896,7 +896,6 @@ function sawLost(s, id, lost, action, api) {
     ? by
     : null;
 }
-// Empty resident wants refill after a rest. Players take quests by tapping.
 export function fillWants(s, api, now = false) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (a.want) delete a.content;
