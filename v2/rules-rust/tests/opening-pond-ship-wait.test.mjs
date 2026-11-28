@@ -8,6 +8,8 @@ const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const ship = "greek-ship";
 const key = "wait:vale::";
 const residents = "opening_ship_wait_residents";
+const beforeDock = "opening_ship_wait_before_docking";
+const afterDock = "opening_ship_wait_after_docking";
 
 function captureWait(source) {
   const primary =
@@ -16,7 +18,11 @@ function captureWait(source) {
   const plans =
     "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
   const after = "    const rings2 = next.log.filter(";
-  for (const marker of [primary, docking, plans, after])
+  const sailing = "    const voyages = sailTransports(next);";
+  const wants = "    reviseStalledWants(\n      next,";
+  const late =
+    "    if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));";
+  for (const marker of [primary, docking, plans, after, sailing, wants, late])
     assert.equal(source.split(marker).length, 2);
   return source
     .replace(
@@ -36,6 +42,18 @@ function captureWait(source) {
     .replace(
       docking,
       "    if (next.turn === 10) globalThis.docked = structuredClone(next);\n$&",
+    )
+    .replace(
+      sailing,
+      "    if (next.turn === 10) globalThis.beforeDock = structuredClone(next);\n$&",
+    )
+    .replace(
+      wants,
+      "    if (next.turn === 10) globalThis.beforeWants = structuredClone(next);\n$&",
+    )
+    .replace(
+      late,
+      "$&\n    if (next.turn === 10) globalThis.finished = structuredClone(next);",
     );
 }
 
@@ -50,7 +68,7 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
   };
   const play = (world, action) =>
     run({ ...seats, op: "play", world, action }).world;
-  let sample, arriving;
+  let sample, arriving, arrived;
   for (const seed of [undefined, 2, 17, 4242]) {
     for (const ordered of [false, true]) {
       let world = run({ op: "create", seed }).world;
@@ -123,10 +141,35 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
         }),
         `residents ${label}`,
       );
+      const beforeTravel = captured("beforeDock");
+      assert.deepEqual(beforeTravel, settled);
+      assert.ok(
+        isDeepStrictEqual(wasm({ op: beforeDock, world: settled }), {
+          ok: true,
+          world: beforeTravel,
+        }),
+        `roaming and life ${label}`,
+      );
       assert.ok(
         isDeepStrictEqual(wasm(arriving), { ok: true, world: docked }),
         `docked ${label}`,
       );
+      const beforeWants = captured("beforeWants");
+      const finished = captured("finished");
+      assert.deepEqual(beforeWants, docked);
+      arrived = { op: afterDock, before: world, world: beforeWants };
+      assert.ok(
+        isDeepStrictEqual(wasm(arrived), { ok: true, world: finished }),
+        `wants and visit speech ${label}`,
+      );
+      assert.deepEqual(finished.actors.keeper.contact, {
+        moth: [10, 0],
+        vale: [7, 0],
+      });
+      assert.deepEqual(finished.actors.vale.waitSpeech, {
+        place: ship,
+        turn: 10,
+      });
       assert.deepEqual(reply.events, [waited.log.at(-1), docked.log.at(-1)]);
       assert.deepEqual(waited.transports[ship], world.transports[ship]);
       assert.deepEqual(waited.actors.vale, world.actors.vale);
@@ -199,5 +242,21 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
     const world = structuredClone(arriving.world);
     change(world);
     assert.equal(wasm({ op: residents, world }), null);
+  }
+  assert.equal(wasm({ op: beforeDock, world: arrived.world }), null);
+  for (const change of [
+    (world) => {
+      world.routeKnowledge.vale.pop();
+    },
+    (world) => {
+      world.log.at(-1).text = "The ship casts off.";
+    },
+    (world) => {
+      world.actors.keeper.contact.moth = [8, 0];
+    },
+  ]) {
+    const world = structuredClone(arrived.world);
+    change(world);
+    assert.equal(wasm({ ...arrived, world }), null);
   }
 });
