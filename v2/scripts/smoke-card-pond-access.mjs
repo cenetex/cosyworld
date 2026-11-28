@@ -22,7 +22,6 @@ const act = (s, kind, target) => {
   assert.ok(result.ok, result.error);
   return result.state;
 };
-// The opening starts lit; stowing the lamp opens the attic mirror.
 let fixture = enableMotives(createWorld({ opening: true }));
 assert.equal(fixture.items.lamp.lit, true);
 holdChoice(fixture, "vale", { item: null, revision: fixture.revision });

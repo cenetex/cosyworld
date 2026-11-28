@@ -51,6 +51,7 @@ mod opening_settlement;
 mod opening_speech;
 mod opening_stale_wants;
 mod opening_station_move;
+mod opening_station_residents;
 mod opening_take;
 mod opening_take_response;
 mod opening_view;
@@ -203,6 +204,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_full_move") => opening_full_move::projection(request).unwrap_or(Value::Null),
         Some("opening_pond_ask") => opening_pond_ask::projection(request).unwrap_or(Value::Null),
+        Some("opening_station_residents") => {
+            opening_station_residents::projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_pond_place_returns") => {
             opening_pond_place_returns::projection(request).unwrap_or(Value::Null)
         }
