@@ -174,8 +174,7 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
         .as_array_mut()
         .unwrap()
         .push(json!("pond"));
-    // Vale wants the keeper's cloth; the keeper wants Vale's bell, so the
-    // gift earns trust and a later request succeeds.
+    // Vale's gift earns the keeper's trust before the request for cloth.
     w.game["actors"]["vale"]["want"] =
         json!({"kind":"item","target":"cloth","since":0,"refusals":0});
     w.game["actors"]["vale"]["closed"] = json!({
