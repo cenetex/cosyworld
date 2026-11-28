@@ -54,6 +54,9 @@ export function browserRules(bytes) {
       const pondSpeech =
         request.op === "speech" &&
         request.world?.actors?.vale?.place === "pond";
+      const stationView =
+        request.op === "view" &&
+        request.world?.actors?.vale?.place === "station";
       const ordered =
         [
           "opening_wait_roster",
@@ -69,7 +72,8 @@ export function browserRules(bytes) {
         ].includes(request.op) ||
         atticPlay ||
         pondPlay ||
-        pondSpeech;
+        pondSpeech ||
+        stationView;
       const actors = ordered ? request.world?.actors : null;
       const actorOrder =
         actors && typeof actors === "object" && !Array.isArray(actors)

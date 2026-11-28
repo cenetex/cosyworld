@@ -1,7 +1,8 @@
 use super::{
-    authored_order::Order, initial_wants::root_in, lamp_state, opening,
+    authored_order::Order, initial_wants::root_in, lamp_state, opening, opening_content,
     opening_pickups::item_as_named, opening_pond_view::offer, opening_roster::known_actors,
-    opening_visitor_routes, opening_wait_response::ordinary_attic_wait, profiles, Geography,
+    opening_view, opening_visitor_routes, opening_wait_response::ordinary_attic_wait,
+    pack_state::Catalog, profiles, Geography,
 };
 use serde_json::{json, Value};
 
@@ -345,22 +346,24 @@ fn actions(
     Some(out)
 }
 
-pub fn completed_station_response(
-    mut world: Value,
+fn station_projection(
+    world: &Value,
     geo: &Geography<'_>,
     authored: &Order,
-    before_seq: u64,
     actor_order: &[&str],
-    present: &[&str],
-) -> Option<Value> {
-    if present != [VALE] || chronology(&world)? != before_seq.checked_add(1)? {
-        return None;
-    }
-    let company = station_scene(&world, geo, actor_order)?;
-    station_paths(&world, geo)?;
+) -> Option<(Vec<Value>, Value)> {
+    let company = station_scene(world, geo, actor_order)?;
+    station_paths(world, geo)?;
+    let profiles = profiles::project(geo.files())?;
+    Some((
+        actions(world, geo, authored, &profiles, &company)?,
+        profiles,
+    ))
+}
+
+fn arrival_events(world: &Value, before_seq: u64) -> Option<Vec<&Value>> {
     let events: Vec<_> = entries(&world["log"])
         .filter(|entry| entry["seq"].as_u64().is_some_and(|seq| seq > before_seq))
-        .cloned()
         .collect();
     let follows = events.get(1)?;
     if !is_move(follows, PIP, POND, STATION)
@@ -376,20 +379,67 @@ pub fn completed_station_response(
     {
         return None;
     }
+    Some(events)
+}
+
+pub fn completed_station_response(
+    mut world: Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    before_seq: u64,
+    actor_order: &[&str],
+    present: &[&str],
+) -> Option<Value> {
+    if present != [VALE] || chronology(&world)? != before_seq.checked_add(1)? {
+        return None;
+    }
+    let (plans, profiles) = station_projection(&world, geo, authored, actor_order)?;
+    let events = arrival_events(&world, before_seq)?
+        .into_iter()
+        .cloned()
+        .collect::<Vec<_>>();
     world
         .as_object_mut()?
         .entry("speechVoices")
         .or_insert_with(|| json!({}))
         .as_object_mut()?
         .insert(VALE.into(), json!([VALE, KEEPER]));
-    let profiles = profiles::project(geo.files())?;
-    let plans = actions(&world, geo, authored, &profiles, &company)?;
-    let mut response = opening::stored_response(world)?;
+    let mut response = station_response(opening::stored_response(world)?, plans, profiles);
+    response["events"] = json!(events);
+    Some(response)
+}
+
+pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
+    let world = request.get("world")?;
+    if request["claimed"] != json!([VALE])
+        || (!present.is_empty() && present != [VALE])
+        || world["speechVoices"][VALE] != json!([VALE, KEEPER])
+    {
+        return None;
+    }
+    arrival_events(world, chronology(world)?.checked_sub(1)?)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let actor_order = super::opening_roster::actor_order(request, world)?;
+    let (plans, profiles) = station_projection(world, &geo, &authored, &actor_order)?;
+    let projected = opening_view::private_world(world, request)?;
+    Some(station_response(
+        json!({"ok":true,"world":projected}),
+        plans,
+        profiles,
+    ))
+}
+
+fn station_response(mut response: Value, plans: Vec<Value>, profiles: Value) -> Value {
     response["actor"] = json!(VALE);
     response["room"] = json!(STATION);
     response["exits"] = json!(EXITS);
     response["actions"] = json!(plans);
-    response["events"] = json!(events);
     response["profiles"] = profiles;
-    Some(response)
+    response
 }
+
+#[cfg(test)]
+#[path = "opening_station_view_test.rs"]
+mod tests;

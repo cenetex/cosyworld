@@ -45,8 +45,10 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     {
         return None;
     }
-    if request["world"]["actors"]["vale"]["place"] == "pond" {
-        return super::opening_pond_view::private_view(request, &present);
+    match request["world"]["actors"]["vale"]["place"].as_str() {
+        Some("pond") => return super::opening_pond_view::private_view(request, &present),
+        Some("station") => return super::opening_station_view::private_view(request, &present),
+        _ => {}
     }
     let (world, view) = match opening::supported_world(request) {
         Some(world) => {
