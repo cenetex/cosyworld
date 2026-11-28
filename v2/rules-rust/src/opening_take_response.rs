@@ -1,5 +1,6 @@
 use super::{
     lamp_state, opening, opening_play, opening_play::Mirror, opening_view, opening_wait_response,
+    profiles,
 };
 use serde_json::{json, Value};
 
@@ -86,10 +87,22 @@ pub(super) fn mirror_after_take(world: &Value, present: &[&str]) -> Option<Mirro
 }
 
 pub fn completed_take_response(
+    world: Value,
+    files: &Value,
+    before_seq: u64,
+    present: &[&str],
+) -> Option<Value> {
+    completed_take_response_with_profiles(world, files, before_seq, present, || {
+        profiles::project(files)
+    })
+}
+
+pub(super) fn completed_take_response_with_profiles(
     mut world: Value,
     files: &Value,
     before_seq: u64,
     present: &[&str],
+    projected: impl FnOnce() -> Option<Value>,
 ) -> Option<Value> {
     if present != [VALE]
         || settled_take(&world)? != before_seq.checked_add(1)?
@@ -119,8 +132,12 @@ pub fn completed_take_response(
         return None;
     }
     opening_wait_response::apply_vale_voice(&mut world)?;
-    let mut response =
-        opening_play::attic_response(opening::stored_response(world)?, files, mirror)?;
+    let mut response = opening_play::attic_response_with_profiles(
+        opening::stored_response(world)?,
+        files,
+        mirror,
+        projected()?,
+    )?;
     response["events"] = json!(events);
     Some(response)
 }

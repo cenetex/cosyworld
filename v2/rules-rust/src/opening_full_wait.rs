@@ -197,8 +197,20 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
     opening_attic_rest::settle_visit_speech(before, &mut world, play == RoundPlay::Wait)?;
     let before_seq = before["eventSeq"].as_u64()?;
     if let Some(mirror) = grounded_mirror {
-        opening_drop::completed_response(world, &files, before_seq, mirror)
+        opening_drop::completed_response(
+            world,
+            &files,
+            before_seq,
+            mirror,
+            evidence.into_profiles(),
+        )
     } else {
-        opening_wait_response::completed_wait_response(world, &files, before_seq, &present)
+        opening_wait_response::completed_wait_response_with_profiles(
+            world,
+            &files,
+            before_seq,
+            &present,
+            || Some(evidence.into_profiles()),
+        )
     }
 }
