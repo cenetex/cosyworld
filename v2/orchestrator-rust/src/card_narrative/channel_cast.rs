@@ -76,7 +76,6 @@ pub(super) async fn chosen_names(app: Option<&crate::AppState>, residents: &mut 
     }
 }
 
-/// What the room calls a resident given by id or default name: its chosen name, if it has one.
 pub(super) fn called(who: &str, cast: &[Resident]) -> String {
     cast.iter()
         .find(|r| r.id == who || super::super::name(&r.id) == who)
@@ -84,7 +83,6 @@ pub(super) fn called(who: &str, cast: &[Resident]) -> String {
         .map_or_else(|| who.to_string(), |r| r.name.clone())
 }
 
-/// Who `me` hears: itself by id, another resident by chosen name, a person by label.
 pub(super) fn heard_as(id: &str, me: &Resident, cast: &[Resident]) -> String {
     match cast.iter().any(|r| r.id == id) {
         true if id != me.id => called(id, cast),
