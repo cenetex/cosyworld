@@ -949,7 +949,6 @@ function validStep(s, w, id) {
           )))
     );
   const home = verb === "bring" && w.story && !cards.to;
-  // A sealed gate's quest may ask for a gift (rules 95).
   const gift = verb === "give" && w.story;
   // The quest to sleep at a sanctuary stands alone (rules 99).
   const slept = verb === "rest" && !w.story;
