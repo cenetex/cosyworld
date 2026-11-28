@@ -1,0 +1,218 @@
+use super::{
+    authored_order::Order,
+    lamp_state,
+    opening::{self, MAX_REVISION},
+    opening_content, opening_crossings,
+    opening_full_wait::visible_items,
+    opening_held_items,
+    opening_pickups::item_as_named,
+    opening_pond_view, opening_roster, opening_second_attic_tail,
+    pack_state::Catalog,
+    resident_evidence::ResidentEvidence,
+    Geography, LampPosition,
+};
+use serde_json::{json, Value};
+
+const VALE: &str = "vale";
+const POND: &str = "pond";
+const STATION: &str = "station";
+const KEEPER: &str = "keeper";
+const LAMP: &str = "lamp";
+
+pub(super) fn move_world(request: &Value) -> Option<(&Value, bool)> {
+    let before = request.get("world")?;
+    let action = &request["action"];
+    let carry = match action.as_str().or_else(|| action["key"].as_str())? {
+        "move:vale::station" => false,
+        "move:vale:lamp:station" => true,
+        _ => return None,
+    };
+    if request["actor"] != VALE
+        || opening::seats(&request["claimed"])? != [VALE]
+        || opening::seats(&request["present"])? != [VALE]
+        || !request["selectedIds"].is_null()
+        || (!request["revision"].is_null() && request["revision"] != before["revision"])
+        || !(request["elysiumPortraits"].is_null()
+            || request["elysiumPortraits"]
+                .as_array()
+                .is_some_and(Vec::is_empty))
+        || action["kind"] == "pack"
+    {
+        return None;
+    }
+    Some((before, carry))
+}
+
+fn quiet_source(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let forest = &geo.files()["v2/card-game/forest.json"];
+    if !matches!(world["turn"].as_u64()?, 1 | 2)
+        || world.get("began").is_some()
+        || [
+            "hidden",
+            "absent",
+            "homecoming",
+            "gone",
+            "invitedPlaces",
+            "sharedMigration",
+        ]
+        .iter()
+        .any(|field| !world[*field].is_null())
+        || world["actors"][VALE]["crossed"] != 1
+        || forest["homeGates"][POND]["opening"] == true
+        || world["actors"][KEEPER]["place"] != STATION
+        || !geo.entity_active(world, KEEPER)?
+        || world["packs"].as_object()?.values().any(|pack| {
+            pack["recitals"]
+                .as_object()
+                .into_iter()
+                .flat_map(|map| map.values())
+                .any(|recital| recital["actor"] == VALE && recital["visit"].is_null())
+        })
+        || world["life"]["actors"]
+            .as_object()?
+            .values()
+            .any(|resident| {
+                resident["attachments"]
+                    .as_object()
+                    .is_none_or(|map| !map.is_empty())
+            })
+    {
+        return None;
+    }
+    if opening_pond_view::quiet_pond(world, geo)? {
+        return None;
+    }
+    opening_pond_view::pond_paths(world, geo)?;
+    opening_second_attic_tail::verify_station_order(world, geo)?;
+    if geo.packs().any(|pack| {
+        pack["avatars"].get(KEEPER).is_some()
+            || pack["choices"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|choice| {
+                    choice["on"] == "meet" && (choice["at"].is_null() || choice["at"] == STATION)
+                })
+            || pack["crossings"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|edge| edge["from"] == POND && edge["to"] == STATION)
+            || pack["transports"]
+                .as_object()
+                .into_iter()
+                .flatten()
+                .any(|(_, ship)| ship["place"] == STATION)
+    }) {
+        return None;
+    }
+    for (id, actor) in world["actors"].as_object()? {
+        if id != KEEPER && actor["place"] == STATION && geo.entity_active(world, id)? {
+            return None;
+        }
+    }
+    opening_crossings::no_crossing_unlocks(world, geo)
+}
+
+fn pond_witnesses<'a>(
+    world: &Value,
+    geo: &Geography<'_>,
+    authored: &'a Order,
+) -> Option<Vec<&'a str>> {
+    let mut witnesses = Vec::new();
+    for id in &authored.actors {
+        if world["actors"][id]["place"] == POND && geo.entity_active(world, id)? {
+            witnesses.push(id.as_str());
+        }
+    }
+    witnesses.extend(visible_items(world, geo, authored, POND)?);
+    Some(witnesses)
+}
+
+pub(super) fn begin_with<T>(
+    before: &Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+    carry: bool,
+    prepare: impl FnOnce(&Value) -> Option<T>,
+) -> Option<(Value, T)> {
+    quiet_source(before, geo)?;
+    let turn = before["turn"].as_u64()?.checked_add(1)?;
+    let revision = before["revision"].as_u64()?.checked_add(1)?;
+    if revision > MAX_REVISION {
+        return None;
+    }
+    let forest = &geo.files()["v2/card-game/forest.json"];
+    let vale = forest["people"][VALE]["name"].as_str()?;
+    let station = forest["places"][STATION]["name"].as_str()?;
+    let text = if carry {
+        let lamp = item_as_named(forest["things"][LAMP]["name"].as_str()?);
+        format!("{vale} carries {lamp} to {station}.")
+    } else {
+        format!("{vale} goes to {station}.")
+    };
+
+    let mut world = before.clone();
+    world["turn"] = turn.into();
+    world["revision"] = revision.into();
+    world["playerActorId"] = json!(VALE);
+    for key in ["heldActors", "controlledActors", "presentActors"] {
+        world[key] = json!([VALE]);
+    }
+    let actor = world["actors"][VALE].as_object_mut()?;
+    actor.remove("offered");
+    actor.remove("guarding");
+    let prepared = prepare(&world)?;
+    let hands = opening_held_items::snapshot(&world, geo)?;
+    let witnesses = pond_witnesses(&world, geo, authored)?;
+    world["actors"][VALE]["place"] = json!(STATION);
+    let history = world["items"][LAMP]["history"].as_array_mut()?;
+    history.push(json!(format!(
+        "Turn {turn}: {vale} carried it to {station}."
+    )));
+    history.drain(..history.len().saturating_sub(12));
+    opening_held_items::settle_from(&mut world, geo, Some(&hands))?;
+    let held = world["actors"][VALE]["heldItem"] == LAMP;
+    let lamp = &mut world["items"][LAMP];
+    lamp_state(lamp)
+        .ok()?
+        .settle(LampPosition {
+            place: STATION.into(),
+            held,
+            grounded: false,
+        })
+        .write(lamp);
+    opening_crossings::no_crossing_unlocks(&world, geo)?;
+    let met = world["opening"]["met"].as_object_mut()?;
+    for id in [VALE, KEEPER] {
+        met.entry(id).or_insert_with(|| json!(turn));
+    }
+    let cast = opening_roster::known_actors(&world, geo, order, Some(STATION))?;
+    let items = visible_items(&world, geo, authored, STATION)?;
+    let detail = json!({
+        "speaker":"World", "kind":"action", "verb":"move", "actorId":VALE, "text":text,
+        "locationId":STATION, "fromLocationId":POND, "witnesses":witnesses,
+        "itemId":carry.then_some(LAMP), "targetId":STATION,
+    });
+    evidence.record(&mut world, &cast, &items, detail, true)?;
+    world["arrival"] =
+        json!({"seq":world["eventSeq"], "locationId":STATION, "fromLocationId":POND});
+    Some((world, prepared))
+}
+
+pub(super) fn projection(request: &Value) -> Option<Value> {
+    let (before, carry) = move_world(request)?;
+    let order = opening_roster::actor_order(request, before)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let evidence = ResidentEvidence::new(&files)?;
+    let (world, ()) = begin_with(before, &geo, &authored, &order, &evidence, carry, |_| {
+        Some(())
+    })?;
+    let mut response = json!({"ok":true});
+    response["world"] = world;
+    Some(response)
+}

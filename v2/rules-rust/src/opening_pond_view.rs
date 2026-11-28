@@ -97,7 +97,7 @@ fn pond_sleeping(world: &Value, geo: &Geography<'_>, began: u64, turn: u64) -> O
     .then_some(true)
 }
 
-fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<bool> {
+pub(super) fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<bool> {
     let turn = world["turn"].as_u64()?;
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
     let vale = &world["actors"][VALE];
@@ -173,7 +173,7 @@ pub(super) fn settled_second_move(world: &Value, geo: &Geography<'_>) -> Option<
     (second_fresh_move(world) && !quiet_pond(world, geo)?).then_some(())
 }
 
-fn pond_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
+pub(super) fn pond_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let files = geo.files();
     let forest = &files["v2/card-game/forest.json"];

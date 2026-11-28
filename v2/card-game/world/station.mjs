@@ -12,7 +12,6 @@ import { reflectionsFrom, sensesFor } from "./senses.mjs";
 import { places } from "./catalog.mjs";
 
 export const baseExits = (_s, place) => places[place].exits;
-// Traveler-specific keys count for their present holder. Neutral conditions need no traveler.
 const stationCrossings = crossings.filter((c) => c.from === "station");
 export const stationTargets = [
   ...new Set([
