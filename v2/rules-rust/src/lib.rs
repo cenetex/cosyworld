@@ -16,6 +16,7 @@ mod initial_wants;
 mod join;
 mod opening;
 mod opening_attic_rest;
+mod opening_behind_station_view;
 mod opening_candidates;
 mod opening_company;
 mod opening_content;
@@ -207,6 +208,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_station_move") => {
             opening_station_move::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_behind_station_view") => {
+            opening_behind_station_view::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_historic_awake_station_view") => {
             opening_station_view::historic_awake_projection(request).unwrap_or(Value::Null)
