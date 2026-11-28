@@ -1,10 +1,38 @@
-// What the dialogue box presents now: one phase decides what is in front.
-// The action panel shows after the speech has reached its next-choice tap.
-//
+// The action panel shows after the speech reaches its next-choice tap.
 // A committed play's words that keep the Thinking card past this grace
 // stop holding the hand: the rules already ran, and dialogue never gates
 // play. The card stays and the late line types in when it comes.
 export const THINKING_GRACE_MS = 5000;
+const dialoguePhases = [
+  "idle",
+  "revealing",
+  "choosing",
+  "thinking",
+  "reviewing",
+];
+let viewModel;
+
+export async function loadClientViewModel(
+  url = new URL("./client-view-model.wasm", import.meta.url),
+) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return false;
+    const { instance } = await WebAssembly.instantiate(
+      await response.arrayBuffer(),
+    );
+    if (
+      typeof instance.exports.dialogue_phase !== "function" ||
+      typeof instance.exports.dialogue_choice !== "function"
+    )
+      return false;
+    viewModel = instance.exports;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Read older words through the reader's revealed cards. Keep the saved beat
 // intact, including the signed line used by the voice service.
 export function revealedBeat(beat, textOf) {
@@ -69,6 +97,16 @@ export function handFocusId(frames, ids) {
   return frames.find((frame) => !frame.hidden)?.id;
 }
 export function holdDialogueChoice({ queued, live, complete, speaking, next }) {
+  if (viewModel)
+    return Boolean(
+      viewModel.dialogue_choice(
+        Boolean(queued),
+        Boolean(live),
+        Boolean(complete),
+        Boolean(speaking),
+        Boolean(next),
+      ),
+    );
   return Boolean(queued || (live && (!complete || speaking || next)));
 }
 
@@ -81,6 +119,18 @@ export function phase({
   chosen = false,
   rested = false,
 } = {}) {
+  if (viewModel)
+    return dialoguePhases[
+      viewModel.dialogue_phase(
+        Boolean(reviewing),
+        Boolean(revealing),
+        Boolean(inFlight),
+        Boolean(lingering),
+        Boolean(raised),
+        Boolean(chosen),
+        Boolean(rested),
+      )
+    ];
   if (revealing) return "revealing";
   if (raised && chosen && !rested && (!inFlight || lingering))
     return "choosing";
