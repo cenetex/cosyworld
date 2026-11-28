@@ -81,7 +81,6 @@ export function lifeDataProblems(places, people) {
 export const lifeField = (id, key) =>
   own(life.residents?.[id], key) ? life.residents[id][key] : undefined;
 
-// --- Home and range ------------------------------------------------------
 
 export function homeOf(id, world) {
   const resident = packPeople[id];

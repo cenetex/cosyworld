@@ -161,6 +161,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_wait_roster") => opening_roster::projection(request).unwrap_or(Value::Null),
         Some("opening_bard_move") => opening_roaming::projection(request).unwrap_or(Value::Null),
+        Some("opening_bard_dwell") => {
+            opening_roaming::dwell_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_wait_settlement") => {
             opening_settlement::projection(request).unwrap_or(Value::Null)
         }

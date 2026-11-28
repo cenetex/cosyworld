@@ -1,6 +1,6 @@
 use super::{
-    create, create_geography::Geography, opening, opening_play, opening_visitor_routes,
-    pack_state::Catalog, seed,
+    create, create_geography::Geography, opening, opening_content, opening_play,
+    opening_visitor_routes, pack_state::Catalog, seed,
 };
 use serde_json::{json, Value};
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
@@ -21,6 +21,17 @@ fn remember_visible<'a>(
     );
     known.sort_by_cached_key(|(from, to)| format!("{from}>{to}"));
     known.dedup();
+}
+
+fn saved_edges<'a>(world: &'a Value, authored: &BTreeMap<Edge<'_>, bool>) -> Option<Vec<Edge<'a>>> {
+    world["routeKnowledge"][BARD]
+        .as_array()?
+        .iter()
+        .map(|edge| {
+            let edge = (edge.get(0)?.as_str()?, edge.get(1)?.as_str()?);
+            authored.contains_key(&edge).then_some(edge)
+        })
+        .collect()
 }
 
 fn first_step<'a>(
@@ -94,12 +105,7 @@ fn chosen_move(world: &Value, geo: &Geography, turn: u64) -> Option<Move> {
     }
     let forest = geo.files().get("v2/card-game/forest.json")?;
     let authored = create::authored_edges(forest, geo.packs())?;
-    let mut known = Vec::new();
-    for edge in world["routeKnowledge"][BARD].as_array()? {
-        let edge = (edge.get(0)?.as_str()?, edge.get(1)?.as_str()?);
-        authored.get(&edge)?;
-        known.push(edge);
-    }
+    let mut known = saved_edges(world, &authored)?;
     remember_visible(&mut known, &authored, from);
     let mut exits = BTreeMap::new();
     let live = first_step(&known, from, target, |start, to| {
@@ -197,4 +203,65 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     Some(
         json!({"ok":true,"event":event,"actor":next["actors"][BARD],"routes":next["routeKnowledge"][BARD]}),
     )
+}
+
+pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    let turn = world["turn"].as_u64()?;
+    let actor = world["actors"].get(BARD)?;
+    let here = actor["place"].as_str()?;
+    let pack = geo.packs().find(|pack| pack["id"] == GREEK)?;
+    let person = pack["avatars"].get(BARD)?;
+    let want = &actor["want"];
+    let target = world["actors"].get(want["target"].as_str()?)?;
+    let prior_move = world["log"].as_array()?.iter().any(|entry| {
+        entry["actorId"] == BARD
+            && entry["turn"] == 1
+            && entry["verb"] == "move"
+            && entry["locationId"] == here
+            && entry["generated"] != true
+    });
+    if turn != 2
+        || world.get("began").is_some_and(|began| began != 0)
+        || world["sharedVersion"] != 1
+        || world["controlledActors"] != json!(["vale"])
+        || actor["dwellUntil"].as_u64()? <= turn
+        || want["kind"] != "person"
+        || !want["step"].is_null()
+        || target["place"].as_str()? == here
+        || !prior_move
+        || person["roamingQuest"] != "latest-completion"
+        || person["levelAtHome"] == true
+        || pack["places"].get(here).is_none()
+        || !geo.entity_active(world, BARD)?
+        || !geo.conditions_met(world, GREEK, &person["requires"], None)?
+        || !actor["sleeping"].is_null()
+        || !world["defeats"][BARD].is_null()
+        || !world["standoffs"].as_array()?.is_empty()
+        || world["memories"][BARD]["learning"]
+            .as_array()
+            .is_some_and(|trials| !trials.is_empty())
+        || world["items"]["lamp"]["holder"] == BARD
+        || geo.packs().any(|pack| {
+            pack["transports"]
+                .as_object()
+                .is_some_and(|ships| ships.values().any(|ship| ship["place"] == here))
+        })
+    {
+        return None;
+    }
+    let forest = geo.files().get("v2/card-game/forest.json")?;
+    let authored = create::authored_edges(forest, geo.packs())?;
+    let mut known = saved_edges(world, &authored)?;
+    remember_visible(&mut known, &authored, here);
+    world["routeKnowledge"][BARD] = json!(known);
+    Some(())
+}
+
+pub(super) fn dwell_projection(request: &Value) -> Option<Value> {
+    let (files, _) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let mut world = request.get("world")?.clone();
+    settle_dwell(&mut world, &geo)?;
+    Some(json!({"ok":true, "world":world}))
 }
