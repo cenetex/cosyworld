@@ -124,7 +124,6 @@ impl World {
             let mut request = self.request("upgrade", 0);
             request["from"] = json!(self.version);
             request["to"] = json!(target);
-            // Earlier rules ignore the seed; older records carry none.
             if command["seed"].is_u64() {
                 request["seed"] = command["seed"].clone();
             }
