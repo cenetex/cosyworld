@@ -42,6 +42,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         Some(super::opening_drop::DROP) if actor == "vale" => {
             super::opening_full_wait::reduce_drop(request)
         }
+        Some("move:vale::pond" | "move:vale:lamp:pond") if actor == "vale" => {
+            super::opening_full_move::reduce(request)
+        }
         Some(_) => None,
     }
 }

@@ -1,4 +1,3 @@
-// Geography: place text, exits and sealed ways.
 import {
   entityActive,
   entityShown,

@@ -49,6 +49,7 @@ test("first solo mirror movement settles the complete pinned round", async () =>
           assert.ok(actual, `unsupported ${label}`);
           const expected = JSON.parse(JSON.stringify(reference.pondRound));
           assert.deepEqual(actual, { ok: true, world: expected }, label);
+          assert.deepEqual(wasm({ ...request, op: "play" }), played, label);
           assert.equal(actual.world.actors.moth.want.refusals, 1);
           assert.deepEqual(actual.world.actors.vale.waitSpeech, {
             place: "pond",
