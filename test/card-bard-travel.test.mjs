@@ -118,7 +118,6 @@ describe("ordinary bard travel", () => {
     s = act(s);
     expect(s.actors[singer].place).toBe("greek-ship");
     s = decodeSave(encodeSave(s));
-    // Alone aboard, the Bard sets the course and lands after a round at sea.
     s = act(s);
     expect(s.transports["greek-ship"]).toMatchObject({
       phase: "sea",
