@@ -211,7 +211,6 @@ impl World {
                 *self = next;
                 return Ok(result);
             }
-            // A reflection can arrive after its speaker leaves (#2016).
             "reflect" => {
                 let mut request = self.request("reflect", a);
                 for key in ["turn", "resting", "rest", "entries"] {
