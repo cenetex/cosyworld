@@ -47,7 +47,9 @@ export function browserRules(bytes) {
         request.op === "play" &&
         (key === "wait:vale::" || key === "drop:vale:lamp:attic");
       const ordered =
-        ["opening_wait_roster", "opening_mirror_move"].includes(request.op) ||
+        ["opening_wait_roster", "opening_mirror_move", "opening_pond_ask"].includes(
+          request.op,
+        ) ||
         atticPlay;
       const actors = ordered ? request.world?.actors : null;
       const actorOrder =

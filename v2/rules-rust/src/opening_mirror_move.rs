@@ -18,7 +18,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
 }
 
-fn move_world(request: &Value) -> Option<(&Value, bool)> {
+pub(super) fn move_world(request: &Value) -> Option<(&Value, bool)> {
     let before = opening::supported_world(request)?;
     let action = &request["action"];
     let carry = match action.as_str().or_else(|| action["key"].as_str())? {
@@ -112,7 +112,11 @@ fn fresh_traveler(before: &Value, geo: &Geography<'_>) -> Option<()> {
     Some(())
 }
 
-fn pond_items<'a>(world: &Value, geo: &Geography<'_>, authored: &'a Order) -> Option<Vec<&'a str>> {
+pub(super) fn pond_items<'a>(
+    world: &Value,
+    geo: &Geography<'_>,
+    authored: &'a Order,
+) -> Option<Vec<&'a str>> {
     let mut items = Vec::new();
     for id in &authored.items {
         let owner = initial_wants::root(world, id)?;
