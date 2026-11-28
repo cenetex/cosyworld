@@ -1,9 +1,9 @@
 use super::{
     authored_order::Order, opening_content, opening_crossings, opening_hub_residents,
     opening_pickups, opening_place_cards::Deck, opening_pond_call_view::cloth_arrival,
-    opening_pond_ship_board, opening_pond_ship_settlement::course_before_sailing, opening_roster,
-    opening_second_round, opening_station_move,
-    opening_station_quest_drop_learning::confirm_pond_ask_trial,
+    opening_pond_lamp_drop::grounded_fuel, opening_pond_ship_board,
+    opening_pond_ship_settlement::course_before_sailing, opening_roster, opening_second_round,
+    opening_station_move, opening_station_quest_drop_learning::confirm_pond_ask_trial,
     opening_station_read::keeper_want_from_read, pack_state::Catalog,
     resident_evidence::ResidentEvidence, seed, Geography,
 };
@@ -88,12 +88,7 @@ pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Optio
     };
     let cloth_holder = if cloth_given { VALE } else { PIP };
     let lamp_ready = if boarded {
-        lamp["holder"] == POND
-            && lamp["fuelPlace"] == POND
-            && lamp["lit"] == true
-            && lamp["fuelRooms"] == 2
-            && lamp["fuel"] == 8
-            && lamp["fuelVisit"] == true
+        grounded_fuel(lamp)?
     } else {
         lamp["holder"] == VALE
             && lamp["fuelPlace"] == world["actors"][VALE]["place"]

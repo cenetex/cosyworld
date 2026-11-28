@@ -266,7 +266,6 @@ describe("rest and sanctuary", () => {
     expect(s.items.lamp).toMatchObject({ lit: true, fuel: 4, fuelRooms: 1 });
     expect(s.actors.mara.sleeping).toBeDefined();
     expect(woke(s, "mara")).toBeUndefined();
-    // Dusk and dawn.
     s = wait(asleep(quiet(21)), "mara");
     expect(woke(s, "mara")).toMatchObject({
       turn: 24,
