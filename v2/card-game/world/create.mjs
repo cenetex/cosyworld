@@ -13,7 +13,6 @@ import forest from "../forest.json" with { type: "json" };
 import { settleGuards } from "../resident-guard.mjs";
 import { seedCallLead } from "../quest-call.mjs";
 import { scatterWayfinder } from "./elysium-travel.mjs";
-// These still live in world.mjs; the cycle resolves at call time.
 import {
   installPacks,
   installRouteKnowledge,

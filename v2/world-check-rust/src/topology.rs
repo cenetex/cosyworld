@@ -91,9 +91,12 @@ pub(super) fn crossings<'a>(
             if !valid_id(crossing_id) || crossings.insert(crossing_id, crossing).is_some() {
                 return Err(format!("{id}: invalid or duplicate crossing {crossing_id}"));
             }
+            let local_from = pack.places.contains_key(from);
+            let local_to = pack.places.contains_key(to);
             if !places.contains(from)
                 || !places.contains(to)
-                || pack.places.contains_key(from) == pack.places.contains_key(to)
+                || !(local_from || local_to)
+                || (crossing.transport.is_none() && local_from && local_to)
             {
                 return Err(format!(
                     "{id}: crossing {crossing_id} must connect this pack to a known outside place"
@@ -155,5 +158,28 @@ mod tests {
             .err()
             .unwrap()
             .contains("known outside place"));
+    }
+
+    #[test]
+    fn accepts_same_pack_crossings_only_when_they_serve_a_transport() {
+        let v2 = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let table: Table = load(&v2.join("worlds/card-table.json")).unwrap();
+        let mut packs: BTreeMap<_, _> = table
+            .packs
+            .iter()
+            .map(|id| (id.as_str(), pack_sources(&v2, id).unwrap()))
+            .collect();
+        assert!(crossings(&table.hub, &packs).is_ok());
+        let (_, bridge) = packs.get_mut("greek-drama").unwrap();
+        let boarding = bridge
+            .crossings
+            .iter_mut()
+            .find(|crossing| crossing.id == "greek-pagasae-ship")
+            .unwrap();
+        boarding.transport = None;
+        assert!(crossings(&table.hub, &packs)
+            .err()
+            .unwrap()
+            .contains("crossing greek-pagasae-ship must connect"));
     }
 }

@@ -160,6 +160,7 @@ pub(crate) struct Lane {
     pub opens_with: Option<Vec<Record>>,
     pub spends: Option<Value>,
     pub sealed: Option<bool>,
+    pub empty_recall: Option<bool>,
 }
 
 #[derive(Deserialize, JsonSchema)]

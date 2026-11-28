@@ -1,4 +1,5 @@
 use super::pack_state::{self, Catalog};
+use super::{create_geography::Geography, initial_wants::People, seed};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -9,6 +10,10 @@ pub(super) fn mount(files: &Value) -> Option<Value> {
     pack_state::mount(&mut world, files)?;
     let catalog = Catalog::from_files(files)?;
     progress(&mut world, files, catalog.packs())?;
+    let geography = Geography::new(files, catalog.packs())?;
+    let people = People::new(files, catalog.packs())?;
+    world["doors"] = seed::place_doors(files, 0, None)?;
+    people.install(&mut world, &geography)?;
     Some(world)
 }
 
@@ -108,46 +113,12 @@ fn initial_routes<'a>(
     forest: &'a Value,
     packs: impl Iterator<Item = &'a Value> + Clone,
 ) -> Option<Value> {
-    let mut edges = BTreeSet::new();
-    let mut retired = BTreeSet::new();
+    let edges = authored_edges(forest, packs.clone())?;
     let mut regions = BTreeMap::new();
-    let mut transports = BTreeMap::new();
     for pack in packs.clone() {
         let id = pack["id"].as_str()?;
         for place in pack["places"].as_object()?.keys() {
             regions.insert(place.as_str(), id);
-        }
-        if let Some(entries) = pack.get("transports") {
-            for (id, transport) in entries.as_object()? {
-                transports.insert(id.as_str(), transport["place"].as_str()?);
-            }
-        }
-    }
-    for region in std::iter::once(forest).chain(packs.clone()) {
-        for (from, place) in region["places"].as_object()? {
-            for to in place["exits"].as_array()? {
-                edges.insert((from.as_str(), to.as_str()?));
-            }
-        }
-        for field in ["reflectionRoutes", "routes"] {
-            if let Some(routes) = region.get(field) {
-                for route in routes.as_array()? {
-                    edges.insert(edge(route)?);
-                }
-            }
-        }
-        if let Some(crossings) = region.get("crossings") {
-            for crossing in crossings.as_array()? {
-                let (from, to) = edge(crossing)?;
-                if let Some(transport) = crossing.get("transport") {
-                    let ship = *transports.get(transport.as_str()?)?;
-                    edges.extend([(from, ship), (ship, from)]);
-                } else if crossing["retired"] == true {
-                    retired.insert((from, to));
-                } else {
-                    edges.insert((from, to));
-                }
-            }
         }
     }
     let mut knowledge = Map::new();
@@ -159,14 +130,60 @@ fn initial_routes<'a>(
             }
             let here = world["actors"][actor]["place"].as_str()?;
             let mut known: Vec<_> = edges
-                .difference(&retired)
-                .filter(|(from, _)| *from == here || regions.get(from) == Some(&region))
+                .iter()
+                .filter(|((from, _), retired)| {
+                    !*retired && (*from == here || regions.get(from) == Some(&region))
+                })
+                .map(|(edge, _)| edge)
                 .collect();
             known.sort_by_cached_key(|(from, to)| format!("{from}>{to}"));
             knowledge.insert(actor.clone(), json!(known));
         }
     }
     Some(Value::Object(knowledge))
+}
+
+pub(super) fn authored_edges<'a>(
+    forest: &'a Value,
+    packs: impl Iterator<Item = &'a Value> + Clone,
+) -> Option<BTreeMap<Edge<'a>, bool>> {
+    let mut edges = BTreeMap::new();
+    let mut transports = BTreeMap::new();
+    for pack in packs.clone() {
+        if let Some(entries) = pack.get("transports") {
+            for (id, transport) in entries.as_object()? {
+                transports.insert(id.as_str(), transport["place"].as_str()?);
+            }
+        }
+    }
+    for region in std::iter::once(forest).chain(packs.clone()) {
+        for (from, place) in region["places"].as_object()? {
+            for to in place["exits"].as_array()? {
+                edges.entry((from.as_str(), to.as_str()?)).or_insert(false);
+            }
+        }
+        for field in ["reflectionRoutes", "routes"] {
+            if let Some(routes) = region.get(field) {
+                for route in routes.as_array()? {
+                    edges.entry(edge(route)?).or_insert(false);
+                }
+            }
+        }
+        if let Some(crossings) = region.get("crossings") {
+            for crossing in crossings.as_array()? {
+                let (from, to) = edge(crossing)?;
+                if let Some(transport) = crossing.get("transport") {
+                    let ship = *transports.get(transport.as_str()?)?;
+                    for edge in [(from, ship), (ship, from)] {
+                        edges.entry(edge).or_insert(false);
+                    }
+                } else {
+                    *edges.entry((from, to)).or_default() |= crossing["retired"] == true;
+                }
+            }
+        }
+    }
+    Some(edges)
 }
 
 fn edge(route: &Value) -> Option<Edge<'_>> {
