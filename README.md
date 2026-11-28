@@ -32,6 +32,10 @@ cargo run --locked --release --manifest-path v2/orchestrator-rust/Cargo.toml \
 
 Preparation verifies the pinned `gemma3:4b` or `gemma3:1b` download. Set `COSYWORLD_LOCAL_MODEL=gemma3:1b` to launch with the smaller model. The game runs at `http://127.0.0.1:3110/`. For optional Chatterbox speech, `npm run play:cards:local` starts the voice service alongside the game. That service still uses Python by default.
 
+Preparation and launch share the model cache at `~/.cosyworld/models`. Set `COSYWORLD_LOCAL_MODEL_DIR` to an absolute path to use a different cache, or `COSYWORLD_LOCAL_DATA_DIR` to move saves, audio, and the default model cache together. Models already prepared under `.runtime/models` can still be launched from the checkout.
+
+A copied binary reads generated card assets from `assets/` beside the executable or from the directory set in `COSYWORLD_ASSETS_DIR`.
+
 ## For portfolio reviewers / engineers
 
 CosyWorld is a solo and shared card world with a hard boundary between a deterministic rules core and a language model.

@@ -1,13 +1,15 @@
-use super::models;
+use super::{
+    local_paths::{self, Environment},
+    models,
+};
 use rand::RngCore;
 use reqwest::{Client, Url};
 use serde_json::{json, Value};
 use std::{
-    collections::BTreeMap,
     env,
-    ffi::{OsStr, OsString},
+    ffi::OsStr,
     io,
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::Duration,
 };
 use tokio::{
@@ -18,8 +20,6 @@ use tokio::{
 #[cfg(unix)]
 #[path = "../../local/memory.rs"]
 mod memory;
-
-type Environment = BTreeMap<OsString, OsString>;
 
 fn value<'a>(source: &'a Environment, key: &str, default: &'a str) -> &'a str {
     source
@@ -106,12 +106,8 @@ pub(super) async fn run(with_voice: bool) -> io::Result<()> {
     if with_voice {
         drop(std::net::TcpListener::bind(("127.0.0.1", voice_port))?);
     }
-    let data = source
-        .get(OsStr::new("COSYWORLD_LOCAL_DATA_DIR"))
-        .map(PathBuf::from)
-        .or_else(|| env::home_dir().map(|home| home.join(".cosyworld")))
-        .ok_or_else(|| io::Error::other("Choose a folder for the local app's saves and audio."))?;
-    let model = value(&source, "COSYWORLD_LOCAL_MODEL", "gemma3:4b");
+    let data = local_paths::data_directory(&source)?;
+    let model = local_paths::model_name(&source);
     if model.ends_with(":cloud") {
         return Err(io::Error::other(
             "Choose a downloaded local dialogue model.",
@@ -148,12 +144,10 @@ pub(super) async fn run(with_voice: bool) -> io::Result<()> {
     }
     env.insert("COSYWORLD_LOCAL_DATA_DIR".into(), data.clone().into());
     if ai == "embedded://llama" {
-        let default = models::path(std::path::Path::new(".runtime/models"), model)
+        let prepared = models::path(&local_paths::model_directory(&source)?, model)
             .map_err(io::Error::other)?;
-        let model_file = source
-            .get(OsStr::new("COSYWORLD_LLAMA_MODEL"))
-            .map(PathBuf::from)
-            .unwrap_or(default);
+        let legacy = models::path(Path::new(".runtime/models"), model).map_err(io::Error::other)?;
+        let model_file = local_paths::launch_model_file(&source, prepared, legacy);
         if !model_file.is_file() {
             return Err(io::Error::other(
                 "Prepare dialogue with: cosyworld-orchestrator local prepare",
