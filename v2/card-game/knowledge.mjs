@@ -317,7 +317,6 @@ function topicFact(world, topic, entry) {
   return fact;
 }
 
-// Every reader of a claim shares its fact, which keeps the book and author.
 export function readClaim(world, reader, claim, entry) {
   installKnowledge(world);
   const { id, text, ...said } = claim;

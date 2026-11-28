@@ -185,7 +185,7 @@ pub(super) fn remember_for_seats(
         }
         if matches!(
             entry["verb"].as_str(),
-            Some("talk" | "take" | "drop" | "want_met" | "ask")
+            Some("talk" | "take" | "drop" | "read" | "want_met" | "ask")
         ) && (mine || target == Some(id))
         {
             let reference = |value: Option<&str>| json!(value.filter(|id| known(id)));
