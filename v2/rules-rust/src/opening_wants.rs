@@ -1,6 +1,6 @@
 use super::{
-    create_geography::Geography, initial_wants::People, opening, opening_content, opening_play,
-    opening_stale_wants, pack_state::Catalog,
+    create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
+    opening_content, opening_play, opening_stale_wants, pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -164,11 +164,13 @@ pub(super) fn settle_with(
     for id in retime {
         actors.get_mut(&id)?["want"]["since"] = json!(turn);
     }
+    // Both draws use the same custody and geography across actor updates.
+    let mut draws = RoundDraws::default();
     let people = if began == 0 {
         None
     } else {
         let people = People::new(geo.files(), geo.packs())?;
-        opening_stale_wants::revise(world, geo, &people, turn)?;
+        opening_stale_wants::revise(world, geo, &people, turn, &mut draws)?;
         Some(people)
     };
     fade_trust(world)?;
@@ -179,7 +181,7 @@ pub(super) fn settle_with(
             .remove("offered");
     }
     if let Some(people) = &people {
-        opening_stale_wants::fill_due(world, geo, people, turn)?;
+        opening_stale_wants::fill_due(world, geo, people, turn, &mut draws)?;
         let loss = Loss::new(world, geo)?;
         for (id, actor) in world["actors"].as_object()? {
             let want = &actor["want"];

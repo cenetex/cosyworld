@@ -23,7 +23,7 @@ fn prepare(files: &Value, catalog: &Catalog, geo: &Geography, people: &People) -
     world["doors"] = seed::place_doors(files, 0, None)?;
     people.install(&mut world, geo)?;
     seed::place_wayfinder(&mut world, files)?;
-    opening_candidates::fill(&mut world, geo, people, files)?;
+    opening_candidates::fill(&mut world, geo, people)?;
     Some(world)
 }
 
@@ -279,7 +279,7 @@ fn with_arrivals(
     if arrivals.hidden.is_some() {
         settle_station(&mut world, files, &geo)?;
     }
-    opening_candidates::fill(&mut world, &geo, &people, files)?;
+    opening_candidates::fill(&mut world, &geo, &people)?;
     if let Some(actor) = arrivals.homecoming {
         world["actors"][actor]["want"] = Value::Null;
     }

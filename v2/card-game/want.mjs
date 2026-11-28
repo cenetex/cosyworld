@@ -46,7 +46,6 @@ export const STEP_VERBS = {
 };
 const SAVED_STEP_VERBS = ["threaten", "attack"];
 
-// A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
 export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
@@ -665,7 +664,6 @@ export const resting = (s, actor) => {
   );
 };
 
-// Record observations and commit met wants, held quests, and known cards.
 export function settleWants(s, actors, api, action = null, stale = []) {
   const talk =
     action?.kind === "talk"
