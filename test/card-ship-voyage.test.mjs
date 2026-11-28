@@ -185,7 +185,6 @@ describe("a real voyage", () => {
     ).toBe("Disembark");
     s = act(s, "vale", "move", "greek-harbor");
     expect(s.actors.vale.place).toBe("greek-harbor");
-    // The first ashore keeps the ship there; Mara can only get off there.
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-harbor" });
     expect(targets(s, "mara", "move")).toEqual(["greek-harbor"]);
     s = act(s, "mara", "move", "greek-harbor");
