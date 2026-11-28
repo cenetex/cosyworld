@@ -90,6 +90,17 @@ pub(super) fn pond_quest(world: &Value) -> Value {
 }
 
 pub(super) fn attic_files(world: &Value, request: &Value) -> Option<Value> {
+    attic_state(world)?;
+    let mut content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
+    if content["schema"] != 1 {
+        return None;
+    }
+    let files = content.as_object_mut()?.remove("files")?;
+    attic_content(&files)?;
+    Some(files)
+}
+
+pub(super) fn attic_state(world: &Value) -> Option<()> {
     let vale = world["actors"]["vale"].as_object()?;
     if world["items"]["lamp"]["holder"] != "vale"
         || ["arcana", "closed", "sleeping", "under"]
@@ -122,11 +133,10 @@ pub(super) fn attic_files(world: &Value, request: &Value) -> Option<Value> {
     {
         return None;
     }
-    let mut content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
-    if content["schema"] != 1 {
-        return None;
-    }
-    let files = content.as_object_mut()?.remove("files")?;
+    Some(())
+}
+
+pub(super) fn attic_content(files: &Value) -> Option<()> {
     let forest = &files["v2/card-game/forest.json"];
     let mut reflections = forest["reflectionRoutes"]
         .as_array()?
@@ -141,11 +151,11 @@ pub(super) fn attic_files(world: &Value, request: &Value) -> Option<Value> {
         || !forest["places"]["attic"]["exits"]
             .as_array()
             .is_some_and(Vec::is_empty)
-        || packs_add_attic_actions(&files)?
+        || packs_add_attic_actions(files)?
     {
         return None;
     }
-    Some(files)
+    Some(())
 }
 
 pub(super) fn attic_response(mut response: Value, files: &Value, mirror: Mirror) -> Option<Value> {
