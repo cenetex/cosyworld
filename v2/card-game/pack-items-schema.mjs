@@ -11,7 +11,7 @@ const idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
 
 export const ITEM_IDENTITY_FIELDS = ["name", "art", "tags", "startLevel"];
 
-export function itemPlacementEffect(items, places, player, choice, effect) {
+export function itemPlacementEffect(items, places, avatars, player, choice, effect) {
   const fromGround = effect.kind === "fetch_item";
   if (!owns(items, effect.item) || Object.keys(effect).length !== 3) return false;
   if (fromGround)
@@ -21,7 +21,11 @@ export function itemPlacementEffect(items, places, player, choice, effect) {
       choice.requires?.some((r) =>
         r.kind === "item_at" && r.item === effect.item && r.place === effect.from,
       );
-  return effect.place === choice.at && choice.requires?.some((r) =>
+  const localPlace = effect.place === choice.at;
+  const giveRecipient = choice.on === "give" && choice.humanOnly === true &&
+    effect.holder === choice.subject && owns(avatars, effect.holder) &&
+    items[effect.item].lifecycle !== "fixed";
+  return (localPlace || giveRecipient) && choice.requires?.some((r) =>
     r.kind === "holding" && r.item === effect.item &&
     (r.role === "actor" || r.actor === player),
   );
@@ -219,17 +223,16 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
     if (c.repeats === true && c.on === "talk" && effects.length === 1 && effects[0].kind === "fetch_item")
       continue;
     const made = effects.filter((e) => e.kind === "drop_item");
+    const consumed = effects.filter((e) => e.kind === "retire_item");
+    const servesSupply = effects.length === 1 && consumed.length === 1 &&
+      !consumed[0].forGood && owns(items, consumed[0].item);
+    const makesSupply = made.length === 1 && Boolean(items[made[0].item]?.home) &&
+      effects.every((e) => ["retire_item", "drop_item", "set_flag"].includes(e.kind));
     check(
-      c.repeats === true &&
-        c.on === "give" &&
-        made.length === 1 &&
-        Boolean(items[made[0]?.item]?.home) &&
-        effects.every((e) =>
-          ["retire_item", "drop_item", "set_flag"].includes(e.kind),
-        ),
-      `choice ${c.id} repeats only as a give that drops one homed thing or a talk that fetches one thing`,
+      c.repeats === true && c.on === "give" && (servesSupply || makesSupply),
+      `choice ${c.id} repeats only as a give that uses or restores a supply, or a talk that fetches one thing`,
     );
-    for (const e of effects.filter((e) => e.kind === "retire_item"))
+    for (const e of consumed)
       check(
         renews(e.item),
         `choice ${c.id} repeats, so its ${e.item} must renew or the loop stops`,

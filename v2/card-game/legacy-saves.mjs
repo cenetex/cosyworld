@@ -16,6 +16,7 @@ import { installItemCycle } from "./pack-items.mjs";
 import { bringBack, gone, sendHome, usedUp, useUp } from "./item-use.mjs";
 import { savedClaim } from "./claims.mjs";
 import { installQuestFacts } from "./quest-learn.mjs";
+import { compactTrust } from "./world/company.mjs";
 import { settleStrandedWayfinder } from "./world/elysium-travel.mjs";
 import { ELYSIUM_PACK } from "./elysium-models.mjs";
 import {
@@ -99,6 +100,7 @@ export function carryLocalProgress(world, old) {
 export function upgradeSave(s, { installPacks, laneText = () => null }) {
   if (!s || s.schema !== SAVE_SCHEMA)
     throw new Error("This save needs a fresh start.");
+  const savedGreekRevision = s.packs?.["greek-drama"]?.revision;
   const reworked = new Set(
     packDefinitions
       .filter((p) => {
@@ -153,6 +155,16 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
       reconcileMarathonRoad(s);
     }
     if (greekRevision < 48) reconcileGreekJunctions(s);
+    if (greekRevision < 49) {
+      reconcileRhesusReports(s.packs["greek-drama"]);
+      restoreLysistrataKey(s);
+      const host = s.actors["greek-quay-host"];
+      const quay = packEntity("greek-quay-host").place;
+      if (host.place !== quay) {
+        host.place = quay;
+        host.crossed = 0;
+      }
+    }
   }
   if (reworked.has("elysium")) settleStrandedWayfinder(s);
   // A told lane keeps its id; its words follow the lane's current conditions.
@@ -168,6 +180,8 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
   for (const pack of packDefinitions)
     if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
   installQuestFacts(s);
+  if (Number.isSafeInteger(savedGreekRevision) && savedGreekRevision < s.packs["greek-drama"].revision)
+    compactTrust(s.actors);
   return s;
 }
 
@@ -395,6 +409,31 @@ function reconcileHomecomingBeach(s) {
     "greek-harbor>greek-troy-beach",
     "greek-troy-beach>greek-harbor",
   ]));
+}
+
+function reconcileRhesusReports(state) {
+  const stem = "greek-story-euripides-rhesus";
+  const key = `${stem}-outcome`;
+  const outcome = state.choices?.[key];
+  if (!["first", "second"].includes(outcome)) return;
+  if (!Object.hasOwn(state.receipts ?? {}, `${stem}-${outcome}-answer`)) return;
+  const flag = outcome === "first" ? "greek-rhesus-bedside-posted" : "greek-rhesus-stable-count-posted";
+  state.flags[flag] = true;
+  delete state.choices[key];
+}
+
+function restoreLysistrataKey(s) {
+  const stem = "greek-story-aristophanes-lysistrata";
+  const key = `${stem}-object`;
+  const state = s.packs["greek-drama"];
+  if (
+    !gone(s, key) ||
+    state.choices[`${stem}-outcome`] !== "first" ||
+    !Object.hasOwn(state.receipts, `${stem}-first-answer`)
+  ) return;
+  s.gone = s.gone.filter((id) => id !== key);
+  if (!s.gone.length) delete s.gone;
+  bringBack(s, key, `${stem}-first`);
 }
 
 const greekJunctionPaths = [

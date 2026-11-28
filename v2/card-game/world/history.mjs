@@ -1,5 +1,8 @@
 import history from "../world-history.json" with { type: "json" };
 
+// Before revision 47 the Elder's Give used the default action sentence.
+export const usesLegacyPlainChoiceText = (choiceId) => choiceId === "greek-helen-troy";
+
 export function beginHistory(world, changes = history.changes) {
   if (!changes.length) return world;
   for (const [path, ...value] of changes) {

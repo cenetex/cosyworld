@@ -1,19 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { cardActions, cardPlay } from "../v2/card-game/cards.mjs";
 import { claimsIn } from "../v2/card-game/claims.mjs";
+import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
+import { bringBack } from "../v2/card-game/item-use.mjs";
 import {
   entityActive,
   packDefinition,
   packGiveChoice,
   packTalkChoice,
 } from "../v2/card-game/pack-registry.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   decodeSave,
   encodeSave,
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
-import { greekStart, traveler } from "./helpers/open-door.mjs";
+import { greekStart, landRoad, traveler } from "./helpers/open-door.mjs";
 import "./helpers/still-cast.mjs";
 
 const PACK = "greek-drama";
@@ -21,6 +24,9 @@ const choices = new Map(
   packDefinition(PACK).choices.map((choice) => [choice.id, choice]),
 );
 const stemFor = (work) => `greek-story-aristophanes-${work}`;
+const treasury = "greek-acropolis";
+const lysistrata = stemFor("lysistrata");
+const breadAtTheTable = "greek-acropolis-lampito-shares-bread";
 
 function comedyAt(place) {
   const world = greekStart();
@@ -179,6 +185,56 @@ describe("comedy aftermath cards", () => {
     expect(world.actors[target].trust.vale).toBeGreaterThan(0);
   });
 
+  it("registers one communal loaf before any Assemblywomen decision", () => {
+    const stem = stemFor("assemblywomen");
+    const assembly = "greek-assembly";
+    const bread = "greek-bread";
+    const register = `${stem}-record`;
+    const donation = "greek-assembly-register-bread";
+    const praxagora = `${stem}-first`;
+    const t = landRoad(traveler(greekStart()))
+      .drop("shovel").drop("oil-flask")
+      .move("well").take("water-jar")
+      .move("piraeus").give("water-jar", "quay-host").take(bread)
+      .move(assembly);
+
+    const laid = t.fork().drop(bread).s;
+    expect(laid.items[bread].holder).toBe(assembly);
+    expect(entityActive(laid, register)).toBe(false);
+    const action = cardPlay(t.s, [bread, praxagora]).action;
+    expect(action).toMatchObject({ kind: "give", label: "Give Bread for the common table" });
+    expect(packGiveChoice(t.s, action)?.choiceId).toBe(donation);
+    t.give(bread, praxagora);
+    t.s = decodeSave(encodeSave(t.s));
+    expect(t.s.items[bread].holder).toBe(assembly);
+    expect(t.s.usedUp).not.toContain(bread);
+    expect(t.s.packs[PACK].receipts[donation]).toBe(t.s.turn);
+    expect(t.s.packs[PACK].receipts[`${stem}-hear`]).toBeUndefined();
+    expect(t.s.packs[PACK].choices[`${stem}-outcome`]).toBeUndefined();
+    const [claim] = claimsIn(register, t.s);
+    expect(claim).toMatchObject({ author: praxagora, claim: donation });
+    expect(claimsIn(register, t.s)).toHaveLength(1);
+
+    const hosted = dispatchShared({ op: "create", save: encodeSave(t.s) });
+    expect(hosted.ok, hosted.error).toBe(true);
+    hosted.world.actors.mara.place = assembly;
+    let world = hosted.world;
+    const seats = ["vale", "mara"];
+    for (const [kind, item] of [["read", register], ["take", bread]]) {
+      const request = { actor: "mara", claimed: seats, present: seats, world };
+      const view = dispatchShared({ ...request, op: "view" });
+      const action = view.actions.find((a) => a.kind === kind && a.item === item);
+      expect(action).toBeDefined();
+      const played = dispatchShared({ ...request, op: "play", action });
+      expect(played.ok, played.error).toBe(true);
+      world = played.world;
+    }
+    expect(world.knowledge.known.mara[claim.id]?.kind).toBe("read");
+    expect(world.items[bread].holder).toBe("mara");
+    expect(packGiveChoice(world, { actor: "mara", item: bread, target: praxagora })).toBeNull();
+    expect(world.packs[PACK].choices[`${stem}-outcome`]).toBeUndefined();
+  });
+
   it("serves kitchen bread as a native Eat card after the public audit", () => {
     const stem = stemFor("knights");
     const bread = "greek-bread";
@@ -198,4 +254,86 @@ describe("comedy aftermath cards", () => {
     expect(eaten.state.usedUp).toContain(bread);
     expect(eaten.state.packs[PACK].choices[`${stem}-outcome`]).toBe("second");
   });
+
+  it("spends one Bread to extend the night audience without deciding custody of the Treasury Key", () => {
+    const t = comedyAt(treasury);
+    const speaker = `${lysistrata}-first`;
+    const lampito = `${lysistrata}-second`;
+    const bread = "greek-bread";
+    const key = `${lysistrata}-object`;
+    t.s.turn = t.s.revision = DAYLIGHT_TURNS;
+    bringBack(t.s, bread, "vale");
+    const canTalk = (target) =>
+      legalActions(t.s).some((a) => a.kind === "talk" && a.target === target);
+    expect(canTalk(lampito)).toBe(true);
+    expect(canTalk(speaker)).toBe(false);
+
+    const { action } = cardPlay(t.s, [bread, lampito]);
+    expect(action).toMatchObject({ kind: "give", item: bread, target: lampito });
+    const absent = structuredClone(t.s);
+    absent.actors[lampito].place = "greek-athens";
+    expect(packGiveChoice(absent, action)).toBeNull();
+    expect(packGiveChoice(t.s, action)?.choiceId).toBe(breadAtTheTable);
+    t.give(bread, lampito);
+    t.s = decodeSave(encodeSave(t.s));
+    expect(t.s.items[bread].holder).toBe("greek-courtyard");
+    expect(t.s.usedUp).toContain(bread);
+    expect(t.s.gone || []).not.toContain(bread);
+    expect(t.s.items[key].holder).toBe(treasury);
+    expect(t.s.packs[PACK].choices[`${lysistrata}-outcome`]).toBeUndefined();
+    expect(t.s.packs[PACK].receipts[`${lysistrata}-hear`]).toBeUndefined();
+    expect(t.s.packs[PACK].receipts[breadAtTheTable]).toBe(t.s.turn);
+    expect(canTalk(speaker)).toBe(true);
+
+    const lastVisibleTurn = t.s.turn + 7;
+    const late = traveler(structuredClone(t.s)).take(key);
+    late.s.revision += lastVisibleTurn - late.s.turn;
+    late.s.turn = lastVisibleTurn;
+    const { action: lastOffer } = cardPlay(late.s, [key, speaker]);
+    expect(packGiveChoice(late.s, lastOffer)?.choiceId).toBe(
+      `${lysistrata}-first-answer`,
+    );
+    late.give(key, speaker);
+    const guarded = decodeSave(encodeSave(late.s));
+    expect(guarded.items[key].holder).toBe(speaker);
+    expect(entityActive(guarded, speaker)).toBe(true);
+    expect(entityActive(guarded, key)).toBe(true);
+
+    t.s.turn += 8;
+    t.s.revision += 8;
+    expect(canTalk(speaker)).toBe(false);
+    expect(canTalk(lampito)).toBe(true);
+  });
+
+  it.each([
+    ["first", `${lysistrata}-first`],
+    ["second", treasury],
+  ])(
+    "records the %s key handoff without an introduction or a loaf",
+    (branch, holder) => {
+      const key = `${lysistrata}-object`;
+      const answer = `${lysistrata}-${branch}-answer`;
+      const target = `${lysistrata}-${branch}`;
+      const t = comedyAt(treasury).take(key);
+      t.give(key, target);
+      const world = decodeSave(encodeSave(t.s));
+      expect(world.items[key].holder).toBe(holder);
+      expect(world.gone || []).not.toContain(key);
+      expect(world.packs[PACK].choices[`${lysistrata}-outcome`]).toBe(branch);
+      expect(world.packs[PACK].receipts[`${lysistrata}-hear`]).toBeUndefined();
+      expect(world.packs[PACK].receipts[breadAtTheTable]).toBeUndefined();
+      const claims = claimsIn(`${lysistrata}-record`, world);
+      expect(claims.map(({ claim }) => claim)).toEqual([answer]);
+      const returning = traveler(world).talk(`${lysistrata}-first`).s;
+      expect(
+        returning.log.findLast((entry) => entry.verb === "talk"),
+      ).toMatchObject({
+        targetId: `${lysistrata}-first`,
+        text: expect.stringContaining(claims[0].text),
+      });
+      expect(
+        returning.packs[PACK].receipts[`${lysistrata}-hear`],
+      ).toBeUndefined();
+    },
+  );
 });

@@ -21,7 +21,6 @@ export const OPEN_DOOR_LOCKS = {
   "greek-argive-mother": { item: "greek-ash-urn", at: "greek-eleusis" },
   "greek-iphis": { item: "greek-ash-urn", at: "greek-eleusis" },
   "greek-household-witness": { item: "greek-ash-urn", at: "greek-eleusis" },
-  "greek-quay-host": { item: "greek-wheat", at: "greek-piraeus", lying: true },
   "greek-colonus-keeper": { item: "greek-oil-flask", at: "greek-colonus" },
 };
 export const OPEN_DOOR_KEYS = [
@@ -34,6 +33,7 @@ export const OPEN_DOOR_KEYS = [
 ];
 export const OPEN_DOOR_CAST = [
   ...Object.keys(OPEN_DOOR_LOCKS),
+  "greek-quay-host",
   "greek-ismene",
   "greek-rhapsode",
   "greek-market-neighbor",

@@ -8,9 +8,8 @@
       "humanOnly": true,
       "repeats": true,
       "label": "Bring Water for Bread",
-      "text": "Thaleia mixes the Water with flour from the quay stores and sets out Bread beside the ledger.",
+      "text": "Thaleia mixes the Water with flour from the quay stores and sets out Bread on the bench.",
       "requires": [
-        { "kind": "receipt", "choiceId": "greek-acharnae-quay-bread-supply" },
         { "kind": "holding", "item": "greek-water-jar", "role": "actor" }
       ],
       "effects": [

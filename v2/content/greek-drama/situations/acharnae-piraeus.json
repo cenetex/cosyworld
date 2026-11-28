@@ -298,16 +298,8 @@
       "at": "greek-piraeus",
       "on": "talk",
       "humanOnly": true,
-      "workId": "aristophanes-acharnians",
-      "text": "Thaleia says, “The Bread has been set out. That order has had its one allotment. When the Bread is gone, bring me Water and I can bake another loaf here.”",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-acharnae-quay-order",
-          "value": "public"
-        },
-        { "kind": "receipt", "choiceId": "greek-acharnae-quay-bread-supply" }
-      ],
+      "text": "Thaleia says, “When the Bread is gone, give me Water and I’ll bake a loaf from the quay flour.”",
+      "requires": [],
       "effects": []
     }
   ]

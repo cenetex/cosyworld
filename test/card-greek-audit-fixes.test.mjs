@@ -23,6 +23,9 @@ const marathon = "greek-marathon";
 const marathonRoad = "greek-road-athens-marathon";
 const blanket = "greek-shelter-blanket";
 const progress = "greek-open-door-marathon";
+const bond = "greek-marathon-captive-bond";
+const summons = "greek-marathon-guard-summons";
+const disposition = "greek-marathon-captive-disposition";
 
 describe("Attica is simply there", () => {
   it("shows Attica, its residents and its things with Polynices unburied", () => {
@@ -30,13 +33,11 @@ describe("Attica is simply there", () => {
     const flags = world.packs["greek-drama"].flags;
     expect(flags["greek-burial-performed"]).toBeFalsy();
     expect(flags["greek-open-door-open"]).toBeUndefined();
-    // Its people are on the table from the first turn, each a locked card
-    // waiting for its own thing (open-door-rework), never for the burial.
+    // These four hosts offer their formal services when their item is present.
     for (const id of [
       "greek-aethra",
       "greek-adrastus",
       "greek-theseus",
-      "greek-quay-host",
       "greek-colonus-keeper",
     ]) {
       expect(entityShown(world, id), id).toBe(true);
@@ -50,6 +51,7 @@ describe("Attica is simply there", () => {
       marathonRoad,
       marathon,
       "greek-marathon-keeper",
+      "greek-quay-host",
     ])
       expect(entityActive(world, id), id).toBe(true);
     for (const id of ["greek-burial-petition", "greek-oil-flask", blanket])
@@ -91,6 +93,16 @@ describe("Attica is simply there", () => {
     expect(knownRoute(t.s, "greek-rhapsode", "greek-athens", marathon)).toEqual(towardMarathon);
     expect(knownRoute(t.s, "greek-rhapsode", marathon, "greek-athens")).toEqual(towardMarathon.toReversed());
 
+    const ordinaryAid = t.fork().give(blanket, "marathon-keeper");
+    expect(ordinaryAid.s.items[blanket].holder).toBe(marathon);
+    expect(ordinaryAid.s.actors["greek-marathon-keeper"].trust.vale).toBe(1);
+    const aidState = ordinaryAid.s.packs["greek-drama"];
+    expect(aidState.receipts[`${progress}-blanket`]).toBe(ordinaryAid.s.turn);
+    for (const step of ["enter", "daughter", "battle", "captive"])
+      expect(aidState.receipts[`${progress}-${step}`]).toBeUndefined();
+    expect(entityActive(ordinaryAid.s, bond)).toBe(false);
+    expect(entityActive(ordinaryAid.s, summons)).toBe(false);
+
     t.talk("marathon-keeper").talk("marathon-keeper");
     expect(pack().flags[`${progress}-entered`]).toBe(true);
     expect(pack().flags[`${progress}-daughter-heard`]).toBeUndefined();
@@ -102,14 +114,24 @@ describe("Attica is simply there", () => {
       expect(pack().receipts[`${progress}-${step}`]).toBe(t.s.turn);
     }
     expect(pack().flags[`${progress}-done`]).toBe(true);
-    t.take("marathon-captive-bond").give(
-      "marathon-captive-bond",
-      "marathon-alcmene",
-    );
-    expect(pack().choices["greek-marathon-captive-disposition"]).toBe(
-      "household",
-    );
-    expect(t.s.items["greek-marathon-captive-bond"].holder).toBe(marathon);
+    const publicCase = t.fork();
+    const publicState = () => publicCase.s.packs["greek-drama"];
+    expect(entityActive(publicCase.s, summons)).toBe(false);
+    publicCase.talk("marathon-keeper");
+    expect(publicState().choices[disposition]).toBeUndefined();
+    publicCase.take(bond).act("read", { item: bond }).talk("marathon-keeper");
+    expect(publicState().choices[disposition]).toBeUndefined();
+    publicCase.drop(bond).act("wait");
+    expect(publicState().choices[disposition]).toBeUndefined();
+    publicCase.talk("marathon-keeper");
+    expect(publicState().choices[disposition]).toBe("public");
+    expect(publicCase.s.items[bond].holder).toBe(marathon);
+    expect(entityActive(publicCase.s, summons)).toBe(true);
+    expect(decodeSave(encodeSave(publicCase.s))).toEqual(publicCase.s);
+
+    t.take(bond).give(bond, "marathon-alcmene");
+    expect(pack().choices[disposition]).toBe("household");
+    expect(t.s.items[bond].holder).toBe(marathon);
     expect(decodeSave(encodeSave(t.s))).toEqual(t.s);
     t.move(marathonRoad, "athens", "piraeus");
     expect(t.s.actors.vale.place).toBe("greek-piraeus");

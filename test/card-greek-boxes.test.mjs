@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createWorld, legalActions } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { isLockedBox } from "../v2/card-game/locked-box.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { entityActive, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { lockText } from "./helpers/lock-text.mjs";
 
 // Rules 133 package 3: every locked box of the Greek pack shows its want. No
@@ -105,7 +105,7 @@ describe("the Greek pack's locked boxes", () => {
     expect(new Set(wants).size).toBe(3);
   });
 
-  it("shows the Open Door's item locks and lets the Acharnae order bring out Thaleia", () => {
+  it("shows the Open Door's remaining item locks", () => {
     const s = at(full(), "greek-athens");
     expect(flags(s)["greek-burial-performed"]).toBeFalsy();
     const ids = [
@@ -113,12 +113,11 @@ describe("the Greek pack's locked boxes", () => {
       "greek-adrastus",
       "greek-theseus",
       "greek-colonus-keeper",
-      "greek-quay-host",
     ];
     for (const id of ids) {
       const read = JSON.stringify(pack.avatars[id].requires);
       expect(read, id).toMatch(/"kind":"item_(near|at)"/u);
-      if (id !== "greek-quay-host") expect(read, id).not.toMatch(/"kind":"(flag|choice)"/u);
+      expect(read, id).not.toMatch(/"kind":"(flag|choice)"/u);
       const w = {
         ...s,
         actors: {
@@ -128,12 +127,17 @@ describe("the Greek pack's locked boxes", () => {
       };
       expect(isLockedBox(w, id), id).toBe(true);
       expect(lockText(w, id), id).toMatch(/^(Bring .+ to|Lay .+ in) .+/u);
-      if (id === "greek-quay-host") {
-        choices(w)["greek-story-aristophanes-acharnians-outcome"] = "second";
-        expect(isLockedBox(w, id)).toBe(false);
-      }
     }
     // Marathon starts with a conversation. The blanket gates the rest of the tale.
     expect(pack.avatars["greek-marathon-keeper"].requires).toBeUndefined();
+  });
+
+  it("shows Thaleia ready to talk before any Acharnae agreement", () => {
+    const s = at(full(), "greek-piraeus");
+    const thaleia = "greek-quay-host";
+    expect(choices(s)).toEqual({});
+    expect(availableCards(s)).toContain(thaleia);
+    expect(isLockedBox(s, thaleia)).toBe(false);
+    expect(entityActive(s, thaleia)).toBe(true);
   });
 });

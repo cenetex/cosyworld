@@ -13,6 +13,7 @@ import {
   packThings,
 } from "../v2/card-game/pack-registry.mjs";
 import { lockWords } from "../v2/card-game/cards.mjs";
+import { transportExits } from "../v2/card-game/pack-transport.mjs";
 import {
   OPEN_DOOR_CAST,
   OPEN_DOOR_KEYS,
@@ -44,7 +45,7 @@ const beside = {
   "greek-eleusis": "greek-cithaeron",
   "greek-athens": "greek-road-athens-eleusis",
   "greek-piraeus": "greek-road-athens-piraeus",
-  "greek-colonus": "greek-eleusis",
+  "greek-colonus": "greek-attic-farm",
 };
 function arrive(s, at) {
   s.actors.vale.place = beside[at];
@@ -57,7 +58,7 @@ function arrive(s, at) {
 }
 
 describe("each resident opens on its own present thing", () => {
-  for (const [who, { item, at, lying }] of Object.entries(OPEN_DOOR_LOCKS))
+  for (const [who, { item, at }] of Object.entries(OPEN_DOOR_LOCKS))
     it(`${who}: shut, opened by ${item} at ${at}, shut again while unmet, held once met`, () => {
       let s = createWorld();
       s.actors.vale.place = far;
@@ -74,7 +75,7 @@ describe("each resident opens on its own present thing", () => {
       s = wait(s);
       expect(entityActive(s, who)).toBe(false);
       expect(s.actors[who].place).toBe(at);
-      s = arrive(put(s, item, lying ? at : "vale"), at);
+      s = arrive(put(s, item, "vale"), at);
       expect(entityActive(s, who)).toBe(true);
       expect(s.packs["greek-drama"].met[who]).toBeDefined();
       s.items[item].holder = far;
@@ -111,6 +112,30 @@ describe("each resident opens on its own present thing", () => {
     expect(packPeople["greek-aethra"].travels).toBe(false);
     expect(packThings["greek-olive-branch"].home).toBe("greek-courtyard");
   });
+
+  it("Thaleia can bake with Water while the Wheat remains in Thebes", () => {
+    const s = put(createWorld(), "greek-wheat", "greek-courtyard");
+    put(s, "greek-water-jar", "vale");
+    s.crossings["pond-greek-harbor"].discovered = true;
+    s.actors.vale.place = "greek-piraeus";
+    s.usedUp = [...new Set([...s.usedUp, "greek-bread"])];
+    expect(s.items["greek-wheat"].holder).toBe("greek-courtyard");
+    expect(entityActive(s, "greek-quay-host")).toBe(true);
+    const action = legalActions(s).find(
+      (a) =>
+        a.kind === "give" &&
+        a.item === "greek-water-jar" &&
+        a.target === "greek-quay-host",
+    );
+    expect(action).toBeDefined();
+    const done = play(s, action, s.revision);
+    expect(done.ok, done.error).toBe(true);
+    expect(done.state.items["greek-bread"].holder).toBe("greek-piraeus");
+    expect(done.state.items["greek-wheat"].holder).toBe("greek-courtyard");
+    expect(
+      done.state.packs["greek-drama"].receipts["greek-piraeus-bake-bread"],
+    ).toBeDefined();
+  });
 });
 
 describe("the Open Door checklist, computed from the pack", () => {
@@ -129,12 +154,13 @@ describe("the Open Door checklist, computed from the pack", () => {
     );
   });
 
-  it("reads no flag in any Open Door lock, gate or key", () => {
+  it("reads no story outcome or receipt in any Open Door lock, gate or key", () => {
     const attica = new Set(Object.values(OPEN_DOOR_LOCKS).map((l) => l.at));
     const read = [
       ...Object.keys(OPEN_DOOR_LOCKS).flatMap((id) => [
         ...(packPeople[id].requires || []),
         ...(packPeople[id].appearsWhen || []),
+        ...(packPeople[id].passWhen || []),
       ]),
       ...OPEN_DOOR_KEYS.flatMap((id) => packThings[id].requires || []),
       ...pack.routes
@@ -142,12 +168,12 @@ describe("the Open Door checklist, computed from the pack", () => {
           (r) =>
             attica.has(r.from) || attica.has(r.to) || r.from === "greek-gate",
         )
-        .flatMap((r) => r.requires || []),
+        .flatMap((r) => [...(r.requires || []), ...(r.travelerRequires || [])]),
     ];
     expect(storyConditions(read)).toEqual([]);
-    expect(JSON.stringify(pack.choices.filter((c) => !c.archived))).not.toMatch(
-      /greek-(open-door|homecoming)-/,
-    );
+    expect(
+      conditionsIn(read).filter((condition) => condition.kind === "receipt"),
+    ).toEqual([]);
     expect(
       pack.routes.filter((r) => r.to === "greek-road-athens-eleusis"),
     ).toEqual([]);
@@ -179,12 +205,7 @@ describe("the Open Door checklist, computed from the pack", () => {
 });
 
 describe("no placement of a key seals a resident or a road", () => {
-  const base = createWorld();
-  base.crossings["pond-greek-harbor"].discovered = true;
-  const places = pack.release.places.filter(
-    (id) =>
-      !pack.places[id].retired && entityActive(base, id) && id !== "greek-ship",
-  );
+  const scylla = pack.transports["greek-scylla"];
   const hands = [
     "vale",
     "greek-guard",
@@ -192,31 +213,43 @@ describe("no placement of a key seals a resident or a road", () => {
     "greek-creon",
     "greek-shipmaster",
   ];
-  const placeOf = (s, id) => {
+  const holderOf = (s, id) => {
     let h = s.items[id].holder;
     while (s.items[h]) h = s.items[h].holder;
-    return s.actors[h]?.place ?? h;
+    return h;
   };
-  function reach(s, from) {
-    const seen = new Set([from]);
-    const fetchable = (id) => {
-      if (!s.usedUp.includes(id)) return seen.has(placeOf(s, id));
-      const lock = packThings[id].locked;
-      return (
-        Boolean(lock) &&
-        seen.has(packThings[id].home) &&
-        lock.consumes.every(fetchable)
-      );
-    };
-    for (let grew = true; grew; ) {
-      grew = false;
-      const add = (to) => {
-        if (to && !seen.has(to)) seen.add(to), (grew = true);
-      };
-      for (const at of [...seen]) {
+  function walkingExits(s) {
+    const walked = new Map();
+    return (at) => {
+      if (!walked.has(at)) {
+        const before = s.actors.vale.place;
         s.actors.vale.place = at;
-        for (const to of exits(s, at, "vale")) if (to !== "greek-ship") add(to);
+        const ways = exits(s, at, "vale").filter(
+          (to) => to !== "greek-ship" && to !== scylla.place,
+        );
+        s.actors.vale.place = before;
+        if (scylla.docks.includes(at))
+          ways.push(scylla.place, ...transportExits(s, scylla.place, at));
+        walked.set(at, ways);
       }
+      return walked.get(at);
+    };
+  }
+  function reach(s, from, waysFrom) {
+    const seen = new Set([from]);
+    const queue = [from];
+    const add = (to) => {
+      if (!seen.has(to)) {
+        seen.add(to);
+        queue.push(to);
+      }
+    };
+    const fetchable = (id) => canFetch(s, id, seen);
+    if (from === scylla.place)
+      for (const berth of transportExits(s, scylla.place)) add(berth);
+    for (let i = 0; i < queue.length; i++) {
+      const at = queue[i];
+      if (at !== scylla.place) for (const to of waysFrom(at)) add(to);
       if (["greek-creon-writ", "greek-olive-branch"].some(fetchable)) {
         if (seen.has("greek-gate")) add("greek-battlefield");
         if (seen.has("greek-battlefield")) add("greek-gate");
@@ -228,11 +261,41 @@ describe("no placement of a key seals a resident or a road", () => {
     }
     return seen;
   }
-  const cases = [];
-  for (const key of OPEN_DOOR_KEYS)
-    for (const holder of [...places, ...hands]) cases.push([key, holder]);
-
-  it(`covers ${OPEN_DOOR_KEYS.length} keys over every reachable place and Theban hand`, () => {
+  function canFetch(s, item, reached) {
+    if (!s.usedUp.includes(item)) {
+      const holder = holderOf(s, item);
+      return (
+        holder === "vale" || reached.has(s.actors[holder]?.place ?? holder)
+      );
+    }
+    const lock = packThings[item].locked;
+    return (
+      Boolean(lock) &&
+      reached.has(packThings[item].home) &&
+      lock.consumes.every((ingredient) => canFetch(s, ingredient, reached))
+    );
+  }
+  it(`covers ${OPEN_DOOR_KEYS.length} keys on the mainland, the Scylla, its reachable shores, and in Theban hands`, () => {
+    const opening = createWorld();
+    opening.crossings["pond-greek-harbor"].discovered = true;
+    opening.actors.vale.place = "greek-harbor";
+    const talk = legalActions(opening).find(
+      (a) => a.kind === "talk" && a.target === "greek-shipmaster",
+    );
+    expect(talk).toBeDefined();
+    const told = play(opening, talk, opening.revision);
+    expect(told.ok, told.error).toBe(true);
+    const base = told.state;
+    expect(base.packs["greek-drama"].flags["greek-ajax-open"]).toBe(true);
+    const places = pack.release.places.filter(
+      (id) =>
+        !pack.places[id].retired &&
+        entityActive(base, id) &&
+        id !== "greek-ship",
+    );
+    const cases = OPEN_DOOR_KEYS.flatMap((key) =>
+      [...places, ...hands].map((holder) => [key, holder]),
+    );
     const stuck = [];
     for (const [key, holder] of cases) {
       let s = put(structuredClone(base), key, holder);
@@ -243,18 +306,12 @@ describe("no placement of a key seals a resident or a road", () => {
         stuck.push(`${key}@${holder}: ${e.message}`);
         continue;
       }
-      const reached = reach(structuredClone(s), "greek-harbor");
+      const waysFrom = walkingExits(s);
+      const reached = reach(s, "greek-harbor", waysFrom);
       for (const [who, { item, at }] of Object.entries(OPEN_DOOR_LOCKS)) {
         if (entityActive(s, who)) continue;
-        const opener = item === "greek-ash-urn" ? "greek-ash-urn" : item;
-        const ok =
-          reached.has(at) &&
-          (s.usedUp.includes(opener)
-            ? packThings[opener].locked.consumes.every((c) =>
-                reached.has(placeOf(s, c)),
-              )
-            : reached.has(placeOf(s, opener)));
-        if (!ok) stuck.push(`${key}@${holder}: ${who} sealed`);
+        if (!reached.has(at) || !canFetch(s, item, reached))
+          stuck.push(`${key}@${holder}: ${who} sealed`);
       }
       for (const place of [
         "greek-eleusis",
@@ -266,7 +323,7 @@ describe("no placement of a key seals a resident or a road", () => {
         if (!reached.has(place))
           stuck.push(`${key}@${holder}: ${place} unreachable`);
       for (const place of reached)
-        if (!reach(structuredClone(s), place).has("greek-harbor"))
+        if (!reach(s, place, waysFrom).has("greek-harbor"))
           stuck.push(`${key}@${holder}: no way home from ${place}`);
     }
     expect(stuck).toEqual([]);

@@ -3,11 +3,18 @@ import { cardPlay, playLabel } from "../v2/card-game/cards.mjs";
 import { claimsIn } from "../v2/card-game/claims.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { decodeSave, encodeSave, legalActions } from "../v2/card-game/world.mjs";
 import { greekStart, landRoad, traveler } from "./helpers/open-door.mjs";
 import "./helpers/still-cast.mjs";
 
 const pack = "greek-drama";
+const troezen = "greek-story-euripides-hippolytus";
+const nurse = `${troezen}-first`;
+const theseus = `${troezen}-second`;
+const record = `${troezen}-record`;
+const tablet = `${troezen}-object`;
+const hearing = "greek-troezen-hear-the-nurse";
+const reachTroezen = () => traveler(greekStart()).move("harbor", "troezen");
 const choices = () => packDefinition(pack).choices;
 const lastTalk = (world, actor) =>
   world.log.findLast(
@@ -56,27 +63,77 @@ it("repeats the premise for a late arriving second traveler without a new receip
 it.each(["first", "second"])(
   "recaps only the %s Troezen decision after reload",
   (branch) => {
-    const stem = "greek-story-euripides-hippolytus";
-    const opening = `${stem}-first`;
-    const record = `${stem}-record`;
-    const item = `${stem}-object`;
-    const t = traveler(greekStart())
-      .move("harbor", "argolid-road", "corinth", "troezen")
-      .talk(opening)
-      .take(item)
-      .give(item, `${stem}-${branch}`);
+    const t = reachTroezen().talk(nurse);
+    if (branch === "first") t.talk(theseus);
+    else t.take(tablet).give(tablet, theseus);
     const expected = structuredClone(storyState(t.s));
     t.s = decodeSave(encodeSave(t.s));
-    const [settlement] = claimsIn(record, t.s);
-    expect(settlement.claim).toBe(`${stem}-${branch}-answer`);
+    const settlement = claimsIn(record, t.s).find(
+      ({ claim }) => claim === `${troezen}-${branch}-answer`,
+    );
+    expect(settlement).toBeDefined();
     for (let repeat = 0; repeat < 2; repeat++) {
-      t.talk(opening);
+      t.talk(nurse);
       expect(lastTalk(t.s, "vale").text).toContain("Hippolytus Settlement");
       expect(lastTalk(t.s, "vale").text).toContain(settlement.text);
       expect(storyState(t.s)).toEqual(expected);
     }
   },
 );
+
+it("admits the nurse’s account without reading or handing over Phaedra’s sealed tablet", () => {
+  const start = reachTroezen();
+  const outcome = (t) => storyState(t.s).choices[`${troezen}-outcome`];
+  const withoutProof = start.fork().act("wait").talk(theseus);
+  expect(outcome(withoutProof)).toBeUndefined();
+  expect(claimsIn(record, start.s)).toEqual([]);
+  expect(legalActions(start.s).some((action) => action.choiceId?.startsWith(troezen))).toBe(false);
+
+  const oral = start.fork().talk(nurse);
+  const custodian = oral.fork().take(tablet).talk(theseus);
+  expect(outcome(custodian)).toBeUndefined();
+  expect(legalActions(custodian.s)).not.toContainEqual(
+    expect.objectContaining({ kind: "read", item: tablet }),
+  );
+  custodian.give(tablet, theseus);
+  expect(outcome(custodian)).toBe("second");
+  expect(custodian.s.gone).toContain(tablet);
+  custodian.act("read", { item: record }).talk(theseus);
+  expect(storyState(custodian.s).receipts[hearing]).toBeUndefined();
+
+  oral.talk(theseus);
+  expect(outcome(oral)).toBe("first");
+  expect(oral.s.items[tablet].holder).toBe("greek-troezen");
+  expect(oral.s.gone ?? []).not.toContain(tablet);
+
+  const saved = dispatchShared({ op: "create", save: encodeSave(oral.s) });
+  expect(saved.ok, saved.error).toBe(true);
+  let world = saved.world;
+  world.actors.mara.place = "greek-troezen";
+  const lateAction = (kind, fields) => {
+    const seats = ["vale", "mara"];
+    const request = { world, actor: "mara", claimed: seats, present: seats };
+    const action = dispatchShared({ ...request, op: "view" }).actions.find(
+      (entry) =>
+        entry.kind === kind &&
+        Object.entries(fields).every(([key, value]) => entry[key] === value),
+    );
+    expect(action).toBeDefined();
+    const result = dispatchShared({ ...request, op: "play", action });
+    expect(result.ok, result.error).toBe(true);
+    world = result.world;
+  };
+  lateAction("talk", { target: theseus });
+  expect(storyState(world).receipts[hearing]).toBeUndefined();
+  lateAction("read", { item: record });
+  lateAction("talk", { target: theseus });
+  expect(storyState(world).receipts[hearing]).toBe(world.turn);
+
+  oral.talk(theseus);
+  expect(storyState(oral.s).receipts[hearing]).toBe(oral.s.turn);
+  expect(claimsIn(record, oral.s).map(({ claim }) => claim)).toContain(hearing);
+  expect(decodeSave(encodeSave(oral.s))).toEqual(oral.s);
+});
 
 it("shows the eligible Acharnae Give decisions and lets the later bond scene take precedence", () => {
   const stem = "greek-story-aristophanes-acharnians";

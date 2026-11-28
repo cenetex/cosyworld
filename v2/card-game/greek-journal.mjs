@@ -83,8 +83,8 @@ function personalEvidence(world, actor, receipts) {
   for (const event of events) {
     if (event.verb !== "talk" || event.actorId !== actor) continue;
     for (const c of recapsBySpeaker.get(event.targetId) || []) {
-      if (actedAt(event) !== c.at || !Object.hasOwn(receipts, c.id)) continue;
-      if (c.text && event.text.startsWith(c.text) && !observed.has(c.id)) observed.set(c.id, "heard");
+      if (actedAt(event) !== c.at) continue;
+      if (Object.hasOwn(receipts, c.id) && c.text && event.text.startsWith(c.text) && !observed.has(c.id)) observed.set(c.id, "heard");
       const answer = c.recap.answers.find((id) => Object.hasOwn(receipts, id));
       if (answer && !observed.has(answer) &&
         event.text.startsWith(`${nameOf(c.subject)} points to ${theName(c.recap.record)}. `)) {

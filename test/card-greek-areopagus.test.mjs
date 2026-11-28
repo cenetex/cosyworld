@@ -15,6 +15,7 @@ import "./helpers/still-cast.mjs";
 
 const pack = "greek-drama";
 const account = "greek-atreid-account";
+const heard = "greek-story-aeschylus-eumenides-heard";
 const outcome = "greek-story-aeschylus-eumenides-outcome";
 const athena = "greek-story-aeschylus-eumenides-first";
 const fury = "greek-story-aeschylus-eumenides-second";
@@ -62,7 +63,9 @@ function openAccount(keeper, spot) {
 
 describe("Aeschylean household evidence at the Areopagus", () => {
   it("opens the ordinary hearing independently of any Atreid account", () => {
-    const court = goToCourt().talk(athena);
+    const court = goToCourt();
+    expect(entityActive(court.s, fury)).toBe(true);
+    court.talk(athena);
     expect(choices(court)[account]).toBeUndefined();
     expect(hasFileAction(court)).toBe(false);
     expect(entityActive(court.s, order)).toBe(false);
@@ -88,13 +91,14 @@ describe("Aeschylean household evidence at the Areopagus", () => {
       .move("argos-tomb")
       .talk("electra-aeschylus")
       .take(tomb);
-    const court = goToCourt(source).talk(athena);
+    const court = goToCourt(source);
     expect(choices(court)[account]).toBe("aeschylus");
     expect(hasFileAction(court.fork().drop(tomb))).toBe(false);
     expect(hasFileAction(court)).toBe(true);
 
     court.talk(athena);
     expect(receipts(court)[file]).toBe(court.s.turn);
+    expect(court.s.packs[pack].flags[heard]).toBeUndefined();
     expect(choices(court)[outcome]).toBeUndefined();
     expect(court.s.items[tomb].holder).toBe("vale");
     expect(court.s.items[order].holder).toBe(place);
@@ -123,6 +127,7 @@ describe("Aeschylean household evidence at the Areopagus", () => {
     expect(court.s.items["greek-areopagus-waiting-water"]).toBeUndefined();
     expect(court.s.actors[fury].trust.vale).toBe(2);
     expect(claimsIn(order, court.s).map((c) => c.claim)).toEqual([file, admit]);
+    court.talk(athena);
     court.take(ballot).give(ballot, fury);
     const world = decodeSave(encodeSave(court.s));
     expect(world.packs[pack].choices[outcome]).toBe("second");
@@ -141,13 +146,32 @@ describe("Aeschylean household evidence at the Areopagus", () => {
     source.act("read", { item: palaceRecord });
     expect(knowsFact(source.s, "vale", palaceRecordClaim)).toBe(true);
 
-    const court = goToCourt(source).talk(athena);
+    const court = goToCourt(source);
     expect(court.hands()).not.toContain(deposition);
     expect(court.hands()).not.toContain(tomb);
     expect(hasFileAction(court)).toBe(true);
     court.talk(athena);
+    expect(receipts(court)[file]).toBe(court.s.turn);
+    expect(court.s.packs[pack].flags[heard]).toBeUndefined();
     expect(entityActive(court.s, order)).toBe(true);
     expect(court.s.items[order].holder).toBe(place);
+    expect(choices(court)[outcome]).toBeUndefined();
+  });
+
+  it("lets a reader leave the tomb tablet in Argos and file before either local scene opens", () => {
+    const source = openAccount("ismene", "sanctuary")
+      .move("argos-tomb")
+      .take(tomb)
+      .act("read", { item: tomb })
+      .drop(tomb);
+    const court = goToCourt(source).talk(athena);
+    const { flags } = court.s.packs[pack];
+    expect(flags["greek-atreid-heard-aeschylus"]).toBeUndefined();
+    expect(flags[heard]).toBeUndefined();
+    expect(court.s.items[tomb].holder).toBe("greek-argos-tomb");
+    expect(receipts(court)[file]).toBe(court.s.turn);
+    court.act("read", { item: order }).talk(fury);
+    expect(receipts(court)[admit]).toBe(court.s.turn);
     expect(choices(court)[outcome]).toBeUndefined();
   });
 

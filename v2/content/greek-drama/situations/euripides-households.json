@@ -132,6 +132,74 @@
   },
   "choices": [
     {
+      "id": "greek-story-euripides-hippolytus-hear",
+      "subject": "greek-story-euripides-hippolytus-first",
+      "at": "greek-troezen",
+      "workId": "euripides-hippolytus",
+      "on": "talk",
+      "text": "Phaedra left a sealed accusation. I was the one who spoke to Hippolytus, and I will answer for what I said if Theseus calls me.",
+      "requires": [],
+      "effects": [
+        { "kind": "set_flag", "key": "greek-story-euripides-hippolytus-heard", "value": true }
+      ],
+      "recap": {
+        "record": "greek-story-euripides-hippolytus-record",
+        "answers": [
+          "greek-story-euripides-hippolytus-first-answer",
+          "greek-story-euripides-hippolytus-second-answer"
+        ]
+      }
+    },
+    {
+      "id": "greek-story-euripides-hippolytus-first-answer",
+      "subject": "greek-story-euripides-hippolytus-second",
+      "at": "greek-troezen",
+      "workId": "euripides-hippolytus",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Theseus leaves Phaedra’s tablet unopened on the steps. He agrees to hear the nurse before ordering Hippolytus out of Troezen.",
+      "requires": [
+        { "kind": "choice_unset", "key": "greek-story-euripides-hippolytus-outcome" },
+        { "kind": "item_at", "item": "greek-story-euripides-hippolytus-object", "place": "greek-troezen" },
+        { "kind": "talked", "person": "greek-story-euripides-hippolytus-first" }
+      ],
+      "effects": [
+        { "kind": "choose", "key": "greek-story-euripides-hippolytus-outcome", "value": "first" }
+      ]
+    },
+    {
+      "id": "greek-story-euripides-hippolytus-second-answer",
+      "subject": "greek-story-euripides-hippolytus-second",
+      "at": "greek-troezen",
+      "workId": "euripides-hippolytus",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Theseus keeps Phaedra’s tablet and sends an attendant to put his son out of the city. The nurse waits on the steps with her account still unheard.",
+      "requires": [
+        { "kind": "choice_unset", "key": "greek-story-euripides-hippolytus-outcome" },
+        { "kind": "holding", "item": "greek-story-euripides-hippolytus-object", "role": "actor" }
+      ],
+      "effects": [
+        { "kind": "choose", "key": "greek-story-euripides-hippolytus-outcome", "value": "second" },
+        { "kind": "retire_item", "item": "greek-story-euripides-hippolytus-object", "forGood": true }
+      ]
+    },
+    {
+      "id": "greek-pherae-share-bread",
+      "subject": "greek-story-euripides-alcestis-first",
+      "at": "greek-pherae",
+      "workId": "euripides-alcestis",
+      "on": "give",
+      "humanOnly": true,
+      "repeats": true,
+      "text": "The servant breaks the bread on the outer bench and shares it with the children and the travelers who have stopped at the house.",
+      "summary": "At Pherae, the servant shared Bread with the children and passing travelers.",
+      "requires": [
+        { "kind": "holding", "item": "greek-bread", "role": "actor" }
+      ],
+      "effects": [{ "kind": "retire_item", "item": "greek-bread" }]
+    },
+    {
       "id": "greek-pherae-tend-vigil-lamp",
       "subject": "greek-story-euripides-alcestis-first",
       "at": "greek-pherae",
@@ -172,7 +240,7 @@
       "at": "greek-troezen",
       "on": "talk",
       "humanOnly": true,
-      "text": "Theseus hears the nurse on the steps before both witnesses. He tells Hippolytus to stay in Troezen while the accusation is examined.",
+      "text": "The nurse tells Theseus that she was the one who spoke to Hippolytus. Theseus hears her out and tells Hippolytus to stay in Troezen while he considers the accusation.",
       "requires": [
         {
           "kind": "choice",
@@ -180,9 +248,11 @@
           "value": "first"
         },
         {
-          "kind": "knows",
-          "topic": "claim:greek-drama:greek-story-euripides-hippolytus-record:greek-story-euripides-hippolytus-first-answer",
-          "role": "actor"
+          "kind": "any",
+          "conditions": [
+            { "kind": "talked", "person": "greek-story-euripides-hippolytus-first" },
+            { "kind": "knows", "topic": "claim:greek-drama:greek-story-euripides-hippolytus-record:greek-story-euripides-hippolytus-first-answer", "role": "actor" }
+          ]
         }
       ],
       "effects": [{ "kind": "trust", "level": 2 }]

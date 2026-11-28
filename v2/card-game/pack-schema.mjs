@@ -4,14 +4,13 @@ import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { RARITY_WEIGHTS } from "./pack-specials.mjs";
 import { ITEM_IDENTITY_FIELDS, forGoodWarnings, itemCycleProblems, itemPlacementEffect } from "./pack-items-schema.mjs";
-import { choicePresentationProblems } from "./pack-choice-schema.mjs";
+import { PACK_CHOICE_LIMIT, choiceCountProblem, choicePresentationProblems, validChoiceReceipt } from "./pack-choice-schema.mjs";
 import { laneProblems } from "./pack-transport-schema.mjs";
 
 export { laneProblems, MAX_LANES } from "./pack-transport-schema.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
-
 export function packCompositionProblems(packs) {
   const problems = [],
     seen = new Map(),
@@ -354,7 +353,7 @@ export function packProblems(
   }
   for (const [key, max] of [
     ["routes", 256],
-    ["choices", 256],
+    ["choices", PACK_CHOICE_LIMIT],
     ["works", 128],
     ["crossings", 32],
     ["storyQuests", 128],
@@ -370,6 +369,8 @@ export function packProblems(
       )
     )
       return problems;
+  const choiceLimit = choiceCountProblem(pack.choices);
+  if (!check(!choiceLimit, choiceLimit)) return problems;
   for (const c of pack.choices || [])
     if (
       !check(
@@ -904,8 +905,7 @@ export function packProblems(
             (hub.items.includes(c.item) || owns(items, c.item));
           break;
         case "receipt":
-          ok = keysOk(c, ["kind", "choiceId"]) && idOk(c.choiceId) &&
-            (pack.choices || []).some((entry) => entry.id === c.choiceId && entry.effects.length > 0 && !entry.archived);
+          ok = validChoiceReceipt(c, pack.choices || [], keysOk, idOk, intOk);
           break;
         case "actor_at":
           ok = keysOk(c, ["kind", "place"]) && anyPlace(c.place);
@@ -1449,7 +1449,7 @@ export function packProblems(
         flags.add(e.key);
       }
       if (["place_item", "fetch_item"].includes(e.kind))
-        valid = itemPlacementEffect(items, places, hub.player, c, e);
+        valid = itemPlacementEffect(items, places, avatars, hub.player, c, e);
       // A meeting hides one of the pack's things somewhere in the world.
       if (e.kind === "hide_item")
         valid =
