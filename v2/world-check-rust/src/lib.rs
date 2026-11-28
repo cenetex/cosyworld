@@ -8,6 +8,7 @@ use std::{
     path::Path,
 };
 
+mod release;
 #[allow(dead_code)]
 mod schema;
 use schema::{Bridge, Crossing, Pack, Table};
@@ -67,6 +68,7 @@ fn pack_sources(v2: &Path, id: &str) -> Result<(Pack, Bridge), String> {
             return Err(format!("{id}: invalid place id or exits at {place_id}"));
         }
     }
+    release::check(&pack)?;
     Ok((pack, bridge))
 }
 
