@@ -1,4 +1,5 @@
-import { expect } from "vitest";
+import { afterEach, beforeEach, expect, onTestFinished } from "vitest";
+import { worldLife } from "../../v2/card-game/resident-home.mjs";
 import {
   decodeSave,
   encodeSave,
@@ -35,4 +36,23 @@ export function act(s, pick, actor = "vale") {
   const result = play(s, legal(s, pick, actor), s.revision, actor);
   expect(result.ok, result.error).toBe(true);
   return result.state;
+}
+
+export function lifeFor(on) {
+  const was = worldLife.on;
+  worldLife.on = on;
+  onTestFinished(() => {
+    worldLife.on = was;
+  });
+}
+
+export function lifeIn(on) {
+  let was;
+  beforeEach(() => {
+    was = worldLife.on;
+    worldLife.on = on;
+  });
+  afterEach(() => {
+    worldLife.on = was;
+  });
 }

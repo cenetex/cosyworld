@@ -37,6 +37,7 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 import { ajaxCamp } from "./helpers/greek-ajax.mjs";
+import { lifeFor } from "./helpers/play.mjs";
 
 const COORDINATE_RESIDENTS = [
   "elysium-coordinate-008",
@@ -255,9 +256,8 @@ const FREED = {
   "greek-ajax-teucer": "ajax",
   "greek-ajax-odysseus": "ajax",
 };
-// The helper worlds are built with world life off, as their journeys expect.
 const built = (make) => () => {
-  worldLife.on = false;
+  lifeFor(false);
   return make();
 };
 const worlds = {
@@ -266,10 +266,6 @@ const worlds = {
   ajax: built(() => ajaxCamp()),
 };
 const DAY = 48;
-const life = worldLife.on;
-afterAll(() => {
-  worldLife.on = life;
-});
 
 describe("freed residents walk on their wants and sleep at home", () => {
   for (const [id, scenario] of Object.entries(FREED))

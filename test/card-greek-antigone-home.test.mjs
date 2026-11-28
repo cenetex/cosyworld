@@ -1,9 +1,8 @@
 import { MAX_DWELL } from "../v2/card-game/world/dwell.mjs";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createWorld, legalActions } from "../v2/card-game/world.mjs";
-import { act } from "./helpers/play.mjs";
+import { act, lifeIn } from "./helpers/play.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
-import { worldLife } from "../v2/card-game/resident-home.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 
@@ -14,14 +13,7 @@ import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 const HOLLOW = "greek-polynices-hollow";
 const GATE = "greek-gate";
 const ITEMS = ["greek-oil-flask", "cloth", "greek-shovel"];
-let held;
-beforeAll(() => {
-  held = worldLife.on;
-  worldLife.on = true;
-});
-afterAll(() => {
-  worldLife.on = held;
-});
+lifeIn(true);
 
 const antigone = (world) => world.actors["greek-antigone"];
 const walk = (world, place) =>

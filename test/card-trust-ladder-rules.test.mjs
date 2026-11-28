@@ -3,8 +3,7 @@ import "./helpers/still-cast.mjs";
 import { createWorld, plan } from "../v2/card-game/world.mjs";
 import { installWants, stagedNext } from "../v2/card-game/want.mjs";
 import { packDefinitions, packPeople } from "../v2/card-game/pack-registry.mjs";
-import { worldLife } from "../v2/card-game/resident-home.mjs";
-import { act } from "./helpers/play.mjs";
+import { act, lifeFor, lifeIn } from "./helpers/play.mjs";
 
 const R = "greek-ismene",
   home = "greek-sanctuary",
@@ -14,8 +13,8 @@ const R = "greek-ismene",
 const saved = packPeople[R].wants;
 afterEach(() => {
   packPeople[R].wants = saved;
-  worldLife.on = false;
 });
+lifeIn(false);
 const item = (target, minTrust) => ({
   want: { kind: "item", target, ...(minTrust ? { minTrust } : {}) },
 });
@@ -93,7 +92,7 @@ it("credits nobody when the person was already there", () => {
 
 it("meets the person in the room before walking home", () => {
   const s = world({ want: { kind: "person", target: other } });
-  worldLife.on = true;
+  lifeFor(true);
   s.actors.vale.place = next;
   s.actors[R].place = next;
   s.actors[R].homeward = true;

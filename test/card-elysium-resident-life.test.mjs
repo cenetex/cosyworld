@@ -84,8 +84,7 @@ function returnToken(game) {
   world = game.act(world, { kind: "move", target: study });
   world = game.act(world, { kind: "talk", target: resident });
   world = game.act(world, { kind: "move", target: station });
-  const target = world.items[token].holder;
-  if (target !== station) world = game.act(world, { kind: "move", target });
+  world.items[token].holder = station;
   world = game.act(world, { kind: "take", item: token });
   world = game.hold(world, wayfinder);
   world = game.act(world, { kind: "move", target: entry });

@@ -1,9 +1,8 @@
 import { expect, it } from "vitest";
 import { validateWorld } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { worldLife } from "../v2/card-game/resident-home.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
-import { act } from "./helpers/play.mjs";
+import { act, lifeFor } from "./helpers/play.mjs";
 
 const bread = "greek-bread",
   baker = "greek-baker",
@@ -133,49 +132,44 @@ it.each([
 it.each(["give", "drop"])(
   "keeps %s craft facts through shared play",
   (kind) => {
-    const wasOn = worldLife.on;
-    worldLife.on = true;
-    try {
-      const ask = (request) => dispatchShared(structuredClone(request));
-      const world = greekErrands().waterOffer;
-      const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
-      const viewed = ask({ op: "view", world, ...seats });
-      const action = viewed.actions.find(
-        (a) =>
-          a.kind === kind &&
-          a.item === inputs[0] &&
-          a.target === (kind === "give" ? baker : home),
-      );
-      const request = { op: "play", world, action, ...seats };
-      const result = ask(request);
-      expect(result.ok, result.error).toBe(true);
-      expect(crafts(result.world)).toHaveLength(1);
-      expect(ask(structuredClone(request))).toEqual(result);
-      const stale = ask({ ...request, world: result.world });
-      expect(stale.ok).toBe(false);
-      expect(crafts(stale.world)).toEqual(crafts(result.world));
-      const take = ask({
-        op: "view",
-        world: result.world,
-        ...seats,
-      }).actions.find((a) => a.kind === "take" && a.item === bread);
-      const taken = ask({
-        op: "play",
-        world: result.world,
-        action: take,
-        ...seats,
-      });
-      expect(taken.ok, taken.error).toBe(true);
-      expect(taken.world.items[bread].holder).toBe("vale");
-      expect(crafts(taken.world)).toEqual(crafts(result.world));
-      const restored = ask({
-        op: "validate",
-        world: taken.world,
-        ...seats,
-      });
-      expect(crafts(restored.world)).toEqual(crafts(result.world));
-    } finally {
-      worldLife.on = wasOn;
-    }
+    lifeFor(true);
+    const ask = (request) => dispatchShared(structuredClone(request));
+    const world = greekErrands().waterOffer;
+    const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+    const viewed = ask({ op: "view", world, ...seats });
+    const action = viewed.actions.find(
+      (a) =>
+        a.kind === kind &&
+        a.item === inputs[0] &&
+        a.target === (kind === "give" ? baker : home),
+    );
+    const request = { op: "play", world, action, ...seats };
+    const result = ask(request);
+    expect(result.ok, result.error).toBe(true);
+    expect(crafts(result.world)).toHaveLength(1);
+    expect(ask(structuredClone(request))).toEqual(result);
+    const stale = ask({ ...request, world: result.world });
+    expect(stale.ok).toBe(false);
+    expect(crafts(stale.world)).toEqual(crafts(result.world));
+    const take = ask({
+      op: "view",
+      world: result.world,
+      ...seats,
+    }).actions.find((a) => a.kind === "take" && a.item === bread);
+    const taken = ask({
+      op: "play",
+      world: result.world,
+      action: take,
+      ...seats,
+    });
+    expect(taken.ok, taken.error).toBe(true);
+    expect(taken.world.items[bread].holder).toBe("vale");
+    expect(crafts(taken.world)).toEqual(crafts(result.world));
+    const restored = ask({
+      op: "validate",
+      world: taken.world,
+      ...seats,
+    });
+    expect(crafts(restored.world)).toEqual(crafts(result.world));
   },
 );
