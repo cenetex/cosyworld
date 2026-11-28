@@ -74,7 +74,8 @@ export function browserRules(bytes) {
         (request.op === "speech" &&
           (place === "pond" ||
             place === "station" ||
-            place === "greek-ship")) ||
+            place === "greek-ship" ||
+            place === "greek-harbor")) ||
         (request.op === "view" &&
           (place === "station" || place === "greek-harbor"));
       const ordered =

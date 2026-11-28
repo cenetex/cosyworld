@@ -2,7 +2,8 @@ use super::{
     opening::{self, MAX_REVISION},
     opening_content,
     opening_full_wait::visible_items,
-    opening_pond_call_view, opening_pond_return_view, opening_pond_ship_view, opening_pond_view,
+    opening_greek_harbor_view, opening_pond_call_view, opening_pond_return_view,
+    opening_pond_ship_view, opening_pond_view,
     opening_reflection::{trim_text, valid_text},
     opening_roster, opening_station_view,
     pack_state::Catalog,
@@ -17,6 +18,7 @@ const PIP: &str = "moth";
 const POND: &str = "pond";
 const STATION: &str = "station";
 const SHIP: &str = "greek-ship";
+const HARBOR: &str = "greek-harbor";
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     let saved = request.get("world")?;
@@ -25,12 +27,13 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     let room = saved["actors"][VALE]["place"].as_str()?;
     let later_pond = room == POND && matches!(saved["turn"].as_u64(), Some(6 | 7));
     let ship_speech = room == SHIP && matches!(saved["turn"].as_u64(), Some(8..=10));
+    let harbor_speech = room == HARBOR && saved["turn"] == 11;
+    let later_scene = later_pond || ship_speech || harbor_speech;
     if !(saved["turn"] == 2
-        || later_pond
-        || ship_speech
+        || later_scene
         || (room == STATION && opening_station_view::historic_station(saved)))
         || request["actor"] != VALE
-        || (claimed != [VALE] && !((later_pond || ship_speech) && claimed.is_empty()))
+        || (claimed != [VALE] && !(later_scene && claimed.is_empty()))
         || (!present.is_empty() && present != [VALE])
         || !present.iter().all(|id| claimed.contains(id))
         || (!request["room"].is_null() && request["room"] != room)
@@ -80,6 +83,16 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
             })?;
             (voices, Some(1 + usize::from(ada)))
         }
+        HARBOR => {
+            let (ada, _) =
+                opening_greek_harbor_view::settled_speech(&world, &geo, &authored, |id| {
+                    evidence.profile(id)?["name"].as_str()
+                })?;
+            (
+                &opening_greek_harbor_view::VOICES,
+                Some(2 + usize::from(ada)),
+            )
+        }
         _ => return None,
     };
     if lines.len() > voices.len() + 1
@@ -110,7 +123,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
             return None;
         }
         let (name, kind, actor) = if voice == room && line["actorId"].is_null() {
-            let place = if room == SHIP {
+            let place = if matches!(room, SHIP | HARBOR) {
                 evidence.profile(room)?
             } else {
                 &forest["places"][room]

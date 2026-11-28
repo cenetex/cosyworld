@@ -254,7 +254,6 @@ describe("a real voyage", () => {
     expect(state(s).dock).toBe("pond");
     s = act(s, "mara", "wait");
     expect(state(s).dock).toBe("pond");
-    // Waiting where there is no port leaves the empty ship alone.
     s.actors.ash.place = "station";
     const before = structuredClone(state(s));
     s = act(reload(s), "ash", "wait");
