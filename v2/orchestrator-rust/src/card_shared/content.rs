@@ -1,5 +1,3 @@
-//! Pack content revisions for shared rules that take content as input.
-//!
 //! Each `globalThis.cardContent` revision is stored by SHA-256 in
 //! `card_full_packs` before any reference and verified on replay.
 use super::store::{sql_error, Result};

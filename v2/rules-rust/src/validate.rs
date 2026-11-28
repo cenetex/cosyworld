@@ -1,5 +1,7 @@
-use super::opening::{is_seat, seats};
+use super::opening::{self, is_seat, seats};
+use super::opening_content;
 use serde_json::{json, Value};
+use std::cell::OnceCell;
 
 const LEGACY_SAVE: &str = "This save needs a fresh start.";
 const BROKEN_SAVE: &str =
@@ -11,10 +13,23 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if !(world.is_object() || world.is_array()) {
         return refused("Load a saved world first.");
     }
-    if let Err(error) = validate_context(request, world) {
+    let solo_vale = match validate_context(request, world) {
+        Ok(solo_vale) => solo_vale,
+        Err(error) => return refused(error),
+    };
+    let files = OnceCell::new();
+    let files = || {
+        files
+            .get_or_init(|| opening_content::files(request))
+            .as_ref()
+    };
+    if let Err(error) = load_header(world, files)? {
         return refused(error);
     }
-    load_header(request, world)?.err().and_then(refused)
+    if !solo_vale {
+        return None;
+    }
+    opening::stored_response(verified_opening(world, files()?)?)
 }
 
 pub(super) fn import_refusal(request: &Value) -> Option<Value> {
@@ -37,11 +52,21 @@ pub(super) fn import_refusal(request: &Value) -> Option<Value> {
     ] {
         fields.remove(field);
     }
-    load_header(request, &world)?.err().and_then(refused)
+    let files = OnceCell::new();
+    load_header(&world, || {
+        files
+            .get_or_init(|| opening_content::files(request))
+            .as_ref()
+    })?
+    .err()
+    .and_then(refused)
 }
 
-fn load_header(request: &Value, world: &Value) -> Option<Result<(), &'static str>> {
-    if !valid_lamp(request, &world["items"]["lamp"])? {
+fn load_header<'a>(
+    world: &Value,
+    files: impl FnOnce() -> Option<&'a Value>,
+) -> Option<Result<(), &'static str>> {
+    if !valid_lamp(&world["items"]["lamp"], files)? {
         return Some(Err("Invalid saved lamp room fuel."));
     }
     if integer(&world["schema"]) != Some(8) {
@@ -68,7 +93,7 @@ fn refused(error: &str) -> Option<Value> {
     Some(json!({"ok": false, "error": error}))
 }
 
-fn validate_context(request: &Value, world: &Value) -> Result<(), &'static str> {
+fn validate_context(request: &Value, world: &Value) -> Result<bool, &'static str> {
     let actor = &request["actor"];
     if truthy(actor) && !actor.as_str().is_some_and(is_seat) {
         return Err("Choose a human avatar.");
@@ -91,7 +116,35 @@ fn validate_context(request: &Value, world: &Value) -> Result<(), &'static str> 
     if present.iter().any(|id| !claimed.contains(id)) {
         return Err("A present avatar needs a claim.");
     }
-    Ok(())
+    Ok((!truthy(actor) || actor == "vale") && claimed == ["vale"] && present == ["vale"])
+}
+
+fn verified_opening(saved: &Value, files: &Value) -> Option<Value> {
+    opening::unplayed_turn(saved)?;
+    if saved.get("run").is_some() {
+        return None;
+    }
+    let created = super::create::fresh(files, None, saved.get("began").is_some())?;
+    let initial = opening::stored_world(created)?;
+    let steps = saved["revision"]
+        .as_u64()?
+        .checked_sub(initial["revision"].as_u64()?)?;
+    let held = &saved["actors"]["vale"]["heldItem"];
+    let rebuilt = match steps {
+        0 => initial,
+        1 => opening::hold_solo_vale(initial, held)?,
+        2 if initial["actors"]["vale"]["heldItem"] == "lamp" => {
+            // Stowing the lit lamp can add this marker, and a quiet hold never removes it.
+            let first = if initial.get("opened") == saved.get("opened") {
+                json!("lamp")
+            } else {
+                Value::Null
+            };
+            opening::hold_solo_vale(opening::hold_solo_vale(initial, &first)?, held)?
+        }
+        _ => return None,
+    };
+    (rebuilt == *saved).then_some(rebuilt)
 }
 
 fn integer(value: &Value) -> Option<u64> {
@@ -114,7 +167,7 @@ fn truthy(value: &Value) -> bool {
     }
 }
 
-fn valid_lamp(request: &Value, lamp: &Value) -> Option<bool> {
+fn valid_lamp<'a>(lamp: &Value, files: impl FnOnce() -> Option<&'a Value>) -> Option<bool> {
     let Some(fields) = lamp.as_object() else {
         return Some(true);
     };
@@ -136,12 +189,11 @@ fn valid_lamp(request: &Value, lamp: &Value) -> Option<bool> {
     if !lamp["fuelVisit"].is_boolean() || integer(&lamp["fuel"]) != Some(rooms * 4) {
         return Some(false);
     }
-    known_place(request, place)
+    known_place(files()?, place)
 }
 
-fn known_place(request: &Value, place: &str) -> Option<bool> {
-    let content = super::opening_content::files(request)?;
-    let files = content.as_object()?;
+fn known_place(files: &Value, place: &str) -> Option<bool> {
+    let files = files.as_object()?;
     let forest = files.get("v2/card-game/forest.json")?["places"].as_object()?;
     let boardy = files.get("v2/card-game/boardyai.json")?["places"].as_object()?;
     let packs = files.get("v2/card-game/packs.json")?["packs"].as_array()?;
