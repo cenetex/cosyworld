@@ -526,11 +526,10 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
 
-      - name: Run Node and deployment contract checks
+      - name: Run Node and content checks
         run: |
           npm run v2:worldpack
           npm run v2:syntax
-          npx vitest run test/infrastructure/deploy-workflow.test.mjs --reporter=dot
           npm run lint
           npm run check:test-guards
           npm run regen:check
@@ -572,7 +571,7 @@ jobs:
         run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Run unit tests
-        run: npx vitest run --shard=${{ matrix.shard }}/3 --reporter=dot
+        run: npx vitest run --shard=${{ matrix.shard }}/3 --maxWorkers=2 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
 
   production-rust-gate:
     name: Production Rust gate
