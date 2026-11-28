@@ -140,11 +140,8 @@ fn valid_lamp(request: &Value, lamp: &Value) -> Option<bool> {
 }
 
 fn known_place(request: &Value, place: &str) -> Option<bool> {
-    let content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
-    if content["schema"] != 1 {
-        return None;
-    }
-    let files = content["files"].as_object()?;
+    let content = super::opening_content::files(request)?;
+    let files = content.as_object()?;
     let forest = files.get("v2/card-game/forest.json")?["places"].as_object()?;
     let boardy = files.get("v2/card-game/boardyai.json")?["places"].as_object()?;
     let packs = files.get("v2/card-game/packs.json")?["packs"].as_array()?;

@@ -238,17 +238,13 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if !request["actor"].is_null() && !request["actor"].is_string() {
         return None;
     }
-    let content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
-    if content["schema"] != 1 {
-        return None;
-    }
-    let files = content.get("files")?;
+    let files = super::opening_content::files(request)?;
     let seed = match request.get("seed") {
         None | Some(Value::Null) => None,
         Some(seed) => Some(u32::try_from(seed.as_u64()?).ok()?),
     };
-    let world = fresh(files, seed, request["history"] == true)?;
-    opening_view::create_response(world, files, "vale")
+    let world = fresh(&files, seed, request["history"] == true)?;
+    opening_view::create_response(world, &files, "vale")
 }
 
 pub(super) fn fresh(files: &Value, seed: Option<u32>, history: bool) -> Option<Value> {

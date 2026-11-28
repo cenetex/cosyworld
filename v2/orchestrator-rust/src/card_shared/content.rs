@@ -23,7 +23,6 @@ pub(super) fn current() -> &'static str {
 pub(super) fn current_text() -> &'static str {
     cosyworld_orchestrator::card_assets::text("card_shared/content.json")
 }
-/// The package version that built the current revision, for people.
 pub(super) const REVISION: &str = env!("CARGO_PKG_VERSION");
 fn loaded() -> &'static Mutex<HashMap<String, Arc<str>>> {
     static LOADED: OnceLock<Mutex<HashMap<String, Arc<str>>>> = OnceLock::new();
