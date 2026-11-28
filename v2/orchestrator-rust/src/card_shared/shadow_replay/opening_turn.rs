@@ -27,26 +27,49 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_drop() -> Result<()> {
         "first-attic-drop",
         "drop:vale:lamp:attic",
         unseeded_opening()?,
-        |lamp, reply| {
-            let event = &reply["events"][0];
-            assert_eq!(event["verb"], "drop");
-            assert_eq!(event["itemId"], "lamp");
-            assert_eq!(event["locationId"], "attic");
-            assert_eq!(event["targetId"], "attic");
-            let world = &reply["world"];
-            let dropped = &world["items"]["lamp"];
-            assert_eq!(world["actors"]["vale"]["heldItem"], Value::Null);
-            assert_eq!(lamp["holder"], "vale");
-            assert_eq!(dropped["holder"], "attic");
-            assert_eq!(dropped["lit"], true);
-            assert_eq!(dropped["fuelRooms"], lamp["fuelRooms"]);
-            assert_eq!(dropped["fuel"], lamp["fuel"]);
-        },
+        check_lamp_drop,
     )
 }
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait_after_history() -> Result<()> {
+    replay_first_attic_turn(
+        "first-attic-wait-after-history",
+        "wait:vale::",
+        historic_opening()?,
+        |_, reply| {
+            assert_eq!(reply["events"][0]["verb"], "wait");
+        },
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_first_attic_drop_after_history() -> Result<()> {
+    replay_first_attic_turn(
+        "first-attic-drop-after-history",
+        "drop:vale:lamp:attic",
+        historic_opening()?,
+        check_lamp_drop,
+    )
+}
+
+fn check_lamp_drop(lamp: &Value, reply: &Value) {
+    let event = &reply["events"][0];
+    assert_eq!(event["verb"], "drop");
+    assert_eq!(event["itemId"], "lamp");
+    assert_eq!(event["locationId"], "attic");
+    assert_eq!(event["targetId"], "attic");
+    let world = &reply["world"];
+    let dropped = &world["items"]["lamp"];
+    assert_eq!(world["actors"]["vale"]["heldItem"], Value::Null);
+    assert_eq!(lamp["holder"], "vale");
+    assert_eq!(dropped["holder"], "attic");
+    assert_eq!(dropped["lit"], true);
+    assert_eq!(dropped["fuelRooms"], lamp["fuelRooms"]);
+    assert_eq!(dropped["fuel"], lamp["fuel"]);
+}
+
+fn historic_opening() -> Result<World> {
     let created = engine::reduce(json!({"op":"create", "history":true, "seed":4242}))?;
     let save = created["world"].to_string();
     let imported = World::create(Some(&save))?;
@@ -54,14 +77,7 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_wait_after_history() -> Resu
     assert_eq!(imported.game["run"]["seed"], 4242);
     assert_eq!(imported.game["began"], imported.game["turn"]);
     assert!(imported.game["began"].as_u64().is_some_and(|turn| turn > 0));
-    replay_first_attic_turn(
-        "first-attic-wait-after-history",
-        "wait:vale::",
-        imported,
-        |_, reply| {
-            assert_eq!(reply["events"][0]["verb"], "wait");
-        },
-    )
+    Ok(imported)
 }
 
 fn unseeded_opening() -> Result<World> {

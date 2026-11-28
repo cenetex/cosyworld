@@ -29,8 +29,7 @@ export const validHeldItems = (world) =>
         Object.hasOwn(world.items, actor.heldItem)),
   );
 
-// A receipt takes the hand. Keep a valid choice or use the stable fallback
-// for legacy saves. Null keeps the hand empty until a receipt.
+// A receipt takes the hand. Otherwise retain a valid choice, including null, or use the legacy fallback.
 export function settleHeldItems(world, before = null) {
   if (!validHeldItems(world)) throw new Error("The held item is invalid.");
   const hands = handSnapshot(world);

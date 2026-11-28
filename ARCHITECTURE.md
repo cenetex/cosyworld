@@ -62,7 +62,7 @@ Set `COSYWORLD_REPLAY_DB` to a consistent, anonymized SQLite copy. Select a worl
 
 The same test exercises fresh and imported creation, a claimed seat's view, valid and malformed saves, and plays refused for absence, a stale revision, or an unavailable card. It compares the complete reply to the pinned QuickJS bundle. Ordinary runs report unsupported direct fixtures. Strict mode requires a match on each one.
 
-Synthetic SQLite journals also replay accepted opening actions. One records a quest acceptance. Another records a claim with carried progress, entering, two lamp holds, leaving and returning, and a reset that clears progress and leaves the lit lamp in the attic. Separate unseeded worlds record Vale's first Wait and lamp Drop without resident history. A seeded journal records the first Wait after reopening a pristine save with authored resident history.
+Synthetic SQLite journals also replay accepted opening actions. One records a quest acceptance. Another records a claim with carried progress, entering, two lamp holds, leaving and returning, and a reset that clears progress and leaves the lit lamp in the attic. Dedicated journals record Vale's first Wait and lamp Drop from fresh unseeded worlds and from reopened saves with a run seed and authored resident history.
 
 A journal claim requests `join_state` with the authenticated seat and any passkey progress. The QuickJS adapter projects the pinned `join` response to the complete journal result of `ok` and `world`. The view endpoint serves legal actions separately. The WASM candidate handles opening claims, including the arrival of absent avatars and the merge of progress earned in other worlds.
 
