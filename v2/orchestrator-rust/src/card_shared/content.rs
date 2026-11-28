@@ -1,8 +1,7 @@
 //! Pack content revisions for shared rules that take content as input.
 //!
-//! Rules bundles read packs, forest, weather and cast data from
-//! `globalThis.cardContent`. Each revision's SHA-256 names its immutable
-//! bytes in `card_full_packs`, saved before any reference and verified on replay.
+//! Each `globalThis.cardContent` revision is stored by SHA-256 in
+//! `card_full_packs` before any reference and verified on replay.
 use super::store::{sql_error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest, Sha256};

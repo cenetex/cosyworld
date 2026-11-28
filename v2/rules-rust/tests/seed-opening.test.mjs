@@ -1,20 +1,26 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createWorld } from "../../card-game/world.mjs";
+import { seedRun } from "../../card-game/world/create.mjs";
 import { reducers } from "./parity.mjs";
+
+const keepsakes = ["glass", "raven-figurine", "red-beanie", "thermos"].map(
+  (id) => `ratiradio-${id}`,
+);
 
 function seedState(world) {
   return {
     run: world.run,
     doors: world.doors,
     wayfinder: world.items["elysium-wayfinder"].holder,
+    keepsakes: Object.fromEntries(keepsakes.map((id) => [id, world.items[id]])),
     draws: Object.fromEntries(
       Object.entries(world.packs).map(([id, pack]) => [id, pack.specials]),
     ),
   };
 }
 
-test("fresh seed initialization matches the pinned run, home doors, and Wayfinder", async () => {
+test("fresh seed initialization matches the pinned doors, special draws, and scatter", async () => {
   const { pinned, wasm } = await reducers();
   const world = createWorld({ opening: true });
   const landings = new Set();
@@ -29,6 +35,26 @@ test("fresh seed initialization matches the pinned run, home doors, and Wayfinde
     landings.add(actual.world.items["elysium-wayfinder"].holder);
   }
   assert.deepEqual([...landings].sort(), ["behind-station", "pond", "station"]);
+});
+
+test("existing keepsake custody remains and reserves its world", async () => {
+  const { wasm } = await reducers();
+  const world = createWorld({ opening: true });
+  const item = world.items["ratiradio-glass"];
+  item.holder = "hoppycat-signal-jetty";
+  item.history = ["Turn 0: A traveler left it here."];
+  for (const seed of [0, 2, 7, 42, 4242]) {
+    const actual = wasm({ op: "seed_opening", seed, world });
+    assert.ok(actual, `seed ${seed} was unsupported`);
+    const reference = seedRun(structuredClone(world), seed);
+    assert.deepEqual(seedState(actual.world), seedState(reference));
+    assert.deepEqual(actual.world.items["ratiradio-glass"], item);
+    assert.ok(
+      keepsakes
+        .filter((id) => id !== "ratiradio-glass")
+        .every((id) => actual.world.items[id].holder !== item.holder),
+    );
+  }
 });
 
 test("seed initialization declines existing seeds and open travel gates", async () => {

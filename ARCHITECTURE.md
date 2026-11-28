@@ -64,7 +64,7 @@ The browser follows a bounded, hashed chain of changes to that player's view. Th
 
 ## Opening history
 
-The Rust candidate creates the unseeded Vale opening from authored content and supports its optional resident history. A fresh world's seed chooses its home doors, pack specials, and Wayfinder landing from the mounted data. The Rust seed stage applies these choices before resident history.
+The Rust candidate creates the unseeded Vale opening from authored content and supports its optional resident history. A fresh world's seed chooses its home doors, pack specials, cross-world keepsakes, and Wayfinder landing from the mounted data. The Rust seed stage applies these choices before resident history.
 
 A new shared world is created with `history: true`. The rules then apply the checked-in patch in `v2/card-game/world-history.json`.
 
