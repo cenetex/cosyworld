@@ -317,6 +317,7 @@ struct Choice {
     id: Option<String>,
     at: Option<String>,
     on: Option<String>,
+    subject: Option<String>,
     archived: Option<bool>,
     effects: Option<Vec<Effect>>,
 }
@@ -334,10 +335,14 @@ fn project_choices(choices: Vec<Choice>) -> Value {
 }
 
 fn project_choice(choice: Choice) -> Option<Value> {
+    let station_gift = choice.on.as_deref() == Some("give")
+        && matches!(choice.subject.as_deref(), Some("moth" | "keeper"));
     let opening_choice = matches!(
         (choice.at.as_deref(), choice.on.as_deref()),
-        (Some("attic"), Some("wait" | "meet")) | (Some("pond"), None | Some("meet"))
-    );
+        (Some("attic"), Some("wait" | "meet"))
+            | (Some("pond"), None | Some("meet"))
+            | (Some("station"), _)
+    ) || station_gift;
     let effects: Vec<_> = choice
         .effects
         .into_iter()
@@ -362,6 +367,9 @@ fn project_choice(choice: Choice) -> Option<Value> {
     if opening_choice {
         projected.insert("at".into(), json!(choice.at));
         projected.insert("on".into(), json!(choice.on));
+        if station_gift {
+            projected.insert("subject".into(), json!(choice.subject));
+        }
     }
     if !effects.is_empty() {
         projected.insert("effects".into(), Value::Array(effects));
@@ -408,7 +416,9 @@ mod tests {
                     {"id":"two", "effects":[]},
                     {"at":"attic", "on":"wait", "text":"A sign"},
                     {"id":"drop", "effects":[{"kind":"drop_item", "item":"b"}]},
-                    {"id":"archived", "archived":true, "effects":[{"kind":"drop_item", "item":"c"}]}
+                    {"id":"archived", "archived":true, "effects":[{"kind":"drop_item", "item":"c"}]},
+                    {"at":"station","text":"A Station choice"},
+                    {"on":"give","subject":"keeper","label":"Gift"}
                 ]},
                 {"id":"empty", "choices":[]},
                 {"id":"absent"}
@@ -436,7 +446,9 @@ mod tests {
                     },"choices":[
                         {"id":"one", "effects":[{"kind":"retire_item", "item":"b", "waitAtHome":true}]},
                         {"at":"attic", "on":"wait"},
-                        {"id":"drop", "effects":[{"kind":"drop_item", "item":"b"}]}
+                        {"id":"drop", "effects":[{"kind":"drop_item", "item":"b"}]},
+                        {"at":"station","on":null},
+                        {"at":null,"on":"give","subject":"keeper"}
                     ]},
                     {"id":"empty", "choices":[]},
                     {"id":"absent"}
