@@ -23,6 +23,7 @@ mod opening_crossings;
 mod opening_drop;
 pub mod opening_evidence;
 mod opening_full_wait;
+mod opening_grounded_lamp;
 pub mod opening_history;
 mod opening_history_walkers;
 mod opening_hub_residents;
@@ -143,6 +144,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
         Some("opening_drop_step") => opening_drop::projection(request).unwrap_or(Value::Null),
+        Some("opening_drop_reflection") => {
+            opening_grounded_lamp::projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_attic_rest") => {
             opening_attic_rest::projection(request).unwrap_or(Value::Null)
         }
