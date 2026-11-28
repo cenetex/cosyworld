@@ -169,8 +169,7 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
     w.game["items"]["lamp"]["holder"] = json!("vale");
     w.game["items"]["bell"]["holder"] = json!("vale");
     w.game["items"]["cloth"]["holder"] = json!("keeper");
-    // A player holds no want before first reaching the Black Pond (#1768), so
-    // Vale starts past it, as test/helpers/first-quest.mjs does.
+    // Vale starts beyond the Black Pond, where players may first hold wants (#1768).
     w.game["actors"]["vale"]["visited"]
         .as_array_mut()
         .unwrap()
