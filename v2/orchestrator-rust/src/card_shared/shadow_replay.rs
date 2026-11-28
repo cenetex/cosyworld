@@ -92,7 +92,7 @@ fn verify(
             let op = request["op"].as_str().unwrap_or("unknown").to_owned();
             let context = || format!("journal sequence {seq}, rules operation {op}");
             let quickjs = |request| {
-                engine::reduce_pack(version, pack, request)
+                engine::reduce_journal(version, pack, request)
                     .map_err(|_| format!("QuickJS failed at {}", context()))
             };
             if version != engine::version() || pack != Some(content::current()) {
@@ -160,7 +160,7 @@ fn detects_divergence_before_a_matching_checkpoint() -> Result<()> {
         if request["op"] != "presence" {
             return Ok(None);
         }
-        let mut response = engine::reduce_pack(version, pack, request.clone())?;
+        let mut response = engine::reduce_journal(version, pack, request.clone())?;
         response["world"]["shadowReplayMismatch"] = json!(true);
         Ok(Some(response))
     })
@@ -176,7 +176,7 @@ fn detects_divergence_before_a_matching_checkpoint() -> Result<()> {
 fn detects_stale_checkpoints_after_matching_replay() -> Result<()> {
     let c = fixture()?;
     let equal = |version: &str, pack: Option<&str>, request: &Value| {
-        engine::reduce_pack(version, pack, request.clone()).map(Some)
+        engine::reduce_journal(version, pack, request.clone()).map(Some)
     };
     let report = verify(&c, "shadow-replay", equal)?;
     assert_eq!(report.checked, 2);
@@ -220,7 +220,7 @@ fn checks_active_worlds_including_untouched_checkpoints() -> Result<()> {
     let worlds = active_worlds(&c)?;
     assert_eq!(worlds, ["shadow-replay", "untouched"]);
     let equal = |version: &str, pack: Option<&str>, request: &Value| {
-        engine::reduce_pack(version, pack, request.clone()).map(Some)
+        engine::reduce_journal(version, pack, request.clone()).map(Some)
     };
     let report = verify_worlds(&c, &worlds, equal)?;
     assert_eq!(report.worlds, 2);
@@ -229,7 +229,7 @@ fn checks_active_worlds_including_untouched_checkpoints() -> Result<()> {
     let report = verify_worlds(&c, &worlds, |_, _, _| Ok(None))?;
     assert_eq!(
         report.unsupported,
-        BTreeMap::from([("join".into(), 1), ("presence".into(), 1)])
+        BTreeMap::from([("join_state".into(), 1), ("presence".into(), 1)])
     );
     assert!(report.require_coverage(true).is_err());
     c.execute(

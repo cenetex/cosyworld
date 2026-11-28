@@ -137,7 +137,7 @@ fn sqlite_rules_wasm_parity_opening_reflection() {
     let mut checked = 0;
     let (_, replayed) = full_store::replay(&c, &id, 0, None, |_, world, command| {
         world.apply_with(command, &mut |version, pack, request| {
-            let expected = engine::reduce_pack(version, pack, request.clone())?;
+            let expected = engine::reduce_journal(version, pack, request.clone())?;
             if request["op"] == "reflect" {
                 let pack = pack.ok_or("Rules WASM requires pinned pack content.")?;
                 if guest

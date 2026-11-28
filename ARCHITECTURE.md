@@ -54,6 +54,8 @@ Set `COSYWORLD_REPLAY_DB` to a consistent, anonymized SQLite copy. Select a worl
 
 The same test exercises fresh and imported creation, a claimed seat's view, valid and malformed saves, and plays refused for absence, a stale revision, or an unavailable card. It compares the complete reply to the pinned QuickJS bundle. Ordinary runs report unsupported direct fixtures. Strict mode requires a match on each one.
 
+A journal claim requests `join_state` with the authenticated seat and any passkey progress. The QuickJS adapter projects the pinned `join` response to the complete journal result of `ok` and `world`. The view endpoint serves legal actions separately.
+
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.
 
 ## Opening history
