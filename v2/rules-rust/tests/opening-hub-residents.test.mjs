@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import { currentSharedEngine } from "../../../test/fixtures/shared-engine.mjs";
 import { load } from "../../card-game/shared-world.mjs";
 import { plan } from "../../card-game/world.mjs";
 import { reducers } from "./parity.mjs";
@@ -119,4 +120,65 @@ test("the hub phase declines a reachable attic or different resident plans", asy
   forest.places.pond.exits.pop();
   content.files["v2/card-game/boardyai.json"].avatars.boardyai.requires = [];
   assert.equal(wasm(request, JSON.stringify(content)), null);
+});
+
+test("both solo second attic actions leave Pip and the Keeper's Waits silent", async () => {
+  const { wasm } = await reducers();
+  const step = "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
+  const reference = currentSharedEngine((source) => {
+    assert.equal(source.split(step).length, 2);
+    return source.replace(step, `
+      const action = read2 ?? plan(next, id).action;
+      const trace = id === "moth" || id === "keeper";
+      if (trace) globalThis.hub[id] = {before: structuredClone(next), key: action.key};
+      perform(next, action, round2, residents2);
+      if (trace) globalThis.hub[id].after = structuredClone(next);
+    `);
+  });
+  const reduce = (request) => JSON.parse(reference.cardShared(JSON.stringify(request)));
+  let positive;
+  for (const seed of [undefined, 0, 17, 4242, 4_294_967_295]) {
+    for (const keys of [
+      ["wait:vale::", "wait:vale::"],
+      ["drop:vale:lamp:attic", "take:vale:lamp:"],
+    ]) {
+      for (const stowed of [false, true]) {
+        let { world } = reduce({ op: "create", seed });
+        if (stowed) {
+          ({ world } = reduce({
+            ...seats, op: "hold", world,
+            choice: { item: null, revision: world.revision },
+          }));
+        }
+        reference.hub = {};
+        const first = reduce({ ...seats, op: "play", world, action: keys[0] });
+        assert.equal(first.ok, true, first.error);
+        reference.hub = {};
+        const second = reduce({ ...seats, op: "play", world: first.world, action: keys[1] });
+        assert.equal(second.ok, true, second.error);
+        const trace = JSON.parse(JSON.stringify(reference.hub));
+        const actors = {}, memories = {};
+        const plans = hub.map((id) => {
+          const { after, before, key } = trace[id];
+          assert.deepEqual(after, before, `${id} changed the working world`);
+          actors[id] = after.actors[id];
+          memories[id] = after.memories[id];
+          return key;
+        });
+        assert.deepEqual(plans, ["wait:moth::", "wait:keeper::"]);
+        positive = { ...seats, op: "opening_second_hub_idle", world: trace.moth.before };
+        assert.deepEqual(wasm(positive), { ok: true, plans, actors, memories, events: [] });
+      }
+    }
+  }
+  for (const change of [
+    (world) => { world.log.at(-1).verb = "ring"; },
+    (world) => { world.items.bell.ringing = 1; },
+    (world) => { world.actors.moth.want.target = "oil"; },
+    (world) => { world.actors.keeper.sleeping = { until: 3 }; },
+  ]) {
+    const world = structuredClone(positive.world);
+    change(world);
+    assert.equal(wasm({ ...positive, world }), null);
+  }
 });
