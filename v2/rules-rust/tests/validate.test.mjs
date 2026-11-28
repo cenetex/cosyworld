@@ -99,18 +99,70 @@ test("definite validate refusals match pinned JavaScript", async () => {
   }
 });
 
-test("current saves requiring complete validation stay outside the refusal slice", async () => {
-  const { pinned, wasm } = await reducers();
-  const { world } = pinned({ op: "create", seed: 4242, history: true });
-  const request = {
-    op: "validate",
+const seat = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+
+function hold(pinned, world, item) {
+  const result = pinned({
+    op: "hold",
     world,
-    actor: "vale",
-    claimed: ["vale"],
-    present: ["vale"],
-  };
-  assert.equal(pinned(request).ok, true);
-  assert.equal(wasm(request), null);
+    ...seat,
+    choice: { item, revision: world.revision },
+  });
+  assert.equal(result.ok, true);
+  return result.world;
+}
+
+test("unseeded opening saves validate after exact reconstruction and quiet holds", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const history of [false, true]) {
+    const fresh = pinned({ op: "create", history });
+    assert.equal(fresh.ok, true);
+    const initial = fresh.world;
+    const compare = (world) => {
+      const request = { op: "validate", world, ...seat };
+      const expected = pinned(request);
+      assert.equal(expected.ok, true);
+      assert.deepEqual(
+        wasm(request),
+        expected,
+        `history ${history} revision ${world.revision} held ${world.actors.vale.heldItem}`,
+      );
+    };
+    compare(initial);
+    for (const item of [null, "lamp"]) {
+      const once = hold(pinned, initial, item);
+      compare(once);
+      compare(hold(pinned, once, "lamp"));
+    }
+  }
+});
+
+test("validation leaves changes outside the reconstructed save unsupported", async () => {
+  const { pinned, wasm } = await reducers();
+  const { world } = pinned({ op: "create", history: true });
+  for (const mutate of [
+    (save) => (save.actors.mara.place = "unknown-room"),
+    (save) => (save.items.cloth.holder = "unavailable-holder"),
+    (save) => (save.memories.vale.events = "not events"),
+    (save) => (save.knowledge.facts = []),
+    (save) => (save.log[0].text = "Different remembered wording."),
+    (save) => (save.usedUp = ["a-missing-item"]),
+    (save) => (save.run = { seed: 17 }),
+  ]) {
+    const altered = structuredClone(world);
+    mutate(altered);
+    assert.equal(wasm({ op: "validate", world: altered, ...seat }), null);
+  }
+  const later = [null, "lamp", null].reduce(
+    (save, item) => hold(pinned, save, item),
+    world,
+  );
+  const late = { op: "validate", world: later, ...seat };
+  assert.equal(pinned(late).ok, true);
+  assert.equal(wasm(late), null);
+  const other = { op: "validate", world, actor: "mara", claimed: ["mara"] };
+  assert.equal(pinned(other).ok, true);
+  assert.equal(wasm(other), null);
 });
 
 test("import preflight refuses definite shape and save header failures", async () => {
