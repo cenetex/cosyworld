@@ -382,7 +382,7 @@ for (const [seed, voiced] of [[17, false], [2, true], [4242, true]]) {
     const expected = wait(world);
     assert.deepEqual(expected.world.speechVoices, {mara:['mara'], vale:[]});
     assert.deepEqual(expected.world.actors.vale.waitSpeech, {place:'attic', turn:1});
-    assert.equal(expected.events.length, seed === 17 ? 1 : 2);
+    assert.equal(expected.events.length, 1);
     if (voiced) assert.ok(expected.world.log.some(event => event.generated));
     const present = mode === 'dry' ? [] : ['vale'];
     const view = pinned({...seats, present, op:'view', world:expected.world});

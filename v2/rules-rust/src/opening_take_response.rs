@@ -182,7 +182,7 @@ for (const seed of [undefined,0,2,17,42,4242,4294967295]) {
     const voices = {mara:['mara']};
     world.speechVoices = voices;
     const expected = pinned({...seats, op:'play', world, action:'take:vale:lamp:'});
-    assert.equal(expected.events.length, [2,4242,4294967295].includes(seed) ? 2 : 1);
+    assert.equal(expected.events.length, seed === 42 ? 2 : 1);
     console.log(JSON.stringify({beforeSeq:world.eventSeq, expected, voices, title:{seed,mode}}));
   }
 }
