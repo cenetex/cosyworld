@@ -59,7 +59,7 @@ fn cloth_wait_receipt(world: &Value, geo: &Geography<'_>, trials: &[Value]) -> O
         .then_some(())
 }
 
-fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
+pub(super) fn pip_dwells(world: &Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
     let pip = &world["actors"][PIP];
     let forest = &geo.files()["v2/card-game/forest.json"];
     let lamp = &world["items"]["lamp"];

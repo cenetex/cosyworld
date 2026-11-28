@@ -210,6 +210,10 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
         reference.callQueue = undefined;
         const called = JSON.parse(reference.cardShared(JSON.stringify(drop)));
         assert.equal(called.ok, true, called.error);
+        assert.ok(
+          isDeepStrictEqual(wasm(drop), called),
+          `completed Drop ${label}`,
+        );
         const op = "opening_pond_lamp_drop";
         const cut = (phase) => JSON.parse(JSON.stringify(reference[phase]));
         const grounded = wasm({ ...drop, op, phase: "ground" });

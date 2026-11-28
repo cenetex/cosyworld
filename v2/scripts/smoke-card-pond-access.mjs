@@ -190,8 +190,6 @@ try {
       await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
-    // Same-room waiting no longer spends fuel. Exercise an exhausted tank
-    // arriving from another tab; room-consumption itself has authority tests.
     const low = await state();
     assert.equal(low.items.lamp.fuelRooms, kept.items.lamp.fuelRooms);
     low.items.lamp.fuelRooms = 0;

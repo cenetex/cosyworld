@@ -1,9 +1,11 @@
 use super::{
     initial_wants::root_in,
-    opening, opening_content,
+    opening, opening_content, opening_evidence,
     opening_pickups::item_as_named,
     opening_pond_view::offer,
     opening_station_move::{cloth_return_event, move_event, quiet_opening},
+    opening_station_read::keeper_want_from_read,
+    opening_station_view::abandon_offer,
     opening_view, opening_visitor_routes,
     opening_wait_response::vale_action,
     pack_state::Catalog,
@@ -291,6 +293,8 @@ fn reply(
     let vale = name(VALE)?;
     let cloth = item_as_named(name("cloth")?);
     let pond = name(POND)?;
+    let dry = world["items"]["lamp"]["lit"] == false;
+    let exits = if dry { &EXITS[..1] } else { &EXITS[..] };
     let mut plans = vec![offer(
         "wait",
         None,
@@ -298,7 +302,7 @@ fn reply(
         format!("{vale} waits one turn."),
         &[],
     )];
-    for to in EXITS {
+    for &to in exits {
         let place = name(to)?;
         let (walk, carry) = match to {
             "attic" => (
@@ -341,9 +345,20 @@ fn reply(
         format!("{vale} puts {cloth} in {pond}."),
         &["cloth"],
     ));
+    if dry {
+        plans.push(json!({
+            "kind":"accept","actor":VALE,"item":null,"target":null,
+            "text":format!("{vale} accepts the closed box's quest."),"cards":[],
+            "key":"accept:vale::box:greek-ship","box":SHIP,
+        }));
+        let goal = opening_evidence::keeper_call_goal(name("cloth")?, pond, name("lamp")?);
+        plans.push(abandon_offer(format!(
+            "{vale} abandons their quest to {goal}."
+        )));
+    }
     response["actor"] = json!(VALE);
     response["room"] = json!(POND);
-    response["exits"] = json!(EXITS);
+    response["exits"] = json!(exits);
     response["profiles"] = profiles;
     response["actions"] = json!(plans);
     Some(response)
@@ -387,6 +402,38 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         request["beforeSeq"].as_u64()?,
         || profiles::project(&files),
     )
+}
+
+pub(super) fn completed_dry_response(
+    world: Value,
+    geo: &Geography<'_>,
+    before_seq: u64,
+    profile_source: impl FnOnce() -> Option<Value>,
+) -> Option<Value> {
+    let seq = drop_receipt(&world)?;
+    let (_, read) = cloth_arrival(&world, true)?;
+    let drop = world["log"].as_array()?.last()?;
+    if before_seq.checked_add(1)? != seq
+        || world["eventSeq"] != seq
+        || drop["seq"] != seq
+        || drop["light"] != false
+        || drop["cast"] != json!([VALE])
+        || world["speechVoices"][VALE] != json!([VALE])
+        || world["actors"][VALE]["want"] != keeper_want_from_read(&world, geo, read)?
+        || world["items"]["lamp"]["lit"] != false
+        || world["opened"][SHIP] != Value::Null
+        || opening_visitor_routes::exits(&world, geo, VALE, POND)? != [STATION].into()
+    {
+        return None;
+    }
+    let mut response = reply(
+        json!({"ok":true,"events":[drop]}),
+        &world,
+        geo,
+        profile_source()?,
+    )?;
+    response["world"] = opening::stored_world(world)?;
+    Some(response)
 }
 
 pub(super) fn private_view(request: &Value) -> Option<Value> {

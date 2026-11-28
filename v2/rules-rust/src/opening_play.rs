@@ -45,6 +45,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if key == Some(super::opening_station_read::KEY) {
         return super::opening_full_station_read::reduce(request);
     }
+    if key == Some(super::opening_pond_lamp_drop::DROP) {
+        return super::opening_full_pond_call::reduce(request);
+    }
     if request["world"]["turn"] == 1 {
         return match key {
             Some("move:vale::pond" | "move:vale:lamp:pond") => {
