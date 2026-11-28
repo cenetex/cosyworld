@@ -57,7 +57,6 @@ fn stored(c: &Connection, pack: &str) -> Result<Option<String>> {
     .optional()
     .map_err(sql_error)
 }
-/// Load and verify a stored revision so replay can use it.
 pub(super) fn preload(c: &Connection, pack: &str) -> Result<()> {
     if text(pack).is_ok() {
         return Ok(());
