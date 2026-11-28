@@ -669,8 +669,7 @@ export const resting = (s, actor) => {
   );
 };
 
-// Record what each participant saw and said, then commit the wants, held
-// quests and known cards the play meets. A player who meets another's want helps.
+// Record observations and commit met wants, held quests, and known cards.
 export function settleWants(s, actors, api, action = null, stale = []) {
   const talk =
     action?.kind === "talk"
