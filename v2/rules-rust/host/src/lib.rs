@@ -176,6 +176,7 @@ fn encode_request(
                 | "opening_keeper_return_reply"
                 | "opening_pond_ask"
                 | "opening_pond_call"
+                | "opening_pond_ship_board"
                 | "opening_station_residents"
                 | "opening_pond_place_returns"
                 | "opening_pond_resident_sleep"
