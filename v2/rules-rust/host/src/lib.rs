@@ -130,6 +130,7 @@ fn encode_request(
         .and_then(|action| action.as_str().or_else(|| action["key"].as_str()))
         .filter(|_| op == Some("play"));
     let attic_play = matches!(play, Some("wait:vale::" | "drop:vale:lamp:attic"));
+    let pond_play = matches!(play, Some("move:vale::pond" | "move:vale:lamp:pond"));
     let ordered = matches!(
         op,
         Some(
@@ -139,7 +140,8 @@ fn encode_request(
                 | "opening_pond_place_returns"
                 | "opening_full_move"
         )
-    ) || attic_play;
+    ) || attic_play
+        || pond_play;
     let ordered_cards = matches!(
         op,
         Some("opening_place_return" | "opening_pond_place_returns")

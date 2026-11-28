@@ -82,6 +82,12 @@ pub(super) fn progress(
     finish(world, &geo, before["eventSeq"].as_u64()?)
 }
 
+pub(super) fn reduce(request: &Value) -> Option<Value> {
+    progress(request, |world, geo, before_seq| {
+        super::opening_pond_view::completed_move_response(world, geo, before_seq, &["vale"])
+    })
+}
+
 pub(super) fn projection(request: &Value) -> Option<Value> {
     progress(request, |world, _, _| {
         let mut response = json!({"ok":true});
