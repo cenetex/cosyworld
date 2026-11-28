@@ -26,8 +26,7 @@ export const authoredRouteEdges = () => [
       : [[c.from, c.to]],
   ),
 ];
-// A retired crossing stays a valid saved step, but nobody learns it anew: it
-// would read as a short way home that no longer opens.
+// Retired crossings remain valid saved steps and cannot be learned again.
 const retiredStep = ([from, to]) =>
   crossings.some(
     (c) => c.retired && !c.transport && c.from === from && c.to === to,
@@ -60,8 +59,7 @@ export const witnessedRouteEdges = (world, actor) =>
     )
     .map((e) => [e.fromLocationId, e.locationId]);
 
-// Each traveller learns routes from its home region, its own travel and what
-// it sees. A saved edge is knowledge; the live exit guard decides access.
+// Travellers learn routes at home, through travel and observation. Live exits govern access.
 const edgeKey = ([from, to]) => `${from}>${to}`;
 export function rememberRoutes(world, actor, edges) {
   const knowledge = (world.routeKnowledge ??= {});
