@@ -194,6 +194,7 @@ fn encode_request(
                 | "opening_pond_ship_course_depart"
                 | "opening_pond_ship_disembark"
                 | "opening_ship_disembark_residents"
+                | "opening_greek_argolid_move"
                 | "opening_greek_harbor_view"
                 | "opening_pond_ship_wait"
                 | "opening_pond_ship_dock"

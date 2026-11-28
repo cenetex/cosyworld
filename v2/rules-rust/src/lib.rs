@@ -32,6 +32,7 @@ mod opening_full_pond_ship_wait;
 mod opening_full_station_move;
 mod opening_full_station_read;
 mod opening_full_wait;
+mod opening_greek_argolid_move;
 mod opening_greek_harbor_view;
 mod opening_grounded_lamp;
 mod opening_held_items;
@@ -256,6 +257,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_pond_ship_disembark") => {
             opening_pond_ship_disembark::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_greek_argolid_move") => {
+            opening_greek_argolid_move::projection(request).unwrap_or(Value::Null)
         }
         Some("opening_greek_harbor_view") => {
             opening_greek_harbor_view::projection(request).unwrap_or(Value::Null)

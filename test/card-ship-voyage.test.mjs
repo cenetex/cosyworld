@@ -246,7 +246,6 @@ describe("a real voyage", () => {
     for (const id of players) s.actors[id].place = "pond";
     stowProvisions(s, "greek-ship");
     s = reload(s);
-    // Piraeus to Black Pond is two lanes, through the Wine-Dark Harbor.
     s = act(s, "mara", "wait");
     expect(state(s)).toMatchObject({ phase: "docked", dock: "greek-harbor" });
     s = act(s, "mara", "wait");
