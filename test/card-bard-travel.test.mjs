@@ -18,7 +18,6 @@ import { newWant } from "../v2/card-game/want.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 const singer = "greek-rhapsode";
-// A voyage takes a world round, so a sea crossing takes a few plays.
 function untilSinger(s, place, limit = 8) {
   for (let turn = 0; turn < limit && s.actors[singer].place !== place; turn++)
     s = act(s);
