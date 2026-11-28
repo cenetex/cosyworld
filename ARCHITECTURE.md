@@ -56,6 +56,8 @@ The same test exercises fresh and imported creation, a claimed seat's view, vali
 
 A journal claim requests `join_state` with the authenticated seat and any passkey progress. The QuickJS adapter projects the pinned `join` response to the complete journal result of `ok` and `world`. The view endpoint serves legal actions separately. The WASM candidate handles opening claims, including the arrival of absent avatars and the merge of progress earned in other worlds.
 
+With `COSYWORLD_REPLAY_ALL=1` and `COSYWORLD_REQUIRE_FULL_REPLAY=1`, set `COSYWORLD_EPOCH_PROOF` to a new JSON file path. After both parity checks succeed, the export records each hashed world ID, its journal head sequence as decimal text, and the SHA-256 of its exact checkpoint JSON. It also records the rule and content pins and candidate WASM digest. The file contains digests and coverage totals. It never overwrites a file or changes the SQLite copy.
+
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.
 
 ## Opening history
