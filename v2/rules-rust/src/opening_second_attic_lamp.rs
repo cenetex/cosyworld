@@ -61,9 +61,7 @@ pub(super) fn settle(before: &Value, world: &mut Value, geo: &Geography) -> Opti
 
 pub(super) fn settle_pond(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     opening_mirror_move::second_arrival(world)?;
-    settle_carried_lamp(world, "pond")?;
-    no_refuel(world, geo)?;
-    opening_crossings::no_crossing_unlocks(world, geo)
+    settle_carried_at(world, geo, "pond")
 }
 
 pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
@@ -71,7 +69,11 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
         .or_else(|| opening_station_move::historic_arrival(world))
         .or_else(|| opening_station_move::abandoned_train_arrival(world))
         .or_else(|| opening_station_read::after_first_log(world))?;
-    settle_carried_lamp(world, "station")?;
+    settle_carried_at(world, geo, "station")
+}
+
+pub(super) fn settle_carried_at(world: &mut Value, geo: &Geography<'_>, place: &str) -> Option<()> {
+    settle_carried_lamp(world, place)?;
     no_refuel(world, geo)?;
     opening_crossings::no_crossing_unlocks(world, geo)
 }

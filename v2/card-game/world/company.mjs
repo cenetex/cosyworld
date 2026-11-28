@@ -66,7 +66,6 @@ export function fadeTrust(s) {
   }
 }
 
-// The fixed words of a disabled Accompany button (the rules' vocabulary, not
-// pack text): names only, from cards already on the table or known to the
-// traveler. One wording for every card that never travels.
+// Disabled Accompany uses fixed wording and names only cards the traveler
+// already knows or sees on the table.
 export const staysLabel = (name) => `${name} stays here`;

@@ -10,14 +10,17 @@ const op = "opening_station_departure_wants";
 function traceWants(source) {
   const start = "    reviseStalledWants(\n      next,";
   const end = "    fillWants(next, wantAPI(next));";
+  const tail = "    if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));";
   assert.equal(source.split(start).length, 2);
   assert.equal(source.split(end).length, 2);
+  assert.equal(source.split(tail).length, 2);
   return source
     .replace(
       start,
       `    globalThis.beforeWants = structuredClone(next);\n${start}`,
     )
-    .replace(end, `${end}\n    globalThis.afterWants = structuredClone(next);`);
+    .replace(end, `${end}\n    globalThis.afterWants = structuredClone(next);`)
+    .replace(tail, `${tail}\n    globalThis.afterTail = structuredClone(next);`);
 }
 
 test("fresh Station departures settle wants without closing the Keeper quest", async () => {
@@ -90,6 +93,20 @@ test("fresh Station departures settle wants without closing the Keeper quest", a
         assert.equal(
           actual.world.actors["greek-aethra"].want.since,
           actual.world.turn,
+        );
+        const tail = wasm({
+          op: "opening_second_attic_tail",
+          phase: "station_departure_after_wants",
+          before,
+          world: actual.world,
+        });
+        const after = capture("afterTail");
+        const tailField = Object.keys(after).find(
+          (field) => !isDeepStrictEqual(tail?.world[field], after[field]),
+        );
+        assert.ok(
+          isDeepStrictEqual(tail, { ok: true, world: after }),
+          `${seed} ${to} dry=${dry}: tail ${tail ? tailField : "unsupported"}`,
         );
         if (to === "pond") sample = request;
       }

@@ -405,6 +405,22 @@ pub(super) fn settle_station_read_after_wants(
     verify_station_order(world, geo)
 }
 
+pub(super) fn settle_station_departure_after_wants(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
+    opening_wants::station_departure_turn(before, world, geo)?;
+    opening_quiet_life::verify_home_levels(world, geo)?;
+    verify_quiet_facts(before, world, geo)?;
+    opening_attic_rest::settle_visit_speech(before, world, false)?;
+    verify_wayfinder_placement(world, geo)?;
+    opening_held_items::settle(world, geo, Some(before))?;
+    let room = world["actors"]["vale"]["place"].as_str()?.to_owned();
+    opening_second_attic_lamp::settle_carried_at(world, geo, &room)?;
+    verify_station_order(world, geo)
+}
+
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
@@ -418,6 +434,11 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         "stops" => verify_stops(world, &geo)?,
         "wake" => verify_wake(world)?,
         "quiet" => verify_final(request.get("before")?, world, &geo)?,
+        "station_departure_after_wants" => {
+            let mut next = world.clone();
+            settle_station_departure_after_wants(request.get("before")?, &mut next, &geo)?;
+            return Some(json!({"ok":true,"world":next}));
+        }
         "historic_station" => {
             let mut world = world.clone();
             settle_historic_station(request.get("before")?, &mut world, &geo)?;
