@@ -13,7 +13,7 @@ use axum::{
     },
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    Json,
+    Extension, Json,
 };
 use cosyworld_orchestrator::card_assets;
 use serde::{Deserialize, Serialize};
@@ -364,6 +364,17 @@ fn cast(pack_id: &str) -> Option<Vec<Resident>> {
         residents.extend(core());
     }
     (!residents.is_empty()).then_some(residents)
+}
+
+async fn chosen_names(app: Option<&crate::AppState>, residents: &mut [Resident]) {
+    let Some(state) = app else { return };
+    for resident in residents.iter_mut() {
+        if let Some(name) =
+            crate::card_shared::elysium_name(state, &resident.id, &resident.place, false).await
+        {
+            resident.name = name;
+        }
+    }
 }
 
 fn avatar_card(id: &str) -> Option<&'static Value> {
@@ -790,6 +801,7 @@ fn silent(reason: &'static str) -> Response {
 
 pub(super) async fn cast_route(
     State(state): State<TextState>,
+    app: Option<Extension<crate::AppState>>,
     headers: HeaderMap,
     query: Result<Query<CastQuery>, QueryRejection>,
 ) -> Response {
@@ -801,17 +813,21 @@ pub(super) async fn cast_route(
     };
     let pack_id = query.pack.unwrap_or_else(|| DEFAULT_PACK.into());
     match room_cast(&pack_id, query.guild).await {
-        Some((residents, _)) => (
-            [("cache-control", "no-store")],
-            Json(json!({"pack": pack_id, "residents": residents})),
-        )
-            .into_response(),
+        Some((mut residents, _)) => {
+            chosen_names(app.as_deref(), &mut residents).await;
+            (
+                [("cache-control", "no-store")],
+                Json(json!({"pack": pack_id, "residents": residents})),
+            )
+                .into_response()
+        }
         None => error(StatusCode::NOT_FOUND, "unknown pack"),
     }
 }
 
 pub(super) async fn lines(
     State(state): State<TextState>,
+    app: Option<Extension<crate::AppState>>,
     headers: HeaderMap,
     request: Result<Json<LinesRequest>, JsonRejection>,
 ) -> Response {
@@ -840,7 +856,8 @@ pub(super) async fn lines(
             .await
             .as_deref()
             .is_some_and(knows_listener);
-    let residents = joined(residents, ids, listener_known);
+    let mut residents = joined(residents, ids, listener_known);
+    chosen_names(app.as_deref(), &mut residents).await;
     if let Err(message) = validate(&request, &residents) {
         return error(StatusCode::BAD_REQUEST, message);
     }
@@ -1035,6 +1052,7 @@ fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Option
 
 pub(super) async fn coordinate(
     State(state): State<TextState>,
+    app: Option<Extension<crate::AppState>>,
     headers: HeaderMap,
     request: Result<Json<CoordinateRequest>, JsonRejection>,
 ) -> Response {
@@ -1059,6 +1077,8 @@ pub(super) async fn coordinate(
         request.residents.iter().cloned().chain(spoke),
         listener_known,
     );
+    let mut residents = residents;
+    chosen_names(app.as_deref(), &mut residents).await;
     let ids = residents.iter().map(|r| r.id.clone()).collect();
     request.live = live(request.guild.clone(), ids).await;
     let Some(mut view) = arranged(&request, &residents) else {
@@ -1118,6 +1138,7 @@ fn notes_model() -> String {
 
 pub(super) async fn notes(
     State(state): State<TextState>,
+    app: Option<Extension<crate::AppState>>,
     headers: HeaderMap,
     request: Result<Json<NotesRequest>, JsonRejection>,
 ) -> Response {
@@ -1131,8 +1152,9 @@ pub(super) async fn notes(
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
     let spoke = request.messages.iter().filter_map(|m| m.resident.clone());
-    // Notes only summarize existing Discord history, without loading a game world.
-    let residents = joined(residents, spoke, true);
+    let history_only_so_listener_known = true;
+    let mut residents = joined(residents, spoke, history_only_so_listener_known);
+    chosen_names(app.as_deref(), &mut residents).await;
     let fits = (1..=12).contains(&request.messages.len())
         && request.notes.as_ref().is_none_or(sound)
         && pictures(&request.messages) <= IMAGES_PER_REQUEST
@@ -2268,6 +2290,40 @@ mod tests {
         let status = response.status();
         let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
         (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    #[tokio::test]
+    async fn a_void_resident_is_called_by_its_chosen_name() {
+        std::env::set_var("COSYWORLD_BOT_TOKEN", TOKEN);
+        let mut state = crate::test_support::test_app_state(None);
+        let root = std::env::temp_dir().join(format!("discord-names-{}", crate::random_hex(8)));
+        let dir = root.join("elysium-models").join("elysium-claude");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("name.txt"), "Quill Ashby").unwrap();
+        state.generated_asset_dir = Arc::new(root.clone());
+        let app = router_with_models::<()>(
+            Arc::new(None),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings::hosted()),
+        )
+        .layer(Extension(state));
+        let request = Request::get("/discord/cast?pack=elysium")
+            .header("authorization", format!("Bearer {TOKEN}"))
+            .body(Body::empty())
+            .unwrap();
+        let (status, body) = read(app.oneshot(request).await.unwrap()).await;
+        assert_eq!(status, StatusCode::OK);
+        let name = |id: &str| {
+            body["residents"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|r| r["id"] == id)
+                .map(|r| r["name"].clone())
+        };
+        assert_eq!(name("elysium-claude"), Some(json!("Quill Ashby")));
+        assert_eq!(name("elysium-gemini"), Some(json!("Resident of Void 003")));
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[tokio::test]
