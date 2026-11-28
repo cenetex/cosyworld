@@ -96,10 +96,12 @@ fn can_walk_home<'a>(
 
 pub(super) fn verify(world: &mut Value, geo: &Geography) -> Option<()> {
     let turn = world["turn"].as_u64()?;
+    let room = world["actors"]["vale"]["place"].as_str()?.to_owned();
     if turn != 1
         || world.get("began").is_some_and(|t| t != 0)
         || world["sharedVersion"] != 1
-        || world["actors"]["vale"]["place"] != "attic"
+        || !matches!(room.as_str(), "attic" | "pond")
+        || (room == "pond" && world["items"]["lamp"]["holder"] != "vale")
         || !matches!(
             world["items"]["lamp"]["holder"].as_str(),
             Some("vale" | "attic")
@@ -124,7 +126,9 @@ pub(super) fn verify(world: &mut Value, geo: &Geography) -> Option<()> {
         }
         let actor = world["actors"].get(id)?;
         let here = actor["place"].as_str()?;
-        if here == "attic" || home_level_due(world, geo, id, person)? {
+        if (here == room && !(room == "pond" && id == "moth"))
+            || home_level_due(world, geo, id, person)?
+        {
             return None;
         }
         if person.data["roamingQuest"] == "latest-completion" {

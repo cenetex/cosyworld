@@ -31,8 +31,7 @@ export function sleepWindow(s, id, day) {
       scatter(s, `wake:${id}:${day}`);
   return end > start ? { start, end } : null;
 }
-// The sleep a resident is due in now, if any. Nobody sleeps on a world's
-// first day, so the opening and a new world's first meetings stay awake.
+// Residents stay awake through a new world's first day.
 export function bedtime(s, id) {
   if (s.turn < DAY_TURNS || !worldLife.on) return null;
   const day = Math.floor(s.turn / DAY_TURNS);

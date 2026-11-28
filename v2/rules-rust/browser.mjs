@@ -52,6 +52,7 @@ export function browserRules(bytes) {
           "opening_mirror_move",
           "opening_pond_ask",
           "opening_pond_place_returns",
+          "opening_full_move",
         ].includes(request.op) || atticPlay;
       const actors = ordered ? request.world?.actors : null;
       const actorOrder =

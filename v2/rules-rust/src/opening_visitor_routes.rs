@@ -6,7 +6,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
 }
 
-fn crossing_open(
+pub(super) fn crossing_open(
     world: &Value,
     geo: &Geography,
     actor: &str,

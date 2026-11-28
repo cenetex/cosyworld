@@ -145,9 +145,9 @@ pub(super) fn settle(
     authored: &Order,
     order: &[&str],
     evidence: &ResidentEvidence,
+    deck: &Deck<'_>,
 ) -> Option<()> {
     quiet_pond(world, geo)?;
-    let deck = Deck::new(world, geo)?;
     deck.settle(world, geo, None)?;
     let visited = world["actors"][VALE]["visited"].as_array_mut()?;
     if !visited.iter().any(|place| place == POND) {
@@ -196,7 +196,8 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let geo = Geography::new(&files, catalog.packs())?;
     let evidence = ResidentEvidence::new(&files)?;
     let mut world = opening_mirror_move::begin(before, &geo, &authored, &order, &evidence, carry)?;
-    settle(&mut world, &geo, &authored, &order, &evidence)?;
+    let deck = Deck::new(&world, &geo)?;
+    settle(&mut world, &geo, &authored, &order, &evidence, &deck)?;
     let mut response = json!({"ok":true});
     response["world"] = world;
     Some(response)

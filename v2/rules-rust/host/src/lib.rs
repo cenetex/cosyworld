@@ -137,6 +137,7 @@ fn encode_request(
                 | "opening_mirror_move"
                 | "opening_pond_ask"
                 | "opening_pond_place_returns"
+                | "opening_full_move"
         )
     ) || attic_play;
     let ordered_cards = matches!(
