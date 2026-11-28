@@ -78,7 +78,7 @@ A main push that changes no image input deploys .dev without an image: the runne
 Most changes touch Rust now, and each one used to build and push an image and roll it out (about 8 minutes). A change whose image inputs are only the crates (`v2/orchestrator-rust/`, `v2/rules-rust/`, `v2/ai-model-rust/`) ships its server in the release instead:
 
 - `image-input` also prints `server=`: `none`, `build` (a crate changed since the commit .dev serves), or `carry` (the release .dev serves already brought this server). The Dockerfile, `deploy/` and the build scripts still need an image.
-- `dev-server` compiles the release binary (25 MB) with `scripts/compile-release-server.sh`, the same saved target and toolchain as the image build, and hands it to `dev-deploy` as an artifact.
+- `dev-deploy` compiles the release binary (25 MB) with `scripts/compile-release-server.sh`, in the image build's toolchain, before it stages. It restores the newest saved target and saves its own after the rollout, so the next compile starts from this one's incremental state (seconds, not the 40 s a day-old target costs). A Fly runner has no Docker, so with `DEV_DEPLOY_RUNNER=fly` such a change builds an image.
 - The archive names the server's sha256 in `server` and carries it as an object unless .dev has it. `stage` links it as `<commit>/server` (mode 0555), checks the assets with that server, and `serving` reports its hash. The entrypoint runs a chosen release's `server` in place of `/app/cosyworld-orchestrator`.
 - The lookup of where main's checks last passed runs in `dev-checks-base`, so it no longer holds the plan.
 
