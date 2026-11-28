@@ -53,7 +53,6 @@ try {
     assert.equal(opened.items.lamp.lit, true);
     assert.equal(opened.items.lamp.fuelRooms, 3);
     assert.equal(opened.turn, world.turn);
-    // Once revealed, the usual tap still stows it and the next holds it.
     await tapCard(lamp);
     await page.waitForFunction(
       (key) =>
