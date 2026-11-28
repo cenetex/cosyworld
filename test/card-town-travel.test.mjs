@@ -39,6 +39,7 @@ describe("local town visits and road history", () => {
     ).toEqual([
       "greek-cithaeron",
       "greek-road-athens-eleusis",
+      "greek-road-athens-marathon",
       "greek-road-athens-piraeus",
       "greek-road-sacred-way",
     ]);
@@ -47,7 +48,7 @@ describe("local town visits and road history", () => {
       expect.arrayContaining(["greek-road-athens-eleusis", "greek-assembly"]),
     );
     expect(exits(w, "greek-colonus", "vale")).toEqual(
-      expect.arrayContaining(["greek-eleusis", "greek-marathon"]),
+      expect.arrayContaining(["greek-eleusis", "greek-attic-farm"]),
     );
     expect(exits(w, "greek-piraeus", "vale")).toEqual([
       "greek-road-athens-piraeus",
@@ -56,6 +57,7 @@ describe("local town visits and road history", () => {
       "greek-cithaeron",
       "greek-oeta",
       "greek-road-athens-eleusis",
+      "greek-road-athens-marathon",
       "greek-road-athens-piraeus",
       "greek-road-royal",
       "greek-road-sacred-way",

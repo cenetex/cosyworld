@@ -3,7 +3,7 @@ import { createWorld, legalActions } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
-import { blindLockText, lockText } from "./helpers/lock-text.mjs";
+import { lockText } from "./helpers/lock-text.mjs";
 
 // Rules 133 package 3: every locked box of the Greek pack shows its want. No
 // pack writes the words: what a lock waits on is read from its conditions and
@@ -77,17 +77,16 @@ describe("the Greek pack's locked boxes", () => {
       if (r.sealed) expect(r.sealed.quest, `${r.from}>${r.to}`).toBeTruthy();
   });
 
-  it("draws Helen's Trojan road locked at the harbor, and opens it with the choice", () => {
+  it("keeps Helen's Trojan berth off the Harbor table before and after commitment", () => {
     const s = at(full(), "greek-harbor");
     const card = "greek-troy-beach";
-    expect(availableCards(s)).toContain(card);
-    expect(isLockedBox(s, card)).toBe(true);
-    expect(lockText(s, card)).toMatch(/^Give Helen’s Account Tablet to .+/u);
-    expect(blindLockText(s, card)).not.toMatch(/Helen|Tablet/u);
+    expect(availableCards(s)).not.toContain(card);
+    expect(isLockedBox(s, card)).toBe(false);
     expect(canMove(s, card)).toBe(false);
     choices(s)["greek-helen-account"] = "troy";
     expect(isLockedBox(s, card)).toBe(false);
-    expect(canMove(s, card)).toBe(true);
+    expect(availableCards(s)).not.toContain(card);
+    expect(canMove(s, card)).toBe(false);
   });
 
   it("draws the Atreid roads locked at the Argolid road, each waiting on its own giver", () => {

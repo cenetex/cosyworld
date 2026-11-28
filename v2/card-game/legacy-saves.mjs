@@ -21,10 +21,11 @@ import { ELYSIUM_PACK } from "./elysium-models.mjs";
 import {
   laneEdges,
   lanesFrom,
+  learnLane,
   seaEdge,
   TRANSPORT_VERSION,
 } from "./pack-transport.mjs";
-import { authoredRouteEdges } from "./roaming-routes.mjs";
+import { authoredRouteEdges, rememberRoutes } from "./roaming-routes.mjs";
 
 // The save schema. The rules 133 bump retired every earlier save and shared
 // world ("we can reset"): a save of another schema is not lifted, it starts
@@ -145,6 +146,11 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     if (greekRevision < 43) {
       reconcileGreekRoutes(s);
       reconcileGreekClaims(s);
+    }
+    if (greekRevision < 46) reconcileAulis(s);
+    if (greekRevision < 47) {
+      reconcileHomecomingBeach(s);
+      reconcileMarathonRoad(s);
     }
   }
   if (reworked.has("elysium")) settleStrandedWayfinder(s);
@@ -352,6 +358,42 @@ function reconcileGreekRoutes(s) {
     .map((edge) => edge.join(">"))
     .filter((edge) => !live.has(edge));
   forgetRouteEdges(s, new Set(obsolete));
+}
+
+function reconcileAulis(s) {
+  forgetRouteEdges(s, new Set(["greek-aulis>greek-gate", "greek-gate>greek-aulis"]));
+  for (const [id, actor] of Object.entries(s.actors))
+    if (actor.place === "greek-aulis") learnLane(s, id, "greek-aulis", "greek-pagasae");
+}
+
+function reconcileMarathonRoad(s) {
+  const marathon = "greek-marathon";
+  const formerNeighbors = ["greek-eleusis", "greek-colonus", "greek-attic-farm"];
+  const obsolete = new Set(formerNeighbors.flatMap((neighbor) => [
+    `${marathon}>${neighbor}`,
+    `${neighbor}>${marathon}`,
+  ]));
+  const rhapsode = "greek-rhapsode";
+  const known = s.routeKnowledge?.[rhapsode];
+  const knewMarathon = Array.isArray(known) && known.some((edge) =>
+    Array.isArray(edge) && edge.length === 2 && obsolete.has(edge.join(">")),
+  );
+  forgetRouteEdges(s, obsolete);
+  // The roaming singer knows his home region, including the new way to Marathon.
+  if (knewMarathon) {
+    const road = "greek-road-athens-marathon";
+    rememberRoutes(s, rhapsode, [
+      ["greek-athens", road], [road, "greek-athens"],
+      [marathon, road], [road, marathon],
+    ]);
+  }
+}
+
+function reconcileHomecomingBeach(s) {
+  forgetRouteEdges(s, new Set([
+    "greek-harbor>greek-troy-beach",
+    "greek-troy-beach>greek-harbor",
+  ]));
 }
 
 function reconcileNorthernRoad(s) {

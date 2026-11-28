@@ -37,6 +37,7 @@ const LEFT_HIDDEN = {
   // The guard already draws his way (rules 100); not a seal.
   "greek-drama": {
     "greek-gate>greek-battlefield": "guarded way, drawn by its guard",
+    "greek-cilissa": "appears at the tomb after Athena files the witness order",
   },
   // The owner paused this pack (hoppycat-paused): its boxes stay as they are.
   "hoppycat-archive": {

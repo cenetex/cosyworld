@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 45,
+  "revision": 47,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -32,8 +32,7 @@
           "greek-corinth",
           "greek-harbor",
           "greek-mycenae-palace",
-          "greek-troezen",
-          "greek-troy-beach"
+          "greek-troezen"
         ]
       },
       {
@@ -51,10 +50,16 @@
         ]
       },
       {
+        "id": "d-greek-aulis",
+        "name": "Aulis Anchorage",
+        "places": [
+          "greek-aulis"
+        ]
+      },
+      {
         "id": "d-greek-battlefield",
         "name": "The Exposed Battlefield",
         "places": [
-          "greek-aulis",
           "greek-battlefield",
           "greek-cadmea-street",
           "greek-cithaeron-shrine",
@@ -96,7 +101,6 @@
           "greek-colonus",
           "greek-divine-heights",
           "greek-eleusis",
-          "greek-marathon",
           "greek-underworld"
         ]
       },
@@ -117,6 +121,13 @@
         "name": "The Lemnian Cave",
         "places": [
           "greek-lemnos"
+        ]
+      },
+      {
+        "id": "d-greek-marathon",
+        "name": "Marathon Altar",
+        "places": [
+          "greek-marathon"
         ]
       },
       {
@@ -169,6 +180,13 @@
         "name": "Thracian Shore",
         "places": [
           "greek-thrace"
+        ]
+      },
+      {
+        "id": "d-greek-troy-beach",
+        "name": "The Homecoming Beach",
+        "places": [
+          "greek-troy-beach"
         ]
       }
     ],
@@ -280,7 +298,7 @@
         "id": "greek-aulis",
         "name": "Aulis Anchorage",
         "kind": "place",
-        "district": "d-greek-battlefield"
+        "district": "d-greek-aulis"
       },
       {
         "id": "greek-battlefield",
@@ -418,7 +436,7 @@
         "id": "greek-marathon",
         "name": "Marathon Altar",
         "kind": "place",
-        "district": "d-greek-eleusis"
+        "district": "d-greek-marathon"
       },
       {
         "id": "greek-mycenae-palace",
@@ -429,7 +447,7 @@
       },
       {
         "id": "greek-oedipus-court",
-        "name": "Theban Palace Forecourt",
+        "name": "Oedipus’s Palace Forecourt",
         "kind": "place",
         "district": "d-greek-battlefield"
       },
@@ -471,6 +489,11 @@
       {
         "id": "greek-road-athens-eleusis",
         "name": "The Sacred Way",
+        "kind": "road"
+      },
+      {
+        "id": "greek-road-athens-marathon",
+        "name": "Marathon Road",
         "kind": "road"
       },
       {
@@ -590,7 +613,7 @@
         "id": "greek-troy-beach",
         "name": "The Homecoming Beach",
         "kind": "place",
-        "district": "d-greek-argolid-road",
+        "district": "d-greek-troy-beach",
         "gate": "place:greek-troy-beach"
       },
       {
@@ -800,6 +823,12 @@
       },
       {
         "from": "greek-athens",
+        "to": "greek-road-athens-marathon",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-athens",
         "to": "greek-road-athens-piraeus",
         "kind": "route",
         "gate": null
@@ -835,16 +864,11 @@
         "gate": null
       },
       {
-        "from": "greek-attic-farm",
-        "to": "greek-marathon",
-        "kind": "exit",
-        "gate": null
-      },
-      {
         "from": "greek-aulis",
-        "to": "greek-gate",
-        "kind": "exit",
-        "gate": null
+        "to": "greek-pagasae",
+        "kind": "crossing",
+        "gate": null,
+        "transport": "greek-scylla"
       },
       {
         "from": "greek-battlefield",
@@ -921,12 +945,6 @@
       {
         "from": "greek-colonus",
         "to": "greek-eleusis",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-colonus",
-        "to": "greek-marathon",
         "kind": "exit",
         "gate": null
       },
@@ -1017,12 +1035,6 @@
       },
       {
         "from": "greek-eleusis",
-        "to": "greek-marathon",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-eleusis",
         "to": "greek-road-athens-eleusis",
         "kind": "exit",
         "gate": null
@@ -1036,12 +1048,6 @@
       {
         "from": "greek-festival",
         "to": "greek-acropolis",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-gate",
-        "to": "greek-aulis",
         "kind": "exit",
         "gate": null
       },
@@ -1103,12 +1109,6 @@
       },
       {
         "from": "greek-harbor",
-        "to": "greek-troy-beach",
-        "kind": "route",
-        "gate": "route:greek-harbor>greek-troy-beach"
-      },
-      {
-        "from": "greek-harbor",
         "to": "pond",
         "kind": "crossing",
         "gate": null,
@@ -1160,20 +1160,15 @@
         "gate": null
       },
       {
-        "from": "greek-marathon",
-        "to": "greek-attic-farm",
-        "kind": "exit",
+        "from": "greek-lemnos",
+        "to": "greek-troy-beach",
+        "kind": "lane",
+        "transport": "greek-scylla",
         "gate": null
       },
       {
         "from": "greek-marathon",
-        "to": "greek-colonus",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-marathon",
-        "to": "greek-eleusis",
+        "to": "greek-road-athens-marathon",
         "kind": "exit",
         "gate": null
       },
@@ -1211,6 +1206,13 @@
         "from": "greek-oeta",
         "to": "greek-trachis",
         "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-pagasae",
+        "to": "greek-aulis",
+        "kind": "lane",
+        "transport": "greek-scylla",
         "gate": null
       },
       {
@@ -1321,6 +1323,18 @@
       {
         "from": "greek-road-athens-eleusis",
         "to": "greek-eleusis",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-road-athens-marathon",
+        "to": "greek-athens",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-road-athens-marathon",
+        "to": "greek-marathon",
         "kind": "exit",
         "gate": null
       },
@@ -1492,9 +1506,10 @@
       },
       {
         "from": "greek-troy-beach",
-        "to": "greek-harbor",
-        "kind": "route",
-        "gate": null
+        "to": "greek-lemnos",
+        "kind": "crossing",
+        "gate": null,
+        "transport": "greek-scylla"
       },
       {
         "from": "greek-troy",
@@ -1973,43 +1988,6 @@
           ],
           "resident": [
             "greek-polynices-shade"
-          ]
-        }
-      },
-      {
-        "id": "route:greek-harbor>greek-troy-beach",
-        "kind": "route",
-        "title": "The Wine-Dark Harbor to The Homecoming Beach",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "choice(key=greek-helen-account,value=troy)"
-            }
-          ]
-        },
-        "words": "greek-helen-account chosen as troy",
-        "ids": "greek-helen-account chosen as troy",
-        "latch": [
-          "choice(key=greek-helen-account,value=troy)"
-        ],
-        "live": [],
-        "follows": "live",
-        "seal": {
-          "kind": "item",
-          "target": "greek-helen-accounts",
-          "to": "greek-elder"
-        },
-        "prerequisites": {
-          "act": [
-            "greek-helen-troy"
-          ],
-          "choice": [
-            "greek-helen-account=troy"
-          ],
-          "item": [
-            "greek-helen-accounts"
           ]
         }
       },
@@ -20806,7 +20784,7 @@
             }
           ]
         },
-        "words": "greek-story-sophocles-oedipus-tyrannus-outcome chosen as first and the traveler knows the testimony in Oedipus Tyrannus Settlement and Shepherd’s Summons lies at Theban Palace Forecourt",
+        "words": "greek-story-sophocles-oedipus-tyrannus-outcome chosen as first and the traveler knows the testimony in Oedipus Tyrannus Settlement and Shepherd’s Summons lies at Oedipus’s Palace Forecourt",
         "ids": "greek-story-sophocles-oedipus-tyrannus-outcome chosen as first and the traveler knows the testimony in greek-story-sophocles-oedipus-tyrannus-record and greek-story-sophocles-oedipus-tyrannus-object lies at greek-oedipus-court",
         "latch": [
           "choice(key=greek-story-sophocles-oedipus-tyrannus-outcome,value=first)",
@@ -29537,11 +29515,6 @@
         "item:greek-creon-writ",
         "item:greek-olive-branch",
         "resident:greek-guard"
-      ],
-      "route:greek-harbor>greek-troy-beach": [
-        "choice:greek-helen-account=troy",
-        "item:greek-helen-accounts",
-        "resident:greek-elder"
       ],
       "topic:claim:greek-drama:greek-acharnae-quay-ledger:greek-acharnae-accept-private-order": [
         "act:greek-acharnae-accept-private-order",

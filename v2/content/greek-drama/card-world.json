@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 45,
+  "revision": 47,
   "name": "The Wine-Dark Sea",
   "description": "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -59,7 +59,8 @@
     },
     "greek-gate": {
       "name": "Theban City Gate",
-      "exits": ["greek-courtyard", "greek-aulis"],
+      "text": "The gate opens onto the Exposed Battlefield. The guard accepts Creon’s Writ or the Herald’s Truce.",
+      "exits": ["greek-courtyard"],
       "backdrop": "assets/greek-drama/city-gate-closed-day.webp",
       "backdrops": [
         {
@@ -111,24 +112,27 @@
     },
     "greek-aulis": {
       "name": "Aulis Anchorage",
-      "exits": ["greek-gate"],
+      "text": "The Scylla sails back to Pagasae from these mooring stones.",
+      "exits": [],
       "backdrop": "assets/greek-drama/aulis-anchorage-day.webp",
       "seed": "The conflict of Iphigenia at Aulis is unfolding here."
     },
     "greek-athens": {
       "name": "Athenian Agora",
-      "text": "The Long Walls lead to the quays at Piraeus. Take the Road to Delphi to continue inland toward Pagasae.",
+      "text": "Follow the Long Walls to Piraeus Quays. The Marathon Road goes to the altar where the refugees are waiting. Take the road to the Delphic Temple to continue inland toward Pagasae.",
       "exits": [
         "greek-assembly",
         "greek-acropolis",
         "greek-thinkery",
         "greek-road-athens-eleusis",
+        "greek-road-athens-marathon",
         "greek-road-sacred-way"
       ],
       "backdrop": "assets/greek-drama/athens-grand-agora.webp"
     },
     "greek-piraeus": {
       "name": "Piraeus Quays",
+      "text": "Follow the Long Walls inland to the Athenian Agora.",
       "exits": [],
       "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
       "seed": "From the Charybdis’s quay, the Long Walls lead to Athens and the inland route to Pagasae."
@@ -171,12 +175,7 @@
     },
     "greek-attic-farm": {
       "name": "The Attic Farm",
-      "exits": [
-        "greek-eleusis",
-        "greek-colonus",
-        "greek-marathon",
-        "greek-acharnae"
-      ],
+      "exits": ["greek-eleusis", "greek-colonus", "greek-acharnae"],
       "backdrop": "assets/greek-drama/grove.svg",
       "seed": "The conflict of Wealth is unfolding here."
     },
@@ -188,16 +187,15 @@
     },
     "greek-colonus": {
       "name": "Colonus Grove",
-      "exits": ["greek-eleusis", "greek-marathon", "greek-attic-farm"],
+      "exits": ["greek-eleusis", "greek-attic-farm"],
       "backdrop": "assets/greek-drama/open-door-colonus.webp",
       "seed": "Before the brothers die at Thebes, the exiled Oedipus asks to stay in the sacred grove."
     },
     "greek-eleusis": {
       "name": "Eleusinian Sanctuary",
-      "text": "Take the Sacred Way to the Athenian Agora. The Cithaeron Road leads back toward Thebes.",
+      "text": "Take the Sacred Way to the Athenian Agora. The Cithaeron Road leads to the Exposed Battlefield on the way back to Thebes.",
       "exits": [
         "greek-colonus",
-        "greek-marathon",
         "greek-attic-farm",
         "greek-cithaeron",
         "greek-road-athens-eleusis",
@@ -208,12 +206,14 @@
     },
     "greek-marathon": {
       "name": "Marathon Altar",
-      "exits": ["greek-eleusis", "greek-colonus", "greek-attic-farm"],
+      "text": "The Marathon Road returns to the Athenian Agora. From the Agora, the Long Walls lead to Piraeus.",
+      "exits": ["greek-road-athens-marathon"],
       "backdrop": "assets/greek-drama/open-door-marathon.webp",
       "seed": "In the reign of Demophon, Iolaus and Heracles’s children take refuge at the altar."
     },
     "greek-argolid-road": {
       "name": "The Argolid Crossroads",
+      "text": "The Shore Altar and Jury Yard are open to petitioners. Ismene keeps the tomb account, Creon the palace account, and Dione the farmhouse account. Giving the Record of the House of Atreus to one of them decides which household path opens for everyone.",
       "exits": ["greek-harbor", "greek-argos-sanctuary", "greek-corinth"],
       "backdrop": "assets/greek-drama/grove.svg"
     },
@@ -354,7 +354,7 @@
     },
     "greek-delphi": {
       "name": "Delphic Temple",
-      "text": "The Oeta Road crosses the pass toward Trachis and Pherae. The south road returns to the Athenian Agora.",
+      "text": "The Oeta Road crosses the pass to the House at Trachis. Continue through Pherae for the coast, or take the south road back to the Athenian Agora.",
       "exits": ["greek-road-sacred-way", "greek-oeta", "greek-ion-court"],
       "backdrop": "assets/greek-drama/palace.svg"
     },
@@ -384,7 +384,7 @@
       "text": "Ask Philon about the Scylla’s courses at the mooring stones. The shore path leads back to Pherae.",
       "exits": ["greek-pherae"],
       "backdrop": "assets/greek-drama/pagasae-anchorage.webp",
-      "seed": "At the Scylla’s home berth, Philon tells travelers from Pherae how to reach Lemnos and Sicily."
+      "seed": "At the Scylla’s home berth, Philon tells travelers from Pherae how to reach Aulis, Lemnos and Sicily."
     },
     "greek-thetis": {
       "name": "Thetis’s Altar in Phthia",
@@ -417,6 +417,7 @@
     },
     "greek-troy-beach": {
       "name": "The Homecoming Beach",
+      "text": "The Scylla calls here from Lemnos. The same course leads back to the island.",
       "exits": [],
       "backdrop": "assets/greek-drama/homecoming-beach-day.webp",
       "requires": [
@@ -429,12 +430,14 @@
     },
     "greek-lemnos": {
       "name": "The Lemnian Cave",
+      "text": "Ask Philoctetes about the Scylla’s courses between Lemnos, Pagasae and Thrace.",
       "exits": [],
       "backdrop": "assets/greek-drama/lemnian-cave-day.webp",
       "seed": "The conflict of Philoctetes is unfolding here."
     },
     "greek-thrace": {
       "name": "Thracian Shore",
+      "text": "Hecuba can tell you which course to take for Tauris or back to Lemnos.",
       "exits": [],
       "backdrop": "assets/greek-drama/thracian-shore-day.webp",
       "seed": "The conflict of Hecuba is unfolding here."
@@ -597,10 +600,10 @@
     },
     "greek-road-athens-marathon": {
       "name": "Marathon Road",
+      "text": "One way leads back to the Athenian Agora. The other continues to Marathon Altar.",
       "exits": ["greek-athens", "greek-marathon"],
       "road": ["greek-athens", "greek-marathon"],
-      "retired": true,
-      "backdrop": "assets/greek-drama/attic-road.webp"
+      "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-road-piraeus-eleusis": {
       "name": "Eleusis Coast Road",
@@ -819,6 +822,7 @@
     },
     "greek-cadmea-street": {
       "name": "Cadmea Street",
+      "text": "The older accounts of Thebes begin here. The Seventh Gate looks out on the siege. Oedipus’s palace stands farther along the street.",
       "exits": ["greek-well", "greek-seven-gates", "greek-oedipus-court"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "seed": "Here the roads of earlier Thebes lead to the palace and the seven gates."
@@ -830,7 +834,8 @@
       "seed": "The Argive army is outside the walls, before the deaths of the brothers."
     },
     "greek-oedipus-court": {
-      "name": "Theban Palace Forecourt",
+      "name": "Oedipus’s Palace Forecourt",
+      "text": "The city is in the reign of Oedipus. Cadmea Street leads back to the Market Well.",
       "exits": [
         "greek-cadmea-street",
         "greek-jocasta-rooms",
@@ -2335,7 +2340,7 @@
       "travels": false,
       "standoffs": false,
       "personalQuests": false,
-      "seed": "Jocasta asks for help with the dispute at Theban Palace Forecourt.",
+      "seed": "Jocasta asks for help with the dispute in Oedipus’s forecourt.",
       "text": "Oedipus is looking for the man who killed Laius, and the Corinthian messenger says the same shepherd knows where our king comes from. The shepherd’s name is on this summons. I ask for a word with him before the herald reads it out.",
       "tastes": {
         "likes": "a traveler who hears both sides",
@@ -2350,7 +2355,7 @@
       "travels": false,
       "standoffs": false,
       "personalQuests": false,
-      "seed": "Oedipus has a stake in the dispute at Theban Palace Forecourt.",
+      "seed": "Oedipus has a stake in the dispute in his palace forecourt.",
       "tastes": {
         "likes": "a traveler who hears both sides",
         "sore": "a promise without a deed"
@@ -3829,7 +3834,11 @@
           "text": "The Trojan song carries Helen herself to Troy with Paris and keeps her within its walls through the war.",
           "about": "greek-troy-beach"
         }
-      ]
+      ],
+      "records": ["greek-helen-troy"],
+      "recordText": {
+        "greek-helen-troy": "The Elder directs the traveler from Pagasae to Lemnos aboard the Scylla, then onward to Helen’s Homecoming Beach."
+      }
     },
     "greek-atreid-record": {
       "name": "Record of the House of Atreus",
@@ -5186,28 +5195,6 @@
       }
     },
     {
-      "from": "greek-harbor",
-      "to": "greek-troy-beach",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-helen-account",
-          "value": "troy"
-        }
-      ],
-      "sealed": {
-        "quest": {
-          "kind": "item",
-          "target": "greek-helen-accounts",
-          "to": "greek-elder"
-        }
-      }
-    },
-    {
-      "from": "greek-troy-beach",
-      "to": "greek-harbor"
-    },
-    {
       "from": "greek-argolid-road",
       "to": "greek-argos-tomb",
       "requires": [
@@ -5419,6 +5406,7 @@
       "id": "greek-helen-troy",
       "subject": "greek-elder",
       "at": "greek-well",
+      "text": "The Elder keeps the tablet and sends you to the Scylla at Pagasae to ask Philon for the Lemnos course before sailing on to Homecoming Beach.",
       "requires": [
         {
           "kind": "choice_unset",
@@ -8907,6 +8895,7 @@
       "greek-road-thebes",
       "greek-road-athens-piraeus",
       "greek-road-athens-eleusis",
+      "greek-road-athens-marathon",
       "greek-cithaeron",
       "greek-polynices-hollow",
       "greek-greek-camp",

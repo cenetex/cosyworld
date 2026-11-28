@@ -329,6 +329,7 @@
     },
     {
       "id": "greek-helen-egypt-report-pagasae",
+      "workId": "euripides-helen",
       "subject": "greek-pagasae-pilot",
       "at": "greek-pagasae",
       "label": "Give the Egyptian passage mark to Philon",

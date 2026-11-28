@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { packTalkChoice } from "../v2/card-game/pack-registry.mjs";
 import { courseOptions } from "../v2/card-game/pack-transport.mjs";
 import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
+import { ajaxTalk } from "./helpers/greek-ajax.mjs";
 import { greekStart, traveler } from "./helpers/open-door.mjs";
 
 const PACK = "greek-drama";
@@ -13,6 +14,10 @@ const BREAD = "greek-bread";
 const PROVISIONS = "greek-provisions";
 const SHIP = "greek-ship";
 const PIRAEUS = "greek-piraeus";
+const PAGASAE = "greek-pagasae";
+const SCYLLA = "greek-scylla";
+const LEMNOS = "greek-lemnos";
+const BEACH = "greek-troy-beach";
 const RECOVER = "greek-dione-recover-wheat";
 
 const recovery = (s) =>
@@ -80,7 +85,10 @@ describe("Dione's wheat recovery", () => {
     t.move("well").waitFor("elder").give("helen-accounts", "elder");
     packCargo(bake(t)).move(COURTYARD);
     expect(recovery(t.s)).toBe(false);
-    t.move("harbor", "troy-beach").waitFor("helen-troy").talk("helen-troy");
+    t.move("harbor", SHIP).drop(PROVISIONS).act("course", { target: PIRAEUS }).act("wait");
+    t.take(PROVISIONS).act("move", { target: PIRAEUS }).move(PAGASAE);
+    t.s = ajaxTalk(t.s, `lane:${PAGASAE}>${LEMNOS}`, { target: "greek-pagasae-pilot" });
+    t.move(SCYLLA, BEACH).waitFor("helen-troy").talk("helen-troy");
     t.take("troy-testimony").waitFor("menelaus-troy");
     t.give("troy-testimony", "menelaus-troy");
     t.s = decodeSave(encodeSave(t.s));
@@ -89,7 +97,7 @@ describe("Dione's wheat recovery", () => {
     expect(t.s.usedUp).toContain(PROVISIONS);
     expect(t.s.items[WHEAT].holder).toBe(PIRAEUS);
     expect(exits(t.s, "greek-gate", "vale")).not.toContain("greek-battlefield");
-    t.move("harbor", COURTYARD).waitFor(DIONE);
+    t.move(SCYLLA, PAGASAE, PIRAEUS, SHIP, "harbor", COURTYARD).waitFor(DIONE);
     expect(recovery(t.s)).toBe(true);
     t.act("talk", { target: DIONE });
     packCargo(bake(t));

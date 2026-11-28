@@ -23,8 +23,7 @@ const TOWNS = {
     "greek-argos-sanctuary",
     "greek-corinth",
     "greek-troezen",
-    // Story doors open from the harbor and the Argolid crossroads.
-    "greek-troy-beach",
+    // The household story doors open from the Argolid crossroads.
     "greek-argos-tomb",
     "greek-argos-palace",
     "greek-mycenae-palace",
@@ -47,14 +46,12 @@ const TOWNS = {
     // by a route that needs the guard to hold the decree there. No road.
     "greek-battlefield",
     "greek-polynices-hollow",
-    "greek-aulis",
   ],
   // Athens has three districts. The Sacred Way joins the countryside to the
   // city, and the Long Walls join the city to its harbour.
   "athens-countryside": [
     "greek-eleusis",
     "greek-colonus",
-    "greek-marathon",
     "greek-attic-farm",
     "greek-acharnae",
     "greek-acharnae-stall",
@@ -73,6 +70,7 @@ const TOWNS = {
     "greek-jury-house",
   ],
   "athens-harbour": ["greek-piraeus"],
+  marathon: ["greek-marathon"],
   delphi: ["greek-delphi", "greek-ion-court"],
   trachis: ["greek-trachis", "greek-pherae", "greek-thetis", "greek-pagasae"],
   troy: [
@@ -87,7 +85,9 @@ const TOWNS = {
   thrace: ["greek-thrace"],
   tauris: ["greek-tauris"],
   sicily: ["greek-sicily"],
+  aulis: ["greek-aulis"],
   egypt: ["greek-egypt-tomb"],
+  "helen-homecoming": ["greek-troy-beach"],
   susa: ["greek-susa"],
   "scythian-crag": ["greek-scythian-crag"],
   "hoppy-cat-archive": [

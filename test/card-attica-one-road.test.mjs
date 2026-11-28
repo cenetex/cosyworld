@@ -11,7 +11,6 @@ const cut = [
   "greek-road-athens-colonus",
   "greek-road-colonus-marathon",
   "greek-road-piraeus-eleusis",
-  "greek-road-athens-marathon",
   "greek-road-colonus-eleusis",
 ];
 
@@ -29,6 +28,22 @@ describe("one road in Attica", () => {
     );
     expect(joining.map(([id]) => id)).toEqual(["greek-road-athens-piraeus"]);
     expect(exits(world, "greek-athens", "vale")).not.toContain("greek-piraeus");
+  });
+
+  it("reaches Marathon Altar only by the plain road from the Agora", () => {
+    const road = "greek-road-athens-marathon";
+    const athens = "greek-athens";
+    const altar = "greek-marathon";
+    expect(exits(world, athens, "vale")).toContain(road);
+    expect(exits(world, athens, "vale")).not.toContain(altar);
+    expect(exits(world, road, "vale")).toEqual([athens, altar]);
+    expect(exits(world, altar, "vale")).toEqual([road]);
+    const neighbors = ["greek-eleusis", "greek-colonus", "greek-attic-farm"];
+    for (const neighbor of neighbors) {
+      const ways = exits(world, neighbor, "vale");
+      expect(ways).not.toContain(altar);
+      expect(ways).toEqual(expect.arrayContaining(neighbors.filter((id) => id !== neighbor)));
+    }
   });
 
   it("no walkable road shares a backdrop with another walkable road", () => {

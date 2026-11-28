@@ -154,7 +154,9 @@ describe("day and night in Greece", () => {
         world.turn = world.revision = turn;
         const phase = turn === DAYLIGHT_TURNS ? "night" : "day";
         const suffix = phase === "night" ? "-night" : "";
-        const painting = `./assets/greek-drama/attic-road${suffix}.webp`;
+        const painting = phase === "day" && road === "greek-road-athens-marathon"
+          ? "./assets/greek-drama/grove.svg"
+          : `./assets/greek-drama/attic-road${suffix}.webp`;
         for (const from of greek.places[road].road) {
           world.actors.vale.place = from;
           expect(travelCard(world, road).art).toBe(painting);

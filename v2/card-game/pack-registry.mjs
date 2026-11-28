@@ -385,6 +385,11 @@ export function choiceText(choice, actor) {
     );
   return choice.text ?? plainChoiceText(choice, actor);
 }
+export function matchesChoiceWitness(choice, actor, text) {
+  return text === choiceText(choice, actor) ||
+    // Before revision 47 the Elder's Give used the default action sentence.
+    (choice.id === "greek-helen-troy" && text === plainChoiceText(choice, actor));
+}
 const nameOf = (id) =>
   humanAvatar(id)?.name ||
   entities[id]?.name ||
@@ -511,6 +516,43 @@ export function entityEnabled(world, id, saved = false, lockView = false) {
 const routeOpen = (world, packId, r) =>
   coordinateRouteDiscovered(world, r.from, r.to) ||
   conditionsMet(world, packId, r.requires);
+
+const committedChoiceKeys = new Map();
+function isChoiceCommitment(packId, key) {
+  const id = `${packId}:${key}`;
+  if (!committedChoiceKeys.has(id)) {
+    const writers = (packDefinition(packId)?.choices || []).filter(
+      (choice) => !choice.archived && choice.effects.some(
+        (effect) => effect.kind === "choose" && effect.key === key,
+      ),
+    );
+    committedChoiceKeys.set(
+      id,
+      writers.length > 0 && writers.every((choice) =>
+        choice.requires?.some((c) => c.kind === "choice_unset" && c.key === key),
+      ),
+    );
+  }
+  return committedChoiceKeys.get(id);
+}
+
+export function sealedRouteCanOpen(world, packId, route) {
+  const choices = packState(world, packId)?.choices;
+  if (!choices) return true;
+  const impossible = (condition) => {
+    if (condition.kind === "any") return condition.conditions.every(impossible);
+    return (
+      condition.kind === "choice" &&
+      owns(choices, condition.key) &&
+      choices[condition.key] !== condition.value &&
+      isChoiceCommitment(packId, condition.key)
+    );
+  };
+  return (
+    !route.requires?.some(impossible) && !route.travelerRequires?.some(impossible)
+  );
+}
+
 export const packRouteOpen = (world, from, to) =>
   packDefinitions.some((pack) =>
     (pack.routes || []).some(

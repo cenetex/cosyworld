@@ -48,6 +48,7 @@ const ROADS = [
 ];
 const RETIRED = ["greek-road-black-sea", "greek-road-colonists"];
 const FAR_SHORES = [
+  "greek-aulis",
   "greek-lemnos",
   "greek-thrace",
   "greek-tauris",
@@ -63,6 +64,7 @@ const CUT = [
   ["greek-piraeus", "greek-tauris"],
   ["greek-piraeus", "greek-sicily"],
   ["greek-aulis", "greek-greek-camp"],
+  ["greek-aulis", "greek-gate"],
 ];
 
 describe("purposeful Greek roads", () => {
@@ -95,7 +97,7 @@ describe("purposeful Greek roads", () => {
     expect(town["greek-pherae"]).toBe(town["greek-trachis"]);
     expect(town["greek-thetis"]).toBe(town["greek-trachis"]);
     expect(town[PAGASAE]).toBe(town["greek-pherae"]);
-    expect(town["greek-aulis"]).toBe(town["greek-gate"]);
+    expect(town["greek-aulis"]).not.toBe(town["greek-gate"]);
     expect(town["greek-greek-camp"]).toBe(town["greek-troy"]);
   });
 

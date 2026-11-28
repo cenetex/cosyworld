@@ -28,6 +28,7 @@ import {
   packPeople,
   packRouteOpen,
   packThings,
+  sealedRouteCanOpen,
   transports,
 } from "../pack-registry.mjs";
 import { craftSupplies } from "../pack-items.mjs";
@@ -516,13 +517,19 @@ export function boxesAt(s, place, actor = currentActor(s)) {
   for (const def of here) {
     if (!present(s, def)) continue;
     switch (def.kind) {
-      case "way":
+      case "way": {
         if (!entityShown(s, def.id)) break;
-        // A guarded way with no sealed route is a box only while he bars it.
         if (!def.route && !(def.guard && guardOf(s, def.at, def.id, actor)))
           break;
-        add(def, boxOpen(s, def, actor));
+        const open = boxOpen(s, def, actor);
+        if (
+          !open && def.route && !sealedRouteCanOpen(s, def.pack, def.route) &&
+          !(def.guard && guardOf(s, def.at, def.id, actor))
+        )
+          break;
+        add(def, open);
         break;
+      }
       case "item":
         // A made thing waits used up for its maker; a sealed item lies shut
         // while it is in the world but its own conditions do not hold.

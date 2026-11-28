@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cardPlay } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { knowsLane } from "../v2/card-game/pack-transport.mjs";
 import {
   itemCopies,
   packGiveChoice,
@@ -12,6 +13,7 @@ import {
   legalActions,
 } from "../v2/card-game/world.mjs";
 import { greekStart, traveler } from "./helpers/open-door.mjs";
+import { openGreekGate } from "./helpers/greek-gate.mjs";
 import "./helpers/still-cast.mjs";
 
 const PACK = "greek-drama";
@@ -280,12 +282,16 @@ describe("Greek supplies", () => {
     expect(new Set(itemCopies(WATER))).toEqual(
       new Set([WATER, AULIS_WATER, "greek-lemnos-neoptolemus-water"]),
     );
-    const t = settle(
-      at(traveler(greekStart()), "greek-aulis"),
-      "greek-story-euripides-iphigenia-at-aulis",
-      "first",
-    ).take(AULIS_WATER);
-    t.move(GATE, COURTYARD, "well").take(WATER).move(COURTYARD);
+    const aulis = "greek-aulis", pagasae = "greek-pagasae";
+    const t = traveler(openGreekGate(greekStart())).move(pagasae);
+    expect(knowsLane(t.s, "vale", pagasae, aulis)).toBe(false);
+    for (let i = 0; i < 3 && !knowsLane(t.s, "vale", pagasae, aulis); i++)
+      t.talk("pagasae-pilot");
+    expect(knowsLane(t.s, "vale", pagasae, aulis)).toBe(true);
+    t.move("scylla", aulis);
+    expect(legalActions(t.s).some((a) => a.kind === "move" && a.target === GATE)).toBe(false);
+    settle(t, "greek-story-euripides-iphigenia-at-aulis", "first").take(AULIS_WATER);
+    t.move("scylla", pagasae, COURTYARD, "well").take(WATER).move(COURTYARD);
     expect(packThings[AULIS_WATER].type).toBe(WATER);
     expect(t.s.items[WATER].holder).toBe("vale");
     expect(t.s.items[AULIS_WATER].holder).toBe("vale");

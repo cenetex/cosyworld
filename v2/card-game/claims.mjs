@@ -1,8 +1,8 @@
 import {
-  choiceText,
   recordedChoiceLine,
   conditionsMet,
   entityActive,
+  matchesChoiceWitness,
   packDefinition,
   packEntity,
   packThings,
@@ -195,7 +195,7 @@ export function sawBranch(s, actor, packId, key) {
       f?.source.kind === "event" &&
       f.source.turn === receipts[commit.id] &&
       f.source.locationId === commit.at &&
-      f.text === choiceText(commit, f.source.actorId)
+      matchesChoiceWitness(commit, f.source.actorId, f.text)
     );
   };
   return (

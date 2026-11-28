@@ -6,6 +6,8 @@ import {
   actorCanVisit,
   personalRouteOpen,
   packDefinitions,
+  packIdOf,
+  sealedRouteCanOpen,
 } from "../pack-registry.mjs";
 import { humanRoomAvailable, currentActor } from "../human-cast.mjs";
 import {
@@ -92,7 +94,8 @@ export function sealedWays(s, actor = currentActor(s)) {
     .filter((r) => !open.includes(r.to))
     .flatMap((r) => {
       const guard = guardOf(s, here, r.to, actor);
-      if (!guard) return r.sealed ? [r] : [];
+      if (!guard)
+        return r.sealed && sealedRouteCanOpen(s, packIdOf(r.from), r) ? [r] : [];
       // The card beyond a guarded way is locked and gives no quest (rules
       // 102). Talk with him gives his.
       return [{ ...r, sealed: {}, guardedBy: guard }];

@@ -14,7 +14,7 @@ import {
 } from "../pack-registry.mjs";
 import { learnLane } from "../pack-transport.mjs";
 import { people } from "./catalog.mjs";
-import { atPort, laneToTell, scyllaDirections, scyllaPilot } from "./lanes.mjs";
+import { atPort, laneToTell, scyllaDirections, scyllaGuide } from "./lanes.mjs";
 
 export const authoredKnowledgeTopics = () =>
   packDefinitions.flatMap((pack) =>
@@ -69,12 +69,12 @@ export function talkKnowledge(world, action, event, choice, addLog) {
       );
       const marker = topic
         ? reserveKnowledge(world, speaker, listener, event, [{ ...topic, said: true }])
-        : scyllaPilot(speaker)
+        : scyllaGuide(speaker)
           ? reserveLaneKnowledge(world, speaker, listener, event, scyllaDirections(world, speaker, listener))
           : null;
       if (tellAuthored(world, event, marker, addLog)) break;
     }
-    const lane = scyllaPilot(speaker) ? null : laneToTell(world, speaker, listener);
+    const lane = scyllaGuide(speaker) ? null : laneToTell(world, speaker, listener);
     const port = lane && atPort(world, speaker) && !topics.some((t) => t.said);
     if (port && reserveLaneKnowledge(world, speaker, listener, event, lane))
       break;

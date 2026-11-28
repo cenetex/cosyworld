@@ -16,9 +16,11 @@ import {
   entityShown,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
+import { knownRoute, rememberRoutes } from "../v2/card-game/roaming-routes.mjs";
 import { seaRoad, traveler } from "./helpers/open-door.mjs";
 
 const marathon = "greek-marathon";
+const marathonRoad = "greek-road-athens-marathon";
 const blanket = "greek-shelter-blanket";
 const progress = "greek-open-door-marathon";
 
@@ -45,6 +47,7 @@ describe("Attica is simply there", () => {
       "greek-eleusis",
       "greek-cithaeron",
       "greek-road-athens-eleusis",
+      marathonRoad,
       marathon,
       "greek-marathon-keeper",
     ])
@@ -58,8 +61,29 @@ describe("Attica is simply there", () => {
     const pack = () => t.s.packs["greek-drama"];
     expect(pack().scope).toBe("opening");
     expect(t.s.actors.vale.place).toBe("greek-piraeus");
-    t.take(blanket).move("athens", "eleusis", marathon);
-    expect(exits(t.s, marathon, "vale")).toContain("greek-eleusis");
+    t.take(blanket).move("athens", marathonRoad, marathon);
+    expect(exits(t.s, marathon, "vale")).toEqual([marathonRoad]);
+
+    const old = structuredClone(t.s);
+    old.packs["greek-drama"].revision = 46;
+    const former = ["greek-eleusis", "greek-colonus", "greek-attic-farm"]
+      .flatMap((place) => [[place, marathon], [marathon, place]]);
+    const surviving = ["greek-eleusis", "greek-colonus"];
+    const towardMarathon = ["greek-athens", marathonRoad, marathon];
+    old.routeKnowledge["greek-rhapsode"] = old.routeKnowledge["greek-rhapsode"]
+      .filter(([from]) => !["greek-athens", marathon].includes(from));
+    rememberRoutes(old, "greek-rhapsode", [...former, surviving]);
+    old.routeKnowledge.vale = [former[0]];
+    t = traveler(decodeSave(JSON.stringify(old)));
+    expect(t.s.actors.vale.place).toBe(marathon);
+    expect(t.s.actors["greek-marathon-keeper"].place).toBe(marathon);
+    expect(t.s.items[blanket]).toEqual(old.items[blanket]);
+    expect(t.s.routeKnowledge.vale).toEqual([]);
+    for (const edge of former) expect(t.s.routeKnowledge["greek-rhapsode"]).not.toContainEqual(edge);
+    expect(t.s.routeKnowledge["greek-rhapsode"]).toContainEqual(surviving);
+    expect(knownRoute(t.s, "greek-rhapsode", "greek-athens", marathon)).toEqual(towardMarathon);
+    expect(knownRoute(t.s, "greek-rhapsode", marathon, "greek-athens")).toEqual(towardMarathon.toReversed());
+
     t.talk("marathon-keeper").talk("marathon-keeper");
     expect(pack().flags[`${progress}-entered`]).toBe(true);
     expect(pack().flags[`${progress}-daughter-heard`]).toBeUndefined();
@@ -80,7 +104,7 @@ describe("Attica is simply there", () => {
     );
     expect(t.s.items["greek-marathon-captive-bond"].holder).toBe(marathon);
     expect(decodeSave(encodeSave(t.s))).toEqual(t.s);
-    t.move("eleusis", "athens", "piraeus");
+    t.move(marathonRoad, "athens", "piraeus");
     expect(t.s.actors.vale.place).toBe("greek-piraeus");
   });
 

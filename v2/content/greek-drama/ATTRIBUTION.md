@@ -49,6 +49,7 @@ Card art has its own [provenance](../../card-game/assets/greek-drama/PROVENANCE.
 The repertoire lives in the places of the plays. The Cadmea district leads to
 the gates and households of earlier Thebes. Athens and its countryside lead
 to the assembly, the Thinkery, Acharnae Market and the Underworld landing.
+The Marathon Road leaves the Athenian Agora and leads to Marathon Altar.
 The road from Athens reaches Apollo’s precinct at Delphi and continues over
 Oeta to Trachis and the northern households.
 
@@ -58,10 +59,11 @@ Thebes, Cithaeron, Eleusis, Athens, Delphi, and Trachis. Follow the shore
 path from Pherae to Pagasae. The walk uses the ordinary City Gate passage
 and joins the ships’ separate harbors. [Second-ship route study](https://github.com/cenetex/cosyworld/issues/1405#issuecomment-6525332229)
 
-From Pagasae, the Scylla sails to Sicily, Lemnos, and, once Helen’s Egyptian
+From Pagasae, the Scylla sails to Aulis, Sicily, Lemnos, and, once Helen’s Egyptian
 account opens, Proteus’s Tomb. From Lemnos the ship can continue to Thrace
-and Tauris, or to the Trojan landing once Myrto’s invitation opens Ajax’s
-camp. The Scythian Coast Road and Royal Road continue inland from Tauris
+and Tauris, to the Trojan landing once Myrto’s invitation opens Ajax’s camp,
+or to Homecoming Beach when Helen’s Trojan account opens. The Scythian
+Coast Road and Royal Road continue inland from Tauris
 and Troy. The two ships follow the earlier distinction between the Charybdis
 and the proposed Scylla. [Rules 94 route design](https://github.com/cenetex/cosyworld/pull/2110)
 

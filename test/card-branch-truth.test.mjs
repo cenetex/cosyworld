@@ -43,7 +43,7 @@ const committed = (key, value, choice) => {
 };
 const held = (w, book, who = "vale") =>
   Object.fromEntries(
-    claimsIn(book, w).map((c) => [c.claim, w.knowledge.known[who]?.[c.id]?.status ?? "belief"]),
+    claimsIn(book).map((c) => [c.claim, w.knowledge.known[who]?.[c.id]?.status ?? "belief"]),
   );
 const beliefs = { egypt: "belief", troy: "belief" };
 
