@@ -170,22 +170,18 @@ fn sqlite_rules_wasm_parity_replays_the_first_keeper_log_read() -> Result<()> {
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_keeper_quest_pond_return() -> Result<()> {
     let id = "keeper-quest-pond-return";
-    let (mut c, mut state, mut calls) = commit_keeper_quest(id)?;
-    let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
+    let (mut c, state, calls) = commit_keeper_quest_pond_return(id)?;
+    verify_opening_journal(&mut c, id, &calls)?;
+    verify_seated_reload(&c, id, &state, "pond", &["station"], 10)
+}
+
+fn commit_keeper_quest_pond_return(id: &str) -> Result<(Connection, World, Vec<&'static str>)> {
+    let (c, mut state, mut calls) = commit_keeper_quest(id)?;
     let known = state.game["knowledge"]["known"]["vale"]["quest:keeper:pond"].clone();
     let want = state.game["actors"]["vale"]["want"].clone();
     let lamp = state.game["items"]["lamp"].clone();
-    let returned = full_store::commit(
-        &c,
-        id,
-        &mut state,
-        json!({"op":"play","actor":"vale","action":BARE_POND_MOVE.0}),
-        9,
-    )?;
-    assert_eq!(returned["ok"], true);
-    assert_eq!(returned["world"], state.game);
+    let returned = commit_keeper_play(&c, id, &mut state, &mut calls, BARE_POND_MOVE.0, 9)?;
     assert_eq!(state.game["turn"], 4);
-    assert_eq!(state.game["revision"], revision + 1);
     check_quiet_station_departure(&lamp, &returned, "pond");
     assert_eq!(state.game["actors"]["vale"]["want"], want);
     assert_eq!(
@@ -205,9 +201,54 @@ fn sqlite_rules_wasm_parity_replays_the_keeper_quest_pond_return() -> Result<()>
     assert!(actions
         .iter()
         .any(|action| action["key"] == "accept:vale::box:greek-ship"));
-    calls.push("play");
+    Ok((c, state, calls))
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_keeper_quest_station_return_and_cloth_gift() -> Result<()> {
+    let id = "keeper-quest-station-return-cloth-gift";
+    let (mut c, state, calls) = commit_keeper_quest_station_return(id)?;
+    assert_eq!(calls.len(), 9);
     verify_opening_journal(&mut c, id, &calls)?;
-    verify_seated_reload(&c, id, &state, "pond", &["station"], 10)
+    verify_seated_reload(&c, id, &state, "station", &["pond", "behind-station"], 11)
+}
+
+fn commit_keeper_quest_station_return(id: &str) -> Result<(Connection, World, Vec<&'static str>)> {
+    let (c, mut state, mut calls) = commit_keeper_quest_pond_return(id)?;
+    let want = state.game["actors"]["vale"]["want"].clone();
+    let lamp = state.game["items"]["lamp"].clone();
+    let returned = commit_keeper_play(&c, id, &mut state, &mut calls, BARE_STATION_MOVE.0, 10)?;
+    let [arrival, gift] = returned["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected Vale's Station arrival followed by Pip's cloth gift");
+    };
+    let world = &state.game;
+    check_stowed_lamp_move(&lamp, &returned, "pond", "station");
+    assert_eq!(world["turn"], 5);
+    assert_eq!(arrival["seq"], 18);
+    assert_eq!(arrival["cast"], json!(["keeper", "moth", "vale"]));
+    assert_eq!(gift["seq"], 19);
+    assert_eq!(gift["actorId"], "moth");
+    assert_eq!(gift["verb"], "give");
+    assert_eq!(gift["itemId"], "cloth");
+    assert_eq!(gift["targetId"], "vale");
+    assert_eq!(gift["accepted"], true);
+    assert_eq!(gift["locationId"], "station");
+    assert_eq!(gift["cast"], arrival["cast"]);
+    assert_eq!(world["eventSeq"], gift["seq"]);
+    assert_eq!(world["actors"]["vale"]["want"], want);
+    assert_eq!(world["actors"]["vale"]["heldItem"], "cloth");
+    assert_eq!(world["actors"]["moth"]["heldItem"], Value::Null);
+    assert_eq!(world["items"]["cloth"]["holder"], "vale");
+    assert_eq!(
+        world["items"]["cloth"]["history"][1],
+        "Turn 5: Pip gives the Black cloth to Vale."
+    );
+    assert_eq!(world["speechVoices"]["vale"], json!(["vale"]));
+    assert_eq!(
+        returned["actions"].as_array().unwrap().last().unwrap()["key"],
+        "drop:vale:::0"
+    );
+    Ok((c, state, calls))
 }
 
 #[test]
@@ -575,7 +616,13 @@ fn check_keeper_log_read(_: &Value, reply: &Value) {
 }
 
 fn check_bare_move(lamp: &Value, reply: &Value, from: &str, to: &str) {
+    check_stowed_lamp_move(lamp, reply, from, to);
+    assert_eq!(reply["world"]["actors"]["vale"]["heldItem"], Value::Null);
+}
+
+fn check_stowed_lamp_move(lamp: &Value, reply: &Value, from: &str, to: &str) {
     let event = &reply["events"][0];
+    assert_eq!(event["actorId"], "vale");
     assert_eq!(event["verb"], "move");
     assert_eq!(event["fromLocationId"], from);
     assert_eq!(event["locationId"], to);
@@ -584,7 +631,6 @@ fn check_bare_move(lamp: &Value, reply: &Value, from: &str, to: &str) {
     assert_eq!(event["light"], false);
     let world = &reply["world"];
     assert_eq!(world["actors"]["vale"]["place"], to);
-    assert_eq!(world["actors"]["vale"]["heldItem"], Value::Null);
     assert_eq!(
         world["arrival"],
         json!({"seq":event["seq"],"fromLocationId":from,"locationId":to})
@@ -688,6 +734,26 @@ fn commit_keeper_quest(id: &str) -> Result<(Connection, World, Vec<&'static str>
     assert_eq!(state.game, expected);
     calls.push("play");
     Ok((c, state, calls))
+}
+
+fn commit_keeper_play(
+    c: &Connection,
+    id: &str,
+    state: &mut World,
+    calls: &mut Vec<&'static str>,
+    action: &str,
+    now: i64,
+) -> Result<Value> {
+    let turn = state.game["turn"].as_u64().ok_or("Missing turn.")?;
+    let revision = state.game["revision"].as_u64().ok_or("Missing revision.")?;
+    let command = json!({"op":"play","actor":"vale","action":action});
+    let reply = full_store::commit(c, id, state, command, now)?;
+    assert_eq!(reply["ok"], true);
+    assert_eq!(reply["world"], state.game);
+    assert_eq!(state.game["turn"], turn + 1);
+    assert_eq!(state.game["revision"], revision + 1);
+    calls.push("play");
+    Ok(reply)
 }
 
 fn replay_opening_turns(
