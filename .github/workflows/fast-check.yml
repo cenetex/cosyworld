@@ -223,10 +223,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # Runs only when Rust, the rules or the shared bundles change, and only the
-  # tests of the modules involved (scripts/select-rust-tests.mjs and the rust
-  # section of scripts/fast-smokes.json). It starts from the dependency cache
-  # rust-cache.yml saves on main. The full gate runs on tags (deploy.yml).
+  # Rust, rules, and shared-bundle changes select focused tests and smokes.
+  # This job reuses the dependency cache from main. Tags run the full gate.
   rust:
     name: Rust tests
     needs: plan
@@ -271,7 +269,7 @@ jobs:
           cargo test --locked --manifest-path v2/rules-rust/Cargo.toml --workspace
           artifact="$(node v2/scripts/build-rust-rules.mjs)"
           COSYWORLD_RULES_WASM="$artifact" node --test v2/rules-rust/tests/*.test.mjs
-          COSYWORLD_RULES_WASM="$artifact" RUST_MIN_STACK=16777216 \
+          COSYWORLD_RULES_WASM="$artifact" COSYWORLD_REQUIRE_FULL_REPLAY=1 RUST_MIN_STACK=16777216 \
             cargo test --locked --manifest-path v2/orchestrator-rust/Cargo.toml \
             --features rules-wasm,local-tooling --bin cosyworld-orchestrator \
             sqlite_rules_wasm_parity -- --nocapture --test-threads=1
