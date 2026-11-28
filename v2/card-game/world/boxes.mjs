@@ -10,9 +10,8 @@
 //   lane      a port a ship cannot yet sail to
 //   crossing  a pack crossing with `sealed` (a home's door in a shared world)
 //   hub       a `reflectionRoutes` entry with `sealed` (the Black pond)
-// `boxesAt(s, place, actor)` lists the boxes lying at a place. `boxOpen`
-// says whether the way is open now, `boxWant` what opens a shut one. A box
-// is the locked card's id, so a card with two entrances is one box.
+// `boxesAt` lists the room's boxes, `boxOpen` reports access, and `boxWant`
+// describes the lock. Multiple entrances share the locked card's box id.
 //
 // Opening a box is credited to the traveller whose play opened it, once per
 // avatar per box per world (`s.opened`). Time, weather, a resident walking in
