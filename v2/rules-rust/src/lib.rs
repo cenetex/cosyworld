@@ -51,8 +51,8 @@ mod opening_stale_wants;
 mod opening_take;
 mod opening_take_response;
 mod opening_view;
-mod opening_visitor_routes;
 mod opening_visitor_play;
+mod opening_visitor_routes;
 mod opening_visitor_transport;
 mod opening_wait;
 mod opening_wait_response;
@@ -72,7 +72,7 @@ pub use create_geography::Geography;
 pub use opening_pond_view::completed_move_response;
 pub use opening_take_response::completed_take_response;
 pub use opening_view::create_response;
-pub use opening_wait_response::completed_wait_response;
+pub use opening_wait_response::{completed_second_wait_response, completed_wait_response};
 
 pub const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_WIRE_BYTES: usize = 3 * MAX_JSON_BYTES + 64;
