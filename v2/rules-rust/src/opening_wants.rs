@@ -108,8 +108,7 @@ pub(super) fn settle_with(
 ) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
-    let first_pond_move = began == 0
-        && world["actors"]["vale"]["place"] == "pond"
+    let first_pond_move = world["actors"]["vale"]["place"] == "pond"
         && world["arrival"]["fromLocationId"] == "attic"
         && world["arrival"]["locationId"] == "pond"
         && world["items"]["lamp"]["holder"] == "vale";

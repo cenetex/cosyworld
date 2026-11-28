@@ -109,8 +109,9 @@ pub(super) fn confirm_idle(world: &Value, geo: &Geography) -> Option<()> {
 }
 
 pub(super) fn keeper_idle_after_move(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
     if world["actors"]["vale"]["place"] != "pond"
-        || world["turn"] != 1
+        || world["turn"].as_u64()? != began.checked_add(1)?
         || world["items"]["lamp"]["holder"] != "vale"
         || world["items"]["bell"]["holder"] != "station"
         || world["items"]["bell"]["ringing"] != 0

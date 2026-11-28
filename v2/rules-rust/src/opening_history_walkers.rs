@@ -12,7 +12,13 @@ pub(super) fn verify(
     acted: &[&str],
     residents: &Residents<'_>,
 ) -> Option<()> {
-    let turn = u64::try_from(opening_resident_sleep::historic_attic(world)?).ok()?;
+    let room = world["actors"]["vale"]["place"].as_str()?;
+    let turn = match room {
+        "attic" => opening_resident_sleep::historic_attic(world)?,
+        "pond" => opening_resident_sleep::historic_pond(world)?,
+        _ => return None,
+    };
+    let turn = u64::try_from(turn).ok()?;
     let people = &residents.people;
     for (&id, person) in &people.people {
         if id == "vale" || acted.contains(&id) || person.data["roamingQuest"] == "latest-completion"
@@ -21,7 +27,7 @@ pub(super) fn verify(
         }
         let actor = world["actors"].get(id)?;
         let here = actor["place"].as_str()?;
-        if here == "attic"
+        if here == room
             || !actor["sleeping"].is_null()
             || residents.ships.contains(here)
             || world["peaceUntil"][id].as_u64()? > turn
