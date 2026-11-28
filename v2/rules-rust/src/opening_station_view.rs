@@ -749,6 +749,14 @@ pub(super) fn settled_speech_voices(
     if world["turn"] != 2 && !historic_station(world) {
         return None;
     }
+    settled_arrival_voices(world, geo, order)
+}
+
+pub(super) fn settled_arrival_voices(
+    world: &Value,
+    geo: &Geography<'_>,
+    order: &[&str],
+) -> Option<&'static [&'static str]> {
     let awake_historic = historic_awake_station(world);
     let events = arrival_events(
         world,
