@@ -9,8 +9,7 @@ import { isNight } from "../v2/card-game/daylight.mjs";
 // The otter and the boatman appear at the Willows landing by chance (#1626).
 describe("the chance condition", () => {
   const otter = { kind: "chance", key: "otter", odds: 12, lasts: 2 };
-  // The window test reads thousands of turns; a chance reads only the turn
-  // and the run seed, so one world serves them all.
+  // A chance reads only the turn and the run seed, so one world serves every turn.
   const base = createWorld();
   const tick = (turn, seed) => ({ ...base, turn, run: { seed } });
   it("holds for whole windows, about one in odds, the same on every table", () => {
