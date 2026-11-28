@@ -106,6 +106,16 @@ pub(super) fn verify(
         Ok(reference)
     };
 
+    check(
+        "create-fresh-unseeded",
+        json!({"op":"create","save":null}),
+        true,
+    )?;
+    let _unseeded = check(
+        "create-fresh-unseeded-history",
+        json!({"op":"create","save":null,"history":true}),
+        true,
+    )?;
     let fresh = check(
         "create-fresh",
         json!({"op":"create","save":null,"seed":4242,"history":true}),
@@ -153,7 +163,7 @@ fn requires_each_fixture_in_full_coverage_mode() -> Result<()> {
         engine::reduce_pack_envelope(version, pack, request.clone()).map(Some)
     };
     let report = verify(equal)?;
-    assert_eq!(report.matched, 10);
+    assert_eq!(report.matched, 12);
     report.require_coverage(true)?;
 
     let report = verify(|version, pack, request| {
@@ -162,7 +172,7 @@ fn requires_each_fixture_in_full_coverage_mode() -> Result<()> {
         }
         equal(version, pack, request)
     })?;
-    assert_eq!(report.matched, 9);
+    assert_eq!(report.matched, 11);
     assert_eq!(report.unsupported, ["validate-malformed"]);
     assert!(report.require_coverage(false).is_ok());
     assert!(report.require_coverage(true).is_err());
