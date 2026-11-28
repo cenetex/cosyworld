@@ -1,7 +1,12 @@
 use super::{
-    authored_order::Order, initial_wants, opening_content, opening_crossings, opening_mirror_move,
-    opening_pickups::item_as_named, opening_place_cards::Deck, opening_roster, pack_state::Catalog,
-    resident_evidence::ResidentEvidence, Geography,
+    authored_order::Order,
+    initial_wants, opening_content, opening_crossings, opening_mirror_move,
+    opening_pickups::item_as_named,
+    opening_place_cards::{self, Deck},
+    opening_pond_place_returns, opening_roster,
+    pack_state::Catalog,
+    resident_evidence::ResidentEvidence,
+    Geography,
 };
 use serde_json::{json, Value};
 
@@ -16,14 +21,22 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
     let forest = &files["v2/card-game/forest.json"];
     let moth = &world["actors"][PIP];
     let vale = &world["actors"][VALE];
-    let action = world["log"].as_array()?.last()?;
+    let turn = world["turn"].as_u64()?;
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    let log = world["log"].as_array()?;
+    let arrival = log
+        .iter()
+        .position(|entry| entry["seq"] == world["arrival"]["seq"])?;
+    let action = &log[arrival];
+    let later = &log[arrival + 1..];
+    let conversations = world["conversations"].as_array()?;
     let mut want = forest["people"][PIP]["want"].as_object()?.clone();
     want.insert("since".into(), json!(0));
     want.insert("refusals".into(), json!(0));
-    if world["turn"] != 1
-        || world.get("began").is_some_and(|turn| turn != 0)
+    if turn.checked_sub(1) != Some(began)
+        || (began != 0 && files["v2/card-game/world-history.json"]["turns"] != began)
         || world["opening"]["crossed"] != true
-        || world["opening"]["met"][PIP] != 1
+        || world["opening"]["met"][PIP] != turn
         || world["playerActorId"] != VALE
         || ["heldActors", "controlledActors", "presentActors"]
             .iter()
@@ -32,8 +45,16 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
         || action["verb"] != "move"
         || action["fromLocationId"] != "attic"
         || action["locationId"] != POND
-        || action["seq"] != world["arrival"]["seq"]
-        || action["seq"] != world["eventSeq"]
+        || action["turn"] != turn
+        || log.last()?["seq"] != world["eventSeq"]
+        || (began == 0 && !later.is_empty())
+        || later.iter().any(|event| {
+            event["kind"] != "narration"
+                || event["verb"] != "want_met"
+                || event["actorId"] != VALE
+                || event["locationId"] != POND
+                || event["turn"] != turn
+        })
         || moth["place"] != POND
         || !moth["sleeping"].is_null()
         || !moth["homeward"].is_null()
@@ -71,7 +92,8 @@ fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
         || !world["memories"][PIP]["learning"].is_null()
         || !world["pondLampLoan"].is_null()
         || !world["standoffs"].as_array()?.is_empty()
-        || !world["conversations"].as_array()?.is_empty()
+        || (began == 0 && !conversations.is_empty())
+        || conversations.iter().any(|row| !row["company"].is_null())
         || world["crossings"].as_object()?.values().any(|state| {
             ["phase", "until"]
                 .iter()
@@ -148,11 +170,19 @@ pub(super) fn settle(
     deck: &Deck<'_>,
 ) -> Option<()> {
     quiet_pond(world, geo)?;
-    deck.settle(world, geo, None)?;
-    let visited = world["actors"][VALE]["visited"].as_array_mut()?;
-    if !visited.iter().any(|place| place == POND) {
-        visited.push(json!(POND));
-        visited.drain(..visited.len().saturating_sub(64));
+    if world["turn"] == 1 {
+        deck.settle(world, geo, None)?;
+        let visited = world["actors"][VALE]["visited"].as_array_mut()?;
+        if !visited.iter().any(|place| place == POND) {
+            visited.push(json!(POND));
+            visited.drain(..visited.len().saturating_sub(64));
+        }
+    } else if !world["actors"][VALE]["visited"]
+        .as_array()?
+        .iter()
+        .any(|place| place == POND)
+    {
+        return None;
     }
 
     let cast = opening_roster::known_actors(world, geo, order, Some(POND))?;
@@ -187,9 +217,6 @@ pub(super) fn settle(
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
     let (before, carry) = opening_mirror_move::move_world(request)?;
-    if before["turn"] != 0 {
-        return None;
-    }
     let order = opening_roster::actor_order(request, before)?;
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
@@ -197,6 +224,18 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let evidence = ResidentEvidence::new(&files)?;
     let mut world = opening_mirror_move::begin(before, &geo, &authored, &order, &evidence, carry)?;
     let deck = Deck::new(&world, &geo)?;
+    if world["turn"] != 1 {
+        let card_order = opening_place_cards::saved_order(request, before)?;
+        opening_pond_place_returns::settle(
+            &mut world,
+            &geo,
+            &authored,
+            &order,
+            &card_order,
+            &deck,
+            &evidence,
+        )?;
+    }
     settle(&mut world, &geo, &authored, &order, &evidence, &deck)?;
     let mut response = json!({"ok":true});
     response["world"] = world;

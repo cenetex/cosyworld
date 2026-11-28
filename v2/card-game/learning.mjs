@@ -8,7 +8,6 @@ import {
   TRIAL_LIMIT,
   learningIntent,
 } from "./adaptive-learning.mjs";
-// Completed requests supply lessons in solo and shared play.
 export const LEARNING_LIMIT = 8;
 const kinds = ["ask", "accompany"];
 const keyOf = (a) =>
