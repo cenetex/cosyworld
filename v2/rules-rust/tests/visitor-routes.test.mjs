@@ -62,5 +62,6 @@ test("visitor crossings respect reflection light and the bell signal", async () 
   assert.ok(check(wasm, forest).includes("clearing"));
 
   forest.transports["greek-ship"].dock = "pond";
+  forest.crossings["pond-greek-harbor"].discovered = true;
   assert.equal(wasm({ op: "visitor_reach", world: forest }), null);
 });

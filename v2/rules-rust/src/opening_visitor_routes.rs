@@ -27,6 +27,23 @@ fn crossing_open(
         if ship["dock"] != from || ship["phase"] == "sea" {
             return Some(false);
         }
+        let mut signals = geo
+            .packs()
+            .flat_map(|pack| entries(&pack["crossings"]))
+            .filter(|entry| {
+                entry["transport"] == transport
+                    && (entry.get("signal").is_some() || entry.get("unlockWhen").is_some())
+            })
+            .peekable();
+        if signals.peek().is_some()
+            && !signals.any(|entry| {
+                entry["id"]
+                    .as_str()
+                    .is_some_and(|id| world["crossings"][id]["discovered"] == true)
+            })
+        {
+            return Some(false);
+        }
         return None;
     }
     if let Some(signal) = crossing.get("signal") {
@@ -66,7 +83,7 @@ fn blocked(world: &Value, geo: &Geography, actor: &str, post: &str, beyond: &str
     Some(false)
 }
 
-fn exits<'a>(
+pub(super) fn exits<'a>(
     world: &Value,
     geo: &Geography<'a>,
     actor: &str,

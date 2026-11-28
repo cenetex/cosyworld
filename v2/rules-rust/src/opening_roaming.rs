@@ -1,0 +1,199 @@
+use super::{
+    create, create_geography::Geography, opening, opening_play, opening_visitor_routes,
+    pack_state::Catalog, seed,
+};
+use serde_json::{json, Value};
+use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
+
+const BARD: &str = "greek-rhapsode";
+const GREEK: &str = "greek-drama";
+type Edge<'a> = (&'a str, &'a str);
+
+fn remember_visible<'a>(
+    known: &mut Vec<Edge<'a>>,
+    authored: &BTreeMap<Edge<'a>, bool>,
+    place: &str,
+) {
+    known.extend(
+        authored
+            .iter()
+            .filter_map(|(&edge, &retired)| (!retired && edge.0 == place).then_some(edge)),
+    );
+    known.sort_by_cached_key(|(from, to)| format!("{from}>{to}"));
+    known.dedup();
+}
+
+fn first_step<'a>(
+    edges: &[Edge<'a>],
+    from: &'a str,
+    target: &str,
+    mut allowed: impl FnMut(&'a str, &'a str) -> Option<bool>,
+) -> Option<Option<&'a str>> {
+    let mut seen = BTreeSet::from([from]);
+    let mut queue = VecDeque::from([(from, None)]);
+    while let Some((here, step)) = queue.pop_front() {
+        if here == target {
+            return Some(step);
+        }
+        for &(start, to) in edges {
+            if start == here && !seen.contains(to) && allowed(here, to)? {
+                seen.insert(to);
+                queue.push_back((to, step.or(Some(to))));
+            }
+        }
+    }
+    Some(None)
+}
+
+struct Move {
+    from: String,
+    to: String,
+    routes: Value,
+    name: String,
+    destination: String,
+    sanctuary: bool,
+}
+
+fn chosen_move(world: &Value, files: &Value, turn: u64) -> Option<Move> {
+    let catalog = Catalog::from_files(files)?;
+    let geo = Geography::new(files, catalog.packs())?;
+    let pack = geo.packs().find(|pack| pack["id"] == GREEK)?;
+    let person = &pack["avatars"][BARD];
+    let actor = &world["actors"][BARD];
+    let want = &actor["want"];
+    let from = actor["place"].as_str()?;
+    let target = match want["kind"].as_str()? {
+        "person" => world["actors"][want["target"].as_str()?]["place"].as_str()?,
+        _ => return None,
+    };
+    if person["roamingQuest"] != "latest-completion"
+        || person["travels"] == false
+        || person["levelAtHome"] == true
+        || !person["journey"].is_null()
+        || !geo.conditions_met(world, GREEK, &person["requires"], None)?
+        || !geo.entity_active(world, BARD)?
+        || !actor["metTurn"].is_null()
+        || !actor["attend"].is_null()
+        || actor["dwellUntil"].as_u64().unwrap_or(0) > turn
+        || world["peaceUntil"][BARD].as_u64()? > turn
+        || !actor["homeward"].is_null()
+        || !want["step"].is_null()
+        || target == from
+        || !world["standoffs"].as_array()?.is_empty()
+        || !world["packs"][GREEK]["recitals"].as_object()?.is_empty()
+        || world["items"]
+            .as_object()?
+            .values()
+            .any(|item| item["holder"] == BARD)
+        || world["memories"][BARD]["learning"]
+            .as_array()
+            .is_some_and(|trials| !trials.is_empty())
+        || world["controlledActors"]
+            .as_array()
+            .is_some_and(|ids| ids.iter().any(|id| id == BARD))
+    {
+        return None;
+    }
+    let forest = files.get("v2/card-game/forest.json")?;
+    let authored = create::authored_edges(forest, geo.packs())?;
+    let mut known = Vec::new();
+    for edge in world["routeKnowledge"][BARD].as_array()? {
+        let edge = (edge.get(0)?.as_str()?, edge.get(1)?.as_str()?);
+        authored.get(&edge)?;
+        known.push(edge);
+    }
+    remember_visible(&mut known, &authored, from);
+    let mut exits = BTreeMap::new();
+    let live = first_step(&known, from, target, |start, to| {
+        let ways = match exits.entry(start) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                entry.insert(opening_visitor_routes::exits(world, &geo, BARD, start)?)
+            }
+        };
+        Some(ways.contains(to))
+    })?;
+    let to = if let Some(live) = live {
+        live
+    } else {
+        first_step(&known, from, target, |_, _| Some(true))??
+    };
+    if !exits.get(from)?.contains(to)
+        || !geo.base_exits(from)?.iter().any(|road| road == to)
+        || pack["places"].get(from).is_none()
+        || pack["places"].get(to).is_none()
+        || geo.packs().any(|pack| {
+            pack["crossings"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|edge| edge["from"] == from && edge["to"] == to)
+        })
+    {
+        return None;
+    }
+    let life = &files["v2/card-game/world-life.json"];
+    if life["guardable"].as_array()?.iter().any(|way| {
+        (way["from"] == from && way["to"] == to) || (way["from"] == to && way["to"] == from)
+    }) {
+        return None;
+    }
+    remember_visible(&mut known, &authored, to);
+    Some(Move {
+        from: from.into(),
+        to: to.into(),
+        routes: json!(known),
+        name: person["name"].as_str()?.into(),
+        destination: pack["places"][to]["name"].as_str()?.into(),
+        sanctuary: pack["places"][to]["sanctuary"] == true,
+    })
+}
+
+pub(super) fn bard_move(world: &mut Value, files: &Value) -> Option<Value> {
+    let turn = world["turn"].as_u64()?;
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    if began.checked_add(1)? != turn || world["actors"]["vale"]["place"] != "attic" {
+        return None;
+    }
+    let chosen = chosen_move(world, files, turn)?;
+    let dwell = turn.checked_add(24 + u64::from(seed::hash(&format!("{BARD}@{turn}")) % 6))?;
+    let actor = &mut world["actors"][BARD];
+    let visited = actor["visited"].as_array_mut()?;
+    if !visited.iter().any(|place| place == &chosen.to) {
+        visited.push(json!(chosen.to));
+        visited.drain(..visited.len().saturating_sub(64));
+    }
+    actor["dwellUntil"] = json!(dwell);
+    actor["place"] = json!(chosen.to);
+    if chosen.sanctuary {
+        actor["sanctuary"] = json!(chosen.to);
+    }
+    world["routeKnowledge"][BARD] = chosen.routes;
+    Some(json!({
+        "speaker":"World", "text":format!("{} goes to {}.", chosen.name, chosen.destination),
+        "kind":"action", "verb":"move", "actorId":BARD, "targetId":chosen.to,
+        "itemId":null, "locationId":chosen.to, "fromLocationId":chosen.from,
+    }))
+}
+
+pub(super) fn projection(request: &Value) -> Option<Value> {
+    let world = opening::supported_world(request)?;
+    let action = &request["action"];
+    if request["actor"] != "vale"
+        || !opening::seats(&request["present"])?.contains(&"vale")
+        || action["kind"] == "pack"
+        || action.as_str().or_else(|| action["key"].as_str()) != Some("wait:vale::")
+        || (!request["revision"].is_null() && request["revision"] != world["revision"])
+        || !request["selectedIds"].is_null()
+    {
+        return None;
+    }
+    let turn = opening::unplayed_turn(world)?.checked_add(1)?;
+    let files = opening_play::attic_files(world, request)?;
+    let mut next = world.clone();
+    next["turn"] = json!(turn);
+    let event = bard_move(&mut next, &files)?;
+    Some(
+        json!({"ok":true,"event":event,"actor":next["actors"][BARD],"routes":next["routeKnowledge"][BARD]}),
+    )
+}
