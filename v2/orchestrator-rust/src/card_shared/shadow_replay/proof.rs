@@ -1,10 +1,11 @@
 use super::{content, direct, engine, Report, Result, World};
 use crate::card_shared::store::sql_error;
-use rusqlite::Connection;
+use rusqlite::{params, Connection, OpenFlags, Transaction};
 use serde::Serialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
+    collections::BTreeMap,
     fs::{self, File, OpenOptions},
     io::{self, Read, Write},
     path::Path,
@@ -81,7 +82,8 @@ impl VerifiedProof<'_> {
     }
 
     pub(super) fn export_anchor(&self, path: &Path) -> Result<()> {
-        publish(path, &self.anchor_bytes()?)
+        let bytes = self.anchor_bytes()?;
+        publish(path, |_, file| file.write_all(&bytes))
             .map_err(|err| format!("Could not publish the checkpoint anchor: {err}"))
     }
 
@@ -92,6 +94,74 @@ impl VerifiedProof<'_> {
             "checkpoint anchor",
             ANCHOR_MISMATCH,
         )
+    }
+
+    pub(super) fn export_snapshot(
+        &self,
+        source: &Transaction<'_>,
+        worlds: &[String],
+        path: &Path,
+    ) -> Result<()> {
+        let anchor_sha256 = format!("{:x}", Sha256::digest(self.anchor_bytes()?));
+        let mut heads: BTreeMap<_, _> = self
+            .heads
+            .iter()
+            .map(|head| (head.world_id_sha256.as_str(), head))
+            .collect();
+        let mismatch = || io::Error::other("The checkpoint rows differ from the verified proof.");
+        publish(path, |pending, _| {
+            let mut database =
+                Connection::open_with_flags(pending, OpenFlags::SQLITE_OPEN_READ_WRITE)
+                    .map_err(io::Error::other)?;
+            let output = database.transaction().map_err(io::Error::other)?;
+            output
+                .execute_batch(
+                    "CREATE TABLE epoch_metadata (
+                       format TEXT PRIMARY KEY, readiness_proof_sha256 TEXT NOT NULL,
+                       anchor_sha256 TEXT NOT NULL
+                     );
+                     CREATE TABLE epoch_checkpoints (
+                       world_id_sha256 TEXT PRIMARY KEY, head_sequence INTEGER NOT NULL,
+                       state_sha256 TEXT NOT NULL, state TEXT NOT NULL
+                     );",
+                )
+                .map_err(io::Error::other)?;
+            output
+                .execute(
+                    "INSERT INTO epoch_metadata VALUES ('cosyworld-checkpoint-snapshot/v1',?,?)",
+                    params![self.sha256, anchor_sha256],
+                )
+                .map_err(io::Error::other)?;
+            let mut get = source
+                .prepare("SELECT seq,state FROM card_full_checkpoints WHERE world=?")
+                .map_err(io::Error::other)?;
+            for world in worlds {
+                let id = content::hash(world);
+                let head = heads.remove(id.as_str()).ok_or_else(mismatch)?;
+                let (seq, state): (i64, String) = get
+                    .query_row([world], |row| Ok((row.get(0)?, row.get(1)?)))
+                    .map_err(io::Error::other)?;
+                let world: World = serde_json::from_str(&state).map_err(io::Error::other)?;
+                let canonical = serde_json::to_string(&world).map_err(io::Error::other)?;
+                if seq.to_string() != head.head_sequence
+                    || content::hash(&state) != head.checkpoint_sha256
+                    || content::hash(&canonical) != head.canonical_checkpoint_sha256
+                {
+                    return Err(mismatch());
+                }
+                output
+                    .execute(
+                        "INSERT INTO epoch_checkpoints VALUES (?,?,?,?)",
+                        params![id, seq, head.canonical_checkpoint_sha256, canonical],
+                    )
+                    .map_err(io::Error::other)?;
+            }
+            if !heads.is_empty() {
+                return Err(mismatch());
+            }
+            output.commit().map_err(io::Error::other)
+        })
+        .map_err(|err| format!("Could not publish the SQLite checkpoint snapshot: {err}"))
     }
 }
 
@@ -129,7 +199,8 @@ pub(super) fn export(
     direct: &direct::Report,
 ) -> Result<()> {
     let bytes = canonical_bytes(artifact, journal, direct)?;
-    publish(path, &bytes).map_err(|err| format!("Could not publish the epoch proof: {err}"))
+    publish(path, |_, file| file.write_all(&bytes))
+        .map_err(|err| format!("Could not publish the epoch proof: {err}"))
 }
 
 pub(super) fn check<'a>(
@@ -187,7 +258,7 @@ fn json_bytes(value: &impl Serialize) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn publish(path: &Path, bytes: &[u8]) -> io::Result<()> {
+fn publish(path: &Path, write: impl FnOnce(&Path, &mut File) -> io::Result<()>) -> io::Result<()> {
     let pending = path.with_file_name(format!(
         ".cosyworld-epoch-{}.pending",
         crate::random_hex(16)
@@ -201,7 +272,7 @@ fn publish(path: &Path, bytes: &[u8]) -> io::Result<()> {
     }
     let mut file = options.open(&pending)?;
     let result = (|| {
-        file.write_all(bytes)?;
+        write(&pending, &mut file)?;
         file.sync_all()?;
         drop(file);
         fs::hard_link(&pending, path)
@@ -232,6 +303,8 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
     let second = root.0.join("repeat.json");
     let anchor_path = root.0.join("anchor.json");
     let second_anchor = root.0.join("repeat-anchor.json");
+    let checkpoints_path = root.0.join("checkpoint-snapshot.sqlite");
+    let rejected_path = root.0.join("incomplete-snapshot.sqlite");
     let c = fixture()?;
     full_store::seed(
         &c,
@@ -282,6 +355,50 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
         assert!(verified.export_anchor(&anchor_path).is_err());
         verified.check_anchor(&anchor_path)?;
         check(&second, artifact, &journal, &direct)?.export_anchor(&second_anchor)?;
+        assert!(verified
+            .export_snapshot(&snapshot, &worlds[..1], &rejected_path)
+            .is_err());
+        assert!(!rejected_path.exists());
+        verified.export_snapshot(&snapshot, &worlds, &checkpoints_path)?;
+        assert!(verified.export_snapshot(&snapshot, &worlds, &db).is_err());
+
+        let exported =
+            Connection::open_with_flags(&checkpoints_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(sql_error)?;
+        let metadata: (String, String, String) = exported
+            .query_row("SELECT * FROM epoch_metadata", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .map_err(sql_error)?;
+        assert_eq!(metadata.0, "cosyworld-checkpoint-snapshot/v1");
+        assert_eq!(metadata.1, format!("{:x}", Sha256::digest(&bytes)));
+        assert_eq!(
+            metadata.2,
+            format!("{:x}", Sha256::digest(fs::read(&anchor_path).unwrap()))
+        );
+        let count: usize = exported
+            .query_row("SELECT count(*) FROM epoch_checkpoints", [], |row| {
+                row.get(0)
+            })
+            .map_err(sql_error)?;
+        assert_eq!(count, worlds.len());
+        for head in &journal.heads {
+            let (seq, digest, state): (i64, String, String) = exported
+                .query_row(
+                    "SELECT head_sequence,state_sha256,state FROM epoch_checkpoints WHERE world_id_sha256=?",
+                    [&head.world_id_sha256],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .map_err(sql_error)?;
+            assert_eq!(seq.to_string(), head.head_sequence);
+            assert_eq!(digest, head.canonical_checkpoint_sha256);
+            assert_eq!(digest, content::hash(&state));
+            let state: World = serde_json::from_str(&state).map_err(sql_error)?;
+            assert_eq!(
+                digest,
+                content::hash(&serde_json::to_string(&state).map_err(sql_error)?)
+            );
+        }
     }
     assert_eq!(
         check(&output, b"different", &journal, &direct).unwrap_err(),

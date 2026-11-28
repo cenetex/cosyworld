@@ -47,7 +47,6 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     assert_eq!(speech["play"], "reflect-after-speech");
     assert_eq!(speech["entries"], json!([]));
     assert!(spoken.game["memories"]["vale"]["innerLife"].is_null());
-    // Another play lands before the reflection.
     let mut w = spoken.clone();
     let wait = home_action(&w, 0, "wait");
     full_store::commit(

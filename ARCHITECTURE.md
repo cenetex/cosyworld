@@ -72,6 +72,8 @@ Set `COSYWORLD_EPOCH_CHECK` to an existing v2 proof with the same all-world and 
 
 After the v2 proof matches, `COSYWORLD_EPOCH_ANCHOR` writes a new `cosyworld-checkpoint-anchor/v1` file. It records the SHA-256 of the verified proof bytes and each active world's hashed ID, decimal head sequence, and SHA-256 of its checkpoint serialized as compact typed Rust `World` JSON. The anchor orders worlds by hashed ID. Set `COSYWORLD_EPOCH_ANCHOR_CHECK` instead to compare an existing anchor with the same snapshot and candidate. Both options require `COSYWORLD_EPOCH_CHECK` and use its read-only SQLite transaction.
 
+With `COSYWORLD_EPOCH_ANCHOR_CHECK`, set `COSYWORLD_EPOCH_SNAPSHOT` to a new SQLite file path to export the canonical checkpoints. The `epoch_metadata` table binds the export to the verified proof and anchor. `epoch_checkpoints` stores each hashed world ID, its exact integer head sequence, and its compact Rust `World` JSON and SHA-256 digest. Keep the original read-only copy for historical replay.
+
 The journal digest starts with the bytes `cosyworld-sqlite-journal-v1` followed by one zero byte. In ascending positive sequence order it hashes each row's sequence and timestamp as signed 64-bit big-endian integers, then the command's UTF-8 byte length as an unsigned 64-bit big-endian integer and the command bytes. This binds the exact journal records even when two histories replay to the same checkpoint.
 
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.

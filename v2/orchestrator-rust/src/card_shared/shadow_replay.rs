@@ -366,6 +366,7 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     let check = std::env::var_os("COSYWORLD_EPOCH_CHECK");
     let anchor = std::env::var_os("COSYWORLD_EPOCH_ANCHOR");
     let anchor_check = std::env::var_os("COSYWORLD_EPOCH_ANCHOR_CHECK");
+    let snapshot_output = std::env::var_os("COSYWORLD_EPOCH_SNAPSHOT");
     if proof.is_some() && check.is_some() {
         return Err("Choose either epoch proof export or a read-only proof check.".into());
     }
@@ -379,6 +380,9 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
     }
     if anchor.is_some() && anchor_check.is_some() {
         return Err("Choose either checkpoint anchor export or a read-only anchor check.".into());
+    }
+    if snapshot_output.is_some() && anchor_check.is_none() {
+        return Err("Checkpoint snapshot export requires COSYWORLD_EPOCH_ANCHOR_CHECK.".into());
     }
     let (mut c, world) = match (std::env::var_os("COSYWORLD_REPLAY_DB"), world, all) {
         (Some(path), world, all) if world.is_none() == all => {
@@ -433,6 +437,10 @@ fn sqlite_rules_wasm_parity() -> Result<()> {
         if let Some(path) = anchor_check {
             verified.check_anchor(std::path::Path::new(&path))?;
             println!("Checkpoint anchor matches the verified snapshot.");
+            if let Some(path) = snapshot_output {
+                verified.export_snapshot(&snapshot, &worlds, std::path::Path::new(&path))?;
+                println!("Canonical SQLite checkpoints exported from the verified snapshot.");
+            }
         }
         println!("Epoch proof matches the verified journal snapshot and WASM candidate.");
         return Ok(());
