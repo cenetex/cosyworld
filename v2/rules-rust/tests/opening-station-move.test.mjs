@@ -70,3 +70,64 @@ test("the quiet first Station movement matches the pinned primary action", async
     assert.equal(wasm({ ...request, op, world }), null);
   }
 });
+
+test("the first Station movement after authored history matches the pinned primary action", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(traceStation);
+  const run = (request) => {
+    const reply = pinned(request);
+    assert.equal(reply.ok, true, reply.error);
+    return reply.world;
+  };
+  let sample;
+  for (const seed of [undefined, 0, 2, 17, 42, 4242, 4_294_967_295]) {
+    const saved = run({ op: "create", history: true, seed });
+    const revived = run({ op: "create", save: JSON.stringify(saved) });
+    assert.deepEqual(revived, saved);
+    const stowed = run({
+      ...seats,
+      op: "hold",
+      world: revived,
+      choice: { item: null, revision: revived.revision },
+    });
+    const pond = run({
+      ...seats,
+      op: "play",
+      world: stowed,
+      action: "move:vale::pond",
+    });
+    assert.equal(pond.began, 480);
+    assert.equal(pond.turn, 481);
+    assert.equal(Boolean(pond.actors.moth.sleeping), seed !== 17);
+    const sorted = Object.fromEntries(Object.entries(pond.actors).sort());
+    for (const actors of [pond.actors, sorted]) {
+      for (const key of routes) {
+        const request = {
+          ...seats,
+          op: "play",
+          world: { ...pond, actors },
+          action: actors === sorted ? { key } : key,
+        };
+        reference.stationMove = undefined;
+        const played = JSON.parse(
+          reference.cardShared(JSON.stringify(request)),
+        );
+        assert.equal(played.ok, true, played.error);
+        const actual = wasm({ ...request, op });
+        const expected = JSON.parse(JSON.stringify(reference.stationMove));
+        assert.deepEqual(
+          actual,
+          { ok: true, world: expected },
+          `${seed} ${key}`,
+        );
+        assert.equal(actual.world.opening.met.keeper, 482);
+        assert.deepEqual(actual.world.actors.moth, request.world.actors.moth);
+        assert.equal(wasm(request), null);
+        sample = request;
+      }
+    }
+  }
+  const invalid = structuredClone(sample);
+  invalid.world.actors.moth.sleeping.since = invalid.world.began;
+  assert.equal(wasm({ ...invalid, op }), null);
+});

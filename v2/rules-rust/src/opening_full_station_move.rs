@@ -9,6 +9,9 @@ use serde_json::{json, Value};
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
     let (before, carry) = opening_station_move::move_world(request)?;
+    if before.get("began").is_some() {
+        return None;
+    }
     let before_seq = before["eventSeq"].as_u64()?;
     let order = opening_roster::actor_order(request, before)?;
     let (files, authored) = opening_content::wait_files(request)?;
