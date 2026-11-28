@@ -104,7 +104,6 @@ fn bringing_another_avatar_leaves_the_old_one_as_a_resident() {
         .unwrap()
         .unwrap();
     assert_eq!(kept, super::bindings::progress_of(&w.game, "mara"));
-    // The journal alone replays to the same world.
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
         .unwrap();
     let replayed = full_store::world(&c, &id, now()).unwrap();
