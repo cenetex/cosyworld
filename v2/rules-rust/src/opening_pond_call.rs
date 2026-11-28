@@ -4,7 +4,7 @@ use super::{
     opening_content,
     opening_crossings::no_crossing_unlocks_except,
     opening_pond_call_view::{before_drop, cloth_arrival, completion_owners, drop_receipt},
-    opening_pond_lamp_drop::{quiet_cloth, quiet_items},
+    opening_pond_lamp_drop::{grounded_fuel, quiet_cloth, quiet_items},
     opening_roster::actor_order,
     opening_station_read::keeper_want_from_read,
     pack_state::Catalog,
@@ -30,9 +30,7 @@ fn can_call(world: &Value, geo: &Geography<'_>) -> Option<bool> {
         .as_array()?
         .iter()
         .find(|entry| entry["id"] == SIGNAL)?;
-    let lamp = &world["items"]["lamp"];
-    let lit = lamp["lit"].as_bool()?;
-    let rooms = if lit { 2 } else { 0 };
+    let lit = grounded_fuel(&world["items"]["lamp"])?;
     let light = json!({"kind":"light","item":"lamp","at":[POND]});
     if gate["from"] != POND
         || gate["to"] != "greek-harbor"
@@ -45,11 +43,6 @@ fn can_call(world: &Value, geo: &Geography<'_>) -> Option<bool> {
             ])
         || ship["place"] != SHIP
         || !ship["docks"].as_array()?.iter().any(|dock| dock == POND)
-        || lamp["holder"] != POND
-        || lamp["fuelPlace"] != POND
-        || lamp["fuelVisit"] != lit
-        || lamp["fuelRooms"] != rooms
-        || lamp["fuel"] != rooms * 4
         || !geo.entity_active(world, VALE)?
         || world["crossings"][SIGNAL] != json!({"discovered":false})
         || world["transports"][SHIP]

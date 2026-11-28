@@ -29,8 +29,6 @@ fixture = act(fixture, "move", "pond");
 fixture.items.lamp.holder = "moth";
 holdChoice(fixture, "moth", { item: "lamp", revision: fixture.revision });
 fixture = act(fixture, "wait");
-// Start a fresh visit after Pip settles with the lamp. The browser's Wait
-// then tests this visit's first reply, using the same real travel rules.
 fixture = act(fixture, "move", "station");
 fixture = act(fixture, "move", "pond");
 const save = encodeSave(fixture);
