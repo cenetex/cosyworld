@@ -30,6 +30,14 @@ test("leaving, re-entering and releasing Vale at historic Station match pinned r
       const key = dry ? "move:vale:lamp:station" : "move:vale::station";
       world = run({ ...seats, op: "play", world, action: key });
       assert.equal(world.actors.moth.place, "station");
+      const changed = structuredClone(world);
+      const sage = changed.log.find(
+        (entry) => entry.turn === 482 && entry.actorId === "ada",
+      );
+      if (sage) {
+        sage.witnesses = ["ada"];
+        assert.equal(wasm({ ...seats, op: "presence", world: changed }), null);
+      }
       const spoken = run({
         ...seats, op: "speech", room: "station", world,
         lines: [{ actorId: "keeper", text: "The next train can wait." }],
