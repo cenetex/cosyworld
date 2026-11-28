@@ -38,7 +38,6 @@ export function act(s, pick, actor = "vale") {
   return result.state;
 }
 
-// World life on or off for the running test, then as it was.
 export function lifeFor(on) {
   const was = worldLife.on;
   worldLife.on = on;

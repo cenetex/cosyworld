@@ -256,7 +256,6 @@ const FREED = {
   "greek-ajax-teucer": "ajax",
   "greek-ajax-odysseus": "ajax",
 };
-// The helper worlds are built with world life off, as their journeys expect.
 const built = (make) => () => {
   lifeFor(false);
   return make();
