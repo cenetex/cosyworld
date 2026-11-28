@@ -1,7 +1,8 @@
 use super::{
     create_geography::Geography,
     initial_wants::{People, Person},
-    opening_content, opening_mirror_move, opening_play, opening_visitor_routes,
+    opening_content, opening_mirror_move, opening_play, opening_station_move,
+    opening_visitor_routes,
     pack_state::Catalog,
 };
 use serde_json::{json, Value};
@@ -83,13 +84,49 @@ pub(super) fn verify_second_pond(world: &mut Value, geo: &Geography<'_>) -> Opti
     verify_opening_day(world, geo)
 }
 
+pub(super) fn verify_station(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    let followed = opening_station_move::arrival(world)?.checked_add(1)?;
+    if ["moth", "keeper"]
+        .iter()
+        .any(|id| world["actors"][*id]["place"] != "station")
+        || ["heldActors", "controlledActors", "presentActors"]
+            .iter()
+            .any(|key| {
+                !world[*key]
+                    .as_array()
+                    .is_some_and(|seats| seats.len() == 1 && seats[0] == "vale")
+            })
+        || world["playerActorId"] != "vale"
+        || !world["log"].as_array()?.iter().any(|event| {
+            event["seq"] == followed
+                && event["turn"] == world["turn"]
+                && event["kind"] == "action"
+                && event["actorId"] == "moth"
+                && event["verb"] == "move"
+                && event["itemId"].is_null()
+                && event["fromLocationId"] == "pond"
+                && event["targetId"] == "station"
+                && event["locationId"] == "station"
+                && event["generated"] != true
+        })
+    {
+        return None;
+    }
+    verify_opening_day(world, geo)
+}
+
 fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let room = world["actors"]["vale"]["place"].as_str()?.to_owned();
+    let cast: &[&str] = match room.as_str() {
+        "attic" => &[],
+        "pond" => &["moth"],
+        "station" => &["moth", "keeper"],
+        _ => return None,
+    };
     if world.get("began").is_some_and(|t| t != 0)
         || world["sharedVersion"] != 1
-        || !matches!(room.as_str(), "attic" | "pond")
-        || (room == "pond" && world["items"]["lamp"]["holder"] != "vale")
+        || (room != "attic" && world["items"]["lamp"]["holder"] != "vale")
         || !matches!(
             world["items"]["lamp"]["holder"].as_str(),
             Some("vale" | "attic")
@@ -114,9 +151,7 @@ fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
         }
         let actor = world["actors"].get(id)?;
         let here = actor["place"].as_str()?;
-        if (here == room && !(room == "pond" && id == "moth"))
-            || home_level_due(world, geo, id, person)?
-        {
+        if (here == room && !cast.contains(&id)) || home_level_due(world, geo, id, person)? {
             return None;
         }
         if person.data["roamingQuest"] == "latest-completion" {
@@ -150,7 +185,7 @@ fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     Some(())
 }
 
-pub(super) fn second_projection(request: &Value) -> Option<Value> {
+pub(super) fn opening_day_projection(request: &Value) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
@@ -158,6 +193,7 @@ pub(super) fn second_projection(request: &Value) -> Option<Value> {
     match request["op"].as_str()? {
         "opening_second_attic_life" => verify_second_attic(&mut world, &geo)?,
         "opening_second_pond_life" => verify_second_pond(&mut world, &geo)?,
+        "opening_station_life" => verify_station(&mut world, &geo)?,
         _ => return None,
     }
     Some(json!({"ok":true, "world":world}))

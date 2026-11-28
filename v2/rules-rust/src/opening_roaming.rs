@@ -206,10 +206,15 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
 }
 
 pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
-    if world["actors"]["vale"]["place"] == "pond" {
-        super::opening_mirror_move::second_arrival(world)?;
-    }
     let turn = world["turn"].as_u64()?;
+    match (turn, world["actors"]["vale"]["place"].as_str()?) {
+        (2 | 3, "station") => {
+            super::opening_station_move::arrival(world)?;
+        }
+        (2, "pond") => super::opening_mirror_move::second_arrival(world)?,
+        (2, _) => (),
+        _ => return None,
+    }
     let actor = world["actors"].get(BARD)?;
     let here = actor["place"].as_str()?;
     let pack = geo.packs().find(|pack| pack["id"] == GREEK)?;
@@ -223,8 +228,7 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
             && entry["locationId"] == here
             && entry["generated"] != true
     });
-    if turn != 2
-        || world.get("began").is_some_and(|began| began != 0)
+    if world.get("began").is_some_and(|began| began != 0)
         || world["sharedVersion"] != 1
         || world["controlledActors"] != json!(["vale"])
         || actor["dwellUntil"].as_u64()? <= turn
