@@ -126,14 +126,24 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
         "accept:vale::keeper",
         "move:vale::pond",
         "move:vale::station",
-        "move:vale::pond",
       ])
         world = play(world, action);
+      const lastRoom = seed === 17 && ordered;
+      if (lastRoom)
+        for (const item of ["lamp", "cloth"])
+          world = run({
+            ...seats,
+            op: "hold",
+            world,
+            choice: { item, revision: world.revision },
+          }).world;
+      world = play(world, "move:vale::pond");
       if (ordered)
         world.actors = Object.fromEntries(
           Object.entries(world.actors).toSorted(),
         );
       world = play(world, "drop:vale:lamp:pond");
+      assert.equal(world.items.lamp.fuel, lastRoom ? 4 : 8);
       world = play(
         world,
         ordered ? "move:vale:cloth:greek-ship" : "move:vale::greek-ship",
@@ -172,6 +182,7 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
       const waited = captured("waited");
       const docked = captured("docked");
       const label = `${seed} ${ordered}/${spoken}`;
+      assert.ok(isDeepStrictEqual(wasm(request), reply), `play ${label}`);
       sample = { ...request, op: "opening_pond_ship_wait" };
       const actualWait = wasm(sample);
       assert.ok(

@@ -278,7 +278,6 @@ describe("rest and sanctuary", () => {
       woke: "dawn",
       text: "Mara wakes at dawn.",
     });
-    // The 24-turn cap.
     s = asleep(quiet(30));
     s.actors.mara.sleeping.since = s.turn - 23;
     s = wait(s, "mara");
