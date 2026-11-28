@@ -112,9 +112,8 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
         return None;
     }
     let order = opening_roster::actor_order(request, before)?;
-    let authored = Order::from_pack(request["packContentJson"].as_str()?)?;
     super::opening_play::attic_state(before)?;
-    let files = super::opening_content::wait_files(request)?;
+    let (files, authored) = super::opening_content::wait_files(request)?;
     super::opening_play::attic_content(&files)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;

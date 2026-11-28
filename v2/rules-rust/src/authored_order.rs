@@ -4,6 +4,7 @@ use serde::{
 };
 use std::{collections::BTreeSet, fmt};
 
+#[derive(Default)]
 pub struct Order {
     pub actors: Vec<String>,
     pub items: Vec<String>,
@@ -105,32 +106,52 @@ fn object_keys(keys: impl IntoIterator<Item = String>) -> Vec<String> {
 }
 
 impl Order {
+    pub(super) fn extend(&mut self, other: Self) {
+        self.actors.extend(other.actors);
+        self.items.extend(other.items);
+    }
+
+    pub(super) fn assemble(forest: Self, mut compiled: Self, shared: Self, boardy: Self) -> Self {
+        compiled.extend(shared);
+        compiled.extend(boardy);
+        compiled.items.extend(forest.items);
+        let mut actors = object_keys(forest.actors);
+        actors.extend(object_keys(compiled.actors));
+        Self {
+            actors,
+            items: object_keys(compiled.items),
+        }
+    }
+
     pub fn from_pack(raw: &str) -> Option<Self> {
         let Document { schema, files } = serde_json::from_str(raw).ok()?;
         if schema != 1 {
             return None;
         }
-        let mut pack_actors = Vec::new();
-        let mut pack_items = Vec::new();
+        let mut compiled = Self::default();
         for pack in files.compiled.packs {
-            pack_actors.extend(pack.avatars.0);
-            pack_items.extend(pack.items.0);
+            compiled.actors.extend(pack.avatars.0);
+            compiled.items.extend(pack.items.0);
         }
+        let mut shared = Self::default();
         for avatar in files.shared.avatars {
             if avatar.id != "vale" {
-                pack_actors.push(avatar.id);
-                pack_items.push(avatar.item.id);
+                shared.actors.push(avatar.id);
+                shared.items.push(avatar.item.id);
             }
         }
-        pack_actors.extend(files.boardy.avatars.0);
-        pack_items.extend(files.boardy.items.0);
-        pack_items.extend(files.forest.things.0);
-        let mut actors = object_keys(files.forest.people.0);
-        actors.extend(object_keys(pack_actors));
-        Some(Self {
-            actors,
-            items: object_keys(pack_items),
-        })
+        Some(Self::assemble(
+            Self {
+                actors: files.forest.people.0,
+                items: files.forest.things.0,
+            },
+            compiled,
+            shared,
+            Self {
+                actors: files.boardy.avatars.0,
+                items: files.boardy.items.0,
+            },
+        ))
     }
 }
 
@@ -144,6 +165,10 @@ mod tests {
     fn ordering_matches_pinned_catalog_and_move_witnesses() {
         let raw = include_str!("../../orchestrator-rust/src/card_shared/content.json");
         let order = Order::from_pack(raw).unwrap();
+        let request = serde_json::json!({"packContentJson":raw});
+        let (_, decoded) = crate::opening_content::wait_files(&request).unwrap();
+        assert_eq!(order.actors, decoded.actors);
+        assert_eq!(order.items, decoded.items);
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let script = r#"
 import assert from 'node:assert/strict';
