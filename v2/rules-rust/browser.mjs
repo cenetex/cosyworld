@@ -56,16 +56,20 @@ export function browserRules(bytes) {
           "opening_pond_ask",
           "opening_pond_place_returns",
           "opening_full_move",
-        ].includes(request.op) || atticPlay || pondPlay;
+        ].includes(request.op) ||
+        atticPlay ||
+        pondPlay;
       const actors = ordered ? request.world?.actors : null;
       const actorOrder =
         actors && typeof actors === "object" && !Array.isArray(actors)
           ? Object.keys(actors)
           : undefined;
       const cards =
-        ["opening_place_return", "opening_pond_place_returns"].includes(
-          request.op,
-        ) ||
+        [
+          "opening_place_return",
+          "opening_pond_place_returns",
+          "opening_pond_ask",
+        ].includes(request.op) ||
         (atticPlay && request.world?.began === 480)
           ? request.world?.placeCard
           : null;
