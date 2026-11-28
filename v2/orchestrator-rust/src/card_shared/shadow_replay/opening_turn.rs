@@ -22,6 +22,10 @@ const HISTORIC_POND_MOVE: (&str, PlayAssertion) = (BARE_POND_MOVE.0, check_histo
 const AWAKE_HISTORIC_POND_MOVE: (&str, PlayAssertion) =
     (BARE_POND_MOVE.0, check_awake_historic_pond_move);
 const KEEPER_LOG_READ: (&str, PlayAssertion) = ("read:vale:keeper-log:", check_keeper_log_read);
+const SHIP_CALL_VISITORS: &[(&str, &str, &str, &str)] = &[
+    ("ada", "loft", "greek-ship", "shears"),
+    ("tavi", "hill", "forest-oak", "kite"),
+];
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
@@ -315,10 +319,7 @@ fn sqlite_rules_wasm_parity_replays_keeper_quest_ship_call_with_visitors() -> Re
     verify_keeper_quest_ship_call(
         "keeper-quest-ship-call-with-visitors",
         None,
-        &[
-            ("ada", "loft", "greek-ship", "shears"),
-            ("tavi", "hill", "forest-oak", "kite"),
-        ],
+        SHIP_CALL_VISITORS,
     )
 }
 
@@ -327,7 +328,24 @@ fn verify_keeper_quest_ship_call(
     seed: Option<u32>,
     visitors: &[(&str, &str, &str, &str)],
 ) -> Result<()> {
-    let (mut c, mut state, mut calls) = commit_keeper_quest_pond_with_cloth(id, seed)?;
+    let (mut c, state, calls) = commit_keeper_quest_ship_call(id, seed, visitors)?;
+    verify_opening_journal(&mut c, id, &calls)?;
+    verify_seated_reload(
+        &c,
+        id,
+        &state,
+        "pond",
+        &["station", "attic", "greek-ship"],
+        13,
+    )
+}
+
+fn commit_keeper_quest_ship_call(
+    id: &str,
+    seed: Option<u32>,
+    visitors: &[(&str, &str, &str, &str)],
+) -> Result<(Connection, World, Vec<&'static str>)> {
+    let (c, mut state, mut calls) = commit_keeper_quest_pond_with_cloth(id, seed)?;
     if let Some(seed) = seed {
         assert_eq!(state.game["run"]["seed"], seed);
     }
@@ -396,15 +414,129 @@ fn verify_keeper_quest_ship_call(
         json!({"version":3,"phase":"docked","dock":"pond","riders":[],"destination":null,"since":7,"recall":null})
     );
     assert_eq!(calls.len(), 11);
-    verify_opening_journal(&mut c, id, &calls)?;
-    verify_seated_reload(
-        &c,
-        id,
-        &state,
-        "pond",
-        &["station", "attic", "greek-ship"],
-        13,
+    Ok((c, state, calls))
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_the_first_ship_boarding() -> Result<()> {
+    verify_keeper_quest_ship_boarding(
+        "first-ship-boarding",
+        Some(17),
+        &[],
+        "move:vale::greek-ship",
+        None,
     )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_first_ship_boarding_with_sage() -> Result<()> {
+    verify_keeper_quest_ship_boarding(
+        "first-ship-boarding-with-sage",
+        None,
+        SHIP_CALL_VISITORS,
+        "move:vale:cloth:greek-ship",
+        Some("cloth"),
+    )
+}
+
+fn verify_keeper_quest_ship_boarding(
+    id: &str,
+    seed: Option<u32>,
+    visitors: &[(&str, &str, &str, &str)],
+    action: &str,
+    carried: Option<&str>,
+) -> Result<()> {
+    let (mut c, mut state, mut calls) = commit_keeper_quest_ship_call(id, seed, visitors)?;
+    let seq = state.game["eventSeq"].as_u64().unwrap() + 1;
+    let lamp = state.game["items"]["lamp"].clone();
+    let mut cloth = state.game["items"]["cloth"].clone();
+    cloth["history"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("Turn 8: Vale carried it to The Charybdis."));
+    let mut ship = state.game["transports"]["greek-ship"].clone();
+    ship["since"] = json!(8);
+    let boarded = commit_keeper_play(&c, id, &mut state, &mut calls, action, 13)?;
+    let [event] = boarded["events"].as_array().unwrap().as_slice() else {
+        panic!("Expected Vale's single boarding event");
+    };
+    let world = &state.game;
+    assert_eq!(boarded["room"], "greek-ship");
+    assert_eq!(boarded["exits"], json!(["greek-harbor"]));
+    assert_eq!(world["turn"], 8);
+    assert_eq!(world["eventSeq"], seq);
+    assert_eq!(
+        world["arrival"],
+        json!({"seq":seq,"fromLocationId":"pond","locationId":"greek-ship"})
+    );
+    assert_eq!(event["seq"], seq);
+    assert_eq!(event["kind"], "action");
+    assert_eq!(event["actorId"], "vale");
+    assert_eq!(event["verb"], "move");
+    assert_eq!(event["fromLocationId"], "pond");
+    assert_eq!(event["locationId"], "greek-ship");
+    assert_eq!(event["targetId"], "greek-ship");
+    assert_eq!(event["itemId"], json!(carried));
+    let narration = if carried.is_some() {
+        "Vale carries the Black cloth aboard The Charybdis."
+    } else {
+        "Vale boards The Charybdis."
+    };
+    assert_eq!(event["text"], narration);
+    assert_eq!(event["items"], json!([{"id":"cloth","holder":"vale"}]));
+    assert_eq!(event["light"], false);
+    assert_eq!(world["actors"]["vale"]["place"], "greek-ship");
+    assert_eq!(world["actors"]["vale"]["crossed"], 2);
+    assert_eq!(
+        world["actors"]["vale"]["visited"],
+        json!(["attic", "pond", "station", "greek-ship"])
+    );
+    assert_eq!(world["actors"]["vale"]["heldItem"], "cloth");
+    assert_eq!(world["items"]["cloth"], cloth);
+    assert_eq!(world["items"]["lamp"], lamp);
+    assert_eq!(world["transports"]["greek-ship"], ship);
+    let with_sage = visitors
+        .iter()
+        .any(|(actor, _, to, _)| *actor == "ada" && *to == "greek-ship");
+    let (cast, voices, met) = if with_sage {
+        assert_eq!(world["actors"]["ada"]["place"], "greek-ship");
+        (json!(["ada", "vale"]), json!(["vale", "ada"]), json!(8))
+    } else {
+        assert_eq!(world["actors"]["ada"]["place"], "loft");
+        (json!(["vale"]), json!(["vale"]), Value::Null)
+    };
+    assert_eq!(event["cast"], cast);
+    assert_eq!(world["speechVoices"]["vale"], voices);
+    assert_eq!(world["opening"]["met"]["ada"], met);
+    assert_eq!(world["packs"]["shared-homes"]["met"]["ada"], met);
+    let mut keys = vec!["wait:vale::", "course:vale::greek-harbor"];
+    if with_sage {
+        keys.extend(["threaten:vale::ada", "talk:vale::ada"]);
+    }
+    keys.push("drop:vale:cloth:greek-ship");
+    if with_sage {
+        keys.push("give:vale:cloth:ada");
+    }
+    keys.push("accept:vale::box:loft");
+    let action_keys: Vec<_> = boarded["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|action| action["key"].as_str().unwrap())
+        .collect();
+    assert_eq!(action_keys, keys);
+    assert_eq!(calls.len(), 12);
+    verify_opening_journal(&mut c, id, &calls)?;
+    let view = seated_reload(&c, id, &state, "greek-ship", &["greek-harbor"], 14)?;
+    assert_eq!(
+        view["world"]["actors"]["ada"]["place"],
+        world["actors"]["ada"]["place"]
+    );
+    assert_eq!(view["world"]["speechVoices"]["vale"], voices);
+    assert_eq!(view["world"]["items"]["cloth"], cloth);
+    assert_eq!(view["actions"], boarded["actions"]);
+    assert!(view["world"]["memories"]["ada"].get("learning").is_none());
+    Ok(())
 }
 
 #[test]
@@ -1007,6 +1139,17 @@ fn verify_seated_reload(
     exits: &[&str],
     now: i64,
 ) -> Result<()> {
+    seated_reload(c, id, state, room, exits, now).map(|_| ())
+}
+
+fn seated_reload(
+    c: &Connection,
+    id: &str,
+    state: &World,
+    room: &str,
+    exits: &[&str],
+    now: i64,
+) -> Result<Value> {
     let reloaded = full_store::world(c, id, now)?;
     assert_eq!(&reloaded, state);
     let request = reloaded.request("view", actor_index("vale")?);
@@ -1024,6 +1167,9 @@ fn verify_seated_reload(
         .get("subjects")
         .is_none());
     let guest = Rules::new(&read_candidate()?)?;
-    assert_eq!(reduce_candidate(&guest, pack, &request)?, Some(reference));
-    Ok(())
+    assert_eq!(
+        reduce_candidate(&guest, pack, &request)?.as_ref(),
+        Some(&reference)
+    );
+    Ok(reference)
 }
