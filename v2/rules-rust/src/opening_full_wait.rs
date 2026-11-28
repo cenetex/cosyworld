@@ -98,13 +98,7 @@ pub(super) fn reduce_drop(request: &Value) -> Option<Value> {
 fn round(request: &Value, play: RoundPlay) -> Option<Value> {
     let before = match play {
         RoundPlay::Wait => opening_wait::wait_world(request)?,
-        RoundPlay::DropLamp => {
-            let world = opening_drop::drop_world(request)?;
-            if world.get("hidden").is_some() || world.get("absent").is_some() {
-                return None;
-            }
-            world
-        }
+        RoundPlay::DropLamp => opening_drop::drop_world(request)?,
     };
     quiet_opening(before)?;
     opening_roster::validate_arrivals(before)?;
@@ -132,8 +126,9 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
     }
     let known = opening_roster::known_actors(&world, &geo, &order, None)?;
     let residents = opening_roster::residents(&world, &geo, &known, VALE)?;
-    if play == RoundPlay::Wait {
-        opening_attic_rest::rest_vale(&mut world, &files)?;
+    match play {
+        RoundPlay::Wait => opening_attic_rest::rest_vale(&mut world, &files)?,
+        RoundPlay::DropLamp => opening_roster::visit_hidden(&mut world, &geo)?,
     }
     opening_crossings::no_crossing_unlocks(&world, &geo)?;
     if historic {
@@ -143,7 +138,9 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
         deck.settle(&mut world, &geo, Some("attic"))?;
     }
     opening_attic_rest::settle_vale_wants(&mut world, &files)?;
-    opening_roster::visit_hidden(&mut world, &geo)?;
+    if play == RoundPlay::Wait {
+        opening_roster::visit_hidden(&mut world, &geo)?;
+    }
     opening_hub_residents::confirm_idle(&world, &geo)?;
     let mut custody = opening_pickups::Custody::new(&world)?;
     for &id in &residents {

@@ -198,8 +198,7 @@ pub(super) fn commit_with_reveal(
         let Ok(a) = actor_index(command["actor"].as_str().unwrap_or_default()) else {
             return Ok(result);
         };
-        // Each seat's passkey keeps any upgrade the play gave (#1873). A
-        // gift or trade can upgrade a traveler other than the one who played.
+        // Passkeys retain all upgrades from a play, including gifts or trades to other travelers (#1873).
         for seat in 0..8 {
             let kept = super::bindings::holder(c, id, seat).and_then(|holder| match holder {
                 Some(user) => super::bindings::record_upgrades(c, &user, seat, &w.game),
