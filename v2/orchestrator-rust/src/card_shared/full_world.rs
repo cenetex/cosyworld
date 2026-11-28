@@ -266,7 +266,6 @@ impl World {
     pub fn project(&self, a: usize) -> Result<Value> {
         let mut view =
             engine::reduce_pack(&self.version, self.pack.as_deref(), self.request("view", a))?;
-        // Browser snapshots keep the viewer's memories. Journals retain all records.
         if let Some(memories) = view["world"]["memories"].as_object_mut() {
             for (id, memory) in memories {
                 if id != actor_id(a) {

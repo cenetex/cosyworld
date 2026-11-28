@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 
 mod join;
 mod opening;
+pub mod opening_evidence;
 mod opening_play;
 mod opening_reflection;
 mod opening_speech;
