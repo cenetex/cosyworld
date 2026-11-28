@@ -294,7 +294,6 @@ describe("a bond through staged gifts", () => {
         (e) => e.want.target === want.target,
       );
       const trust = s.actors[R].trust.vale;
-      // Told only to a listener who trusts her enough.
       expect(revealed(s, R, want, "vale")).toBe(
         trust >= (entry.want.minTrust ?? 0),
       );

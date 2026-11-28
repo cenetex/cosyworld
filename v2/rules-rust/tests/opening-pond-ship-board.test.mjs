@@ -6,23 +6,37 @@ import { reducers } from "./parity.mjs";
 
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const op = "opening_pond_ship_board";
+const settlement = "opening_pond_ship_settlement";
 const ship = "greek-ship";
 
-function capturePrimary(source) {
+function captureBoarding(source) {
   const boundary =
     "    const respondent = perform(next, exact, round2, residents2);";
   assert.equal(source.split(boundary).length, 2);
-  return source.replace(
+  source = source.replace(
     boundary,
     `${boundary}
     if (actor === "vale" && exact.kind === "move" && exact.target === "greek-ship")
       globalThis.boarded = structuredClone(next);`,
   );
+  for (const [name, cut] of [
+    ["residents", "    const rings2 = next.log.filter("],
+    ["preWants", "    reviseStalledWants(\n      next,"],
+    ["late", "    noteRumours(s, next, wantAPI(next), wantAPI(s));"],
+  ]) {
+    assert.equal(source.split(cut).length, 2, name);
+    source = source.replace(
+      cut,
+      `    if (next.turn === 8) globalThis.${name} = structuredClone(next);\n${cut}`,
+    );
+  }
+  return source;
 }
 
-test("Vale's first boarding of The Charybdis matches the pinned primary Move", async () => {
+test("Vale's first boarding of The Charybdis matches the pinned Move and settlement", async () => {
   const { pinned, wasm } = await reducers();
-  const reference = currentSharedEngine(capturePrimary);
+  const reference = currentSharedEngine(captureBoarding);
+  const captured = (name) => JSON.parse(JSON.stringify(reference[name]));
   const run = (request) => {
     const reply = pinned(request);
     assert.equal(reply.ok, true, reply.error);
@@ -30,6 +44,7 @@ test("Vale's first boarding of The Charybdis matches the pinned primary Move", a
   };
   const play = (world, action) => run({ ...seats, op: "play", world, action });
   let sample;
+  let settlementSample;
   for (const seed of [undefined, 2, 17, 4242]) {
     for (const sorted of [false, true]) {
       let world = run({ op: "create", seed });
@@ -66,7 +81,7 @@ test("Vale's first boarding of The Charybdis matches the pinned primary Move", a
         };
         const reply = JSON.parse(reference.cardShared(JSON.stringify(request)));
         assert.equal(reply.ok, true, reply.error);
-        const expected = JSON.parse(JSON.stringify(reference.boarded));
+        const expected = captured("boarded");
         const actual = wasm({ ...request, op });
         const label = `${seed} ${sorted} ${key}`;
         assert.ok(actual, `unsupported ${label}`);
@@ -104,6 +119,25 @@ test("Vale's first boarding of The Charybdis matches the pinned primary Move", a
           assert.equal(boarded.packs["shared-homes"].met.ada, 8);
         } else assert.deepEqual(event.cast, ["vale"]);
         sample = { ...request, op };
+        const residents = captured("residents");
+        assert.deepEqual(residents, captured("preWants"), label);
+        const late = captured("late");
+        settlementSample = { op: settlement, before: world, world: residents };
+        const settled = wasm(settlementSample);
+        assert.ok(settled, `unsupported settlement ${label}`);
+        assert.ok(
+          isDeepStrictEqual(settled, { ok: true, world: late }),
+          `${label} settlement`,
+        );
+        assert.deepEqual(settled.world.actors.keeper.contact, {
+          moth: [8, 0],
+          vale: [7, 0],
+        });
+        assert.equal(settled.world.actors["greek-adrastus"].want.since, 8);
+        assert.deepEqual(settled.world.actors.vale.waitSpeech, {
+          place: ship,
+          turn: null,
+        });
       }
     }
   }
@@ -129,4 +163,19 @@ test("Vale's first boarding of The Charybdis matches the pinned primary Move", a
   assert.equal(wasm({ ...sample, present: [] }), null);
   assert.equal(wasm({ ...sample, selectedIds: ["cloth"] }), null);
   assert.equal(wasm({ ...sample, action: `move:vale:lamp:${ship}` }), null);
+  for (const mutate of [
+    (world) => {
+      world.actors.vale.arcana.offer = ship;
+    },
+    (world) => {
+      world.actors.ada.place = ship;
+    },
+    (world) => {
+      world.actors.keeper.contact.moth[0] = 6;
+    },
+  ]) {
+    const world = structuredClone(settlementSample.world);
+    mutate(world);
+    assert.equal(wasm({ ...settlementSample, world }), null);
+  }
 });

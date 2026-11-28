@@ -1,8 +1,9 @@
 use super::{
     create_geography::Geography, initial_wants::People, opening, opening_candidates::RoundDraws,
     opening_company, opening_content, opening_mirror_move, opening_play, opening_pond_call_view,
-    opening_resident_sleep, opening_stale_wants, opening_station_move, opening_station_read,
-    opening_station_view, opening_wait_response::vale_action, pack_state::Catalog,
+    opening_pond_ship_board, opening_resident_sleep, opening_stale_wants, opening_station_move,
+    opening_station_read, opening_station_view, opening_wait_response::vale_action,
+    pack_state::Catalog,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -438,6 +439,27 @@ pub(super) fn settle_pond_drop(
     }
     world["actors"]["moth"]["want"]["refusals"] = json!(0);
     settle_wants(world, geo, 7, false, false, opening_company::fade_trust)
+}
+
+pub(super) fn settle_first_board(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    opening_pond_ship_board::arrival(world)?;
+    let actors = &world["actors"];
+    if world.get("began").is_some_and(|turn| turn != 0)
+        || world["controlledActors"] != json!(["vale"])
+        || !world["elysiumEncounters"].is_null()
+        || actors["vale"].get("want") != Some(&Value::Null)
+        || actors["vale"]["heldItem"] != "cloth"
+        || world["items"]["cloth"]["holder"] != "vale"
+        || world["items"]["lamp"]["holder"] != "pond"
+        || actors["keeper"]["completedQuest"]["turn"] != 7
+        || actors["keeper"]["completedQuest"]["by"] != "vale"
+        || actors["keeper"]["place"] != "station"
+        || actors["moth"]["place"] != "station"
+        || actors["keeper"]["contact"] != json!({"moth":[7,0],"vale":[7,0]})
+    {
+        return None;
+    }
+    settle_wants(world, geo, 8, false, false, opening_company::fade_trust)
 }
 
 pub(super) fn station_departure_turn(
