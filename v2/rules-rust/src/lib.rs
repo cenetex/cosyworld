@@ -52,6 +52,7 @@ mod opening_speech;
 mod opening_stale_wants;
 mod opening_station_move;
 mod opening_station_residents;
+mod opening_station_view;
 mod opening_take;
 mod opening_take_response;
 mod opening_view;
@@ -74,6 +75,7 @@ mod validate;
 
 pub use create_geography::Geography;
 pub use opening_pond_view::completed_move_response;
+pub use opening_station_view::completed_station_response;
 pub use opening_take_response::completed_take_response;
 pub use opening_view::create_response;
 pub use opening_wait_response::{completed_second_wait_response, completed_wait_response};
