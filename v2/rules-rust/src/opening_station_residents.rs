@@ -1,8 +1,12 @@
 use super::{
-    authored_order::Order, opening_content, opening_crossings, opening_full_wait,
-    opening_hub_residents, opening_pickups, opening_roster, opening_station_move,
-    opening_wait_response, pack_state::Catalog, resident_evidence::ResidentEvidence, seed,
-    Geography,
+    authored_order::Order,
+    opening_content, opening_crossings, opening_full_wait, opening_hub_residents,
+    opening_pickups::{self, Custody},
+    opening_resident_sleep, opening_roster, opening_station_move, opening_visitor_play,
+    opening_wait_response,
+    pack_state::Catalog,
+    resident_evidence::ResidentEvidence,
+    seed, Geography,
 };
 use serde_json::{json, Value};
 
@@ -137,6 +141,115 @@ fn quiet_residents(world: &Value, geo: &Geography, turn: u64) -> Option<()> {
     opening_hub_residents::at_home(world, geo, KEEPER, "oil")
 }
 
+fn scheduled_sleep(actor: &Value, place: &str) -> Option<bool> {
+    let sleep = &actor["sleeping"];
+    if sleep.is_null() {
+        return Some(false);
+    }
+    (sleep["since"] == 481 && sleep["place"] == place && sleep["until"].as_u64()? >= 482)
+        .then_some(true)
+}
+
+fn confirm_historic_visitor(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    avatar: &Value,
+    custody: &Custody,
+) -> Option<()> {
+    let actor = avatar["id"].as_str()?;
+    if actor == VALE || !geo.entity_active(world, actor)? {
+        return Some(());
+    }
+    let person = world["actors"].get(actor)?;
+    let home = avatar["home"]["id"].as_str()?;
+    let item = avatar["item"]["id"].as_str()?;
+    if !geo.visiting_resident(world, actor) || person["place"] != home {
+        return None;
+    }
+    if scheduled_sleep(person, home)? {
+        return Some(());
+    }
+    let home_is_empty = !world["actors"]
+        .as_object()?
+        .iter()
+        .any(|(id, person)| id != actor && person["place"] == home);
+    if person["heldItem"] != item
+        || world["items"][item]["holder"] != actor
+        || !custody.can_transfer_one(actor, home)
+        || !geo.entity_active(world, item)?
+        || !world["placeCard"][home].is_null()
+        || !world["defeats"][actor].is_null()
+        || !world["memories"][actor]["learning"].is_null()
+        || ["homeward", "attend", "guarding", "under"]
+            .iter()
+            .any(|field| !person[*field].is_null())
+        || opening_pickups::resting(person, 482)
+        || person["dwellUntil"]
+            .as_u64()
+            .is_some_and(|until| until > 482)
+        || world["peaceUntil"][actor].as_u64()? > 482
+        || opening_pickups::another_way(geo, home)?
+        || !home_is_empty
+    {
+        return None;
+    }
+    opening_visitor_play::home_destination(world, geo, actor, home)?
+        .is_none()
+        .then_some(())
+}
+
+pub(super) fn confirm_historic_idle(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    order: &[&str],
+) -> Option<()> {
+    let arrival = opening_station_move::historic_arrival(world)?;
+    let primary = world["log"].as_array()?.last()?;
+    if world["playerActorId"] != VALE
+        || ["heldActors", "controlledActors", "presentActors"]
+            .iter()
+            .any(|key| world[*key] != json!([VALE]))
+        || world["actors"][VALE]["visited"] != json!(["attic", POND, STATION])
+        || geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
+        || !world["standoffs"].as_array()?.is_empty()
+        || world["conversations"]
+            .as_array()?
+            .iter()
+            .any(|record| record["turn"].as_u64().is_none_or(|turn| turn >= 482))
+        || !world["disabledPacks"].is_null()
+        || world["eventSeq"] != arrival
+        || primary["seq"] != arrival
+        || !opening_wait_response::vale_action(primary)
+        || ![VALE, PIP, CLOTH]
+            .iter()
+            .all(|id| entries(&primary["witnesses"]).any(|witness| witness == *id))
+        || world["items"]["lamp"]["holder"] != VALE
+        || world["items"]["lamp"]["lit"] != false
+        || world["items"]["lamp"]["fuelPlace"] != STATION
+        || world["items"]["bell"]["holder"] != STATION
+        || world["items"]["bell"]["ringing"] != 0
+        || world["actors"][KEEPER]["place"] != STATION
+        || world["actors"][KEEPER]["want"]["step"]["verb"] != "call"
+        || geo.entity_active(world, "boardyai")?
+    {
+        return None;
+    }
+    opening_resident_sleep::sleeping_pip_at_pond(world, geo, arrival)?;
+    let cast = opening_roster::known_actors(world, geo, order, Some(STATION))?;
+    if cast.len() != 2 || !cast.contains(&VALE) || !cast.contains(&KEEPER) {
+        return None;
+    }
+    if !scheduled_sleep(&world["actors"][KEEPER], STATION)? {
+        opening_hub_residents::at_home(world, geo, KEEPER, "oil")?;
+    }
+    opening_crossings::no_crossing_unlocks(world, geo)?;
+    let custody = Custody::new(world)?;
+    for avatar in geo.files()["v2/card-game/shared-cast.json"]["avatars"].as_array()? {
+        confirm_historic_visitor(world, geo, avatar, &custody)?;
+    }
+    Some(())
+}
+
 pub(super) fn settle(
     world: &mut Value,
     geo: &Geography,
@@ -183,8 +296,12 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    let evidence = ResidentEvidence::new(&files)?;
     let mut world = saved.clone();
-    settle(&mut world, &geo, &authored, &order, &evidence)?;
+    if world.get("began").is_some() {
+        confirm_historic_idle(&mut world, &geo, &order)?;
+    } else {
+        let evidence = ResidentEvidence::new(&files)?;
+        settle(&mut world, &geo, &authored, &order, &evidence)?;
+    }
     Some(json!({"ok":true,"world":world}))
 }

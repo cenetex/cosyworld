@@ -2705,7 +2705,6 @@ function toward(s, actor, target) {
   }
 }
 // A resident may quietly choose its own prop before deciding its next play.
-// Human selection and the public planner remain read-only and explicit.
 function prepareResidentLamp(s, actor, target = null) {
   if (controlledByHuman(s, actor) || s.items.lamp.holder !== actor) return;
   const want = wantOf(s, actor), here = s.actors[actor].place;

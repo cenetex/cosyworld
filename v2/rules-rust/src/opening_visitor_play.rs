@@ -60,6 +60,34 @@ fn dwell_until(actor: &str, turn: u64) -> u64 {
     turn + 24 + u64::from(seed::hash(&format!("{actor}@{turn}")) % 6)
 }
 
+pub(super) fn home_destination<'a>(
+    world: &mut Value,
+    geo: &Geography<'a>,
+    actor: &str,
+    home: &str,
+) -> Option<Option<&'a str>> {
+    let target = world["actors"][actor]["want"]["target"].as_str()?;
+    let place = world["actors"][target]["place"].as_str()?.to_owned();
+    let routes = opening_visitor_routes::home_person_routes(world, geo, actor)?;
+    if routes.direct.is_some() {
+        return Some(routes.direct);
+    }
+    if place == "attic" {
+        return Some(routes.pond);
+    }
+    let interior = geo.attic_interior()?;
+    if interior.contains(home)
+        && routes.attic.is_some()
+        && opening_visitor_routes::reaches_from(world, geo, actor, "pond", &place)?
+    {
+        Some(routes.attic)
+    } else if !interior.contains(home) && interior.contains(place.as_str()) {
+        Some(routes.attic.or(routes.pond))
+    } else {
+        Some(None)
+    }
+}
+
 fn quiet_departure_wait(
     world: &Value,
     geo: &Geography,
@@ -262,30 +290,7 @@ fn perform_visitor(
     {
         return None;
     }
-    let target = a["want"]["target"].as_str()?;
-    let place = world["actors"][target]["place"].as_str()?.to_owned();
-    let routes = opening_visitor_routes::home_person_routes(world, geo, actor)?;
-    let to = if routes.direct.is_some() {
-        routes.direct
-    } else if place == "attic" {
-        routes.pond
-    } else {
-        let interior = geo.attic_interior()?;
-        if interior.contains(home) {
-            if routes.attic.is_some()
-                && opening_visitor_routes::reaches_from(world, geo, actor, "pond", &place)?
-            {
-                routes.attic
-            } else {
-                None
-            }
-        } else if interior.contains(place.as_str()) {
-            routes.attic.or(routes.pond)
-        } else {
-            None
-        }
-    };
-    let Some(to) = to else {
+    let Some(to) = home_destination(world, geo, actor, home)? else {
         if geo.packs().any(|pack| {
             entries(&pack["choices"]).any(|choice| choice["at"] == home && choice["on"] == "wait")
         }) {
