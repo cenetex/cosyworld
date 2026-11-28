@@ -6,10 +6,12 @@ publish = false
 
 [features]
 embedded-llama = ["dep:llama-cpp-2"]
+rules-wasm = ["dep:cosyworld-rules-host"]
 
 [dependencies]
 axum = "0.8"
 base64 = "0.22"
+cosyworld-rules-host = { path = "../rules-rust/host", optional = true }
 ed25519-dalek = "2"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }

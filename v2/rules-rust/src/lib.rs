@@ -68,6 +68,65 @@ fn settle_lamp(request: &Value) -> Result<Lamp, &'static str> {
     Ok(lamp.settle(position))
 }
 
+// In this opening state, presence cannot admit a route or affect the Wayfinder.
+fn opening_presence(request: &Value) -> Option<Value> {
+    let world = &request["world"];
+    let actor = request["actor"].as_str()?;
+    let present = request["present"].as_array()?;
+    let claimed = request["claimed"].as_array()?;
+    let actors = world["actors"].as_object()?;
+    let away_from_station = |id: &str| {
+        actors
+            .get(id)
+            .and_then(|actor| actor["place"].as_str())
+            .is_some_and(|place| place != "station")
+    };
+    let lamp = &world["items"]["lamp"];
+    if world["schema"] != 8
+        || world["sharedVersion"] != 1
+        || world["revision"] != 0
+        || world["turn"] != 0
+        || world["opening"]["crossed"] != false
+        || !world["stationExitOrder"]
+            .as_array()
+            .is_some_and(Vec::is_empty)
+        || world["items"]["elysium-wayfinder"]["holder"] != "behind-station"
+        || lamp["holder"] != "vale"
+        || actors.get("vale")?["place"] != "attic"
+        || actors.get("vale")?["heldItem"] != "lamp"
+        || !away_from_station(actor)
+        || !claimed
+            .iter()
+            .all(|id| id.as_str().is_some_and(away_from_station))
+        || !present.iter().all(|id| claimed.contains(id))
+    {
+        return None;
+    }
+    let position = LampPosition {
+        place: "attic".into(),
+        held: true,
+        grounded: false,
+    };
+    let fuel = lamp_state(lamp).ok()?.settle(position);
+    let mut world = world.clone();
+    let lamp = &mut world["items"]["lamp"];
+    lamp["fuel"] = json!(fuel.fuel_rooms * 4);
+    lamp["fuelRooms"] = json!(fuel.fuel_rooms);
+    lamp["fuelPlace"] = json!(fuel.fuel_place);
+    lamp["fuelVisit"] = json!(fuel.fuel_visit);
+    lamp["lit"] = json!(fuel.lit);
+    let world = world.as_object_mut()?;
+    for transient in [
+        "playerActorId",
+        "controlledActors",
+        "presentActors",
+        "heldActors",
+    ] {
+        world.remove(transient);
+    }
+    Some(json!({"ok": true, "world": world}))
+}
+
 /// The shadow ABI uses JSON null for an operation outside the current port.
 pub fn reduce(request: &Value) -> Value {
     match request["op"].as_str() {
@@ -75,6 +134,7 @@ pub fn reduce(request: &Value) -> Value {
             Ok(lamp) => json!({"ok": true, "lamp": lamp}),
             Err(error) => json!({"ok": false, "error": error}),
         },
+        Some("presence") => opening_presence(request).unwrap_or(Value::Null),
         _ => Value::Null,
     }
 }
