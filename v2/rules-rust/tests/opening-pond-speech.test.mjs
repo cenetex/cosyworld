@@ -59,7 +59,15 @@ test("Vale and Pip publish the complete pinned second-Move speech reply", async 
       const played = moved(pinned, seed, mode, true);
       assert.equal(played.world.turn, 2);
       assert.deepEqual(played.world.speechVoices.vale, ["vale", "moth"]);
-      assert.equal(played.events.length, seed === 0 ? 2 : 3);
+      assert.deepEqual(
+        played.events
+          .filter(({ locationId }) => locationId === "pond")
+          .map(({ actorId, verb }) => [actorId, verb]),
+        [
+          ["vale", "move"],
+          ["moth", "ask"],
+        ],
+      );
       const sorted = Object.fromEntries(
         Object.entries(played.world.actors).toSorted(),
       );
