@@ -19,7 +19,7 @@ const pinned = (request) => {
 };
 const seats = { actor: 'vale', claimed: ['vale'], present: ['vale'] };
 const play = (world, action) => pinned({ ...seats, op: 'play', world, action });
-for (const [seed, second, dry, sorted, carry] of [
+const quiet = [
     [undefined, false, false, false, false],
     [0, false, true, true, true],
     [2, false, true, false, false],
@@ -28,7 +28,10 @@ for (const [seed, second, dry, sorted, carry] of [
     [4242, false, false, true, false],
     [4294967295, false, false, false, true],
     [4294967295, true, true, true, false],
-]) {
+];
+const rue = [7, 99].flatMap(seed => [false, true].flatMap(dry =>
+    [false, true].map(sorted => [seed, false, dry, sorted, dry !== sorted])));
+for (const [seed, second, dry, sorted, carry] of [...quiet, ...rue]) {
     let {world} = pinned({op:'create', seed});
     if (dry) Object.assign(world.items.lamp, {fuel:0, fuelRooms:0, lit:false});
     else ({world} = pinned({...seats, op:'hold', world, choice:{item:null, revision:world.revision}}));
@@ -37,7 +40,14 @@ for (const [seed, second, dry, sorted, carry] of [
     if (sorted) world.actors = Object.fromEntries(Object.entries(world.actors).sort());
     world.speechVoices.mara = ['mara'];
     const expected = play(world, carry ? 'move:vale:lamp:station' : 'move:vale::station');
-    const views = [seats.present, []].map(present =>
+    const withRue = rue.some(([candidate]) => candidate === seed);
+    assert.equal(expected.world.actors.rue.place === 'station', withRue);
+    if (withRue) {
+        assert.deepEqual(expected.world.speechVoices.vale, ['vale', 'keeper', 'rue']);
+        assert.deepEqual(expected.events.map(event => event.actorId),
+            seed === 99 ? ['vale', 'moth', 'nell', 'rue'] : ['vale', 'moth', 'rue']);
+    }
+    const views = (withRue ? [seats.present] : [seats.present, []]).map(present =>
         pinned({...seats, op:'view', present, world:expected.world}));
     console.log(JSON.stringify({
         beforeSeq: world.eventSeq, priorVoices: world.speechVoices,
@@ -82,10 +92,8 @@ for (const [seed, second, dry, sorted, carry] of [
             row["label"]
         );
         assert_eq!(actual, row["expected"], "{}", row["label"]);
-        for (present, expected) in [json!([VALE]), json!([])]
-            .into_iter()
-            .zip(entries(&row["views"]))
-        {
+        for expected in entries(&row["views"]) {
+            let present = &expected["world"]["presentActors"];
             let mut request = json!({
                 "op":"view", "actor":VALE, "claimed":[VALE], "present":present,
                 "world":actual["world"], "actorOrder":row["order"], "packContentJson":raw,
