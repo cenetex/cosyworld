@@ -43,12 +43,15 @@ pub(super) fn first_person(text: &str) -> bool {
         })
 }
 
-/// Whether a text names an item kind, by its name's last word ("the River
-/// Map" is a map), that no item the scene knows shares (#1850).
+/// Whether a text names an item kind (a name's last word) no known item shares (#1850).
 pub(super) const GENERIC_NOUNS: [&str; 12] = [
     "account", "card", "list", "record", "plea", "seed", "bread", "wine", "water", "milk", "honey",
     "watch",
 ];
+
+pub(super) fn named(label: &serde_json::Value, span: &str) -> bool {
+    label.as_str() == Some(span) && !GENERIC_NOUNS.contains(&span.to_lowercase().as_str())
+}
 
 pub(super) fn invents_item(text: &str, known: &BTreeSet<String>) -> bool {
     let lower = text.to_lowercase();
