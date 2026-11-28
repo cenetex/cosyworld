@@ -262,14 +262,5 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     );
     memory.insert("reflections".into(), json!(reflections));
     world["revision"] = json!(revision);
-    let world = world.as_object_mut()?;
-    for field in [
-        "playerActorId",
-        "heldActors",
-        "controlledActors",
-        "presentActors",
-    ] {
-        world.remove(field);
-    }
-    Some(json!({"ok": true, "world": world}))
+    super::opening::stored_response(world)
 }

@@ -1,23 +1,13 @@
-use super::{lamp_state, LampPosition};
+use super::{
+    lamp_state,
+    opening::{seats, stored_response},
+    LampPosition,
+};
 use serde_json::{json, Map, Value};
 
 const ACTOR: &str = "vale";
 const HOME: &str = "attic";
 const OPENING: &str = "Vale stands alone in Mirror attic, holding a lamp. Its light fills the room; the tall mirror shows only the attic.";
-const SEATS: [&str; 8] = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
-
-fn seats(value: &Value) -> Option<Vec<&str>> {
-    let ids = value.as_array()?;
-    let mut valid = Vec::with_capacity(SEATS.len());
-    for id in ids {
-        let id = id.as_str()?;
-        if !SEATS.contains(&id) || valid.contains(&id) {
-            return None;
-        }
-        valid.push(id);
-    }
-    Some(valid)
-}
 
 fn starting_memory() -> Value {
     let sight = |holder| json!({ "sight": { "seq": 1, "turn": 0, "place": HOME, "holder": holder, "company": [], "things": [] } });
@@ -94,13 +84,9 @@ pub(super) fn reset(request: &Value) -> Option<Value> {
             *score = json!(0);
         }
     }
-    let lamp = world["items"]["lamp"].as_object_mut()?;
-    lamp.insert("holder".into(), json!(HOME));
-    lamp.insert("fuel".into(), json!(fuel.fuel_rooms * 4));
-    lamp.insert("fuelRooms".into(), json!(fuel.fuel_rooms));
-    lamp.insert("fuelPlace".into(), json!(fuel.fuel_place));
-    lamp.insert("fuelVisit".into(), json!(fuel.fuel_visit));
-    lamp.insert("lit".into(), json!(fuel.lit));
+    let lamp = &mut world["items"]["lamp"];
+    lamp["holder"] = json!(HOME);
+    fuel.write(lamp);
     world["memories"]
         .as_object_mut()?
         .insert(ACTOR.into(), starting_memory());
@@ -152,14 +138,5 @@ pub(super) fn reset(request: &Value) -> Option<Value> {
         .insert(ACTOR.into(), json!(0));
     world["revision"] = json!(revision + 1);
 
-    let world = world.as_object_mut()?;
-    for transient in [
-        "playerActorId",
-        "controlledActors",
-        "presentActors",
-        "heldActors",
-    ] {
-        world.remove(transient);
-    }
-    Some(json!({"ok": true, "world": world}))
+    stored_response(world)
 }

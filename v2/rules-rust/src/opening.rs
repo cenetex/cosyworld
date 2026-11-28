@@ -2,11 +2,26 @@ use super::{lamp_state, Lamp, LampPosition};
 use serde_json::{json, Value};
 
 const MAX_REVISION: u64 = 9_007_199_254_740_991;
+const SEATS: [&str; 8] = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
+
+pub(super) fn seats(value: &Value) -> Option<Vec<&str>> {
+    let ids = value.as_array()?;
+    let mut valid = Vec::with_capacity(SEATS.len());
+    for id in ids {
+        let id = id.as_str()?;
+        if !SEATS.contains(&id) || valid.contains(&id) {
+            return None;
+        }
+        valid.push(id);
+    }
+    Some(valid)
+}
 
 struct Opening<'a> {
     world: &'a Value,
     lamp: Lamp,
     held: bool,
+    grounded: bool,
     revision: u64,
     station: Vec<&'static str>,
 }
@@ -15,13 +30,14 @@ impl<'a> Opening<'a> {
     fn supported(request: &'a Value) -> Option<Self> {
         let world = &request["world"];
         let actor = request["actor"].as_str()?;
-        let claimed = request["claimed"].as_array()?;
-        let present = request["present"].as_array()?;
+        let claimed = seats(&request["claimed"])?;
+        let present = seats(&request["present"])?;
         let actors = world["actors"].as_object()?;
         let items = world["items"].as_object()?;
         let vale = actors.get("vale")?;
         let saved_lamp = items.get("lamp")?;
         let lamp = lamp_state(saved_lamp).ok()?;
+        let grounded = saved_lamp["holder"] == "attic";
         let revision = world["revision"].as_u64().filter(|n| *n <= MAX_REVISION)?;
         let turn = world["turn"].as_u64()?;
         let began = match world.get("began") {
@@ -43,18 +59,18 @@ impl<'a> Opening<'a> {
             || world["opening"]["crossed"] != false
             || !matches!(
                 items.get("elysium-wayfinder")?["holder"].as_str(),
-                Some("pond" | "behind-station")
+                Some("pond" | "station" | "behind-station" | "clearing")
             )
-            || saved_lamp["holder"] != "vale"
+            || (!grounded && saved_lamp["holder"] != "vale")
+            || (grounded && held)
             || vale["place"] != "attic"
             || lamp.fuel_place != "attic"
             || !lamp.fuel_visit
             || saved_lamp["fuel"] != lamp.fuel_rooms * 4
-            || saved_lamp["lit"] != (held && lamp.fuel_rooms > 0)
+            || saved_lamp["lit"] != ((held || grounded) && lamp.fuel_rooms > 0)
+            || !SEATS.contains(&actor)
             || !away_from_station(actor)
-            || !claimed
-                .iter()
-                .all(|id| id.as_str().is_some_and(away_from_station))
+            || !claimed.iter().all(|id| away_from_station(id))
             || !present.iter().all(|id| claimed.contains(id))
         {
             return None;
@@ -63,6 +79,7 @@ impl<'a> Opening<'a> {
             world,
             lamp,
             held,
+            grounded,
             revision,
             station: station_order(world)?,
         })
@@ -73,7 +90,7 @@ impl<'a> Opening<'a> {
             .settle(LampPosition {
                 place: "attic".into(),
                 held,
-                grounded: false,
+                grounded: self.grounded,
             })
             .write(&mut world["items"]["lamp"]);
         world["stationExitOrder"] = json!(self.station);
@@ -147,6 +164,14 @@ pub(super) fn presence(request: &Value) -> Option<Value> {
     opening.respond(world, held)
 }
 
+pub(super) fn join_state(request: &Value) -> Option<Value> {
+    let opening = Opening::supported(request)?;
+    let mut world = opening.world.clone();
+    super::join::apply(&mut world, request["actor"].as_str()?, &request["progress"])?;
+    let held = opening.held;
+    opening.respond(world, held)
+}
+
 pub(super) fn hold(request: &Value) -> Option<Value> {
     let present = request["present"].as_array()?;
     if request["actor"] != "vale" || !present.iter().any(|id| id == "vale") {
@@ -154,7 +179,8 @@ pub(super) fn hold(request: &Value) -> Option<Value> {
     }
     let opening = Opening::supported(request)?;
     let choice = request["choice"].as_object()?;
-    if choice.len() != 2
+    if opening.grounded
+        || choice.len() != 2
         || choice.get("revision")?.as_u64()? != opening.revision
         || opening.revision == MAX_REVISION
     {
