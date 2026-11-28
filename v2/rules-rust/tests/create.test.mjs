@@ -25,7 +25,7 @@ test("fresh create reports unsupported options outside the parity scope", async 
   for (const args of [
     { seed: "4242" },
     { seed: 4_294_967_296 },
-    { hidden: "mara" },
+    { hidden: "mara", absent: ["mara"] },
     { absent: ["vale"] },
     { homecoming: "vale" },
     { actor: "mara" },
@@ -51,4 +51,23 @@ test("fresh absence and homecoming options match the complete pinned response", 
     const request = { op: "create", absent };
     assert.ok(isDeepStrictEqual(wasm(request), pinned(request)));
   }
+});
+
+
+test("fresh hidden avatars draw wants using their authored routes", async () => {
+  const { pinned, wasm } = await reducers();
+  const landings = new Set();
+  for (const history of [false, true]) {
+    for (const seed of [0, 1, 3, 4, 7, 11]) {
+      const request = {
+        op: "create", seed, history, hidden: "nell", absent: ["mara"],
+        homecoming: "rue",
+      };
+      const expected = pinned(request);
+      assert.equal(expected.ok, true);
+      landings.add(expected.world.hidden.place);
+      assert.ok(isDeepStrictEqual(wasm(request), expected), `seed ${seed}, history ${history}`);
+    }
+  }
+  assert.equal(landings.size, 6);
 });

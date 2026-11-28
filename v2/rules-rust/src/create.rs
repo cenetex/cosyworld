@@ -241,9 +241,6 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         Some(seed) => Some(u32::try_from(seed.as_u64()?).ok()?),
     };
     let arrivals = ArrivalOptions::parse(request)?;
-    if arrivals.hidden.is_some() {
-        return None;
-    }
     let history = request["history"] == true;
     let world = if arrivals.is_empty() {
         fresh(&files, seed, history)?
@@ -279,6 +276,9 @@ fn with_arrivals(
     }
     begin_shared(&mut world, files)?;
     arrivals.apply(&mut world, files)?;
+    if arrivals.hidden.is_some() {
+        settle_station(&mut world, files, &geo)?;
+    }
     opening_candidates::fill(&mut world, &geo, &people, files)?;
     if let Some(actor) = arrivals.homecoming {
         world["actors"][actor]["want"] = Value::Null;
