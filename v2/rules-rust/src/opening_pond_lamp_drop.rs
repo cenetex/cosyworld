@@ -66,7 +66,7 @@ pub(super) fn quiet_cloth(world: &Value, geo: &Geography<'_>, arrival: u64) -> O
     Some(())
 }
 
-fn quiet_items<'a>(
+pub(super) fn quiet_items<'a>(
     world: &Value,
     geo: &Geography<'_>,
     authored: &'a Order,
