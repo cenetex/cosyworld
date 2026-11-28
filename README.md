@@ -60,6 +60,57 @@ Captures come from the live site or a local server, never a generated stand-in. 
 
 A short recording of one play, from card to world message to reply, is enough.
 
+
+### Reproduce the portfolio capture
+
+Run from the repository root with Node 24, the Rust toolchain, Chromium
+(Playwright), and a built orchestrator. Use a fresh, dedicated OpenRouter
+key with a small spend limit. Set the model explicitly to one currently
+available on your account.
+
+```sh
+npm ci
+npx playwright install chromium
+npm run v2:rust:build
+export COSYWORLD_PORTFOLIO_MODEL=openai/gpt-4.1-mini
+# Supply OPENROUTER_API_KEY securely in your environment.
+node v2/scripts/capture-portfolio-demo.mjs
+```
+
+If the build uses a release or custom binary, set
+`COSYWORLD_SHARED_BINARY` to its absolute path. The capture starts its own
+loopback server (default port 4188; override with `COSYWORLD_PORTFOLIO_PORT`)
+and creates a new temporary SQLite database. It never plays on the public
+world. Run from a clean checkout without unrelated server configuration.
+
+The starting position is a **seeded gameplay setup**, not a recorded
+playthrough: Vale crosses to the Black Pond using the rules, with the bell
+placed in Vale's inventory for the capture. No dialogue is seeded. The
+browser registers a real test passkey, shares the world, selects the bell
+and pond cards, and drops the bell through the UI. The real Rust server
+writes the action to SQLite. The same turn's spoken words must match a
+successful response from OpenRouter, through a loopback relay that returns
+the upstream response unchanged. It has no fixture or fallback reply of
+its own. The script checks the committed event, the item holder, the
+journal order and the generated line. It stops the server, restarts with
+the same database, and checks the action and speech in a fresh browser
+using only the session cookies. A failed or silent reply is a failed
+capture, never a substitute for live speech.
+
+Output defaults to a new directory under `output/portfolio-demo/` (or set
+`COSYWORLD_PORTFOLIO_OUTPUT` to a nonexistent destination). It contains
+the table, selected card, world message, generated speech, shared-world
+screen, a silent Playwright WebM recording, and `evidence.json`. The
+recording shows the spoken **text**, not an audio recording of TTS.
+The evidence includes the provider response ID, returned model, turn,
+journal sequence numbers and restart checks, not the API key, prompts or
+session cookies. Review the frames and trim the WebM if needed before
+copying the approved media into `docs/play/`. Only a run with
+`status: "passed"` is eligible. Do not publish incomplete captures or
+fixture output as model-generated speech. The existing
+`smoke-shared-cards.mjs` remains the deterministic, mocked-provider test;
+it is not evidence of a live model call.
+
 ## Where the code lives
 
 | Path                        | What it is                                        |
