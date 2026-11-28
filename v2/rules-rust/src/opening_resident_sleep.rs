@@ -266,7 +266,7 @@ pub(super) fn historic_pond(world: &Value) -> Option<i64> {
     Some(turn)
 }
 
-fn quiet_historic_station(world: &Value) -> Option<(i64, u64)> {
+fn historic_station_base(world: &Value) -> Option<(i64, u64)> {
     let turn = historic_round(world, 482)?;
     let arrival = opening_station_move::historic_arrival(world)?;
     let actors = world["actors"].as_object()?;
@@ -275,11 +275,15 @@ fn quiet_historic_station(world: &Value) -> Option<(i64, u64)> {
         || actors.get("vale")?["visited"] != json!(["attic", "pond", "station"])
         || actors.get("keeper")?["place"] != "station"
         || world["items"]["lamp"]["holder"] != "vale"
-        || world["eventSeq"] != arrival
     {
         return None;
     }
     Some((turn, arrival))
+}
+
+fn quiet_historic_station(world: &Value) -> Option<(i64, u64)> {
+    let (turn, arrival) = historic_station_base(world)?;
+    (world["eventSeq"] == arrival).then_some((turn, arrival))
 }
 
 pub(super) fn sleeping_pip_at_pond(world: &Value, geo: &Geography<'_>, arrival: u64) -> Option<()> {
@@ -341,16 +345,68 @@ pub(super) fn settle_station(
             return None;
         }
     }
-    settle_at(world, geo, residents, turn, "station", |_, _| None)
+    settle_at(world, geo, residents, turn, "station", |_, _, _| None)
 }
 
 pub(super) fn verify_station_wake(world: &Value) -> Option<()> {
     quiet_historic_station(world)?;
+    only_scheduled_sleepers(world)
+}
+
+pub(super) fn verify_awake_station_wake(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    historic_station_base(world)?;
+    awake_station_receipt(world, geo)?;
+    only_scheduled_sleepers(world)
+}
+
+fn only_scheduled_sleepers(world: &Value) -> Option<()> {
     world["actors"]
         .as_object()?
         .values()
         .all(|actor| actor["sleeping"].is_null() || actor["sleeping"]["until"].is_i64())
         .then_some(())
+}
+
+pub(super) fn awake_station_receipt(world: &Value, geo: &Geography<'_>) -> Option<u64> {
+    let follow_seq = opening_station_move::historic_follow(world)?;
+    let head = follow_seq.checked_add(1)?;
+    let log = world["log"].as_array()?;
+    let follow = log.iter().find(|event| event["seq"] == follow_seq)?;
+    let keeper = &world["actors"]["keeper"];
+    let pip = &world["actors"]["moth"];
+    let name = geo.files()["v2/card-game/forest.json"]["people"]["keeper"]["name"].as_str()?;
+    let wake = log.last()?;
+    let cast = wake["cast"].as_array()?;
+    if geo.files()["v2/card-game/world-history.json"]["turns"] != world["began"]
+        || world["eventSeq"] != head
+        || wake["seq"] != head
+        || wake["turn"] != 482
+        || wake["kind"] != "narration"
+        || wake["generated"] == true
+        || wake["actorId"] != "keeper"
+        || wake["locationId"] != "station"
+        || wake["text"] != format!("{name} wakes.")
+        || wake["cast"] != follow["cast"]
+        || cast.len() != 3
+        || ["vale", "keeper", "moth"]
+            .iter()
+            .any(|id| !cast.iter().any(|value| value == *id))
+        || keeper["place"] != "station"
+        || !keeper["sleeping"].is_null()
+        || pip["place"] != "station"
+        || !pip["sleeping"].is_null()
+    {
+        return None;
+    }
+    for (id, actor) in world["actors"].as_object()? {
+        if actor["place"] == "station"
+            && !matches!(id.as_str(), "vale" | "keeper" | "moth")
+            && geo.entity_active(world, id)?
+        {
+            return None;
+        }
+    }
+    Some(head)
 }
 
 pub(super) fn wake_station_keeper(
@@ -361,7 +417,7 @@ pub(super) fn wake_station_keeper(
     evidence: &ResidentEvidence,
 ) -> Option<()> {
     let turn = historic_round(world, 482)?;
-    let follow_seq = opening_station_move::historic_arrival(world)?.checked_add(1)?;
+    let follow_seq = opening_station_move::historic_follow(world)?;
     let head = world["eventSeq"].as_u64()?;
     let keeper = &world["actors"]["keeper"];
     let pip = &world["actors"]["moth"];
@@ -381,21 +437,10 @@ pub(super) fn wake_station_keeper(
     {
         return None;
     }
-    let follow = log.iter().find(|event| event["seq"] == follow_seq)?;
-    if follow["turn"] != turn
-        || follow["kind"] != "action"
-        || follow["generated"] == true
-        || follow["actorId"] != "moth"
-        || follow["verb"] != "move"
-        || follow["fromLocationId"] != "pond"
-        || follow["locationId"] != "station"
-        || follow["targetId"] != "station"
-        || !follow["itemId"].is_null()
-        || log.iter().any(|event| {
-            event["seq"].as_u64().is_some_and(|seq| seq > follow_seq)
-                && (event["locationId"] == "station" || event["fromLocationId"] == "station")
-        })
-    {
+    if log.iter().any(|event| {
+        event["seq"].as_u64().is_some_and(|seq| seq > follow_seq)
+            && (event["locationId"] == "station" || event["fromLocationId"] == "station")
+    }) {
         return None;
     }
     let cast = opening_roster::known_actors(world, geo, order, Some("station"))?;
@@ -419,6 +464,35 @@ pub(super) fn wake_station_keeper(
     )
 }
 
+pub(super) fn settle_awake_station(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    residents: &Residents<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+) -> Option<()> {
+    let (turn, _) = historic_station_base(world)?;
+    let follow = opening_station_move::historic_follow(world)?;
+    if world["eventSeq"] != follow {
+        awake_station_receipt(world, geo)?;
+    }
+    settle_at(
+        world,
+        geo,
+        residents,
+        turn,
+        "station",
+        |world, id, event| {
+            if id != "keeper" || event != VisibleSleep::Wake {
+                return None;
+            }
+            wake_station_keeper(world, geo, authored, order, evidence)
+        },
+    )?;
+    awake_station_receipt(world, geo).map(|_| ())
+}
+
 fn wake_scheduled_resident(world: &mut Value, id: &str) -> Option<()> {
     let actor = world["actors"].get_mut(id)?.as_object_mut()?;
     actor.get("sleeping")?["until"].as_i64()?;
@@ -432,7 +506,7 @@ pub(super) fn settle(
     residents: &Residents<'_>,
 ) -> Option<()> {
     let turn = historic_attic(world)?;
-    settle_at(world, geo, residents, turn, "attic", |_, _| None)
+    settle_at(world, geo, residents, turn, "attic", |_, _, _| None)
 }
 
 pub(super) fn settle_pond(
@@ -454,8 +528,8 @@ pub(super) fn settle_pond(
     {
         return None;
     }
-    settle_at(world, geo, residents, turn, "pond", |world, id| {
-        if id != "moth" {
+    settle_at(world, geo, residents, turn, "pond", |world, id, event| {
+        if id != "moth" || event != VisibleSleep::FallAsleep {
             return None;
         }
         let name = residents.people.people.get(id)?.data["name"].as_str()?;
@@ -472,13 +546,19 @@ pub(super) fn settle_pond(
     })
 }
 
+#[derive(PartialEq)]
+enum VisibleSleep {
+    FallAsleep,
+    Wake,
+}
+
 fn settle_at(
     world: &mut Value,
     geo: &Geography<'_>,
     residents: &Residents<'_>,
     turn: i64,
     observed: &str,
-    mut narrate_sleep: impl FnMut(&mut Value, &str) -> Option<()>,
+    mut visible_sleep: impl FnMut(&mut Value, &str, VisibleSleep) -> Option<()>,
 ) -> Option<()> {
     opening_roster::validate_arrivals(world)?;
     if world["sharedVersion"] != 1
@@ -529,9 +609,10 @@ fn settle_at(
         let clear_homeward = at_home && actor["homeward"] == true;
         if wake {
             if here == observed {
-                return None;
+                visible_sleep(world, id, VisibleSleep::Wake)?;
+            } else {
+                wake_scheduled_resident(world, id)?;
             }
-            wake_scheduled_resident(world, id)?;
         } else if let Some((start, end)) = bedtime {
             if let Some(home) = home.filter(|_| !at_home) {
                 if seeks_home_when_tired(world, geo, id, person, human)? {
@@ -547,7 +628,7 @@ fn settle_at(
             world["actors"][id]["slept"] = json!(start);
             world["actors"][id]["sleeping"] = sleep;
             if visible {
-                narrate_sleep(world, id)?;
+                visible_sleep(world, id, VisibleSleep::FallAsleep)?;
             }
         }
         if clear_homeward {
@@ -585,16 +666,30 @@ pub(super) fn pond_projection(request: &Value) -> Option<Value> {
 
 pub(super) fn station_projection(request: &Value) -> Option<Value> {
     let mut world = request.get("world")?.clone();
-    let (files, _) = opening_content::wait_files(request)?;
+    let (files, authored) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    settle_station(&mut world, &geo, &Residents::new(&geo)?)?;
+    let residents = Residents::new(&geo)?;
+    if world["actors"]["moth"]["place"] == "station" {
+        let order = opening_roster::actor_order(request, request.get("world")?)?;
+        let evidence = ResidentEvidence::new(&files)?;
+        settle_awake_station(&mut world, &geo, &residents, &authored, &order, &evidence)?;
+    } else {
+        settle_station(&mut world, &geo, &residents)?;
+    }
     Some(json!({"ok":true,"world":world}))
 }
 
 pub(super) fn station_wake_projection(request: &Value) -> Option<Value> {
     let world = request.get("world")?;
-    verify_station_wake(world)?;
+    if world["actors"]["moth"]["place"] == "station" {
+        let files = opening_content::files(request)?;
+        let catalog = Catalog::from_files(&files)?;
+        let geo = Geography::new(&files, catalog.packs())?;
+        verify_awake_station_wake(world, &geo)?;
+    } else {
+        verify_station_wake(world)?;
+    }
     Some(json!({"ok":true,"world":world}))
 }
 
