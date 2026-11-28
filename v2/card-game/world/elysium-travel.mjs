@@ -1,9 +1,12 @@
 import { heldItem } from "../held-item.mjs";
-import { ELYSIUM_ENTRY, ELYSIUM_PACK, isElysiumModelToken } from "../elysium-models.mjs";
+import {
+  ELYSIUM_ENTRY, ELYSIUM_MODEL_IDS, ELYSIUM_PACK, elysiumModelToken, isElysiumModelToken,
+} from "../elysium-models.mjs";
 import { currentActor, humanAvatarIds, humanPresent, sharedEnabled } from "../human-cast.mjs";
-import { entityActive, packIdOf } from "../pack-registry.mjs";
+import { entityActive, packIdOf, packPlaces } from "../pack-registry.mjs";
 import { DAYLIGHT_TURNS, runHash } from "../pack-rules.mjs";
 import { transportPlace } from "../pack-transport.mjs";
+import { places } from "./catalog.mjs";
 import { exits } from "./geography.mjs";
 import { itemPlace } from "./items.mjs";
 
@@ -47,23 +50,48 @@ export function elysiumScatterLandings(world, actor = currentActor(world)) {
   return [...reachable].sort();
 }
 
-export function elysiumTokenLanding(world, actor, token) {
-  const landings = elysiumScatterLandings(world, actor);
-  if (!landings.length) return null;
-  const occupancy = new Map(
-    landings.map((place) => [place, { place, tokens: 0, loose: 0 }]),
-  );
+const tokenRooms = (world) =>
+  Object.keys(places).filter((place) => !isElysium(place) && !transportPlace(place) &&
+    entityActive(world, place) && !packPlaces[place]?.requires?.length).sort();
+
+export function elysiumTokenLanding(world, token) {
+  const rooms = new Map(tokenRooms(world).map((place) => [place, { place, tokens: 0, loose: 0 }]));
+  if (!rooms.size) return null;
   for (const [id, { holder }] of Object.entries(world.items)) {
-    const room = occupancy.get(holder);
+    const room = rooms.get(holder);
     if (!room || !entityActive(world, id)) continue;
     room.loose++;
     if (isElysiumModelToken(id)) room.tokens++;
   }
+  const worlds = new Map();
+  for (const room of rooms.values())
+    worlds.set(packIdOf(room.place), (worlds.get(packIdOf(room.place)) ?? 0) + room.tokens);
+  const fewest = Math.min(...worlds.values());
+  const open = [...worlds.keys()].filter((id) => worlds.get(id) === fewest).sort();
+  const chosen = open[runHash(world, `${token}:world`) % open.length];
+  const here = [...rooms.values()].filter((room) => packIdOf(room.place) === chosen);
   const compare = (a, b) => a.tokens - b.tokens || a.loose - b.loose;
-  const rooms = [...occupancy.values()];
-  const best = rooms.reduce((least, room) => (compare(room, least) < 0 ? room : least));
-  const tied = rooms.filter((room) => compare(room, best) === 0);
+  const best = here.reduce((least, room) => (compare(room, least) < 0 ? room : least));
+  const tied = here.filter((room) => compare(room, best) === 0);
   return tied[runHash(world, token) % tied.length].place;
+}
+
+export function spreadVoidTokens(world) {
+  if (world.voidTokensSpread) return;
+  world.voidTokensSpread = true;
+  const out = ELYSIUM_MODEL_IDS.filter((resident) => {
+    const record = world.elysiumEncounters?.[resident];
+    const item = world.items[elysiumModelToken(resident)];
+    return record && !record.returnedAt && item && item.holder !== resident;
+  });
+  for (const resident of out) world.items[elysiumModelToken(resident)].holder = resident;
+  for (const resident of out) {
+    const token = elysiumModelToken(resident), item = world.items[token];
+    const place = elysiumTokenLanding(world, token);
+    if (!place) continue;
+    item.holder = place;
+    item.history = [...item.history, `Turn ${world.turn}: Scattered through the worlds.`].slice(-12);
+  }
 }
 
 export function scatterWayfinder(world) {

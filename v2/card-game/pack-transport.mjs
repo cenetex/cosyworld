@@ -374,9 +374,7 @@ export function transportWait(s, action) {
   const berth = berthsAt(s, place).find(([id]) =>
     callPath(s, id, place, s.turn + 1),
   );
-  if (!berth) return action;
-  const name = transportName(berth[1]).replace(/^The /u, "");
-  return { ...action, label: `Wait for ${name}` };
+  return berth ? { ...action, label: "Wait" } : action;
 }
 
 // An empty docked ship comes one lane closer to a human waiting at a port.

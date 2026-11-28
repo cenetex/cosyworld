@@ -17,7 +17,7 @@ import { bringBack, gone, sendHome, usedUp, useUp } from "./item-use.mjs";
 import { savedClaim } from "./claims.mjs";
 import { installQuestFacts } from "./quest-learn.mjs";
 import { compactTrust } from "./world/company.mjs";
-import { settleStrandedWayfinder } from "./world/elysium-travel.mjs";
+import { settleStrandedWayfinder, spreadVoidTokens } from "./world/elysium-travel.mjs";
 import { ELYSIUM_PACK } from "./elysium-models.mjs";
 import {
   laneEdges,
@@ -631,6 +631,7 @@ export function reconcileContent(s) {
         if (s.usedUp.includes(id)) s.items[id].holder = item.holder;
     installItemCycle(s, added);
   }
+  spreadVoidTokens(s);
 }
 
 // A story step the content no longer leads to leaves a save from an earlier

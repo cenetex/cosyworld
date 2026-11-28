@@ -31,6 +31,10 @@ mod readiness;
 pub(super) use readiness::attach_ready_portraits;
 
 pub(super) const NAME_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-identity/{resident}";
+#[path = "full_elysium_face.rs"]
+mod face;
+pub(crate) use face::elysium_face_path;
+pub(super) use face::{face, FACE_ROUTE};
 pub(super) const PORTRAIT_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-portrait/{resident}";
 pub(super) const PERSONAL_PORTRAIT_ROUTE: &str = "/card-game/elysium-portrait/{resident}";
 const MAX_PORTRAIT: u64 = 8 * 1024 * 1024;

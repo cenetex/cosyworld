@@ -117,7 +117,7 @@ it("gives travelers saved at Aulis a way home on the Scylla", () => {
     expect(loaded.routeKnowledge[rhapsode]).not.toContainEqual([gate, aulis]);
     expect(knowsLane(loaded, "vale", aulis, pagasae)).toBe(true);
   }
-  const wait = legalActions(world).find((action) => action.label === "Wait for Scylla");
+  const wait = legalActions(world).find((action) => action.kind === "wait" && !action.sleep);
   expect(wait).toBeDefined();
   const arrival = play(world, wait, world.revision);
   expect(arrival.ok, arrival.error).toBe(true);
@@ -152,8 +152,8 @@ it("keeps the Trojan account and gives travelers saved at Homecoming Beach a way
     expect(knowsLane(loaded, "vale", beach, lemnos)).toBe(true);
   }
   let world = decodeSave(save);
-  world = act(world, "wait", (a) => a.label === "Wait for Scylla");
-  world = act(world, "wait", (a) => a.label === "Wait for Scylla");
+  world = act(world, "wait", (a) => !a.sleep);
+  world = act(world, "wait", (a) => !a.sleep);
   world = act(world, "move", (a) => a.target === scylla);
   world = act(world, "course", (a) => a.target === lemnos);
   world = act(world, "wait");

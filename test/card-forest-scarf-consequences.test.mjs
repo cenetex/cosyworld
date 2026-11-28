@@ -65,15 +65,14 @@ const worn = (world, turns) => {
   expect(forest(world).flags["forest-scarf-vale-worn"]).toBe(true);
   expect(forest(world).receipts["forest-wear-scarf-mara"]).toBeUndefined();
 };
-// The turns Vale waits in the garden in the shared run. RATi walks out at
-// dusk and back after his stay (rules 133), so the meeting is in the cottage
-// at turn SHARED_WAITS + 2; the button is hidden by a hash of that turn, and
-// 85 is a count whose meeting hides it in the garden.
+// Vale's shared garden waits. RATi leaves at dusk and returns (rules 133), so
+// they meet in the cottage at turn SHARED_WAITS + 2, whose hash (for 85)
+// hides the button in the garden.
 const SHARED_WAITS = 85;
 for (const shared of [false, true])
   it(
     `earns the Forest scarf, retreats and returns without shortcuts (shared ${shared})`,
-    () => {
+    async () => {
       const engine = shared && currentSharedEngine();
       const hosted = session((request) => {
         const result = dispatchShared(request);
@@ -133,7 +132,8 @@ for (const shared of [false, true])
         expect(encodeSave(world)).toBe(before);
       };
       step("move", { target: garden });
-      for (let i = 0; i < (shared ? SHARED_WAITS : 12); i++) step("wait");
+      for (let i = 0; i < (shared ? SHARED_WAITS : 12); i++)
+        await new Promise(setImmediate).then(() => step("wait"));
       step("move", { target: cottage });
       const hidden = world.turn;
       // The hash hides the button in any active place, so it moves with every

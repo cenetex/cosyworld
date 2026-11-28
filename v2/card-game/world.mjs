@@ -922,7 +922,7 @@ function scatterElysiumToken(s, actor) {
   if (!target || s.elysiumEncounters?.[target] || !entityActive(s, target)) return;
   const token = elysiumModelToken(target);
   if (s.items[token]?.holder !== target) return;
-  const place = elysiumTokenLanding(s, actor, token);
+  const place = elysiumTokenLanding(s, token);
   if (!place) return;
   const text = `The silver figure opens a hand. ${nameOf(token)} slips along a gold filament into the ordinary world and vanishes.`;
   transfer(s, token, place, text);
