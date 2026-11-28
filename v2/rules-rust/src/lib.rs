@@ -204,6 +204,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_station_move") => {
             opening_station_move::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_station_train_quest") => {
+            opening_station_view::accept_train(request).unwrap_or(Value::Null)
+        }
         Some("opening_pond_rumours") => {
             opening_pond_rumours::projection(request).unwrap_or(Value::Null)
         }
