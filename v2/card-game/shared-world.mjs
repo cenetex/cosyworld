@@ -3,8 +3,7 @@ import { settleLamp } from "./lamp-state.mjs";
 import { privateView } from "./learning.mjs";
 import { settleHeldItems } from "./held-item.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
-// One pure adapter for the browser model and the server's C-backed JS runtime.
-// The host supplies authenticated claims and presence on every operation.
+// This shared adapter receives authenticated claims and presence from the host.
 import {
   createWorld,
   holdChoice,
