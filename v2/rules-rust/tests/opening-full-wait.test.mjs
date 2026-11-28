@@ -29,11 +29,18 @@ function firstDifference(actual, expected, path = []) {
   return path.join(".");
 }
 
-test("the quiet solo attic Wait matches the entire pinned play response", async () => {
+test("the quiet first attic Wait matches the whole pinned response with and without history", async () => {
   const { pinned, wasm } = await reducers();
-  for (const seed of [undefined, 0, 17, 4242, 4294967295]) {
+  const options = [
+    ...[undefined, 0, 17, 4242, 4294967295].map((seed) => ({ seed })),
+    ...[undefined, 0, 2, 17, 42, 4242, 4294967295].map((seed) => ({
+      seed,
+      history: true,
+    })),
+  ];
+  for (const { seed, history } of options) {
     for (const stowed of [false, true]) {
-      const created = pinned({ op: "create", seed });
+      const created = pinned({ op: "create", seed, history });
       assert.equal(created.ok, true, created.error);
       const world = stowed
         ? pinned({
@@ -46,22 +53,29 @@ test("the quiet solo attic Wait matches the entire pinned play response", async 
       const sorted = Object.fromEntries(
         Object.entries(world.actors).toSorted(),
       );
-      for (const actors of [world.actors, sorted]) {
+      const sortedSave = { ...world, actors: sorted };
+      if (history && world.placeCard) {
+        sortedSave.placeCard = Object.fromEntries(
+          Object.entries(world.placeCard).toSorted(),
+        );
+      }
+      for (const saved of [world, sortedSave]) {
         const request = {
           ...seats,
           op: "play",
-          world: { ...world, actors },
+          world: saved,
           action: stowed ? { key } : key,
         };
         const expected = pinned(request);
         assert.equal(expected.ok, true, expected.error);
         const actual = wasm(request);
-        assert.ok(actual, `seed ${seed}, stowed ${stowed}: unsupported`);
+        const variant = JSON.stringify({ seed, history, stowed });
+        assert.ok(actual, `${variant}: unsupported`);
         const difference = firstDifference(actual, expected);
         assert.equal(
           difference,
           null,
-          `seed ${seed}, stowed ${stowed} at ${difference}`,
+          `${variant} at ${difference}`,
         );
         assert.ok(actual.events.some((entry) => entry.verb === "take"));
         assert.ok(

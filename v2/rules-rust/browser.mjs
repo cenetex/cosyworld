@@ -51,7 +51,12 @@ export function browserRules(bytes) {
           ? Object.keys(actors)
           : undefined;
       const cards =
-        request.op === "opening_place_return" ? request.world?.placeCard : null;
+        request.op === "opening_place_return" ||
+        (request.op === "play" &&
+          key === "wait:vale::" &&
+          request.world?.began === 480)
+          ? request.world?.placeCard
+          : null;
       const placeCardOrder =
         cards && typeof cards === "object" && !Array.isArray(cards)
           ? Object.keys(cards)

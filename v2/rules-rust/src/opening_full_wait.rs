@@ -1,17 +1,19 @@
 use super::{
-    authored_order::Order, initial_wants, opening, opening_attic_rest, opening_crossings,
-    opening_drop, opening_grounded_lamp, opening_hub_residents, opening_pickups,
-    opening_place_cards, opening_quiet_life, opening_roaming, opening_roster, opening_settlement,
-    opening_wait, opening_wait_response, opening_wants, pack_state::Catalog,
-    resident_evidence::ResidentEvidence, Geography,
+    authored_order::Order, initial_wants, opening, opening_attic_rest, opening_company,
+    opening_crossings, opening_drop, opening_grounded_lamp, opening_history_walkers,
+    opening_hub_residents, opening_pickups, opening_place_cards, opening_quiet_life,
+    opening_resident_sleep, opening_roaming, opening_roster, opening_settlement, opening_wait,
+    opening_wait_response, opening_wants, pack_state::Catalog, resident_evidence::ResidentEvidence,
+    Geography,
 };
 use serde_json::{json, Value};
 
 const VALE: &str = "vale";
 
 fn quiet_opening(world: &Value) -> Option<()> {
-    if world["turn"] != 0
-        || world["revision"].as_u64()? > 2
+    let began = opening::unplayed_turn(world)?;
+    if !matches!(began, 0 | 480)
+        || world["revision"].as_u64()?.checked_sub(began)? > 2
         || world["log"].as_array()?.len() != 2
         || world["actors"][VALE].get("want") != Some(&Value::Null)
         || !world["stationExitOrder"].as_array()?.is_empty()
@@ -28,9 +30,10 @@ fn quiet_opening(world: &Value) -> Option<()> {
         .iter()
         .any(|key| !world[*key].is_null())
         || world["actors"].as_object()?.values().any(|actor| {
-            ["arcana", "sleeping", "homeward", "contact"]
+            ["arcana", "sleeping", "homeward"]
                 .iter()
                 .any(|key| !actor[*key].is_null())
+                || (began == 0 && !actor["contact"].is_null())
         })
     {
         return None;
@@ -106,6 +109,7 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
         }
     };
     quiet_opening(before)?;
+    let historic = before["began"] == 480;
     let claimed = opening::seats(&request["claimed"])?;
     let present = opening::seats(&request["present"])?;
     if claimed != [VALE] || present != [VALE] {
@@ -133,11 +137,16 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
         opening_attic_rest::rest_vale(&mut world, &files)?;
     }
     opening_crossings::no_crossing_unlocks(&world, &geo)?;
-    deck.settle(&mut world, &geo, Some("attic"))?;
+    if historic {
+        let order = opening_place_cards::saved_order(request, before)?;
+        deck.settle_returns(&mut world, &geo, &evidence, &order)?;
+    } else {
+        deck.settle(&mut world, &geo, Some("attic"))?;
+    }
     opening_attic_rest::settle_vale_wants(&mut world, &files)?;
     opening_hub_residents::confirm_idle(&world, &geo)?;
     let mut custody = opening_pickups::Custody::new(&world)?;
-    for id in residents {
+    for &id in &residents {
         if !known.contains(&id) || ["moth", "keeper"].contains(&id) {
             continue;
         }
@@ -157,7 +166,14 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
     }
     opening_settlement::decay_bell(&mut world)?;
     roam(&mut world, &geo, &authored, &order, &evidence, &deck)?;
-    opening_quiet_life::verify(&mut world, &geo)?;
+    if historic {
+        let resident_catalog = opening_resident_sleep::Residents::new(&geo)?;
+        opening_resident_sleep::settle(&mut world, &geo, &resident_catalog)?;
+        let acted: Vec<_> = std::iter::once(VALE).chain(residents).collect();
+        opening_history_walkers::verify(&world, &geo, &acted, &resident_catalog)?;
+    } else {
+        opening_quiet_life::verify(&mut world, &geo)?;
+    }
     if !opening_settlement::sail_attic_transports(&mut world, &catalog)?.is_empty() {
         return None;
     }
@@ -172,7 +188,11 @@ fn round(request: &Value, play: RoundPlay) -> Option<Value> {
         None
     };
     opening_settlement::no_item_cycle(&world)?;
-    opening_wants::settle_first_wait(&mut world, &geo)?;
+    if historic {
+        opening_wants::settle_with(&mut world, &geo, opening_company::fade_trust)?;
+    } else {
+        opening_wants::settle_first_wait(&mut world, &geo)?;
+    }
     opening_attic_rest::settle_visit_speech(before, &mut world, play == RoundPlay::Wait)?;
     let before_seq = before["eventSeq"].as_u64()?;
     if let Some(mirror) = grounded_mirror {

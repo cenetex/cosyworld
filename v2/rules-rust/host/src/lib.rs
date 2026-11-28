@@ -125,15 +125,17 @@ fn encode_request(
     request.remove("actorOrder");
     request.remove("placeCardOrder");
     let op = request.get("op").and_then(Value::as_str);
+    let play = request
+        .get("action")
+        .and_then(|action| action.as_str().or_else(|| action["key"].as_str()))
+        .filter(|_| op == Some("play"));
     let ordered = op == Some("opening_wait_roster")
-        || (op == Some("play")
-            && request.get("action").is_some_and(|action| {
-                matches!(
-                    action.as_str().or_else(|| action["key"].as_str()),
-                    Some("wait:vale::" | "drop:vale:lamp:attic")
-                )
-            }));
-    let ordered_cards = op == Some("opening_place_return");
+        || matches!(play, Some("wait:vale::" | "drop:vale:lamp:attic"));
+    let ordered_cards = op == Some("opening_place_return")
+        || (play == Some("wait:vale::")
+            && request
+                .get("world")
+                .is_some_and(|world| world["began"] == 480));
     if ordered {
         if let Some(actors) = request
             .get("world")
