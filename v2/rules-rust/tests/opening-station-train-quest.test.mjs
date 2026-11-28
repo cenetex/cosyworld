@@ -6,6 +6,7 @@ import { reducers } from "./parity.mjs";
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
 const op = "opening_station_train_quest";
 const key = "accept:vale::box:train";
+const abandon = "drop:vale:::0";
 
 function success(pinned, request) {
   const reply = pinned(request);
@@ -68,14 +69,39 @@ test("quiet Station train acceptance and seated reload match pinned replies", as
         assert.deepEqual(privateView.world.actors.vale.want, accepted.world.actors.vale.want);
         assert.equal(privateView.world.memories.keeper.subjects, undefined);
         assert.ok(!Object.hasOwn(privateView, "events"));
-        const dropped = success(pinned, {
+        const drop = {
           ...request,
           world: persisted,
-          action: "drop:vale:::0",
-          revision: persisted.revision,
-        });
+          action: waited ? { key: abandon } : abandon,
+        };
+        if (mode === "stowed") drop.revision = persisted.revision;
+        const dropped = wasm(drop);
+        assert.ok(
+          isDeepStrictEqual(dropped, success(pinned, drop)),
+          `abandon ${label}`,
+        );
+        assert.equal(dropped.world.turn, persisted.turn + 1);
+        assert.equal(dropped.world.actors.vale.want, null);
+        assert.deepEqual(
+          dropped.events.map((event) => [event.actorId, event.verb]),
+          [
+            ["vale", "drop"],
+            ["moth", "wait"],
+          ],
+        );
+        assert.ok(
+          dropped.actions.every(
+            (action) => action.key !== key && action.key !== abandon,
+          ),
+        );
         const after = { ...reloaded, world: dropped.world };
-        assert.ok(isDeepStrictEqual(wasm(after), success(pinned, after)), `abandoned reload ${label}`);
+        const reload = wasm(after);
+        assert.ok(
+          isDeepStrictEqual(reload, success(pinned, after)),
+          `reload ${label}`,
+        );
+        assert.ok(!Object.hasOwn(reload, "events"));
+        assert.equal(wasm({ ...after, present: [] }), null);
       }
     }
   }
@@ -84,9 +110,15 @@ test("quiet Station train acceptance and seated reload match pinned replies", as
   const canonical = { ...request, world: saved };
   assert.ok(isDeepStrictEqual(wasm({ ...canonical, op }), success(pinned, canonical)));
   const repeat = { ...request, world: accepted.world, revision: accepted.world.revision };
+  const drop = { ...repeat, action: abandon };
   assert.equal(pinned(repeat).ok, false);
   assert.equal(wasm(repeat), null);
   assert.equal(wasm({ ...request, revision: request.world.revision - 1 }), null);
+  assert.equal(wasm({ ...drop, revision: drop.revision - 1 }), null);
+  assert.equal(wasm({ ...drop, action: "drop:vale:::1" }), null);
+  const wrong = structuredClone(drop.world);
+  wrong.actors.vale.want.target = "lamp";
+  assert.equal(wasm({ ...drop, world: wrong }), null);
   const open = structuredClone(request.world);
   open.items.routes.holder = "station";
   assert.equal(pinned({ ...request, world: open }).ok, false);

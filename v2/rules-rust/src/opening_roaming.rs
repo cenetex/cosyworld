@@ -233,8 +233,9 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
             only_bard_roams(world, geo)?;
             turn.checked_sub(1)?
         }
-        (false, 2 | 3, "station") => {
-            super::opening_station_move::arrival(world)?;
+        (false, 2..=4, "station") => {
+            super::opening_station_move::arrival(world)
+                .or_else(|| super::opening_station_move::abandoned_train_arrival(world))?;
             1
         }
         (false, 2, "pond") => {

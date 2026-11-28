@@ -115,7 +115,7 @@ pub(super) fn verify_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
     verify_opening_day(world, geo)
 }
 
-fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+pub(super) fn verify_opening_day(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     let room = world["actors"]["vale"]["place"].as_str()?.to_owned();
     let cast: &[&str] = match room.as_str() {

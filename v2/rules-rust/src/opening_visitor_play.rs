@@ -16,7 +16,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 
 fn quiet_turn(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
-    if !matches!(turn, 2 | 3)
+    if !matches!(turn, 2..=4)
         || world.get("began").is_some_and(|began| began != 0)
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
@@ -44,7 +44,9 @@ fn quiet_turn(world: &Value) -> Option<u64> {
             })
             .then_some(()),
         (2, "pond") => opening_mirror_move::second_arrival(world),
-        (_, "station") => opening_station_move::arrival(world).map(|_| ()),
+        (_, "station") => opening_station_move::arrival(world)
+            .or_else(|| opening_station_move::abandoned_train_arrival(world))
+            .map(|_| ()),
         _ => None,
     }?;
     Some(turn)
@@ -100,11 +102,13 @@ fn quiet_departure_wait(
     let resident = world["actors"].get(actor)?;
     let here = resident["place"].as_str()?;
     let want = &resident["want"];
-    if world["turn"] != 3
+    let abandoned = opening_station_move::abandoned_train_arrival(world).is_some();
+    let round = world["turn"].as_u64()?;
+    if (!abandoned && round != 3)
         || world["actors"]["vale"]["place"] != "station"
         || here == "station"
         || resident["crossed"] != 1
-        || resident["dwellUntil"] != dwell_until(actor, 2)
+        || resident["dwellUntil"].as_u64()? <= round
         || resident["visited"] != json!([home, here])
         || !resident["heldItem"].is_null()
         || !custody.empty(actor)
@@ -141,21 +145,27 @@ fn quiet_departure_wait(
     });
     let take = plays.next()?;
     let depart = plays.next()?;
+    let departed = depart["turn"].as_u64()?;
     let pond = entries(&world["log"]).find(|event| vale_action(event) && event["turn"] == 2)?;
     let seq = pond["seq"].as_u64()?;
     if take["turn"] != 1
         || take["verb"] != "take"
         || take["itemId"] != item
         || take["locationId"] != home
-        || take["seq"].as_u64()? >= seq
-        || depart["turn"] != 2
+        || resident["dwellUntil"] != dwell_until(actor, departed)
+        || (abandoned
+            && (!(2..round).contains(&departed)
+                || take["seq"].as_u64()? >= depart["seq"].as_u64()?))
+        || (!abandoned
+            && (departed != 2
+                || take["seq"].as_u64()? >= seq
+                || depart["seq"].as_u64()? <= seq
+                || depart["seq"].as_u64()? >= world["arrival"]["seq"].as_u64()?))
         || depart["verb"] != "move"
         || depart["fromLocationId"] != home
         || depart["locationId"] != here
         || depart["targetId"] != here
         || !depart["itemId"].is_null()
-        || depart["seq"].as_u64()? <= seq
-        || depart["seq"].as_u64()? >= world["arrival"]["seq"].as_u64()?
         || plays.next().is_some()
     {
         return None;

@@ -270,7 +270,8 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
         }
         "pond"
     } else {
-        opening_station_move::arrival(world)?;
+        opening_station_move::arrival(world)
+            .or_else(|| opening_station_move::abandoned_train_arrival(world))?;
         "station"
     };
     station_wants_state(world, pip_place)?;
