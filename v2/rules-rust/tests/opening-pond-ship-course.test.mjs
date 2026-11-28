@@ -9,15 +9,21 @@ const key = "course:vale::greek-harbor";
 const primary = "opening_pond_ship_course";
 const depart = "opening_pond_ship_course_depart";
 const residents = "opening_ship_course_residents";
+const beforeSailing = "opening_ship_course_before_sailing";
+const afterSailing = "opening_ship_course_after_sailing";
 
 function captureCourse(source) {
   const action =
     "    const respondent = perform(next, exact, round2, residents2);";
   const sailed = "    settleVoyageCargo(next, voyages, nameOf2, worldLine);";
   const after = "    const rings2 = next.log.filter(";
+  const stops = "    const worldLine = (text2, locationId) => addLog(next,";
+  const preWants = "    reviseStalledWants(\n      next,";
+  const late =
+    "    if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));";
   const plan =
     "      perform(next, read2 ?? plan(next, id).action, round2, residents2);";
-  for (const cut of [action, sailed, after, plan])
+  for (const cut of [action, sailed, after, plan, stops, preWants, late])
     assert.equal(source.split(cut).length, 2);
   return source
     .replace(
@@ -37,6 +43,18 @@ function captureCourse(source) {
     .replace(
       sailed,
       "    if (next.turn === 9) globalThis.departed = structuredClone(next);\n$&",
+    )
+    .replace(
+      stops,
+      "    if (next.turn === 9) globalThis.afterStops = structuredClone(next);\n$&",
+    )
+    .replace(
+      preWants,
+      "    if (next.turn === 9) globalThis.beforeWants = structuredClone(next);\n$&",
+    )
+    .replace(
+      late,
+      "$&\n    if (next.turn === 9) globalThis.finished = structuredClone(next);",
     );
 }
 
@@ -53,7 +71,7 @@ test("the first Course matches the pinned action and departure", async () => {
   const captured = (name) => JSON.parse(JSON.stringify(reference[name]));
   const sorted = (entries) =>
     Object.fromEntries(Object.entries(entries).toSorted());
-  let sample, setting;
+  let sample, setting, underway;
   for (const seed of [undefined, 2, 17, 4242]) {
     for (const canonical of [false, true]) {
       let world = run({ op: "create", seed }).world;
@@ -123,6 +141,15 @@ test("the first Course matches the pinned action and departure", async () => {
           }),
           `${label} residents`,
         );
+        const ready = captured("afterStops");
+        assert.deepEqual(ready, waiting);
+        assert.ok(
+          isDeepStrictEqual(wasm({ op: beforeSailing, world: waiting }), {
+            ok: true,
+            world: ready,
+          }),
+          `${label} roaming, life and stops`,
+        );
         setting = { op: depart, world: course };
         assert.ok(
           isDeepStrictEqual(wasm(setting), { ok: true, world: sailed }),
@@ -134,6 +161,22 @@ test("the first Course matches the pinned action and departure", async () => {
           phase: "sea",
         });
         assert.deepEqual(sailed.arrival, boarded.arrival);
+        const beforeWants = captured("beforeWants");
+        assert.deepEqual(beforeWants, sailed);
+        const finished = captured("finished");
+        underway = { op: afterSailing, before: boarded, world: beforeWants };
+        assert.ok(
+          isDeepStrictEqual(wasm(underway), { ok: true, world: finished }),
+          `${label} wants and visit speech`,
+        );
+        assert.deepEqual(finished.actors.keeper.contact, {
+          moth: [9, 0],
+          vale: [7, 0],
+        });
+        assert.deepEqual(
+          finished.actors.vale.waitSpeech,
+          boarded.actors.vale.waitSpeech,
+        );
         assert.deepEqual(reply.events, [course.log.at(-1), sailed.log.at(-1)]);
         assert.deepEqual(reply.exits, []);
         assert.deepEqual(
@@ -166,5 +209,24 @@ test("the first Course matches the pinned action and departure", async () => {
     const world = structuredClone(setting.world);
     change(world);
     assert.equal(wasm({ op: residents, world }), null);
+  }
+  assert.equal(wasm({ op: beforeSailing, world: underway.world }), null);
+  const sleeping = structuredClone(setting.world);
+  sleeping.actors.moth.sleeping = { place: "station", since: 8, until: 10 };
+  assert.equal(wasm({ op: beforeSailing, world: sleeping }), null);
+  for (const change of [
+    (world) => {
+      world.log.at(-1).text = "The ship docks.";
+    },
+    (world) => {
+      world.transports["greek-ship"].riders.push("vale");
+    },
+    (world) => {
+      world.actors.keeper.contact.moth = [7, 0];
+    },
+  ]) {
+    const world = structuredClone(underway.world);
+    change(world);
+    assert.equal(wasm({ ...underway, world }), null);
   }
 });

@@ -443,8 +443,13 @@ pub(super) fn settle_pond_drop(
 
 pub(super) fn settle_first_board(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
     opening_pond_ship_board::arrival(world)?;
+    settle_ship_wants(world, geo, 8)
+}
+
+pub(super) fn settle_ship_wants(world: &mut Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
     let actors = &world["actors"];
     if world.get("began").is_some_and(|turn| turn != 0)
+        || world["turn"] != turn
         || world["controlledActors"] != json!(["vale"])
         || !world["elysiumEncounters"].is_null()
         || actors["vale"].get("want") != Some(&Value::Null)
@@ -455,11 +460,11 @@ pub(super) fn settle_first_board(world: &mut Value, geo: &Geography<'_>) -> Opti
         || actors["keeper"]["completedQuest"]["by"] != "vale"
         || actors["keeper"]["place"] != "station"
         || actors["moth"]["place"] != "station"
-        || actors["keeper"]["contact"] != json!({"moth":[7,0],"vale":[7,0]})
+        || actors["keeper"]["contact"] != json!({"moth":[turn.checked_sub(1)?,0],"vale":[7,0]})
     {
         return None;
     }
-    settle_wants(world, geo, 8, false, false, opening_company::fade_trust)
+    settle_wants(world, geo, turn, false, false, opening_company::fade_trust)
 }
 
 pub(super) fn station_departure_turn(
