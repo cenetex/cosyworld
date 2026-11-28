@@ -217,8 +217,6 @@ describe("selection", () => {
     );
     expect(s.actors[R].content).toBeUndefined();
     expect(s.actors[R].xp).toBeGreaterThan(0);
-    // The want just met is never retaken at once, and a want already met
-    // (the thing in her hands) is skipped.
     expect(stagedNext(s, R, next)?.target).not.toBe(next.target);
     expect(stagedNext(s, R)?.target).not.toBe(first.target);
   });

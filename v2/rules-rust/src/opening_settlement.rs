@@ -37,6 +37,19 @@ pub(super) fn sail_transports(
     catalog: &Catalog,
     waited_at: Option<&str>,
 ) -> Option<Vec<Value>> {
+    sail_with_course(world, catalog, waited_at, None)
+}
+
+pub(super) fn sail_course(world: &mut Value, catalog: &Catalog, ship: &str) -> Option<Vec<Value>> {
+    sail_with_course(world, catalog, None, Some(ship))
+}
+
+fn sail_with_course(
+    world: &mut Value,
+    catalog: &Catalog,
+    waited_at: Option<&str>,
+    course: Option<&str>,
+) -> Option<Vec<Value>> {
     let actors = world.get("actors")?.as_object()?;
     let states = world.get("transports")?.as_object()?;
     let mut changes = Vec::new();
@@ -62,6 +75,22 @@ pub(super) fn sail_transports(
             }
             match state["phase"].as_str()? {
                 "docked" if riders.is_empty() && state["destination"].is_null() => {}
+                "course"
+                    if course == Some(id)
+                        && riders.is_empty()
+                        && state["recall"].is_null()
+                        && docks.contains(&state["destination"])
+                        && state["destination"] != state["dock"]
+                        && actors.values().any(|actor| actor["place"] == place) =>
+                {
+                    let mut next = state.clone();
+                    next["phase"] = json!("sea");
+                    next["since"] = world["turn"].clone();
+                    changes.push((id, next));
+                    voyages.push(json!({
+                        "id":id,"kind":"sail","from":state["dock"],"to":state["destination"],
+                    }));
+                }
                 "arrived" if state["destination"].is_null() && state["recall"].is_null() => {
                     let mut next = state.clone();
                     next["riders"] = json!([]);

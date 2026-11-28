@@ -142,6 +142,24 @@ pub(super) fn docked_courses<'a>(
     ship.open_lanes(world, geo, actor, state["dock"].as_str()?)
 }
 
+pub(super) fn permits_course(
+    world: &Value,
+    geo: &Geography<'_>,
+    actor: &str,
+    place: &str,
+    destination: &str,
+) -> Option<()> {
+    let ship = Ship::find(geo, |_, data| data["place"] == place)?;
+    let state = &world["transports"][ship.id];
+    (world["actors"][actor]["place"] == place
+        && geo.entity_active(world, place)?
+        && matches!(state["phase"].as_str(), Some("docked" | "arrived"))
+        && ship
+            .open_lanes(world, geo, actor, state["dock"].as_str()?)?
+            .contains(&destination))
+    .then_some(())
+}
+
 pub(super) fn exits<'a>(
     world: &Value,
     geo: &Geography<'a>,
