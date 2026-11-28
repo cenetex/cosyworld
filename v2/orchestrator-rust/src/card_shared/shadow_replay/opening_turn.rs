@@ -6,6 +6,7 @@ use crate::card_shared::{
     full_world::actor_index,
     store::{self, sql_error},
 };
+use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
@@ -86,6 +87,23 @@ fn sqlite_rules_wasm_parity_replays_the_second_attic_wait() -> Result<()> {
         false,
         &[WAIT, SECOND_WAIT],
     )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_reenters_after_the_second_attic_wait() -> Result<()> {
+    let id = "reenter-after-second-attic-wait";
+    let (mut c, mut state, mut calls) =
+        commit_opening_turns(id, unseeded_opening()?, false, &[WAIT, SECOND_WAIT])?;
+    let vale = actor_index("vale")?;
+    let played = state.game.clone();
+    assert_eq!((state.claimed[vale], state.present[vale]), (1, 1));
+    for (time, op, present) in [(6, "leave", 0), (7, "enter", 1)] {
+        full_store::commit(&c, id, &mut state, json!({"op":op,"actor":"vale"}), time)?;
+        assert_eq!((state.claimed[vale], state.present[vale]), (1, present));
+        assert_eq!(state.game, played);
+        calls.push("presence");
+    }
+    verify_opening_journal(&mut c, id, &calls)
 }
 
 #[test]
@@ -195,12 +213,21 @@ fn unseeded_opening() -> Result<World> {
 
 fn replay_opening_turns(
     id: &str,
-    mut state: World,
+    state: World,
     stow_lamp: bool,
     plays: &[(&str, PlayAssertion)],
 ) -> Result<()> {
-    let guest = Rules::new(&read_candidate()?)?;
-    let mut c = store::open(Path::new(":memory:"))?;
+    let (mut c, _, calls) = commit_opening_turns(id, state, stow_lamp, plays)?;
+    verify_opening_journal(&mut c, id, &calls)
+}
+
+fn commit_opening_turns(
+    id: &str,
+    mut state: World,
+    stow_lamp: bool,
+    plays: &[(&str, PlayAssertion)],
+) -> Result<(Connection, World, Vec<&'static str>)> {
+    let c = store::open(Path::new(":memory:"))?;
     full_store::schema(&c)?;
     store::create(&c, id, "opening-owner", 1)?;
     full_store::seed(&c, id, &state, id, 1)?;
@@ -239,7 +266,11 @@ fn replay_opening_turns(
         check_reply(&lamp, &accepted);
         calls.push("play");
     }
+    Ok((c, state, calls))
+}
 
+fn verify_opening_journal(c: &mut Connection, id: &str, calls: &[&str]) -> Result<()> {
+    let guest = Rules::new(&read_candidate()?)?;
     c.pragma_update(None, "query_only", true)
         .map_err(sql_error)?;
     let snapshot = c.transaction().map_err(sql_error)?;
@@ -250,7 +281,7 @@ fn replay_opening_turns(
         observed.push(request["op"].as_str().unwrap_or_default().to_owned());
         reduce_candidate(&guest, pack, request)
     })?;
-    assert_eq!(observed, calls);
+    assert_eq!(observed.as_slice(), calls);
     assert_eq!(report.checked, observed.len());
     report.require_coverage(true)?;
     println!(
