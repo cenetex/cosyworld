@@ -15,6 +15,10 @@ fn fresh_attic(world: &Value) -> Option<u64> {
 
 pub(super) fn verify_station(world: &Value, geo: &Geography) -> Option<()> {
     fresh_attic(world)?;
+    verify_station_order(world, geo)
+}
+
+pub(super) fn verify_station_order(world: &Value, geo: &Geography) -> Option<()> {
     if !geo.entity_active(world, STATION)?
         || geo.packs().any(|pack| {
             ["crossings", "routes"].iter().any(|key| {
@@ -152,7 +156,7 @@ fn guards_stable(world: &Value, geo: &Geography) -> Option<()> {
     Some(())
 }
 
-fn no_box_release(world: &Value) -> Option<()> {
+pub(super) fn no_box_release(world: &Value) -> Option<()> {
     for actor in world["actors"].as_object()?.values() {
         let wants =
             std::iter::once(&actor["want"]).chain(actor["under"].as_array().into_iter().flatten());

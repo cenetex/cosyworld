@@ -185,7 +185,6 @@ fn settle_wants(
     for id in retime {
         actors.get_mut(&id)?["want"]["since"] = json!(turn);
     }
-    // Both draws use the same custody and geography across actor updates.
     let mut draws = RoundDraws::default();
     let people = if historic {
         let people = People::new(geo.files(), geo.packs())?;

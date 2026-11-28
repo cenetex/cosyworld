@@ -21,7 +21,13 @@ fn mentions_attic(entry: &Value) -> bool {
 }
 
 pub(super) fn settled_take(world: &Value) -> Option<u64> {
+    (world["actors"][VALE]["heldItem"] == LAMP).then_some(())?;
+    lamp_take_committed(world)
+}
+
+pub(super) fn lamp_take_committed(world: &Value) -> Option<u64> {
     let vale = &world["actors"][VALE];
+    let held = vale.get("heldItem")?;
     let lamp = &world["items"][LAMP];
     let fuel = lamp_state(lamp).ok()?;
     if world["schema"] != 8
@@ -36,12 +42,12 @@ pub(super) fn settled_take(world: &Value) -> Option<u64> {
         || !world["placeCard"][ATTIC].is_null()
         || !world["defeats"][VALE].is_null()
         || vale["place"] != ATTIC
-        || vale["heldItem"] != LAMP
+        || (!held.is_null() && held != LAMP)
         || vale.get("want") != Some(&Value::Null)
         || vale["waitSpeech"] != json!({"place":ATTIC,"turn":null})
         || fuel.fuel_place != ATTIC
         || !fuel.fuel_visit
-        || lamp["lit"] != (fuel.fuel_rooms > 0)
+        || lamp["lit"] != (held == LAMP && fuel.fuel_rooms > 0)
         || lamp["fuel"] != fuel.fuel_rooms * 4
     {
         return None;
