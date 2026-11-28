@@ -14,6 +14,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         .as_str()
         .filter(|key| key.splitn(4, ':').count() == 4)
         .or_else(|| action["key"].as_str());
+    if matches!(key, Some("move:vale::station" | "move:vale:lamp:station")) {
+        return super::opening_full_station_move::reduce(request);
+    }
     if request["world"]["turn"] == 1 {
         return match key {
             Some("move:vale::pond" | "move:vale:lamp:pond") => {

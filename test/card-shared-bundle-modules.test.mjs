@@ -4,11 +4,9 @@ import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { sharedContentInput } from "../v2/scripts/shared-content-input.mjs";
 
-// Every module in the shared rules bundle is replayed forever. A new import
-// into this graph is an engine change; see
-// docs/design/pack-content-outside-the-engine.md. Presentation and dialogue
-// modules (scene, narrative, daylight) live in the narrator bundle, and pack
-// content arrives per request from content.json (#1548).
+// Every shared rules module must replay forever, so new imports change the engine.
+// See docs/design/pack-content-outside-the-engine.md. The narrator bundle owns
+// scene, narrative, and daylight. The host supplies content.json per request.
 const RULES = [
   "avatar-reset.mjs",
   "adaptive-learning.mjs",

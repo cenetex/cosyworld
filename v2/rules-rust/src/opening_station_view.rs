@@ -333,10 +333,11 @@ fn station_projection(
     geo: &Geography<'_>,
     authored: &Order,
     actor_order: &[&str],
+    profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<(Vec<Value>, Value)> {
     let company = station_scene(world, geo, actor_order)?;
     station_paths(world, geo)?;
-    let profiles = profiles::project(geo.files())?;
+    let profiles = profile_source()?;
     Some((
         actions(world, geo, authored, &profiles, &company)?,
         profiles,
@@ -398,17 +399,37 @@ pub(super) fn settled_first_arrival(
 }
 
 pub fn completed_station_response(
-    mut world: Value,
+    world: Value,
     geo: &Geography<'_>,
     authored: &Order,
     before_seq: u64,
     actor_order: &[&str],
     present: &[&str],
 ) -> Option<Value> {
+    completed_station_response_with_profiles(
+        world,
+        geo,
+        authored,
+        before_seq,
+        actor_order,
+        present,
+        || profiles::project(geo.files()),
+    )
+}
+
+pub(super) fn completed_station_response_with_profiles(
+    mut world: Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    before_seq: u64,
+    actor_order: &[&str],
+    present: &[&str],
+    profile_source: impl FnOnce() -> Option<Value>,
+) -> Option<Value> {
     if present != [VALE] || chronology(&world)? != before_seq.checked_add(1)? {
         return None;
     }
-    let (plans, profiles) = station_projection(&world, geo, authored, actor_order)?;
+    let (plans, profiles) = station_projection(&world, geo, authored, actor_order, profile_source)?;
     let events = arrival_events(&world, before_seq, false)?
         .into_iter()
         .cloned()
@@ -420,7 +441,7 @@ pub fn completed_station_response(
         .as_object_mut()?
         .insert(VALE.into(), json!([VALE, KEEPER]));
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
-    response["events"] = json!(events);
+    response["events"] = Value::Array(events);
     Some(response)
 }
 
@@ -441,7 +462,9 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let actor_order = super::opening_roster::actor_order(request, world)?;
-    let (plans, profiles) = station_projection(world, &geo, &authored, &actor_order)?;
+    let (plans, profiles) = station_projection(world, &geo, &authored, &actor_order, || {
+        profiles::project(geo.files())
+    })?;
     let projected = opening_view::private_world(world, request)?;
     Some(station_response(
         json!({"ok":true,"world":projected}),
