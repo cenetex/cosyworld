@@ -53,7 +53,6 @@ export function startAttend(s, id) {
 }
 export const attending = (s, id) => (s.actors[id]?.attend?.until ?? 0) > s.turn;
 
-// A saved `dwellUntil` is a whole turn no later than one stay from now.
 export const validDwell = (s) =>
   Object.values(s.actors).every(
     (a) =>
