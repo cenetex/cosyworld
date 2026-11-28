@@ -69,7 +69,7 @@ fn last_turn(value: &Value) -> Option<u64> {
     count(&value.as_array()?.last()?["turn"])
 }
 
-pub(super) fn opening_world(request: &Value) -> Option<&Value> {
+pub(super) fn quiet_attic_world(request: &Value) -> Option<&Value> {
     let world = &request["world"];
     let actors = world["actors"].as_object()?;
     let lamp = &world["items"]["lamp"];
@@ -85,10 +85,6 @@ pub(super) fn opening_world(request: &Value) -> Option<&Value> {
         || !world["stationExitOrder"]
             .as_array()
             .is_some_and(Vec::is_empty)
-        || !matches!(
-            world["items"]["elysium-wayfinder"]["holder"].as_str(),
-            Some("behind-station" | "pond")
-        )
         || claimed.len() != 1
         || claimed[0] != "vale"
         || (!present.is_empty() && present.as_slice() != claimed)
@@ -108,7 +104,13 @@ pub(super) fn opening_world(request: &Value) -> Option<&Value> {
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
-    let world = opening_world(request)?;
+    let world = quiet_attic_world(request)?;
+    if !matches!(
+        world["items"]["elysium-wayfinder"]["holder"].as_str(),
+        Some("behind-station" | "pond")
+    ) {
+        return None;
+    }
     let world_turn = count(&world["turn"])?;
     let Some(turn) = count(&request["turn"]).filter(|turn| (1..=world_turn).contains(turn)) else {
         return refused(SCENE);

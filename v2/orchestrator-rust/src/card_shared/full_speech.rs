@@ -14,7 +14,6 @@ pub(super) fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>
         .as_str()
         .or_else(|| work["room"].as_str())
         .ok_or("The scene needs a place.")?;
-    // The committed scene already chooses who is due to speak.
     let mut ids: Vec<String> = scene["speakers"]
         .as_array()
         .into_iter()
