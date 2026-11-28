@@ -32,6 +32,38 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     opening::stored_response(verified_opening(world, files()?)?)
 }
 
+pub(super) fn upgrade(request: &Value) -> Option<Value> {
+    let world = &request["world"];
+    let from = rules_number(&request["from"])?;
+    let to = rules_number(&request["to"])?;
+    let claimed = seats(&request["claimed"])?;
+    let present = seats(&request["present"])?;
+    if from < 133
+        || from > to
+        || request["actor"] != "vale"
+        || !matches!(claimed.as_slice(), [] | ["vale"])
+        || present.iter().any(|id| !claimed.contains(id))
+        || (world.get("run").is_none() && !request["seed"].is_null())
+    {
+        return None;
+    }
+    opening::unplayed_turn(world)?;
+    let next_revision = world["revision"].as_u64()?.checked_add(1)?;
+    if next_revision > opening::MAX_REVISION {
+        return None;
+    }
+    let files = opening_content::files(request)?;
+    let mut world = verified_opening(world, &files)?;
+    world["revision"] = next_revision.into();
+    opening::stored_response(world)
+}
+
+fn rules_number(value: &Value) -> Option<u32> {
+    let suffix = value.as_str()?.strip_prefix("full-card-world/")?;
+    let version = suffix.parse::<u32>().ok()?;
+    (version.to_string() == suffix).then_some(version)
+}
+
 pub(super) fn import(request: &Value) -> Option<Value> {
     let save = request.get("save").filter(|save| !save.is_null())?;
     let mut world = match save {

@@ -39,7 +39,7 @@ impl Rules {
         pack_json: &str,
     ) -> Result<Option<Value>, String> {
         let fuel = match request["op"].as_str() {
-            Some("create" | "validate") => RECONSTRUCTION_FUEL,
+            Some("create" | "validate" | "upgrade") => RECONSTRUCTION_FUEL,
             _ => FUEL,
         };
         self.reduce_input(&encode_request(request, Some(pack_json))?, fuel)
