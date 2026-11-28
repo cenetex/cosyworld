@@ -1,7 +1,7 @@
 use super::{
-    opening, opening_attic_rest, opening_content, opening_crossings, opening_held_items,
-    opening_hub_residents, opening_pickups::Custody, opening_place_cards::Deck, opening_play,
-    opening_quiet_life, opening_roaming, opening_roster, opening_second_attic_lamp,
+    authored_order::Order, opening, opening_attic_rest, opening_content, opening_crossings,
+    opening_held_items, opening_hub_residents, opening_pickups::Custody, opening_place_cards::Deck,
+    opening_play, opening_quiet_life, opening_roaming, opening_roster, opening_second_attic_lamp,
     opening_second_attic_tail, opening_settlement, opening_take, opening_take_response,
     opening_visitor_play, opening_wait, opening_wait_response, opening_wants, pack_state::Catalog,
     resident_evidence::ResidentEvidence, Geography,
@@ -42,6 +42,32 @@ pub(super) fn quiet_start(world: &Value) -> Option<()> {
     opening_play::quiet_attic_scene(world)
 }
 
+pub(super) fn settle_visitors(
+    world: &mut Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+    deck: &Deck<'_>,
+    residents: &[&str],
+) -> Option<()> {
+    let mut custody = Custody::new(world)?;
+    for &id in residents {
+        if ["moth", "keeper"].contains(&id) {
+            continue;
+        }
+        if !opening::is_seat(id) {
+            return None;
+        }
+        let seq = world["eventSeq"].as_u64()?;
+        opening_visitor_play::perform(world, geo, authored, order, evidence, &mut custody, id)?;
+        if world["eventSeq"] != seq {
+            deck.settle(world, geo, None)?;
+        }
+    }
+    Some(())
+}
+
 pub(super) fn round(request: &Value) -> Option<Value> {
     let (before, play) = if let Some(before) = opening_wait::second_world(request) {
         (before, Play::Wait)
@@ -70,28 +96,9 @@ pub(super) fn round(request: &Value) -> Option<Value> {
     let deck = Deck::new(&world, &geo)?;
     deck.settle(&mut world, &geo, Some(ATTIC))?;
     opening_hub_residents::confirm_second_idle(&world, &geo)?;
-    let mut custody = Custody::new(&world)?;
-    for id in residents {
-        if !known.contains(&id) || ["moth", "keeper"].contains(&id) {
-            continue;
-        }
-        if !opening::is_seat(id) {
-            return None;
-        }
-        let seq = world["eventSeq"].as_u64()?;
-        opening_visitor_play::perform(
-            &mut world,
-            &geo,
-            &authored,
-            &order,
-            &evidence,
-            &mut custody,
-            id,
-        )?;
-        if world["eventSeq"] != seq {
-            deck.settle(&mut world, &geo, None)?;
-        }
-    }
+    settle_visitors(
+        &mut world, &geo, &authored, &order, &evidence, &deck, &residents,
+    )?;
     opening_settlement::decay_bell(&mut world)?;
     opening_roaming::settle_dwell(&mut world, &geo)?;
     opening_quiet_life::verify_second_attic(&mut world, &geo)?;

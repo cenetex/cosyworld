@@ -1,4 +1,7 @@
-use super::{initial_wants, lamp_state, opening_content, opening_crossings, pack_state::Catalog};
+use super::{
+    initial_wants, lamp_state, opening_content, opening_crossings, opening_mirror_move,
+    pack_state::Catalog,
+};
 use crate::{Geography, LampPosition};
 use serde_json::{json, Value};
 
@@ -40,20 +43,7 @@ pub(super) fn settle(before: &Value, world: &mut Value, geo: &Geography) -> Opti
     {
         return None;
     }
-    let held = match vale.get("heldItem")? {
-        Value::Null => false,
-        item if item == LAMP => true,
-        _ => return None,
-    };
-    let lamp = &mut world["items"][LAMP];
-    lamp_state(lamp)
-        .ok()?
-        .settle(LampPosition {
-            place: ATTIC.into(),
-            held,
-            grounded: false,
-        })
-        .write(lamp);
+    settle_carried_lamp(world, ATTIC)?;
     no_refuel(world, geo)?;
     opening_crossings::no_crossing_unlocks(world, geo)?;
     opening_crossings::no_attic_crossing_narration(before, world, geo)?;
@@ -67,6 +57,34 @@ pub(super) fn settle(before: &Value, world: &mut Value, geo: &Geography) -> Opti
         && mirrors.next().is_none()
         && geo.reflection_open(before, mirror)? == geo.reflection_open(world, mirror)?)
     .then_some(())
+}
+
+pub(super) fn settle_pond(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
+    opening_mirror_move::second_arrival(world)?;
+    settle_carried_lamp(world, "pond")?;
+    no_refuel(world, geo)?;
+    opening_crossings::no_crossing_unlocks(world, geo)
+}
+
+fn settle_carried_lamp(world: &mut Value, place: &str) -> Option<()> {
+    if world["items"][LAMP]["holder"] != VALE {
+        return None;
+    }
+    let held = match world["actors"][VALE].get("heldItem")? {
+        Value::Null => false,
+        item if item == LAMP => true,
+        _ => return None,
+    };
+    let lamp = &mut world["items"][LAMP];
+    lamp_state(lamp)
+        .ok()?
+        .settle(LampPosition {
+            place: place.into(),
+            held,
+            grounded: false,
+        })
+        .write(lamp);
+    Some(())
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {

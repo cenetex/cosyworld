@@ -9,8 +9,18 @@ pub(super) enum Mirror {
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
+    let action = &request["action"];
+    let key = action
+        .as_str()
+        .filter(|key| key.splitn(4, ':').count() == 4)
+        .or_else(|| action["key"].as_str());
     if request["world"]["turn"] == 1 {
-        return super::opening_second_round::round(request);
+        return match key {
+            Some("move:vale::pond" | "move:vale:lamp:pond") => {
+                super::opening_full_move::reduce(request)
+            }
+            _ => super::opening_second_round::round(request),
+        };
     }
     let world = opening::supported_world(request)?;
     let actor = request["actor"].as_str()?;
@@ -27,14 +37,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if !request["revision"].is_null() && request["revision"] != world["revision"] {
         return refusal(world, "The world changed. Choose a current play.");
     }
-    let action = &request["action"];
     if action["kind"] == "pack" {
         return None;
     }
-    let key = action
-        .as_str()
-        .filter(|key| key.splitn(4, ':').count() == 4)
-        .or_else(|| action["key"].as_str());
     match key {
         None => refusal(
             world,

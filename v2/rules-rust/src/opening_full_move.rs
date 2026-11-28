@@ -1,9 +1,10 @@
 use super::{
     opening_attic_rest, opening_company, opening_content, opening_crossings, opening_full_wait,
-    opening_history_walkers, opening_hub_residents, opening_mirror_move,
+    opening_held_items, opening_history_walkers, opening_hub_residents, opening_mirror_move,
     opening_place_cards::{self, Deck},
     opening_pond_ask, opening_pond_place_returns, opening_pond_rumours, opening_quiet_life,
-    opening_resident_sleep, opening_roster, opening_settlement, opening_visitor_routes,
+    opening_resident_sleep, opening_roaming, opening_roster, opening_second_attic_lamp,
+    opening_second_attic_tail, opening_second_round, opening_settlement, opening_visitor_routes,
     opening_wants,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -11,8 +12,52 @@ use super::{
 };
 use serde_json::{json, Value};
 
+fn quiet_discoveries(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let old = before["crossings"].as_object()?;
+    let new = world["crossings"].as_object()?;
+    if old.len() != new.len()
+        || new
+            .values()
+            .any(|state| !(state["phase"].is_null() || state["phase"] == 0))
+    {
+        return None;
+    }
+    for (id, state) in new {
+        let prior = old.get(id)?;
+        if prior == state {
+            continue;
+        }
+        let mut confirmed = prior.clone();
+        if confirmed["discovered"] != false {
+            return None;
+        }
+        confirmed["discovered"] = json!(true);
+        let crossing = geo.packs().find_map(|pack| {
+            pack["crossings"]
+                .as_array()?
+                .iter()
+                .find(|edge| edge["id"] == *id)
+        })?;
+        let taken = world["log"].as_array()?.iter().any(|event| {
+            event["turn"] == 2
+                && event["kind"] == "action"
+                && event["verb"] == "move"
+                && event["generated"] != true
+                && event["actorId"] != "vale"
+                && event["fromLocationId"] == crossing["from"]
+                && event["locationId"] == crossing["to"]
+        });
+        if state != &confirmed || !taken {
+            return None;
+        }
+    }
+    Some(())
+}
+
 fn quiet_ways(before: &Value, world: &Value, geo: &Geography<'_>) -> Option<()> {
-    if before["crossings"] != world["crossings"] {
+    if world["turn"] == 2 {
+        quiet_discoveries(before, world, geo)?;
+    } else if before["crossings"] != world["crossings"] {
         return None;
     }
     for pack in geo.packs() {
@@ -48,7 +93,10 @@ fn progress(
     finish: impl FnOnce(Value, &Geography<'_>, u64, ResidentEvidence) -> Option<Value>,
 ) -> Option<Value> {
     let (before, carry) = opening_mirror_move::move_world(request)?;
-    opening_full_wait::quiet_opening(before)?;
+    let second = before["turn"] == 1;
+    if !second {
+        opening_full_wait::quiet_opening(before)?;
+    }
     let historic = before["began"] == 480;
     let before_seq = before["eventSeq"].as_u64()?;
     let order = opening_roster::actor_order(request, before)?;
@@ -78,9 +126,21 @@ fn progress(
     }
     opening_pond_ask::settle(&mut world, &geo, &authored, &order, &evidence, &deck)?;
     opening_hub_residents::keeper_idle_after_move(&world, &geo)?;
-    opening_full_wait::pickups(&mut world, &geo, &evidence, &deck, &known, &residents)?;
+    if second {
+        opening_second_round::settle_visitors(
+            &mut world, &geo, &authored, &order, &evidence, &deck, &residents,
+        )?;
+    } else {
+        opening_full_wait::pickups(&mut world, &geo, &evidence, &deck, &known, &residents)?;
+    }
     opening_settlement::decay_bell(&mut world)?;
-    opening_full_wait::roam(&mut world, &geo, &authored, &order, &evidence, &deck)?;
+    if second {
+        opening_roaming::settle_dwell(&mut world, &geo)?;
+        opening_quiet_life::verify_second_pond(&mut world, &geo)?;
+        opening_second_attic_tail::verify_stops(&world, &geo)?;
+    } else {
+        opening_full_wait::roam(&mut world, &geo, &authored, &order, &evidence, &deck)?;
+    }
     if historic {
         let resident_catalog = opening_resident_sleep::Residents::new(&geo)?;
         opening_resident_sleep::settle_pond(
@@ -93,21 +153,34 @@ fn progress(
         )?;
         let acted: Vec<_> = std::iter::once("vale").chain(residents).collect();
         opening_history_walkers::verify(&world, &geo, &acted, &resident_catalog)?;
-    } else {
+    } else if !second {
         opening_quiet_life::verify(&mut world, &geo)?;
     }
     if !opening_settlement::sail_transports(&mut world, &catalog, None)?.is_empty() {
         return None;
     }
+    if second {
+        opening_held_items::settle(&mut world, &geo, Some(before))?;
+        opening_second_attic_lamp::settle_pond(&mut world, &geo)?;
+        opening_second_attic_tail::verify_wake(&world)?;
+    }
     quiet_ways(before, &world, &geo)?;
     opening_settlement::no_item_cycle(&world)?;
-    if historic {
+    if second {
+        opening_wants::settle_second_pond(&mut world, &geo)?;
+        opening_second_attic_tail::verify_final(before, &world, &geo)?;
+    } else if historic {
         opening_wants::settle_with(&mut world, &geo, opening_company::fade_trust)?;
     } else {
         opening_wants::settle_first_wait(&mut world, &geo)?;
     }
     opening_attic_rest::settle_visit_speech(before, &mut world, false)?;
-    if historic {
+    if second {
+        opening_second_attic_tail::verify_wayfinder(&world, &geo)?;
+        opening_held_items::settle(&mut world, &geo, Some(before))?;
+        opening_second_attic_lamp::settle_pond(&mut world, &geo)?;
+        opening_second_attic_tail::verify_station(&world, &geo)?;
+    } else if historic {
         opening_pond_rumours::settle(&mut world, &geo, before_seq)?;
     }
     finish(world, &geo, before_seq, evidence)
