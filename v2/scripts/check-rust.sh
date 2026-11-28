@@ -63,7 +63,6 @@ run_fmt() {
   )
 }
 
-# Compiles the tests, then runs them with the given libtest arguments.
 run_cargo_tests() {
   local label="$1"
   shift

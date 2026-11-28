@@ -12,14 +12,14 @@ How the system is put together is in [ARCHITECTURE.md](ARCHITECTURE.md). Five en
 
 The live site is the game. A local server is that same program.
 
-You need Node.js 24 or newer, a Rust toolchain, npm, and `screen` (the dev script starts the server in a detached session).
+You need Node.js 24 or newer, npm, and a Rust toolchain. The development server runs under a Rust supervisor on Linux and macOS.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-`npm run dev` builds the server and serves http://127.0.0.1:3102/. On a Mac it also tries to open that URL. Hosted dialogue reads `OPENROUTER_API_KEY` (see the environment notes in `v2/mvp.sh`). With no key, the story service stays off: the play is still saved, and each voice that was due shows "…".
+`npm run dev` builds the server and serves http://127.0.0.1:3102/. On a Mac it also tries to open that URL. Use `npm run v2:status` and `npm run v2:stop` to inspect or stop the supervisor. Hosted dialogue reads `OPENROUTER_API_KEY`. With no key, the play is still saved and each voice that was due shows "…".
 
 Dialogue from a model on your own machine:
 
