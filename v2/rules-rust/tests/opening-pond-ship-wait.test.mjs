@@ -22,7 +22,17 @@ function captureWait(source) {
   const wants = "    reviseStalledWants(\n      next,";
   const late =
     "    if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));";
-  for (const marker of [primary, docking, plans, after, sailing, wants, late])
+  const settled = "    noteRumours(s, next, wantAPI(next), wantAPI(s));";
+  for (const marker of [
+    primary,
+    docking,
+    plans,
+    after,
+    sailing,
+    wants,
+    late,
+    settled,
+  ])
     assert.equal(source.split(marker).length, 2);
   return source
     .replace(
@@ -54,6 +64,10 @@ function captureWait(source) {
     .replace(
       late,
       "$&\n    if (next.turn === 10) globalThis.finished = structuredClone(next);",
+    )
+    .replace(
+      settled,
+      "    if (next.turn === 10) globalThis.settled = structuredClone(next);\n$&",
     );
 }
 
@@ -68,7 +82,7 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
   };
   const play = (world, action) =>
     run({ ...seats, op: "play", world, action }).world;
-  let sample, arriving, arrived;
+  let sample, arriving, arrived, completed;
   for (const seed of [undefined, 2, 17, 4242]) {
     for (const ordered of [false, true]) {
       let world = run({ op: "create", seed }).world;
@@ -97,6 +111,15 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
         world,
         ordered ? "move:vale:cloth:greek-ship" : "move:vale::greek-ship",
       );
+      if (ordered && seed === 17) {
+        world = run({
+          ...seats,
+          op: "speech",
+          room: ship,
+          world,
+          lines: [{ entityId: ship, text: "The hull creaks softly." }],
+        }).world;
+      }
       world = play(world, "course:vale::greek-harbor");
       const request = {
         ...seats,
@@ -190,11 +213,53 @@ test("shipboard Wait matches pinned arrival, riders and both learned sea edges",
         ]);
       }
       assert.deepEqual(docked.arrival, world.arrival);
+      completed = {
+        ...seats,
+        op: "opening_pond_ship_wait_view",
+        world: captured("settled"),
+        beforeSeq: world.eventSeq,
+      };
+      assert.ok(isDeepStrictEqual(wasm(completed), reply), `reply ${label}`);
+      const published = run({
+        ...seats,
+        op: "speech",
+        room: ship,
+        world: reply.world,
+        lines: [
+          { actorId: "vale", text: "We made it." },
+          { entityId: ship, text: "The deck settles." },
+        ],
+      }).world;
+      assert.equal(published.eventSeq, reply.world.eventSeq + 2);
+      for (const present of [seats.present, []]) {
+        const view = { ...seats, op: "view", world: published, present };
+        assert.ok(
+          isDeepStrictEqual(wasm(view), run(view)),
+          `reload ${label} ${present.length}`,
+        );
+      }
+      assert.equal(
+        wasm({
+          ...seats,
+          op: "view",
+          world: published,
+          claimed: [],
+          present: [],
+        }),
+        null,
+      );
     }
   }
   assert.equal(wasm({ ...sample, present: [] }), null);
   assert.equal(wasm({ ...sample, revision: sample.revision - 1 }), null);
   assert.equal(wasm({ ...sample, action: "wait:vale::sleep" }), null);
+  assert.equal(
+    wasm({ ...completed, beforeSeq: completed.beforeSeq - 1 }),
+    null,
+  );
+  const invalid = structuredClone(completed.world);
+  invalid.transports[ship].riders = [];
+  assert.equal(wasm({ ...completed, world: invalid }), null);
   for (const mutate of [
     (world) => {
       world.transports[ship].destination = "pond";

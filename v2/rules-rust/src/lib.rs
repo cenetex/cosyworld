@@ -259,9 +259,11 @@ pub fn reduce(request: &Value) -> Value {
             | "opening_ship_wait_before_docking"
             | "opening_ship_wait_after_docking",
         ) => opening_pond_ship_settlement::projection(request).unwrap_or(Value::Null),
-        Some("opening_pond_ship_view" | "opening_pond_ship_course_view") => {
-            opening_pond_ship_view::projection(request).unwrap_or(Value::Null)
-        }
+        Some(
+            "opening_pond_ship_view"
+            | "opening_pond_ship_course_view"
+            | "opening_pond_ship_wait_view",
+        ) => opening_pond_ship_view::projection(request).unwrap_or(Value::Null),
         Some("opening_pond_call") => opening_pond_call::projection(request).unwrap_or(Value::Null),
         Some("opening_pond_call_tail") => {
             opening_pond_call_tail::projection(request).unwrap_or(Value::Null)

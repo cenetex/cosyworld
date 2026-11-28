@@ -204,7 +204,6 @@ describe("a real voyage", () => {
     s = act(s, "vale", "course", "greek-harbor");
     s = act(s, "vale", "wait");
     s.actors.ash.place = "greek-harbor";
-    // Myrto has packed a load of provisions on the landing.
     stowProvisions(s, "greek-harbor");
     s = reload(s);
     expect(targets(s, "vale", "course")).toEqual(["pond"]);
