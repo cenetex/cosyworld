@@ -212,7 +212,7 @@ test("historic Station preserves Bard dwell and proves no offstage walks", async
   );
 });
 
-test("the Bard still dwells when Pip follows Vale to historic Station", async () => {
+test("Bard dwell and offstage walks match when Pip follows to historic Station", async () => {
   const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine(traceHistoricStation);
   const copy = (value) => JSON.parse(JSON.stringify(value));
@@ -281,6 +281,17 @@ test("the Bard still dwells when Pip follows Vale to historic Station", async ()
         assert.ok(
           isDeepStrictEqual(actual, { ok: true, world: after }),
           `${seed}/${dry}/${sorted}`,
+        );
+        const walk = copy(reference.beforeWalk);
+        const walked = copy(reference.afterWalk);
+        const acted = copy(reference.acted);
+        assert.deepEqual(copy(reference.moves), []);
+        assert.ok(
+          isDeepStrictEqual(wasm({ op: "opening_history_walkers", world: walk, acted }), {
+            ok: true,
+            world: walked,
+          }),
+          `walks ${seed}/${dry}/${sorted}`,
         );
         if (seed === 17) cass = before;
         else guests = before;
