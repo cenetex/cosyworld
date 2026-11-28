@@ -67,7 +67,8 @@ pub(super) fn settle_pond(world: &mut Value, geo: &Geography<'_>) -> Option<()> 
 }
 
 pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<()> {
-    opening_station_move::arrival(world)?;
+    opening_station_move::arrival(world)
+        .or_else(|| opening_station_move::historic_arrival(world))?;
     settle_carried_lamp(world, "station")?;
     no_refuel(world, geo)?;
     opening_crossings::no_crossing_unlocks(world, geo)

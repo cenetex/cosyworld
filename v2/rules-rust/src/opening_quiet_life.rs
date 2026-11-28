@@ -200,6 +200,16 @@ pub(super) fn opening_day_projection(request: &Value) -> Option<Value> {
     Some(json!({"ok":true, "world":world}))
 }
 
+pub(super) fn verify_home_levels(world: &Value, geo: &Geography) -> Option<()> {
+    let people = People::new(geo.files(), geo.packs())?;
+    for (id, person) in people.people {
+        if home_level_due(world, geo, id, &person)? && geo.entity_active(world, id)? {
+            return None;
+        }
+    }
+    Some(())
+}
+
 fn home_level_due(world: &Value, geo: &Geography, id: &str, person: &Person) -> Option<bool> {
     let actor = &world["actors"][id];
     if person.data["levelAtHome"] != true || !actor["level"].is_number() {
