@@ -375,7 +375,6 @@ describe("rest and sanctuary", () => {
     expect(legalActions(s).some((a) => a.sleep)).toBe(true);
     s = act(s, (a) => a.kind === "move");
     expect(legalActions(s).some((a) => a.sleep)).toBe(false);
-    // Residents never sleep.
     expect(legalActions(s, "keeper").some((a) => a.sleep)).toBe(false);
     let ship = seat(["ada"]);
     ship = act(

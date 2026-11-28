@@ -11,7 +11,7 @@ const op = "opening_pond_ship_disembark";
 const residentsOp = "opening_ship_disembark_residents";
 
 test("Vale's first disembark matches pinned placement, custody, witnesses and discovery", async () => {
-  const { wasm } = await reducers();
+  const { pinned, wasm } = await reducers();
   const reference = currentSharedEngine((source) => {
     const primary =
       "    const respondent = perform(next, exact, round2, residents2);";
@@ -50,7 +50,14 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
   };
   const play = (world, action) =>
     run({ ...seats, op: "play", world, action }).world;
-  let sample, adaLanding, settled;
+  const speech = (world, lines) => ({
+    ...seats,
+    op: "speech",
+    world,
+    room: ship,
+    lines,
+  });
+  let sample, adaLanding, settled, captionedSample;
   for (const seed of [undefined, 2, 17, 4242]) {
     for (const ordered of [false, true]) {
       let world = run({ op: "create", seed }).world;
@@ -83,22 +90,50 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
         world.actors = Object.fromEntries(
           Object.entries(world.actors).toSorted(),
         );
-      for (const action of [
-        "drop:vale:lamp:pond",
-        "move:vale:cloth:greek-ship",
-        "course:vale::greek-harbor",
-        "wait:vale::",
-      ])
-        world = play(world, action);
+      world = play(world, "drop:vale:lamp:pond");
       assert.equal(world.items.lamp.fuel, lastRoom ? 4 : 8);
-      for (const cloth of ["", "cloth"]) {
+      world = play(world, "move:vale:cloth:greek-ship");
+      if (ordered) {
+        const by = seed === undefined ? "ada" : "vale";
+        world = run(
+          speech(world, [{ actorId: by, text: "Ready to sail." }]),
+        ).world;
+      }
+      world = play(world, "course:vale::greek-harbor");
+      if (ordered) {
+        world = run(
+          speech(world, [{ entityId: ship, text: "The sails fill." }]),
+        ).world;
+      }
+      world = play(world, "wait:vale::");
+      const captions = speech(world, [
+        { actorId: "vale", text: "  We made it to the harbor. " },
+        { entityId: ship, text: "The hull settles into its berth." },
+      ]);
+      const spoken = run(captions);
+      assert.deepEqual(wasm(captions), spoken);
+      assert.equal(spoken.world.revision, world.revision + 1);
+      assert.equal(spoken.world.eventSeq, world.eventSeq + 2);
+      if (seed === undefined) {
+        for (const lines of [
+          [{ actorId: "ada", text: "We made it." }],
+          [captions.lines[0], captions.lines[0]],
+        ]) {
+          const rejected = speech(world, lines);
+          assert.equal(pinned(rejected).ok, false);
+          assert.equal(wasm(rejected), null);
+        }
+      }
+      for (const [prior, cloth] of [world, spoken.world].flatMap((prior) =>
+        ["", "cloth"].map((cloth) => [prior, cloth]),
+      )) {
         const key = ["move", "vale", cloth, harbor].join(":");
         const request = {
           ...seats,
           op: "play",
-          world,
+          world: prior,
           action: ordered ? { key } : key,
-          revision: world.revision,
+          revision: prior.revision,
         };
         reference.residentPlans = [];
         const reply = run(request);
@@ -108,6 +143,8 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
         );
         const primary = JSON.parse(JSON.stringify(reference.primary));
         sample = { ...request, op };
+        if (prior === spoken.world && seed === undefined)
+          captionedSample = sample;
         const candidate = wasm(sample);
         const diff = Object.keys(primary).find(
           (field) =>
@@ -119,6 +156,11 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
         );
         const event = primary.log.at(-1);
         assert.deepEqual(reply.events[0], event);
+        assert.equal(event.seq, prior.eventSeq + 1);
+        assert.equal(primary.arrival.seq, event.seq);
+        assert.equal(primary.revision, prior.revision + 1);
+        if (prior === spoken.world)
+          assert.deepEqual(primary.log.slice(-3, -1), spoken.lines);
         assert.equal(event.itemId, cloth || null);
         assert.equal(event.light, false);
         assert.equal(primary.actors.vale.heldItem, "cloth");
@@ -188,7 +230,7 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
           ...seats,
           op: "opening_greek_harbor_view",
           world: JSON.parse(JSON.stringify(reference.settled)),
-          beforeSeq: world.eventSeq,
+          beforeSeq: prior.eventSeq,
         };
         assert.ok(
           isDeepStrictEqual(wasm(settled), reply),
@@ -273,5 +315,34 @@ test("Vale's first disembark matches pinned placement, custody, witnesses and di
     const world = structuredClone(sample.world);
     mutate(world);
     assert.equal(wasm({ ...sample, world }), null);
+  }
+  for (const change of [
+    (line) => {
+      Object.assign(line, {
+        kind: "dialogue",
+        actorId: "ada",
+        entityId: "ada",
+        speaker: "Sage",
+      });
+    },
+    (line) => {
+      line.generated = false;
+    },
+    (line) => {
+      line.locationId = harbor;
+    },
+    (line) => {
+      line.text = "  ";
+    },
+    (line) => {
+      line.witnesses = ["vale"];
+    },
+    (line) => {
+      line.seq -= 1;
+    },
+  ]) {
+    const world = structuredClone(captionedSample.world);
+    change(world.log.at(-1));
+    assert.equal(wasm({ ...captionedSample, world }), null);
   }
 });

@@ -171,7 +171,8 @@ pub(super) fn settle_harbor_tail(
 ) -> Option<()> {
     let head = opening_station_departure_residents::ship_disembark_head(world)?;
     let docking = opening_pond_ship_wait::docking_event(before)?;
-    let seq = docking["seq"].as_u64()?;
+    let seq = before["eventSeq"].as_u64()?;
+    let previous = before["log"].as_array()?.last()?;
     let suffix = match head.checked_sub(seq)? {
         1 => 1,
         2 => 2,
@@ -179,8 +180,8 @@ pub(super) fn settle_harbor_tail(
     };
     let log = world["log"].as_array()?;
     let speech = json!({"place":"greek-ship","turn":10});
-    if before["eventSeq"] != seq
-        || before["log"].as_array()?.last()? != docking
+    if seq < docking["seq"].as_u64()?
+        || previous["seq"] != seq
         || world["arrival"]["seq"] != seq.checked_add(1)?
         || world["revision"] != before["revision"].as_u64()?.checked_add(1)?
         || world["items"]["lamp"] != before["items"]["lamp"]
@@ -188,7 +189,7 @@ pub(super) fn settle_harbor_tail(
         || world["crossings"]["greek-harbor-pond"]["discovered"] != true
         || world["actors"]["vale"]["waitSpeech"] != speech
         || before["actors"]["vale"]["waitSpeech"] != speech
-        || log.iter().rev().nth(suffix)? != docking
+        || log.iter().rev().nth(suffix)? != previous
     {
         return None;
     }
