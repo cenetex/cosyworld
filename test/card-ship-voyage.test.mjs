@@ -231,8 +231,7 @@ describe("a real voyage", () => {
     s = act(s, "vale", "wait");
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-piraeus" });
     expect(targets(s, "vale", "move")).toEqual(["greek-piraeus"]);
-    // Sailing uses nothing (rules 102): the provisions still lie whole on
-    // deck, and Ash steps off without them.
+    // Sailing leaves the provisions aboard when Ash steps off.
     expect(s.usedUp).not.toContain("greek-provisions");
     expect(s.items["greek-provisions"].holder).toBe("greek-ship");
     expect(targets(s, "ash", "move")).toEqual(["greek-piraeus"]);
