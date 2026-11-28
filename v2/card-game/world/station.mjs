@@ -1,4 +1,3 @@
-// Station exits and candidates, split out of world.mjs (#1390).
 import {
   crossings,
   transports,

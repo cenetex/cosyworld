@@ -63,6 +63,7 @@ test("the quiet historic pond Move matches the complete pinned round", async () 
           assert.ok(actual, `unsupported ${label}`);
           const expected = JSON.parse(JSON.stringify(reference.historicPond));
           assert.deepEqual(actual, { ok: true, world: expected }, label);
+          assert.deepEqual(wasm({ ...request, op: "play" }), played, label);
           assert.deepEqual(
             actual.world.log.slice(-played.events.length),
             played.events,

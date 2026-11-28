@@ -72,7 +72,7 @@ export function browserRules(bytes) {
           "opening_pond_ask",
           "opening_full_move",
         ].includes(request.op) ||
-        (atticPlay && request.world?.began === 480)
+        ((atticPlay || pondPlay) && request.world?.began === 480)
           ? request.world?.placeCard
           : null;
       const placeCardOrder =
