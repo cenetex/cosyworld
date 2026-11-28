@@ -16,8 +16,16 @@ function run(pinned, request) {
   return reply;
 }
 
-function arrived(pinned, seed, dry, previousSpeech) {
+function arrived(pinned, seed, dry, previousSpeech, rueTarget) {
   let { world } = run(pinned, { op: "create", seed });
+  if (rueTarget) {
+    world.actors.rue.want = {
+      kind: "person",
+      target: rueTarget,
+      since: 0,
+      refusals: 0,
+    };
+  }
   if (dry)
     Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
   else {
@@ -123,15 +131,20 @@ test("Rue's witnessed Station arrival publishes all four pinned lines", async ()
     { entityId: "station", text: "A latch rattles." },
   ];
   let last;
-  for (const seed of [7, 99]) {
+  for (const [seed, target] of [
+    [7, "moth"],
+    [99, "vale"],
+  ]) {
     for (const dry of [false, true]) {
-      const opening = arrived(pinned, seed, dry, dry);
+      const opening = arrived(pinned, seed, dry, dry, target);
       assert.deepEqual(opening.world.speechVoices.vale, [
         "vale",
         "keeper",
         "rue",
       ]);
       const meeting = opening.events.find(({ actorId }) => actorId === "rue");
+      assert.equal(meeting.fromLocationId, "train");
+      assert.equal(meeting.locationId, "station");
       assert.deepEqual(meeting.witnesses, ["rue", "routes"]);
       for (const sorted of [false, true]) {
         const world = structuredClone(opening.world);
