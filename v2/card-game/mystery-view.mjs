@@ -4,6 +4,7 @@
 // locks count; absence, disabled packs and personal avatar discovery do not.
 import { isLockedBox } from "./locked-box.mjs";
 import { cardType } from "./cards.mjs";
+import { lockedStackProjection } from "./presentation.mjs";
 import { currentActor, rootHolder, things } from "./world.mjs";
 
 export function tableHolder(world, id) {
@@ -37,6 +38,8 @@ export function roomItemLead(world, cards, quests, actions, closed) {
 export function lockedStack(cards, id, open, holderExpanded) {
   const index = cards.indexOf(id);
   if (index < 0) return null;
+  const state = lockedStackProjection(cards.length, index, open, holderExpanded);
+  if (state) return state;
   open = open && cards.length > 1;
   const top = index === 0;
   return {
