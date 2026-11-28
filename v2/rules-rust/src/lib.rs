@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 mod join;
 mod opening;
 pub mod opening_evidence;
+pub mod opening_history;
 mod opening_play;
 mod opening_reflection;
 mod opening_speech;
