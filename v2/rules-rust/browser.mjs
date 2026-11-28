@@ -60,6 +60,7 @@ export function browserRules(bytes) {
           "opening_mirror_move",
           "opening_station_move",
           "opening_pond_ask",
+          "opening_station_residents",
           "opening_pond_place_returns",
           "opening_pond_resident_sleep",
           "opening_visitor_play",

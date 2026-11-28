@@ -20,7 +20,7 @@ fn empty_record(value: &Value) -> bool {
     value.is_null() || value.as_object().is_some_and(Map::is_empty)
 }
 
-fn at_home(world: &Value, geo: &Geography, id: &str, held: &str) -> Option<()> {
+pub(super) fn at_home(world: &Value, geo: &Geography, id: &str, held: &str) -> Option<()> {
     let forest = &geo.files()["v2/card-game/forest.json"];
     let definition = forest["people"].get(id)?;
     let home = definition["home"].as_str()?;
