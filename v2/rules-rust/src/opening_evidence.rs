@@ -5,6 +5,58 @@ const KEEPER: &str = "keeper";
 const MOTH: &str = "moth";
 const STATION: &str = "station";
 
+const MEMORY_LIMIT: usize = 16;
+const LOG_LIMIT: usize = 100;
+
+pub(super) fn remember_moment(events: &mut Vec<Value>, moment: &Value) {
+    if !events.iter().any(|event| event["seq"] == moment["seq"]) {
+        events.push(moment.clone());
+        events.drain(..events.len().saturating_sub(MEMORY_LIMIT));
+    }
+}
+
+pub(super) fn trim_log(log: &mut Vec<Value>) {
+    while log
+        .iter()
+        .filter(|entry| entry["generated"] != true)
+        .count()
+        > LOG_LIMIT
+    {
+        let last = log
+            .iter()
+            .rposition(|entry| entry["generated"] != true)
+            .unwrap_or_default();
+        let oldest = log[..last]
+            .iter()
+            .position(|entry| {
+                entry["generated"] != true
+                    && matches!(entry["kind"].as_str(), Some("input" | "hint"))
+            })
+            .or_else(|| log.iter().position(|entry| entry["generated"] != true));
+        let Some(oldest) = oldest else {
+            break;
+        };
+        log.remove(oldest);
+    }
+    let generated = log
+        .iter()
+        .filter(|entry| entry["generated"] == true)
+        .count();
+    let mut excess = generated.saturating_sub(LOG_LIMIT);
+    let mut authoritative = false;
+    log.retain(|entry| {
+        if entry["generated"] != true {
+            authoritative = true;
+            return true;
+        }
+        if !authoritative || excess > 0 {
+            excess = excess.saturating_sub(1);
+            return false;
+        }
+        true
+    });
+}
+
 fn new_memories(profiles: &Map<String, Value>) -> Map<String, Value> {
     profiles
         .iter()
@@ -19,7 +71,7 @@ fn new_memories(profiles: &Map<String, Value>) -> Map<String, Value> {
         .collect()
 }
 
-fn remember(
+pub(super) fn remember(
     memories: &mut Map<String, Value>,
     profiles: &Map<String, Value>,
     entry: &Value,
@@ -63,7 +115,7 @@ fn remember(
         let Some(memory) = memories.get_mut(id) else {
             continue;
         };
-        memory["events"].as_array_mut()?.push(moment.clone());
+        remember_moment(memory["events"].as_array_mut()?, &moment);
         if !avatar(id) || !cast.contains(&id) {
             continue;
         }
@@ -190,6 +242,27 @@ pub fn install(world: &mut Value, files: &Value) -> Option<()> {
 mod tests {
     use super::*;
     use std::{path::Path, process::Command};
+
+    #[test]
+    fn a_new_play_retains_the_latest_event_and_prefers_to_drop_hints() {
+        let mut log = (1..=102)
+            .map(|seq| json!({"seq":seq, "kind":if seq == 10 { "hint" } else { "action" }}))
+            .collect::<Vec<_>>();
+        log.insert(0, json!({"seq":0, "generated":true}));
+        trim_log(&mut log);
+        assert_eq!(log.len(), 100);
+        assert_eq!(log.first().unwrap()["seq"], 2);
+        assert_eq!(log.last().unwrap()["seq"], 102);
+        assert!(log.iter().all(|entry| entry["seq"] != 10));
+
+        let mut events = (1..=16).map(|seq| json!({"seq":seq})).collect::<Vec<_>>();
+        remember_moment(&mut events, &json!({"seq":16}));
+        assert_eq!(events[0]["seq"], 1);
+        remember_moment(&mut events, &json!({"seq":17}));
+        assert_eq!(events.len(), 16);
+        assert_eq!(events[0]["seq"], 2);
+        assert_eq!(events[15]["seq"], 17);
+    }
 
     #[test]
     fn opening_evidence_matches_fresh_pinned_worlds() {

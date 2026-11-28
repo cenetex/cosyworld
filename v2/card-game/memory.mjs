@@ -146,7 +146,6 @@ export function validSubjectRecords(world, actor, records) {
           (!index || record.deeds[index - 1].seq > d.seq)))));
 }
 
-// A place and its contents retain events there. Avatars retain witnessed events.
 export function rememberEvent(world, entry) {
   const related = new Set(
     entry.consequence

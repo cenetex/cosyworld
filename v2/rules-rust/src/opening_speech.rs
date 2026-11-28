@@ -1,5 +1,6 @@
 use super::{
     opening::stored_response,
+    opening_evidence::{remember_moment, trim_log},
     opening_reflection::{opening_world, trim_text, valid_text},
 };
 use serde_json::{json, Value};
@@ -8,7 +9,6 @@ const ROOM: &str = "attic";
 const ACTOR: &str = "vale";
 const ITEM: &str = "lamp";
 const LOG_LIMIT: usize = 100;
-const MEMORY_LIMIT: usize = 16;
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 
 fn sole_occupancy(world: &Value) -> Option<bool> {
@@ -39,26 +39,6 @@ fn sole_occupancy(world: &Value) -> Option<bool> {
         }
     }
     Some(true)
-}
-
-fn trim_log(log: &mut Vec<Value>) {
-    let generated = log
-        .iter()
-        .filter(|entry| entry["generated"] == true)
-        .count();
-    let mut excess = generated.saturating_sub(LOG_LIMIT);
-    let mut authoritative = false;
-    log.retain(|entry| {
-        if entry["generated"] != true {
-            authoritative = true;
-            return true;
-        }
-        if !authoritative || excess > 0 {
-            excess = excess.saturating_sub(1);
-            return false;
-        }
-        true
-    });
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
@@ -161,9 +141,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
                 .get_mut(id)?
                 .get_mut("events")?
                 .as_array_mut()?;
-            events.push(memory.clone());
-            let excess = events.len().saturating_sub(MEMORY_LIMIT);
-            events.drain(..excess);
+            remember_moment(events, &memory);
         }
         world["log"].as_array_mut()?.push(line.clone());
         published.push(line);
