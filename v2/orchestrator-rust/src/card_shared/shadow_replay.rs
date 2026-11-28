@@ -9,7 +9,11 @@ mod direct;
 #[cfg(feature = "rules-wasm")]
 mod opening_quest;
 #[cfg(feature = "rules-wasm")]
+mod opening_repack;
+#[cfg(feature = "rules-wasm")]
 mod opening_seat;
+#[cfg(feature = "rules-wasm")]
+mod opening_turn;
 mod proof;
 
 #[derive(Debug, Default, PartialEq)]
@@ -135,7 +139,9 @@ fn verify(
             "checkpoint differs from journal head at sequence {head}"
         ));
     }
-    report.heads.push(proof::Head::new(world, head, &state));
+    report
+        .heads
+        .push(proof::Head::read(c, world, head, &state)?);
     report.noncurrent_heads = usize::from(
         rebuilt.version != engine::version() || rebuilt.pack.as_deref() != Some(content::current()),
     );

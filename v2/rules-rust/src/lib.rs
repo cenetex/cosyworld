@@ -17,20 +17,30 @@ mod join;
 mod opening;
 mod opening_attic_rest;
 mod opening_candidates;
+mod opening_company;
 mod opening_content;
 mod opening_crossings;
+mod opening_drop;
 pub mod opening_evidence;
+mod opening_full_wait;
+mod opening_grounded_lamp;
 pub mod opening_history;
+mod opening_history_walkers;
 mod opening_hub_residents;
+mod opening_mirror_move;
 mod opening_pickups;
 mod opening_place_cards;
 mod opening_play;
+mod opening_quiet_life;
 mod opening_reflection;
+mod opening_resident_sleep;
 mod opening_roaming;
 mod opening_roster;
 pub mod opening_rumours;
 mod opening_settlement;
 mod opening_speech;
+mod opening_stale_wants;
+mod opening_take;
 mod opening_view;
 mod opening_visitor_routes;
 mod opening_wait;
@@ -135,6 +145,11 @@ pub fn reduce(request: &Value) -> Value {
         Some("visitor_reach") => opening_visitor_routes::projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
+        Some("opening_drop_step") => opening_drop::projection(request).unwrap_or(Value::Null),
+        Some("opening_take_step") => opening_take::projection(request).unwrap_or(Value::Null),
+        Some("opening_drop_reflection") => {
+            opening_grounded_lamp::projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_attic_rest") => {
             opening_attic_rest::projection(request).unwrap_or(Value::Null)
         }
@@ -143,11 +158,27 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_wait_settlement") => {
             opening_settlement::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_mirror_move") => {
+            opening_mirror_move::projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_pickups") => opening_pickups::projection(request).unwrap_or(Value::Null),
         Some("opening_place_cards") => {
             opening_place_cards::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_place_return") => {
+            opening_place_cards::returned_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_wait_wants") => opening_wants::projection(request).unwrap_or(Value::Null),
+        Some("opening_history_wants") => {
+            opening_wants::history_projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_history_walkers") => {
+            opening_history_walkers::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_fade_trust") => opening_company::projection(request).unwrap_or(Value::Null),
+        Some("opening_resident_sleep") => {
+            opening_resident_sleep::projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_hub_idle") => {
             opening_hub_residents::projection(request).unwrap_or(Value::Null)
         }
@@ -158,6 +189,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("mount_packs") => pack_state::reduce(request).unwrap_or(Value::Null),
         Some("speech") => opening_speech::reduce(request).unwrap_or(Value::Null),
         Some("validate") => validate::reduce(request).unwrap_or(Value::Null),
+        Some("upgrade") => validate::upgrade(request).unwrap_or(Value::Null),
         Some("create") => create::reduce(request).unwrap_or(Value::Null),
         _ => Value::Null,
     }

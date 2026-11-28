@@ -1,5 +1,3 @@
-// One want per avatar: an item, a place or a person. The world rules decide
-// when it is met and award one experience on the play that meets it.
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { controlledByHuman, humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
@@ -48,7 +46,6 @@ export const STEP_VERBS = {
 };
 const SAVED_STEP_VERBS = ["threaten", "attack"];
 
-// A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
 export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
@@ -290,7 +287,6 @@ export function lostOf(s, w) {
   ].find((id) => typeof id === "string" && neverBack(s, id));
 }
 
-// An authored want as the actor holds it: its kind, target, light and step.
 const heldWant = (s, w) => ({
   ...newWant(w.kind, w.target, s.turn),
   ...(w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}),
@@ -337,7 +333,6 @@ export function stagedNext(s, id, previous = null) {
   return entries.length ? heldWant(s, entries[0].want) : null;
 }
 
-// Every actor carries a want record, experience and what it has seen.
 export function installWants(s) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (wantless(id)) a.want = null;
@@ -668,7 +663,6 @@ export const resting = (s, actor) => {
   );
 };
 
-// Record observations and commit met wants, held quests, and known cards.
 export function settleWants(s, actors, api, action = null, stale = []) {
   const talk =
     action?.kind === "talk"
@@ -954,7 +948,6 @@ function validStep(s, w, id) {
           )))
     );
   const home = verb === "bring" && w.story && !cards.to;
-  // A sealed gate's quest may ask for a gift (rules 95).
   const gift = verb === "give" && w.story;
   // The quest to sleep at a sanctuary stands alone (rules 99).
   const slept = verb === "rest" && !w.story;

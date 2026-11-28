@@ -44,6 +44,8 @@ The Rust validator rebuilds a Vale opening save from the authored pack data, usi
 
 Import can reopen a pristine shared Vale opening from an object or JSON string. It discards account context and upgrades, checks the complete saved state, and keeps the save's original seed.
 
+When a rules upgrade or pack change receives a save that exactly matches a reconstructed opening, the candidate can preserve the saved state and advance its revision. This includes vacant or solo Vale seats and the first two quiet lamp holds. Packed upgrades use the same reconstruction fuel bound as create and validate. Transitions that need to backfill or transform saved data still require their recorded JavaScript rules.
+
 Replay passes the original, hash-verified pack JSON to the candidate as `packContentJson`. The guest receives these exact bytes in a JSON string, preserving author order for reducers that need it.
 
 With the Rust `wasm32-unknown-unknown` target installed, build and replay a candidate from the repository root.
@@ -60,11 +62,13 @@ Set `COSYWORLD_REPLAY_DB` to a consistent, anonymized SQLite copy. Select a worl
 
 The same test exercises fresh and imported creation, a claimed seat's view, valid and malformed saves, and plays refused for absence, a stale revision, or an unavailable card. It compares the complete reply to the pinned QuickJS bundle. Ordinary runs report unsupported direct fixtures. Strict mode requires a match on each one.
 
-Synthetic SQLite journals also replay accepted opening actions. One records a quest acceptance. Another records a claim with carried progress, entering, two lamp holds, leaving and returning, and a reset that clears progress and leaves the lit lamp in the attic.
+Synthetic SQLite journals also replay accepted opening actions. One records a quest acceptance. Another records a claim with carried progress, entering, two lamp holds, leaving and returning, and a reset that clears progress and leaves the lit lamp in the attic. Separate unseeded worlds record Vale's first Wait and lamp Drop without resident history. A seeded journal records the first Wait after reopening a pristine save with authored resident history.
 
 A journal claim requests `join_state` with the authenticated seat and any passkey progress. The QuickJS adapter projects the pinned `join` response to the complete journal result of `ok` and `world`. The view endpoint serves legal actions separately. The WASM candidate handles opening claims, including the arrival of absent avatars and the merge of progress earned in other worlds.
 
-With `COSYWORLD_REPLAY_ALL=1` and `COSYWORLD_REQUIRE_FULL_REPLAY=1`, set `COSYWORLD_EPOCH_PROOF` to a new JSON file path. After both parity checks succeed, the export records each hashed world ID, its journal head sequence as decimal text, and the SHA-256 of its exact checkpoint JSON. It also records the rule and content pins and candidate WASM digest. The file contains digests and coverage totals. It never overwrites a file or changes the SQLite copy.
+With `COSYWORLD_REPLAY_ALL=1` and `COSYWORLD_REQUIRE_FULL_REPLAY=1`, set `COSYWORLD_EPOCH_PROOF` to a new JSON file path. After both parity checks succeed, the `cosyworld-epoch-readiness/v2` export records each hashed world ID, its journal head sequence as decimal text, and SHA-256 digests of its checkpoint JSON and journal rows. It also records the rule and content pins and candidate WASM digest. The export uses only digests and coverage totals and creates a new output file without writes to the SQLite copy.
+
+The journal digest starts with the bytes `cosyworld-sqlite-journal-v1` followed by one zero byte. In ascending positive sequence order it hashes each row's sequence and timestamp as signed 64-bit big-endian integers, then the command's UTF-8 byte length as an unsigned 64-bit big-endian integer and the command bytes. This binds the exact journal records even when two histories replay to the same checkpoint.
 
 The browser follows a bounded, hashed chain of changes to that player's view. The chain projects the journal for that player.
 

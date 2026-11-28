@@ -10,8 +10,8 @@ const caption = {
 };
 const speech = { entityId: "vale", actorId: "vale", text: "I hear the wind." };
 
-function waitInAttic(pinned, seed) {
-  const created = pinned({ op: "create", seed });
+function waitInAttic(pinned, seed, history) {
+  const created = pinned({ op: "create", seed, history });
   const joined = pinned({
     op: "join",
     actor: "vale",
@@ -63,6 +63,108 @@ test("opening speech records the named voices, sequence, cast, and memories", as
     assert.equal(actual.world.revision, world.revision + 1);
     assert.equal(actual.world.turn, world.turn);
     assert.deepEqual(actual.world, expected.world);
+  }
+});
+
+test("the historic first Wait publishes both voices with the Wayfinder at the station", async () => {
+  const { pinned, wasm } = await reducers();
+  const waited = waitInAttic(pinned, 42, true);
+  assert.equal(waited.turn, 481);
+  assert.equal(waited.items["elysium-wayfinder"].holder, "station");
+  assert.deepEqual(waited.placeMet.station, ["elysium-wayfinder"]);
+  for (const stowed of [false, true]) {
+    let world = waited;
+    if (stowed) {
+      const held = pinned({
+        ...seat,
+        op: "hold",
+        world,
+        choice: { item: null, revision: world.revision },
+      });
+      assert.equal(held.ok, true, held.error);
+      world = held.world;
+    }
+    for (const present of [seat.present, []]) {
+      const request = { ...exchange(world), present };
+      const expected = pinned(request);
+      assert.equal(expected.ok, true, expected.error);
+      assert.equal(expected.lines[0].light, !stowed);
+      assert.deepEqual(wasm(request), expected);
+      const repeat = { ...exchange(expected.world, [caption]), present };
+      assert.deepEqual(wasm(repeat), pinned(repeat));
+    }
+  }
+  const other = structuredClone(waited);
+  other.log.find((entry) => entry.verb === "wait").sleep = true;
+  assert.equal(wasm(exchange(other)), null);
+});
+
+test("speech after the first Drop uses the grounded lamp and keeps the committed events", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [undefined, 17, 42]) {
+    for (const lamp of ["held", "stowed", "dry"]) {
+      const created = pinned({ op: "create", seed });
+      assert.equal(created.ok, true, created.error);
+      let { world } = created;
+      if (lamp === "stowed") {
+        const held = pinned({
+          ...seat,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        });
+        assert.equal(held.ok, true, held.error);
+        world = held.world;
+      }
+      if (lamp === "dry")
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      const dropped = pinned({
+        ...seat,
+        op: "play",
+        world,
+        action: "drop:vale:lamp:attic",
+      });
+      assert.equal(dropped.ok, true, dropped.error);
+      assert.deepEqual(dropped.world.speechVoices.vale, ["vale"]);
+      assert.equal(
+        dropped.events.some(
+          (entry) =>
+            entry.text === "The attic mirror's path to the pond closes.",
+        ),
+        lamp === "stowed",
+      );
+      for (const present of [seat.present, []]) {
+        const request = { ...exchange(dropped.world), present };
+        const expected = pinned(request);
+        assert.equal(expected.ok, true, expected.error);
+        const actual = wasm(request);
+        assert.deepEqual(
+          actual,
+          expected,
+          `seed ${seed}, lamp ${lamp}, present ${present}`,
+        );
+        assert.deepEqual(
+          actual.lines.map((line) => line.entityId),
+          ["vale", "attic"],
+        );
+        for (const line of actual.lines) {
+          assert.deepEqual(
+            line.items.map((item) => [item.id, item.holder]),
+            [["lamp", "attic"]],
+          );
+          assert.equal(line.light, lamp !== "dry");
+        }
+        assert.deepEqual(
+          actual.world.log.filter((entry) => !entry.generated),
+          dropped.world.log,
+        );
+        const repeat = { ...exchange(actual.world, [caption]), present };
+        assert.deepEqual(wasm(repeat), pinned(repeat));
+      }
+      const other = structuredClone(dropped.world);
+      other.log.find((entry) => entry.verb === "drop").itemId = "cloth";
+      assert.equal(wasm(exchange(other)), null);
+    }
   }
 });
 

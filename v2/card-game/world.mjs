@@ -3256,7 +3256,6 @@ export function play(
   if (unmetAt(next, next.actors[currentActor(next)]?.place)) meetCast(next);
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
-  // Only a Wait without Sleep calls the ferry.
   if (exact.kind === "wait" && !exact.sleep)
     waitForTransport(next, next.actors[actor].place, actor, worldLine);
   const voyages = sailTransports(next);

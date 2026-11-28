@@ -1,6 +1,5 @@
 import { entityEnabled } from "./pack-registry.mjs";
 
-// The hand offers directly carried, available items.
 export function handSnapshot(world) {
   return Object.fromEntries(
     Object.entries(world.items)
@@ -30,9 +29,8 @@ export const validHeldItems = (world) =>
         Object.hasOwn(world.items, actor.heldItem)),
   );
 
-// A fresh receipt takes the hand. Otherwise keep a valid choice, using the
-// stable fallback for legacy saves. Null keeps the hand deliberately empty
-// until a new receipt.
+// A receipt takes the hand. Keep a valid choice or use the stable fallback
+// for legacy saves. Null keeps the hand empty until a receipt.
 export function settleHeldItems(world, before = null) {
   if (!validHeldItems(world)) throw new Error("The held item is invalid.");
   const hands = handSnapshot(world);
@@ -49,8 +47,7 @@ export function settleHeldItems(world, before = null) {
   }
 }
 
-// Selection is not custody: only the actor's own directly carried card may
-// become held. An explicit empty hand survives saves and later settlement.
+// Choose only a directly carried card. An empty hand stays empty across saves and settlement.
 export function chooseHeldItem(world, actor, item) {
   if (!Object.hasOwn(world.actors, actor))
     throw new Error("Choose an avatar in this world.");
@@ -62,8 +59,7 @@ export function chooseHeldItem(world, actor, item) {
   world.actors[actor].heldItem = item;
 }
 
-// A quiet, revision-checked command. The host supplies the authenticated
-// actor; neither a requested actor nor custody can be changed by this input.
+// A revision-checked Hold changes only the authenticated actor's selection.
 export function applyHeldChoice(world, actor, choice) {
   if (
     !choice ||

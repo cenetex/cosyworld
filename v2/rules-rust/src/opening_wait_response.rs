@@ -10,25 +10,10 @@ pub fn completed_wait_response(
     before_seq: u64,
     present: &[&str],
 ) -> Option<Value> {
-    let turn = world["turn"].as_u64()?;
-    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
-    let vale = &world["actors"][ACTOR];
-    if world["schema"] != 8
-        || world["sharedVersion"] != 1
-        || turn.checked_sub(1) != Some(began)
-        || !present.contains(&ACTOR)
-        || vale["place"] != ROOM
-        || vale.get("want") != Some(&Value::Null)
-        || vale["waitSpeech"] != json!({"place":ROOM,"turn":turn})
-        || !world["placeCard"][ROOM].is_null()
-        || !world["defeats"][ACTOR].is_null()
-        || world["absent"]
-            .as_array()
-            .is_some_and(|ids| ids.iter().any(|id| id == ACTOR))
-    {
+    first_wait_attic(&world)?;
+    if !present.contains(&ACTOR) {
         return None;
     }
-    opening_play::quiet_attic(&world)?;
     opening_play::attic_content(files)?;
     if opening_view::other_attic_content(files)? {
         return None;
@@ -45,26 +30,66 @@ pub fn completed_wait_response(
     {
         return None;
     }
+    apply_vale_voice(&mut world)?;
+
+    let mut response =
+        opening_play::after_wait_response(opening::stored_response(world)?, files, mirror)?;
+    response["events"] = json!(events);
+    Some(response)
+}
+
+fn first_wait_attic(world: &Value) -> Option<u64> {
+    let turn = world["turn"].as_u64()?;
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    let vale = &world["actors"][ACTOR];
+    if world["schema"] != 8
+        || world["sharedVersion"] != 1
+        || turn.checked_sub(1) != Some(began)
+        || vale["place"] != ROOM
+        || vale.get("want") != Some(&Value::Null)
+        || vale["waitSpeech"] != json!({"place":ROOM,"turn":turn})
+        || !world["placeCard"][ROOM].is_null()
+        || !world["defeats"][ACTOR].is_null()
+        || world["absent"]
+            .as_array()
+            .is_some_and(|ids| ids.iter().any(|id| id == ACTOR))
+    {
+        return None;
+    }
+    opening_play::quiet_attic(world)?;
+    Some(turn)
+}
+
+pub(super) fn settled_first_wait(world: &Value) -> Option<u64> {
+    let turn = first_wait_attic(world)?;
+    let mut actions = world["log"]
+        .as_array()?
+        .iter()
+        .filter(|entry| vale_action(entry));
+    let wait = actions.next()?;
+    (ordinary_attic_wait(wait) && wait["turn"] == turn && actions.next().is_none()).then_some(turn)
+}
+
+fn vale_action(entry: &Value) -> bool {
+    entry["kind"] == "action" && entry["actorId"] == ACTOR && entry["generated"] != true
+}
+
+fn ordinary_attic_wait(entry: &Value) -> bool {
+    vale_action(entry)
+        && entry["locationId"] == ROOM
+        && entry["verb"] == "wait"
+        && entry["sleep"] != true
+        && entry["guards"].is_null()
+}
+
+pub(super) fn apply_vale_voice(world: &mut Value) -> Option<()> {
     world
         .as_object_mut()?
         .entry("speechVoices")
         .or_insert_with(|| json!({}))
         .as_object_mut()?
         .insert(ACTOR.into(), json!([ACTOR]));
-
-    let mut response =
-        opening_play::attic_response(opening::stored_response(world)?, files, mirror)?;
-    response["events"] = json!(events);
-    let name = files["v2/card-game/forest.json"]["people"][ACTOR]["name"].as_str()?;
-    response["actions"].as_array_mut()?.insert(
-        1,
-        json!({
-            "kind":"wait", "actor":ACTOR, "item":null, "target":null,
-            "text":format!("{name} sleeps."), "cards":[],
-            "key":"sleep:vale::", "label":"Sleep", "sleep":true
-        }),
-    );
-    Some(response)
+    Some(())
 }
 
 fn released_events(world: &Value, before_seq: u64) -> Option<Vec<Value>> {
@@ -73,9 +98,7 @@ fn released_events(world: &Value, before_seq: u64) -> Option<Vec<Value>> {
     let mut last = before_seq;
     for entry in log {
         let seq = entry["seq"].as_u64()?;
-        let own_action =
-            entry["kind"] == "action" && entry["actorId"] == ACTOR && entry["generated"] != true;
-        if own_action && seq != before_seq.checked_add(1)? {
+        if vale_action(entry) && seq != before_seq.checked_add(1)? {
             return None;
         }
         if seq <= before_seq {
@@ -96,13 +119,7 @@ fn released_events(world: &Value, before_seq: u64) -> Option<Vec<Value>> {
     }
     let wait = released.first()?;
     if wait["seq"].as_u64() != before_seq.checked_add(1)
-        || wait["kind"] != "action"
-        || wait["actorId"] != ACTOR
-        || wait["locationId"] != ROOM
-        || wait["verb"] != "wait"
-        || wait["generated"] == true
-        || wait["sleep"] == true
-        || !wait["guards"].is_null()
+        || !ordinary_attic_wait(wait)
         || world["eventSeq"].as_u64() != Some(last)
     {
         return None;

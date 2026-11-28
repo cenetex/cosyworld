@@ -204,3 +204,135 @@ test("pond capacity depends on whether Vale is present", async () => {
   );
   assert.deepEqual(away.exits, ["pond"]);
 });
+
+test("the first historic Wait view keeps Sleep before and after published speech", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const { seed, full, hidden } of [
+    { seed: 0 },
+    { seed: 42 },
+    { seed: 17, hidden: "mara" },
+    { seed: 4_294_967_295, full: true },
+  ]) {
+    for (const stowed of [false, true]) {
+      let { world } = success(pinned, {
+        op: "create",
+        seed,
+        history: true,
+        ...(hidden && { hidden, absent: ["ash"] }),
+      });
+      const pond = full ? ["mara", "ash", "nell", "tavi"] : [];
+      for (const id of pond) world.actors[id].place = "pond";
+      const claimed = ["vale", ...pond];
+      const seats = { actor: "vale", claimed, present: claimed };
+      if (stowed)
+        world = success(pinned, {
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        }).world;
+      const waited = success(pinned, {
+        ...seats,
+        op: "play",
+        world,
+        action: "wait:vale::",
+      });
+      assert.equal(waited.world.turn, 481);
+      assert.deepEqual(waited.world.speechVoices.vale, ["vale"]);
+      if (seed === 42)
+        assert.ok(waited.events.some((entry) => entry.verb === "want_met"));
+      const spoken = success(pinned, {
+        ...seats,
+        op: "speech",
+        room: "attic",
+        world: waited.world,
+        lines: [
+          { actorId: "vale", text: "I can hear the wind." },
+          { entityId: "attic", text: "The shutters stir." },
+        ],
+      });
+      for (const state of [waited.world, spoken.world]) {
+        for (const present of [claimed, pond]) {
+          const title = `seed ${seed}, stowed ${stowed}, seats ${present}, seq ${state.eventSeq}`;
+          const reply = view(
+            pinned,
+            wasm,
+            {
+              ...seats,
+              present,
+              op: "view",
+              world: state,
+            },
+            title,
+          );
+          assert.deepEqual(reply.world.presentActors, present);
+          assert.equal(reply.actions[1].key, "sleep:vale::");
+          assert.deepEqual(reply.world.speechVoices.vale, ["vale"]);
+          assert.equal(reply.world.memories.mara.subjects, undefined);
+          const open = stowed && (!full || !present.includes("vale"));
+          assert.deepEqual(reply.exits, open ? ["pond"] : []);
+        }
+      }
+      const unsupported = structuredClone(waited.world);
+      unsupported.log.find((entry) => entry.verb === "wait").sleep = true;
+      assert.equal(wasm({ ...seats, op: "view", world: unsupported }), null);
+    }
+  }
+});
+
+test("the private view after the first attic Drop projects the grounded lamp", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [undefined, 17, 4_294_967_295]) {
+    for (const lamp of ["held", "stowed", "dry"]) {
+      let { world } = success(pinned, { op: "create", seed });
+      if (lamp === "stowed") world = stowLamp(pinned, world);
+      if (lamp === "dry")
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      const dropped = success(pinned, {
+        ...solo,
+        op: "play",
+        world,
+        action: "drop:vale:lamp:attic",
+      });
+      assert.equal(dropped.world.turn, 1);
+      assert.equal(dropped.world.items.lamp.holder, "attic");
+      assert.ok(Object.hasOwn(dropped.world.memories.mara, "subjects"));
+      const spoken = success(pinned, {
+        ...solo,
+        op: "speech",
+        world: dropped.world,
+        room: "attic",
+        lines: [
+          { actorId: "vale", text: "I set the lamp down." },
+          { entityId: "attic", text: "The old boards creak." },
+        ],
+      });
+      for (const state of [dropped.world, spoken.world]) {
+        for (const present of [solo.present, []]) {
+          const title = `seed ${seed}, lamp ${lamp}, present ${present}, seq ${state.eventSeq}`;
+          const actual = view(
+            pinned,
+            wasm,
+            { ...solo, present, op: "view", world: state },
+            title,
+          );
+          assert.deepEqual(actual.world.presentActors, present);
+          assert.deepEqual(actual.world.memories.vale, state.memories.vale);
+          assert.equal(actual.world.memories.mara.subjects, undefined);
+          assert.ok(!Object.hasOwn(actual, "events"));
+          const keys = ["wait:vale::", "take:vale:lamp:"];
+          if (lamp === "dry") keys.splice(1, 0, "move:vale::pond");
+          else keys.push(key);
+          assert.deepEqual(
+            actual.actions.map((action) => action.key),
+            keys,
+          );
+          assert.deepEqual(actual.exits, lamp === "dry" ? ["pond"] : []);
+        }
+      }
+      const unsupported = structuredClone(dropped.world);
+      unsupported.log.find((entry) => entry.verb === "drop").itemId = "cloth";
+      assert.equal(wasm({ ...solo, op: "view", world: unsupported }), null);
+    }
+  }
+});

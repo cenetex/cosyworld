@@ -69,7 +69,7 @@ fn last_turn(value: &Value) -> Option<u64> {
     count(&value.as_array()?.last()?["turn"])
 }
 
-pub(super) fn opening_world(request: &Value) -> Option<&Value> {
+pub(super) fn quiet_attic_world(request: &Value, grounded: bool) -> Option<&Value> {
     let world = &request["world"];
     let actors = world["actors"].as_object()?;
     let lamp = &world["items"]["lamp"];
@@ -77,7 +77,9 @@ pub(super) fn opening_world(request: &Value) -> Option<&Value> {
     let present = request["present"].as_array()?;
     let claimed = request["claimed"].as_array()?;
     let settled_lamp = super::lamp_state(lamp).ok()?;
-    let is_lit = vale["heldItem"] == "lamp" && settled_lamp.fuel_rooms > 0;
+    let held = vale.get("heldItem")?;
+    let holder = if grounded { "attic" } else { "vale" };
+    let is_lit = (grounded || held == "lamp") && settled_lamp.fuel_rooms > 0;
     if request["actor"] != "vale"
         || world["schema"] != 8
         || world["sharedVersion"] != 1
@@ -85,18 +87,12 @@ pub(super) fn opening_world(request: &Value) -> Option<&Value> {
         || !world["stationExitOrder"]
             .as_array()
             .is_some_and(Vec::is_empty)
-        || !matches!(
-            world["items"]["elysium-wayfinder"]["holder"].as_str(),
-            Some("behind-station" | "pond")
-        )
         || claimed.len() != 1
         || claimed[0] != "vale"
         || (!present.is_empty() && present.as_slice() != claimed)
         || vale["place"] != "attic"
-        || !vale
-            .get("heldItem")
-            .is_some_and(|held| held == "lamp" || held.is_null())
-        || lamp["holder"] != "vale"
+        || !(held.is_null() || !grounded && held == "lamp")
+        || lamp["holder"] != holder
         || settled_lamp.fuel_place != "attic"
         || (is_lit && !settled_lamp.fuel_visit)
         || lamp["lit"] != is_lit
@@ -108,7 +104,13 @@ pub(super) fn opening_world(request: &Value) -> Option<&Value> {
 }
 
 pub(super) fn reduce(request: &Value) -> Option<Value> {
-    let world = opening_world(request)?;
+    let world = quiet_attic_world(request, false)?;
+    if !matches!(
+        world["items"]["elysium-wayfinder"]["holder"].as_str(),
+        Some("behind-station" | "pond")
+    ) {
+        return None;
+    }
     let world_turn = count(&world["turn"])?;
     let Some(turn) = count(&request["turn"]).filter(|turn| (1..=world_turn).contains(turn)) else {
         return refused(SCENE);

@@ -4,7 +4,10 @@ use serde_json::{json, Map, Value};
 const ATTIC: &str = "attic";
 const MOTH: &str = "moth";
 const KEEPER: &str = "keeper";
-const HUB: [(&str, &str); 2] = [(MOTH, "cloth"), (KEEPER, "oil")];
+const HUB: [(&str, &str, &str); 2] = [
+    (MOTH, "cloth", "wait:moth::"),
+    (KEEPER, "oil", "wait:keeper::"),
+];
 
 fn entries(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
@@ -102,8 +105,12 @@ fn solo(value: &Value) -> bool {
 }
 
 pub(super) fn confirm_idle(world: &Value, geo: &Geography) -> Option<()> {
-    if world["turn"] != 1
-        || !world["began"].is_null()
+    idle_plans(world, geo).map(|_| ())
+}
+
+fn idle_plans(world: &Value, geo: &Geography) -> Option<[Option<&'static str>; 2]> {
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    if world["turn"].as_u64()? != began.checked_add(1)?
         || world["sharedVersion"] != 1
         || world["opening"]["crossed"] != false
         || !world["standoffs"].as_array()?.is_empty()
@@ -114,7 +121,10 @@ pub(super) fn confirm_idle(world: &Value, geo: &Geography) -> Option<()> {
             .iter()
             .all(|field| solo(&world[*field]))
         || world["actors"]["vale"]["place"] != ATTIC
-        || world["items"]["lamp"]["holder"] != "vale"
+        || !matches!(
+            world["items"]["lamp"]["holder"].as_str(),
+            Some("vale" | "attic")
+        )
         || world["items"]["bell"]["holder"] != "station"
         || world["items"]["bell"]["ringing"] != 0
         || world["actors"][MOTH]["place"] != "pond"
@@ -125,13 +135,22 @@ pub(super) fn confirm_idle(world: &Value, geo: &Geography) -> Option<()> {
         || world["actors"][KEEPER]["want"]["kind"] != "place"
         || world["actors"][KEEPER]["want"]["step"]["verb"] != "call"
         || !geo.entity_active(world, "lamp")?
+        || geo.entity_active(world, "boardyai")?
+        || geo.entity_active(world, "boardyai-calling-card")?
     {
         return None;
     }
-    for (resident, held) in HUB {
-        at_home(world, geo, resident, held)?;
+    let mut plans = [None, None];
+    for (slot, (resident, held, wait)) in plans.iter_mut().zip(HUB) {
+        if let Some(until) = world["actors"][resident]["sleeping"].get("until") {
+            until.as_u64()?;
+        } else {
+            at_home(world, geo, resident, held)?;
+            *slot = Some(wait);
+        }
     }
-    attic_unreachable(world, geo)
+    attic_unreachable(world, geo)?;
+    Some(plans)
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {
@@ -139,7 +158,6 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     if request["actor"] != "vale"
         || request["claimed"] != json!(["vale"])
         || request["present"] != json!(["vale"])
-        || world["turn"] != 0
     {
         return None;
     }
@@ -147,19 +165,23 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
     let mut next = world.clone();
-    next["turn"] = json!(1);
-    confirm_idle(&next, &geo)?;
+    let turn = opening::unplayed_turn(world)?.checked_add(1)?;
+    if turn > opening::MAX_REVISION {
+        return None;
+    }
+    next["turn"] = json!(turn);
+    let plans = idle_plans(&next, &geo)?;
     let actors: Map<_, _> = HUB
         .iter()
-        .map(|(id, _)| ((*id).into(), world["actors"][*id].clone()))
+        .map(|(id, _, _)| ((*id).into(), world["actors"][*id].clone()))
         .collect();
     let memories: Map<_, _> = HUB
         .iter()
-        .map(|(id, _)| ((*id).into(), world["memories"][*id].clone()))
+        .map(|(id, _, _)| ((*id).into(), world["memories"][*id].clone()))
         .collect();
     Some(json!({
         "ok":true,
-        "plans":["wait:moth::","wait:keeper::"],
+        "plans":plans,
         "actors":actors, "memories":memories, "events":[],
     }))
 }

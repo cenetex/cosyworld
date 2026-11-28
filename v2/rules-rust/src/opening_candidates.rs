@@ -14,6 +14,9 @@ struct Context<'a> {
     hands: BTreeMap<String, Vec<&'a str>>,
     pack_values: BTreeMap<&'a str, &'a Value>,
     authored: BTreeMap<&'a str, Vec<(&'a str, bool)>>,
+    active_people: Vec<&'a str>,
+    carried_items: Vec<&'a str>,
+    current_places: BTreeMap<&'a str, String>,
 }
 
 struct Item<'a> {
@@ -24,19 +27,63 @@ struct Item<'a> {
 
 type Pool<'a> = Vec<(&'static str, &'a str)>;
 
+enum Draw<'a> {
+    Opening,
+    Due,
+    Stalled(&'a BTreeSet<&'a str>),
+}
+
 fn member(array: &Value, key: &str) -> bool {
     array
         .as_array()
         .is_some_and(|values| values.iter().any(|value| value == key))
 }
 
-pub(super) fn fill(
-    world: &mut Value,
-    geo: &Geography,
-    people: &People,
-    files: &Value,
-) -> Option<()> {
-    let forest = files.get("v2/card-game/forest.json")?;
+pub(super) fn fill(world: &mut Value, geo: &Geography, people: &People) -> Option<()> {
+    let context = prepare(world, geo, people)?;
+    choose(world, geo, people, &context, Draw::Opening)
+}
+
+#[derive(Default)]
+pub(super) struct RoundDraws<'a>(Option<Context<'a>>);
+
+impl<'a> RoundDraws<'a> {
+    pub(super) fn replace(
+        &mut self,
+        world: &mut Value,
+        geo: &Geography<'a>,
+        people: &People<'a>,
+        stalled: &BTreeSet<&str>,
+    ) -> Option<()> {
+        let context = self.context(world, geo, people)?;
+        choose(world, geo, people, context, Draw::Stalled(stalled))
+    }
+
+    pub(super) fn fill_due(
+        &mut self,
+        world: &mut Value,
+        geo: &Geography<'a>,
+        people: &People<'a>,
+    ) -> Option<()> {
+        let context = self.context(world, geo, people)?;
+        choose(world, geo, people, context, Draw::Due)
+    }
+
+    fn context(
+        &mut self,
+        world: &Value,
+        geo: &Geography<'a>,
+        people: &People<'a>,
+    ) -> Option<&Context<'a>> {
+        if self.0.is_none() {
+            self.0 = Some(prepare(world, geo, people)?);
+        }
+        self.0.as_ref()
+    }
+}
+
+fn prepare<'a>(world: &Value, geo: &Geography<'a>, people: &People<'a>) -> Option<Context<'a>> {
+    let forest = geo.files().get("v2/card-game/forest.json")?;
     let mut authored = BTreeMap::<_, Vec<_>>::new();
     for ((from, to), retired) in create::authored_edges(forest, geo.packs())? {
         authored.entry(from).or_default().push((to, retired));
@@ -52,8 +99,15 @@ pub(super) fn fill(
         items: BTreeMap::new(),
         hands: BTreeMap::new(),
         pack_values: BTreeMap::new(),
+        active_people: Vec::new(),
+        carried_items: Vec::new(),
+        current_places: BTreeMap::new(),
     };
+    let actors = world["actors"].as_object()?;
     for &id in people.people.keys() {
+        if let Some(place) = actors.get(id).and_then(|actor| actor["place"].as_str()) {
+            context.current_places.insert(id, place.to_owned());
+        }
         if geo.entity_active(world, id)? {
             context.active.insert(id);
         }
@@ -95,21 +149,72 @@ pub(super) fn fill(
             }
         }
     }
+    context.active_people = context
+        .regions
+        .keys()
+        .copied()
+        .filter(|id| context.active.contains(id))
+        .collect();
+    context.carried_items = context
+        .items
+        .iter()
+        .filter_map(|(&id, item)| {
+            (context.active.contains(id) && context.regions.contains_key(item.root.as_str()))
+                .then_some(id)
+        })
+        .collect();
+    Some(context)
+}
+
+fn choose(
+    world: &mut Value,
+    geo: &Geography,
+    people: &People,
+    context: &Context,
+    draw: Draw<'_>,
+) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     for (&id, person) in &people.people {
-        if id == "vale"
-            || person.data["wants"] == false
-            || !context.active.contains(id)
-            || !world["actors"][id]["want"].is_null()
-            || world["actors"][id]["completedQuest"].is_object()
-            || super::elysium::model_waiting(world, id)
-        {
+        if id == "vale" || person.data["wants"] == false || !context.active.contains(id) {
             continue;
         }
-        if let Some(staged) = person.staged(world, id, geo)? {
+        let actor = &world["actors"][id];
+        let replacing = match draw {
+            Draw::Stalled(ids) if ids.contains(id) => true,
+            Draw::Stalled(_) => continue,
+            Draw::Opening | Draw::Due => {
+                if !actor["want"].is_null()
+                    || actor["completedQuest"].is_object()
+                    || (matches!(draw, Draw::Due)
+                        && turn.saturating_sub(actor["metTurn"].as_u64().unwrap_or(0)) < 24)
+                {
+                    continue;
+                }
+                false
+            }
+        };
+        let previous = replacing.then(|| world["actors"][id]["want"].clone());
+        if let Some(previous) = &previous {
+            let target = previous["target"].as_str()?;
+            world["actors"][id]["gaveUp"] = serde_json::json!({"target":target,"turn":turn});
+        }
+        if super::elysium::model_waiting(world, id) {
+            if replacing {
+                world["actors"][id]["want"] = Value::Null;
+            }
+            continue;
+        }
+        if let Some(staged) = person.staged_after(world, id, geo, previous.as_ref())? {
             world["actors"][id]["want"] = staged;
             world["actors"][id].as_object_mut()?.remove("content");
             continue;
+        }
+        if previous
+            .as_ref()
+            .is_some_and(|prior| prior["from"] == "quest:heard")
+            && person.data["want"].is_object()
+        {
+            return None;
         }
         let (range, roams) = resident_range(world, people, id, person, geo)?;
         if let Some(heard) = opening_rumours::heard(
@@ -134,16 +239,16 @@ pub(super) fn fill(
         let reaches = if world["hidden"]["actor"] == id {
             opening_visitor_routes::reachable(world, geo, id, &here)?
         } else if roams {
-            reachable(world, geo, &context, id, &here, allowed.as_ref())?
+            reachable(world, geo, context, id, &here, allowed.as_ref())?
         } else {
             BTreeSet::new()
         };
         let (pick, reset) = pick_want(
             world,
-            &context,
+            context,
+            people,
             id,
             person,
-            &here,
             &reaches,
             allowed.as_ref(),
         )?;
@@ -154,6 +259,8 @@ pub(super) fn fill(
         if let Some(want) = pick {
             world["actors"][id]["want"] = want;
             world["actors"][id].as_object_mut()?.remove("content");
+        } else if replacing {
+            world["actors"][id]["want"] = Value::Null;
         }
     }
     Some(())
@@ -254,13 +361,15 @@ fn reachable<'a>(
 fn pick_want<'a>(
     world: &Value,
     context: &Context<'a>,
+    people: &People,
     actor: &str,
     person: &Person,
-    here: &str,
     reach: &BTreeSet<&str>,
     allowed: Option<&BTreeSet<String>>,
 ) -> Option<(Option<Value>, bool)> {
-    let me = &world["actors"][actor];
+    let actors = world["actors"].as_object()?;
+    let me = actors.get(actor)?;
+    let here = me["place"].as_str()?;
     let mut floor = i64::MAX;
     if let Some(items) = context.hands.get(actor) {
         for id in items {
@@ -271,36 +380,52 @@ fn pick_want<'a>(
     }
     floor = floor.max(1);
     let turn = world["turn"].as_u64()?;
+    let gave_up = &me["gaveUp"];
+    let blocked = if let Some(target) = gave_up["target"].as_str() {
+        (turn.saturating_sub(gave_up["turn"].as_u64()?) < 24).then_some(target)
+    } else {
+        None
+    };
+    let is_person = |id: &str| id != actor && context.regions.contains_key(id);
+    let is_place = |id: &str| reach.contains(id) && context.active.contains(id);
     let mut range = Pool::new();
-    for &id in &context.active {
-        if me["gaveUp"]["target"] == id && turn.saturating_sub(me["gaveUp"]["turn"].as_u64()?) < 24
-        {
+    for &id in &context.carried_items {
+        let holder = context.items.get(id)?.root.as_str();
+        if holder == actor || blocked == Some(id) || is_person(id) || is_place(id) {
             continue;
         }
-        if context.regions.contains_key(id) && id != actor {
-            range.push(("person", id));
-        } else if reach.contains(id) {
-            range.push(("place", id));
-        } else if let Some(item) = context.items.get(id) {
-            let holder = item.root.as_str();
-            let other_want = &world["actors"][holder]["want"];
-            if holder != actor
-                && context.regions.contains_key(holder)
-                && (other_want["kind"] != "item" || other_want["target"] != id)
-                && value_of(world, context, actor, person, id)? > floor
-            {
-                range.push(("item", id));
-            }
+        let other_want = &actors.get(holder)?["want"];
+        if (other_want["kind"] != "item" || other_want["target"] != id)
+            && value_of(world, context, actor, person, id)? > floor
+        {
+            range.push(("item", id));
         }
     }
-    range.sort_unstable();
+    range.extend(
+        context
+            .active_people
+            .iter()
+            .copied()
+            .filter(|id| *id != actor && blocked != Some(*id))
+            .map(|id| ("person", id)),
+    );
+    range.extend(
+        reach
+            .iter()
+            .copied()
+            .filter(|id| blocked != Some(*id) && !is_person(id) && context.active.contains(id))
+            .map(|id| ("place", id)),
+    );
     let mut near = Pool::new();
     let mut refreshed = Pool::new();
     let mut wide = Pool::new();
     for &(kind, id) in &range {
         let place = match kind {
-            "person" => world["actors"][id]["place"].as_str()?,
-            "item" => world["actors"][context.items.get(id)?.root.as_str()]["place"].as_str()?,
+            "person" => context.current_places.get(id)?.as_str(),
+            "item" => context
+                .current_places
+                .get(context.items.get(id)?.root.as_str())?
+                .as_str(),
             _ => id,
         };
         if allowed.is_some_and(|a| !a.contains(place)) {
@@ -310,13 +435,26 @@ fn pick_want<'a>(
         if place != here && !reach.contains(place) {
             continue;
         }
-        if kind == "item"
-            && world["items"][id]["holder"] != "vale"
-            && world["actors"]
-                .get(world["items"][id]["holder"].as_str()?)
-                .is_some()
-        {
-            return None;
+        if kind == "item" {
+            let holder = world["items"][id]["holder"].as_str()?;
+            if holder != "vale" && !member(&world["controlledActors"], holder) {
+                if let Some(owner) = people.people.get(holder) {
+                    if context.hands.contains_key(actor)
+                        || world["items"]["cloth"]["holder"] == id
+                        || (owner.pack != "hub" && owner.data["valueRules"].get(id).is_some())
+                    {
+                        return None;
+                    }
+                    let trust = world["actors"][holder]["trust"][actor]
+                        .as_i64()
+                        .unwrap_or(0);
+                    let threshold = if trust > 0 { 6 } else { 3 };
+                    if value_of(world, context, holder, owner, id)? <= threshold {
+                        return None;
+                    }
+                    continue;
+                }
+            }
         }
         if kind == "place" && id == here {
             continue;

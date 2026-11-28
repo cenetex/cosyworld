@@ -1,5 +1,5 @@
 use super::{opening_play::attic_stairs_requirements, Geography};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 pub(super) fn no_crossing_unlocks(world: &Value, geography: &Geography) -> Option<()> {
     for pack in geography.packs() {
@@ -8,12 +8,19 @@ pub(super) fn no_crossing_unlocks(world: &Value, geography: &Geography) -> Optio
                 continue;
             }
             let id = crossing["id"].as_str()?;
+            let pack_id = pack["id"].as_str()?;
             let discovered = world["crossings"][id]["discovered"].as_bool()?;
             if !discovered
-                && !crossing["unlockWhen"]
-                    .as_array()?
-                    .iter()
-                    .any(|condition| blocked_by_grounding(world, condition))
+                && !crossing["unlockWhen"].as_array()?.iter().any(|condition| {
+                    blocked_by_grounding(world, condition)
+                        || (condition["kind"] == "light"
+                            && geography.crossing_conditions(
+                                world,
+                                pack_id,
+                                &json!([condition]),
+                                None,
+                            ) == Some(false))
+                })
             {
                 return None;
             }

@@ -100,6 +100,16 @@ fn mixed(mut hash: u32) -> u32 {
 
 impl Person<'_> {
     pub(super) fn staged(&self, world: &Value, id: &str, geo: &Geography) -> Option<Option<Value>> {
+        self.staged_after(world, id, geo, None)
+    }
+
+    pub(super) fn staged_after(
+        &self,
+        world: &Value,
+        id: &str,
+        geo: &Geography,
+        previous: Option<&Value>,
+    ) -> Option<Option<Value>> {
         let Some(entries) = self.data["wants"].as_array() else {
             return Some(None);
         };
@@ -111,7 +121,8 @@ impl Person<'_> {
             if trust > 0 && world["actors"][id]["trust"]["vale"].as_u64().unwrap_or(0) < trust {
                 continue;
             }
-            if usable(world, want)
+            if previous.is_none_or(|prior| !same_terms(want, prior))
+                && usable(world, want)
                 && geo.conditions_met(world, self.pack, &entry["when"], None)?
                 && !initial_met(world, id, want)?
             {
@@ -129,6 +140,12 @@ impl Person<'_> {
                 .map(|(_, _, want)| new_want(want, turn)),
         )
     }
+}
+
+pub(super) fn same_terms(left: &Value, right: &Value) -> bool {
+    ["kind", "target", "step", "lit"]
+        .into_iter()
+        .all(|key| left[key] == right[key])
 }
 
 fn initial_met(world: &Value, id: &str, want: &Value) -> Option<bool> {

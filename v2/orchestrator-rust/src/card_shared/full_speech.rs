@@ -1,5 +1,3 @@
-//! Shared narration consumes the original card scene facts. It can describe
-//! committed actions and write character replies, while game outcomes stay in C.
 use super::{full_world::actor_id, store::Result};
 use crate::ai_gateway::{AiConfig, ModelCapability};
 use crate::routes::card_game::narrative::{shared_lines_with_introduction, Introduction};
@@ -15,7 +13,6 @@ pub(super) fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>
         .as_str()
         .or_else(|| work["room"].as_str())
         .ok_or("The scene needs a place.")?;
-    // The committed scene already chooses who is due to speak.
     let mut ids: Vec<String> = scene["speakers"]
         .as_array()
         .into_iter()
@@ -42,8 +39,7 @@ pub(super) fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>
         ids,
     ))
 }
-/// Each requested voice with one clear line is published. A missing or
-/// bad line leaves only that voice silent.
+/// Each requested voice publishes one clear line or stays silent.
 pub(super) fn parse(text: &str, work: &Value, ids: &[String]) -> Result<Value> {
     let error = "The play is saved. Its words need another moment.";
     let parsed: Value = serde_json::from_str(text).map_err(|_| error.to_string())?;
@@ -81,8 +77,7 @@ pub(super) fn voices(work: &Value, actor: usize) -> Vec<String> {
         .filter(|id| work["profiles"][id]["kind"] == "avatar")
         .collect()
 }
-/// Requested avatars with no published line. The scene record keeps them so
-/// the table can show "…"; the journal speech op stays as it was.
+/// Requested avatars without published lines remain silent in the scene record.
 pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
     let Ok((_, ids)) = prepared(actor, work) else {
         return Vec::new();
@@ -128,7 +123,6 @@ pub(super) async fn generate(
     introduction: Option<&Introduction>,
 ) -> Result<Value> {
     let (payload, ids) = prepared(actor, work)?;
-    // A silent play voices no one: it finishes with no lines and no model call.
     if ids.is_empty() {
         return Ok(json!([]));
     }
@@ -352,7 +346,6 @@ mod tests {
     #[test]
     fn shared_scenes_voice_only_their_given_speakers() {
         let mut work = json!({"room":"station","context":{"location":"station","speakers":["pip"],"scenery":false,"outcome":{"card":{"kind":"give","target":"pip","accepted":false}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
-        // A refusal voices the refuser alone; the actor stays quiet.
         let (_, ids) = prepared(0, &work).unwrap();
         assert_eq!(ids, vec!["pip"]);
         let refused = parse(
@@ -366,10 +359,8 @@ mod tests {
         let none = parse(r#"{"entries":[]}"#, &work, &ids).unwrap();
         assert_eq!(none, json!([]));
         assert_eq!(silent(&work, 0, &none), vec!["pip"]);
-        // A silent play voices nobody.
         work["context"]["speakers"] = json!([]);
         assert!(prepared(0, &work).unwrap().1.is_empty());
-        // A first arrival's place caption needs no speaker.
         work["context"]["scenery"] = json!(true);
         let (_, place) = prepared(0, &work).unwrap();
         assert_eq!(place, vec!["station"]);

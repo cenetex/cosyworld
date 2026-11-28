@@ -38,6 +38,10 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
             "That play has changed. Check the cards and choose again.",
         ),
         Some(ACCEPT_POND) if actor == "vale" => accept_pond(world, request),
+        Some("wait:vale::") if actor == "vale" => super::opening_full_wait::reduce(request),
+        Some(super::opening_drop::DROP) if actor == "vale" => {
+            super::opening_full_wait::reduce_drop(request)
+        }
         Some(_) => None,
     }
 }
@@ -91,6 +95,10 @@ pub(super) fn pond_quest(world: &Value) -> Value {
 
 pub(super) fn attic_files(world: &Value, request: &Value) -> Option<Value> {
     attic_state(world)?;
+    attic_content_files(request)
+}
+
+pub(super) fn attic_content_files(request: &Value) -> Option<Value> {
     let mut content: Value = serde_json::from_str(request["packContentJson"].as_str()?).ok()?;
     if content["schema"] != 1 {
         return None;
@@ -109,11 +117,17 @@ pub(super) fn attic_state(world: &Value) -> Option<()> {
 }
 
 pub(super) fn quiet_attic(world: &Value) -> Option<()> {
+    if world["items"]["lamp"]["holder"] != "vale" {
+        return None;
+    }
+    quiet_attic_scene(world)
+}
+
+pub(super) fn quiet_attic_scene(world: &Value) -> Option<()> {
     let vale = world["actors"]["vale"].as_object()?;
-    if world["items"]["lamp"]["holder"] != "vale"
-        || ["arcana", "closed", "sleeping", "under"]
-            .iter()
-            .any(|field| vale.contains_key(*field))
+    if ["arcana", "closed", "sleeping", "under"]
+        .iter()
+        .any(|field| vale.contains_key(*field))
         || vale
             .get("upgrades")
             .and_then(Value::as_array)
@@ -164,6 +178,7 @@ pub(super) fn attic_content(files: &Value) -> Option<()> {
 }
 
 pub(super) fn attic_response(mut response: Value, files: &Value, mirror: Mirror) -> Option<Value> {
+    let grounded = response["world"]["items"]["lamp"]["holder"] == "attic";
     response["actor"] = json!("vale");
     response["room"] = json!("attic");
     response["exits"] = if matches!(
@@ -176,8 +191,22 @@ pub(super) fn attic_response(mut response: Value, files: &Value, mirror: Mirror)
     } else {
         json!([])
     };
-    response["actions"] = actions(&files["v2/card-game/forest.json"], mirror)?;
+    response["actions"] = actions(&files["v2/card-game/forest.json"], mirror, grounded)?;
     response["profiles"] = profiles::project(files)?;
+    Some(response)
+}
+
+pub(super) fn after_wait_response(response: Value, files: &Value, mirror: Mirror) -> Option<Value> {
+    let mut response = attic_response(response, files, mirror)?;
+    let name = files["v2/card-game/forest.json"]["people"]["vale"]["name"].as_str()?;
+    response["actions"].as_array_mut()?.insert(
+        1,
+        json!({
+            "kind":"wait", "actor":"vale", "item":null, "target":null,
+            "text":format!("{name} sleeps."), "cards":[],
+            "key":"sleep:vale::", "label":"Sleep", "sleep":true
+        }),
+    );
     Some(response)
 }
 
@@ -212,34 +241,44 @@ fn packs_add_attic_actions(files: &Value) -> Option<bool> {
     }))
 }
 
-fn actions(forest: &Value, mirror: Mirror) -> Option<Value> {
+fn actions(forest: &Value, mirror: Mirror, grounded: bool) -> Option<Value> {
     let name = forest["people"]["vale"]["name"].as_str()?;
     let lamp = forest["things"]["lamp"]["name"].as_str()?;
     let attic = forest["places"]["attic"]["name"].as_str()?;
     let wait = json!({"kind":"wait","actor":"vale","item":null,"target":null,
         "text":format!("{name} waits one turn."),"cards":[],"key":"wait:vale::"});
-    let drop = json!({"kind":"drop","actor":"vale","item":"lamp","target":"attic",
-        "text":format!("{name} puts the {lamp} in {attic}."),
-        "cards":["lamp"],"key":"drop:vale:lamp:attic"});
+    let lamp_action = if grounded {
+        json!({"kind":"take","actor":"vale","item":"lamp","target":null,
+            "text":format!("{name} takes the {lamp}."),"cards":["lamp"],"key":"take:vale:lamp:"})
+    } else {
+        json!({"kind":"drop","actor":"vale","item":"lamp","target":"attic",
+            "text":format!("{name} puts the {lamp} in {attic}."),
+            "cards":["lamp"],"key":"drop:vale:lamp:attic"})
+    };
     let quest = match mirror {
         Mirror::Open {
             pond_available: true,
         } => {
             let pond = forest["places"]["pond"]["name"].as_str()?;
-            return Some(json!([
+            let mut actions = vec![
                 wait,
-                {"kind":"move","actor":"vale","item":null,"target":"pond",
+                json!({"kind":"move","actor":"vale","item":null,"target":"pond",
                     "text":format!("{name} goes to {pond} through the reflection."),
-                    "cards":["pond"],"key":"move:vale::pond"},
-                {"kind":"move","actor":"vale","item":"lamp","target":"pond",
+                    "cards":["pond"],"key":"move:vale::pond"}),
+            ];
+            if !grounded {
+                actions.push(
+                    json!({"kind":"move","actor":"vale","item":"lamp","target":"pond",
                     "text":format!("{name} carries the {lamp} to {pond} through the reflection."),
-                    "cards":["lamp","pond"],"key":"move:vale:lamp:pond"},
-                drop
-            ]));
+                    "cards":["lamp","pond"],"key":"move:vale:lamp:pond"}),
+                );
+            }
+            actions.push(lamp_action);
+            return Some(json!(actions));
         }
         Mirror::Open {
             pond_available: false,
-        } => return Some(json!([wait, drop])),
+        } => return Some(json!([wait, lamp_action])),
         Mirror::Shut {
             quest_accepted: true,
         } => {
@@ -255,5 +294,5 @@ fn actions(forest: &Value, mirror: Mirror) -> Option<Value> {
                 "cards":[],"key":ACCEPT_POND,"box":"pond"})
         }
     };
-    Some(json!([wait, drop, quest]))
+    Some(json!([wait, lamp_action, quest]))
 }

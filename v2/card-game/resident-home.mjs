@@ -1,8 +1,7 @@
 // World life (rules 100): residents keep a home and a range, walk home when
 // displaced, and take a step at dawn and dusk where no player is
-// (residentRound in world.mjs). Sleep is resident-sleep.mjs and the standing
-// Guard resident-guard.mjs. There is no clock and no random: every walk is in
-// id order.
+// (residentRound in world.mjs). Sleep and the standing Guard live in
+// resident-sleep.mjs and resident-guard.mjs. Walks use deterministic id order.
 //
 // The data is `world-life.json`: defaults, per-pack defaults and per-resident
 // `range` (hops from home), `sails`, `sleep` ({from, to} in clock turns, or
@@ -97,9 +96,8 @@ export function homeOf(id, world) {
     null
   );
 }
-// The hops a resident may stray from home for its wants: 0 keeps it home,
-// Infinity is no limit (the hub's residents). null is no home life at all:
-// players and their away avatars, roamers, journeys and freed residents.
+// Home range is measured in hops: zero stays home, Infinity has no limit.
+// null means no home routine, as for players, roamers, journeys and freed residents.
 export function rangeOf(s, id) {
   if (s && unplayedAvatar(s, id)) return Infinity;
   if (own(forest.people, id))

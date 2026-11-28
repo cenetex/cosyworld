@@ -78,8 +78,9 @@ impl<'a> Geography<'a> {
     }
 
     fn active(&self, world: &Value, id: &str, depth: u8) -> Option<bool> {
-        if world["items"].get(id).is_some() {
-            let holder = root_holder(world, id)?;
+        let items = &world["items"];
+        if let Some(item) = items.get(id) {
+            let holder = root_of(items, id, item)?;
             if !coordinate_active(world, holder)
                 || !self.human_available(world, holder)
                 || (holder == "boardyai" && self.humans_present(world) < 2)
@@ -155,8 +156,14 @@ impl<'a> Geography<'a> {
         {
             return Some(false);
         }
-        let place = section_place(pack, id);
-        if state["scope"] != "full" {
+        let opening_scope = state["scope"] != "full";
+        let pool = &pack["specials"]["pool"];
+        let place = if opening_scope || pool.is_array() {
+            section_place(pack, id)
+        } else {
+            None
+        };
+        if opening_scope {
             if let Some(requires) =
                 place.and_then(|place| self.section_requirements.get(&(pack_id, place)))
             {
@@ -165,7 +172,7 @@ impl<'a> Geography<'a> {
                 }
             }
         }
-        let mut covering = array(&pack["specials"]["pool"])
+        let mut covering = array(pool)
             .filter_map(|entry| {
                 let entry = entry["id"].as_str()?;
                 (entry == id || (Some(entry) == place && pack["places"].get(entry).is_some()))
@@ -214,13 +221,17 @@ impl<'a> Geography<'a> {
     }
 
     fn pack_disabled(&self, world: &Value, pack: &str) -> bool {
+        let disabled = &world["disabledPacks"];
+        if disabled.as_array().is_none_or(Vec::is_empty) {
+            return false;
+        }
         let groups = &self.files["v2/card-game/packs.json"]["hub"]["switchable"];
         groups.as_object().into_iter().flatten().any(|(id, group)| {
             contains(&group["packs"], pack)
-                && (contains(&world["disabledPacks"], id)
+                && (contains(disabled, id)
                     || group["reachedBy"]
                         .as_str()
-                        .is_some_and(|parent| contains(&world["disabledPacks"], parent)))
+                        .is_some_and(|parent| contains(disabled, parent)))
         })
     }
 
@@ -600,14 +611,19 @@ fn present(world: &Value, id: &str) -> bool {
         && (world["presentActors"].is_null() || contains(&world["presentActors"], id))
 }
 
-fn root_holder<'a>(world: &'a Value, id: &'a str) -> Option<&'a str> {
-    let mut seen = BTreeSet::from([id]);
-    let mut holder = world["items"][id]["holder"].as_str()?;
-    while let Some(item) = world["items"].get(holder) {
-        if !seen.insert(holder) {
+fn root_holder<'a>(world: &'a Value, id: &str) -> Option<&'a str> {
+    let items = &world["items"];
+    root_of(items, id, items.get(id)?)
+}
+
+fn root_of<'a>(items: &'a Value, id: &str, item: &'a Value) -> Option<&'a str> {
+    let mut seen = BTreeSet::new();
+    let mut holder = item["holder"].as_str()?;
+    while let Some(container) = items.get(holder) {
+        if holder == id || !seen.insert(holder) {
             break;
         }
-        holder = item["holder"].as_str()?;
+        holder = container["holder"].as_str()?;
     }
     Some(holder)
 }
@@ -632,6 +648,20 @@ fn contains(value: &Value, id: &str) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn custody_walks_through_containers_and_stops_at_the_first_repeated_holder() {
+        let mut world = json!({"items":{
+            "note":{"holder":"case"},
+            "case":{"holder":"vale"},
+            "loop":{"holder":"loop"},
+        }});
+        assert_eq!(root_holder(&world, "case"), Some("vale"));
+        assert_eq!(root_holder(&world, "note"), Some("vale"));
+        assert_eq!(root_holder(&world, "loop"), Some("loop"));
+        world["items"]["case"]["holder"] = json!("note");
+        assert_eq!(root_holder(&world, "note"), Some("note"));
+    }
 
     #[test]
     fn an_opening_listener_requires_a_present_traveller_who_has_called() {

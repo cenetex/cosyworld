@@ -157,7 +157,6 @@ impl World {
                 next.present[a] = 0;
                 (SeatAction::Release, json!({}))
             }
-            // Reset starts the avatar over. Older rules refuse it before journaling (#1825).
             "reset" => {
                 let result = reduce(
                     &self.version,

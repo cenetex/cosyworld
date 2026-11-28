@@ -29,7 +29,6 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     initialize_tracing();
-    // Use the volume signing key unless COSYWORLD_SIGNING_KEY provides one.
     crate::routes::signed_envelope::init().map_err(deployment_config_error)?;
     check_assets()?;
     info!(
