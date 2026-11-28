@@ -4,7 +4,7 @@ use super::{
     initial_wants::{People, Person},
     opening_content,
     opening_full_wait::visible_items,
-    opening_mirror_move, opening_roster, opening_station_move,
+    opening_mirror_move, opening_roster, opening_station_move, opening_visitor_routes,
     opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -368,8 +368,8 @@ fn only_scheduled_sleepers(world: &Value) -> Option<()> {
 }
 
 pub(super) fn awake_station_receipt(world: &Value, geo: &Geography<'_>) -> Option<u64> {
-    let follow_seq = opening_station_move::historic_follow(world)?;
-    let head = follow_seq.checked_add(1)?;
+    let head = opening_station_move::historic_resident_moves(world)?.checked_add(1)?;
+    let follow_seq = world["arrival"]["seq"].as_u64()?.checked_add(1)?;
     let log = world["log"].as_array()?;
     let follow = log.iter().find(|event| event["seq"] == follow_seq)?;
     let keeper = &world["actors"]["keeper"];
@@ -473,8 +473,8 @@ pub(super) fn settle_awake_station(
     evidence: &ResidentEvidence,
 ) -> Option<()> {
     let (turn, _) = historic_station_base(world)?;
-    let follow = opening_station_move::historic_follow(world)?;
-    if world["eventSeq"] != follow {
+    let moved = opening_station_move::historic_resident_moves(world)?;
+    if world["eventSeq"] != moved {
         awake_station_receipt(world, geo)?;
     }
     settle_at(
@@ -491,6 +491,23 @@ pub(super) fn settle_awake_station(
         },
     )?;
     awake_station_receipt(world, geo).map(|_| ())
+}
+
+fn pip_can_walk_home(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    awake_station_receipt(world, geo)?;
+    if geo.resident_pack("moth").is_some()
+        || world["routeKnowledge"].get("moth").is_some()
+        || world["items"]["lamp"]["holder"] == "moth"
+        || !geo
+            .base_exits("station")?
+            .iter()
+            .any(|place| place == "pond")
+    {
+        return None;
+    }
+    opening_visitor_routes::exits(world, geo, "moth", "station")?
+        .contains("pond")
+        .then_some(())
 }
 
 fn wake_scheduled_resident(world: &mut Value, id: &str) -> Option<()> {
@@ -616,7 +633,10 @@ fn settle_at(
         } else if let Some((start, end)) = bedtime {
             if let Some(home) = home.filter(|_| !at_home) {
                 if seeks_home_when_tired(world, geo, id, person, human)? {
-                    if step_home(world, geo, id, here, home, residents)? {
+                    if id == "moth" && here == "station" && home == "pond" {
+                        pip_can_walk_home(world, geo)?;
+                        world["actors"][id]["homeward"] = json!(true);
+                    } else if step_home(world, geo, id, here, home, residents)? {
                         no_seeking(world, person, id, turn)?;
                         world["actors"][id]["homeward"] = json!(true);
                     }

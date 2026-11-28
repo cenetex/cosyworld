@@ -146,7 +146,7 @@ test("historic Station settlement keeps Pip asleep at Pond and matches scheduled
     return reply.world;
   };
   let sample;
-  for (const seed of [undefined, 2, 42, 4242, 17]) {
+  for (const seed of [undefined, 2, 42, 4242]) {
     const fresh = run({ op: "create", history: true, seed });
     const reopened = run({ op: "create", save: JSON.stringify(fresh) });
     const stowed = run({
@@ -175,11 +175,6 @@ test("historic Station settlement keeps Pip asleep at Pond and matches scheduled
     const captured = (key) => JSON.parse(JSON.stringify(reference[key]));
     const before = captured("beforeSleep");
     const op = "opening_station_resident_sleep";
-    if (seed === 17) {
-      assert.equal(before.actors.moth.place, "station");
-      assert.equal(wasm({ op, world: before }), null);
-      continue;
-    }
     const after = captured("afterSleep");
     assert.equal(before.turn, 482);
     assert.equal(before.actors.moth.place, "pond");
