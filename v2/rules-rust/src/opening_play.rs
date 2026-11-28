@@ -23,7 +23,10 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if action["kind"] == "pack" {
         return None;
     }
-    let key = action.as_str().or_else(|| action["key"].as_str());
+    let key = action
+        .as_str()
+        .filter(|key| key.splitn(4, ':').count() == 4)
+        .or_else(|| action["key"].as_str());
     match key {
         None => refusal(
             world,

@@ -75,6 +75,14 @@ test("opening play refusals preserve the entire pinned world", async () => {
       { action: null },
       "That play has changed. Check the cards and choose again.",
     ],
+    [
+      { action: "unknown-card" },
+      "That play has changed. Check the cards and choose again.",
+    ],
+    [
+      { action: "wait:vale" },
+      "That play has changed. Check the cards and choose again.",
+    ],
   ]) {
     const request = { ...play, ...changes };
     const actual = wasm(request);
