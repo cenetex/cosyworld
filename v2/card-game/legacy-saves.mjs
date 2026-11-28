@@ -21,6 +21,7 @@ import { ELYSIUM_PACK } from "./elysium-models.mjs";
 import {
   laneEdges,
   lanesFrom,
+  learnLane,
   seaEdge,
   TRANSPORT_VERSION,
 } from "./pack-transport.mjs";
@@ -146,6 +147,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
       reconcileGreekRoutes(s);
       reconcileGreekClaims(s);
     }
+    if (greekRevision < 46) reconcileAulis(s);
   }
   if (reworked.has("elysium")) settleStrandedWayfinder(s);
   // A told lane keeps its id; its words follow the lane's current conditions.
@@ -352,6 +354,12 @@ function reconcileGreekRoutes(s) {
     .map((edge) => edge.join(">"))
     .filter((edge) => !live.has(edge));
   forgetRouteEdges(s, new Set(obsolete));
+}
+
+function reconcileAulis(s) {
+  forgetRouteEdges(s, new Set(["greek-aulis>greek-gate", "greek-gate>greek-aulis"]));
+  for (const [id, actor] of Object.entries(s.actors))
+    if (actor.place === "greek-aulis") learnLane(s, id, "greek-aulis", "greek-pagasae");
 }
 
 function reconcileNorthernRoad(s) {

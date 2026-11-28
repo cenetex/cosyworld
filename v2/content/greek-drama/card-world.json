@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 45,
+  "revision": 46,
   "name": "The Wine-Dark Sea",
   "description": "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -59,7 +59,7 @@
     },
     "greek-gate": {
       "name": "Theban City Gate",
-      "exits": ["greek-courtyard", "greek-aulis"],
+      "exits": ["greek-courtyard"],
       "backdrop": "assets/greek-drama/city-gate-closed-day.webp",
       "backdrops": [
         {
@@ -111,7 +111,8 @@
     },
     "greek-aulis": {
       "name": "Aulis Anchorage",
-      "exits": ["greek-gate"],
+      "text": "The Scylla sails back to Pagasae from these mooring stones.",
+      "exits": [],
       "backdrop": "assets/greek-drama/aulis-anchorage-day.webp",
       "seed": "The conflict of Iphigenia at Aulis is unfolding here."
     },
@@ -384,7 +385,7 @@
       "text": "Ask Philon about the Scylla’s courses at the mooring stones. The shore path leads back to Pherae.",
       "exits": ["greek-pherae"],
       "backdrop": "assets/greek-drama/pagasae-anchorage.webp",
-      "seed": "At the Scylla’s home berth, Philon tells travelers from Pherae how to reach Lemnos and Sicily."
+      "seed": "At the Scylla’s home berth, Philon tells travelers from Pherae how to reach Aulis, Lemnos and Sicily."
     },
     "greek-thetis": {
       "name": "Thetis’s Altar in Phthia",

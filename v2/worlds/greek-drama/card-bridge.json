@@ -238,6 +238,21 @@
       "transport": "greek-scylla"
     },
     {
+      "id": "greek-aulis-ship",
+      "from": "greek-aulis",
+      "to": "greek-pagasae",
+      "travelers": "any",
+      "travel": "aboard the Scylla",
+      "requires": [],
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Scylla moors below the waiting tents.",
+        "cardName": "The Scylla",
+        "cardArt": "assets/greek-drama/scylla-card.webp"
+      },
+      "transport": "greek-scylla"
+    },
+    {
       "id": "greek-sicily-ship",
       "from": "greek-sicily",
       "to": "greek-pagasae",
@@ -336,7 +351,8 @@
         "greek-tauris",
         "greek-sicily",
         "greek-egypt-tomb",
-        "greek-ajax-landing"
+        "greek-ajax-landing",
+        "greek-aulis"
       ],
       "lanes": [
         {
@@ -362,6 +378,10 @@
         {
           "from": "greek-pagasae",
           "to": "greek-egypt-tomb"
+        },
+        {
+          "from": "greek-pagasae",
+          "to": "greek-aulis"
         }
       ],
       "at": "greek-pagasae",

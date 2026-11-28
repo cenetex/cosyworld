@@ -2356,7 +2356,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 45,
+        revision: 46,
         name: "The Wine-Dark Sea",
         description: "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2435,8 +2435,7 @@
           "greek-gate": {
             name: "Theban City Gate",
             exits: [
-              "greek-courtyard",
-              "greek-aulis"
+              "greek-courtyard"
             ],
             backdrop: "assets/greek-drama/city-gate-closed-day.webp",
             backdrops: [
@@ -2499,9 +2498,8 @@
           },
           "greek-aulis": {
             name: "Aulis Anchorage",
-            exits: [
-              "greek-gate"
-            ],
+            text: "The Scylla sails back to Pagasae from these mooring stones.",
+            exits: [],
             backdrop: "assets/greek-drama/aulis-anchorage-day.webp",
             seed: "The conflict of Iphigenia at Aulis is unfolding here."
           },
@@ -2832,7 +2830,7 @@
               "greek-pherae"
             ],
             backdrop: "assets/greek-drama/pagasae-anchorage.webp",
-            seed: "At the Scylla\u2019s home berth, Philon tells travelers from Pherae how to reach Lemnos and Sicily."
+            seed: "At the Scylla\u2019s home berth, Philon tells travelers from Pherae how to reach Aulis, Lemnos and Sicily."
           },
           "greek-thetis": {
             name: "Thetis\u2019s Altar in Phthia",
@@ -19239,6 +19237,21 @@
             transport: "greek-scylla"
           },
           {
+            id: "greek-aulis-ship",
+            from: "greek-aulis",
+            to: "greek-pagasae",
+            travelers: "any",
+            travel: "aboard the Scylla",
+            requires: [],
+            travelLabel: "Board",
+            scenery: {
+              open: "The Scylla moors below the waiting tents.",
+              cardName: "The Scylla",
+              cardArt: "assets/greek-drama/scylla-card.webp"
+            },
+            transport: "greek-scylla"
+          },
+          {
             id: "greek-sicily-ship",
             from: "greek-sicily",
             to: "greek-pagasae",
@@ -19337,7 +19350,8 @@
               "greek-tauris",
               "greek-sicily",
               "greek-egypt-tomb",
-              "greek-ajax-landing"
+              "greek-ajax-landing",
+              "greek-aulis"
             ],
             lanes: [
               {
@@ -19363,6 +19377,10 @@
               {
                 from: "greek-pagasae",
                 to: "greek-egypt-tomb"
+              },
+              {
+                from: "greek-pagasae",
+                to: "greek-aulis"
               }
             ],
             at: "greek-pagasae",
@@ -26118,6 +26136,26 @@
   var knowsLaneFrom = (s, id, dock, actor) => !actor || lanesFrom(transports[id], dock).some(
     (to) => entityActive(s, to) && knowsLane(s, actor, dock, to)
   );
+  function learnLane(s, actor, from, to) {
+    const t = Object.values(transports).find(
+      (t2) => lanesFrom(t2, from).includes(to)
+    );
+    if (!t || !s.actors[actor]) return false;
+    const edges = [seaEdge(from, to)];
+    if (lanesFrom(t, to).includes(from)) edges.push(seaEdge(to, from));
+    const key2 = ([x, y]) => `${x}>${y}`;
+    const known = new Map(
+      (s.routeKnowledge?.[actor] || []).map((edge) => [key2(edge), edge])
+    );
+    const before = known.size;
+    for (const edge of edges) known.set(key2(edge), edge);
+    if (known.size === before) return false;
+    s.routeKnowledge ??= {};
+    s.routeKnowledge[actor] = [...known.values()].sort(
+      (x, y) => key2(x).localeCompare(key2(y))
+    );
+    return true;
+  }
   var laneBetween = (t, from, to) => (t.lanes || []).find(
     (lane) => lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from
   ) ?? null;
@@ -31148,6 +31186,7 @@
         reconcileGreekRoutes(s);
         reconcileGreekClaims(s);
       }
+      if (greekRevision < 46) reconcileAulis(s);
     }
     if (reworked.has("elysium")) settleStrandedWayfinder(s);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
@@ -31318,6 +31357,11 @@
     const live = new Set(authoredRouteEdges().map((edge) => edge.join(">")));
     const obsolete = formerGreekReturns.map((edge) => edge.join(">")).filter((edge) => !live.has(edge));
     forgetRouteEdges(s, new Set(obsolete));
+  }
+  function reconcileAulis(s) {
+    forgetRouteEdges(s, /* @__PURE__ */ new Set(["greek-aulis>greek-gate", "greek-gate>greek-aulis"]));
+    for (const [id, actor] of Object.entries(s.actors))
+      if (actor.place === "greek-aulis") learnLane(s, id, "greek-aulis", "greek-pagasae");
   }
   function reconcileNorthernRoad(s) {
     const road = "greek-road-north";

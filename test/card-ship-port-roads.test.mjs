@@ -5,8 +5,6 @@
 // Marathon is a walk from Eleusis. Myrto's invitation opens the Scylla's
 // landing at Troy. The land route from Piraeus through Athens,
 // Eleusis, Cithaeron and the battlefield enters Thebes through the City Gate.
-// The search checks each gate against every route a traveler could walk and
-// every thing they could carry or hand over on the way.
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -75,6 +73,7 @@ const AJAX_LANDING = "greek-ajax-landing";
 const EGYPT_TOMB = "greek-egypt-tomb";
 const AJAX_PLACES = pack.sections.find((s) => s.id === "greek-ajax").places;
 const FAR_SHORES = [
+  "greek-aulis",
   "greek-lemnos",
   "greek-thrace",
   "greek-tauris",
@@ -87,6 +86,7 @@ const FAR_SHORE_LANES = [
   ["greek-lemnos", AJAX_LANDING],
   [PAGASAE, "greek-sicily"],
   [PAGASAE, EGYPT_TOMB],
+  [PAGASAE, "greek-aulis"],
 ];
 
 // Every thing a route or a sea lane names in its conditions: the keys that

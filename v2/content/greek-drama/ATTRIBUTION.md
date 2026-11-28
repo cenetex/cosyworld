@@ -58,7 +58,7 @@ Thebes, Cithaeron, Eleusis, Athens, Delphi, and Trachis. Follow the shore
 path from Pherae to Pagasae. The walk uses the ordinary City Gate passage
 and joins the ships’ separate harbors. [Second-ship route study](https://github.com/cenetex/cosyworld/issues/1405#issuecomment-6525332229)
 
-From Pagasae, the Scylla sails to Sicily, Lemnos, and, once Helen’s Egyptian
+From Pagasae, the Scylla sails to Aulis, Sicily, Lemnos, and, once Helen’s Egyptian
 account opens, Proteus’s Tomb. From Lemnos the ship can continue to Thrace
 and Tauris, or to the Trojan landing once Myrto’s invitation opens Ajax’s
 camp. The Scythian Coast Road and Royal Road continue inland from Tauris
