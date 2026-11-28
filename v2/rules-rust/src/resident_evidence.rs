@@ -25,8 +25,10 @@ impl ResidentEvidence {
     ) -> Option<()> {
         if !matches!(
             (detail["kind"].as_str(), detail["verb"].as_str()),
-            (Some("action"), Some("take" | "move" | "drop" | "ask"))
-                | (Some("narration"), Some("want_met"))
+            (
+                Some("action"),
+                Some("take" | "move" | "drop" | "ask" | "read")
+            ) | (Some("narration"), Some("want_met"))
         ) {
             return None;
         }
