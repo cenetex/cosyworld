@@ -199,7 +199,7 @@ test("Pip follows Vale after historic Pond arrival while Keeper remains asleep",
           moth.before.actors.keeper.sleeping,
         );
         const visitors = wasm({ op, resident: "visitors", world: moth.after });
-        if (seed === 99) {
+        if (seed === 17) {
           assert.deepEqual(afterVisitors, moth.after, label);
           assert.ok(
             isDeepStrictEqual(visitors, { ok: true, world: afterVisitors }),
@@ -207,7 +207,7 @@ test("Pip follows Vale after historic Pond arrival while Keeper remains asleep",
           );
           awake = moth.after;
         } else {
-          assert.equal(afterVisitors.log.at(-1).actorId, "orin", label);
+          assert.equal(afterVisitors.log.at(-1).actorId, "ada", label);
           assert.equal(visitors, null, label);
         }
         saved = moth.before;

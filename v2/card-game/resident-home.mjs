@@ -1,6 +1,5 @@
 // World life (rules 100): residents keep a home and range, return when displaced, and
 // walk offstage at dawn and dusk in ID order. Sleep and Guard have their own modules.
-//
 // `world-life.json` has global and per-pack defaults, resident `range` (hops),
 // `sails`, `sleep` (clock turns or null), `guards` and guardable ways. The
 // file sits beside packs for v93–v99. See docs/design/rules-100-world-life.md.
