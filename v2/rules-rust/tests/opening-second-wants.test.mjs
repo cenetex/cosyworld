@@ -104,3 +104,63 @@ test("the second pond arrival settles wants after Pip's refusal", async () => {
     }
   }
 });
+
+test("quiet Station arrivals settle wants on either opening turn", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine(capture);
+  const op = "opening_station_wants";
+  const play = (world, action) => {
+    const reply = pinned({ ...seats, op: "play", world, action });
+    assert.equal(reply.ok, true, reply.error);
+    return reply.world;
+  };
+  for (const seed of [undefined, 0, 2, 7, 17, 4242, 4294967295]) {
+    for (const waited of [false, true]) {
+      for (const carry of [false, true]) {
+        let { world } = pinned({ op: "create", seed });
+        if (carry) {
+          Object.assign(world.items.lamp, {
+            fuel: 0,
+            fuelRooms: 0,
+            lit: false,
+          });
+        } else {
+          const reply = pinned({
+            ...seats,
+            op: "hold",
+            world,
+            choice: { item: null, revision: world.revision },
+          });
+          assert.equal(reply.ok, true, reply.error);
+          world = reply.world;
+        }
+        if (waited) world = play(world, "wait:vale::");
+        world = play(world, "move:vale::pond");
+        const action = carry ? "move:vale:lamp:station" : "move:vale::station";
+        const reply = JSON.parse(
+          reference.cardShared(
+            JSON.stringify({
+              ...seats,
+              op: "play",
+              world,
+              action,
+            }),
+          ),
+        );
+        const label = `${seed} ${action} ${waited ? "third turn" : "second turn"}`;
+        assert.equal(reply.ok, true, reply.error);
+        const before = JSON.parse(JSON.stringify(reference.beforeWants));
+        const after = JSON.parse(JSON.stringify(reference.afterWants));
+        assert.ok(
+          isDeepStrictEqual(wasm({ op, world: before }), {
+            ok: true,
+            world: after,
+          }),
+          label,
+        );
+        before.actors.moth.want.refusals = 2;
+        assert.equal(wasm({ op, world: before }), null);
+      }
+    }
+  }
+});

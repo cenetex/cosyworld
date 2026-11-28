@@ -909,8 +909,7 @@ export function fillWants(s, api, now = false) {
       setWant(a, nextWant(s, id, api));
   }
 }
-// Waking from any Sleep ends a resident's contentment: the next want is
-// drawn as ever.
+// Waking from Sleep ends a resident's contentment and can draw the next want.
 export function renewWant(s, id, api) {
   const a = s.actors[id];
   if (!a?.content || api.player(id) || a.completedQuest) return;
