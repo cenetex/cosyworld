@@ -58,31 +58,16 @@ pub(super) fn seed(c: &Connection, id: &str, w: &World, reason: &str, now: i64) 
     .map_err(sql_error)?;
     checkpoint(c, id, w, c.last_insert_rowid())
 }
-pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
-    store::exists(c, id)?;
-    // Rules older than the floor are never replayed (full_floor.rs).
-    if floor::below(c, id)? {
-        return Err(floor::CLOSED.into());
-    }
-    let cached: Option<(i64, String)> = c
-        .query_row(
-            "SELECT seq,state FROM card_full_checkpoints WHERE world=?",
-            [id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .optional()
-        .map_err(sql_error)?;
-    let (mut seq, mut state) = match cached {
-        Some((seq, state)) => (
-            seq,
-            Some(serde_json::from_str::<World>(&state).map_err(sql_error)?),
-        ),
-        None => (0, None),
-    };
+pub(super) fn replay(
+    c: &Connection,
+    id: &str,
+    mut seq: i64,
+    mut state: Option<World>,
+    mut apply: impl FnMut(i64, &mut World, &Value) -> Result<()>,
+) -> Result<(i64, Option<World>)> {
     if let Some(pack) = state.as_ref().and_then(|w| w.pack.as_deref()) {
         content::preload(c, pack)?;
     }
-    let checkpoint_seq = seq;
     let mut q = c
         .prepare("SELECT seq,command FROM card_full_log WHERE world=? AND seq>? ORDER BY seq")
         .map_err(sql_error)?;
@@ -106,7 +91,6 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
             }
             state = Some(seeded);
         } else {
-            // Replay reads each recorded content revision from the store.
             let pack = match command["op"].as_str() {
                 Some("repack") => command["to"].as_str(),
                 _ => command["pack"].as_str(),
@@ -114,13 +98,44 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
             if let Some(pack) = pack {
                 content::preload(c, pack)?;
             }
-            state
-                .as_mut()
-                .ok_or("This world's history needs its first record.")?
-                .apply(&command)?;
+            apply(
+                s,
+                state
+                    .as_mut()
+                    .ok_or("This world's history needs its first record.")?,
+                &command,
+            )?;
         }
         seq = s;
     }
+    Ok((seq, state))
+}
+
+pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
+    store::exists(c, id)?;
+    // Rules older than the floor are never replayed (full_floor.rs).
+    if floor::below(c, id)? {
+        return Err(floor::CLOSED.into());
+    }
+    let cached: Option<(i64, String)> = c
+        .query_row(
+            "SELECT seq,state FROM card_full_checkpoints WHERE world=?",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()
+        .map_err(sql_error)?;
+    let (seq, state) = match cached {
+        Some((seq, state)) => (
+            seq,
+            Some(serde_json::from_str::<World>(&state).map_err(sql_error)?),
+        ),
+        None => (0, None),
+    };
+    let checkpoint_seq = seq;
+    let (seq, state) = replay(c, id, seq, state, |_, world, command| {
+        world.apply(command).map(|_| ())
+    })?;
     if let Some(mut w) = state {
         if engine::historical(&w.version) {
             let from = w.version.clone();
