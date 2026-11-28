@@ -208,9 +208,7 @@ describe("a real voyage", () => {
     stowProvisions(s, "greek-harbor");
     s = reload(s);
     expect(targets(s, "vale", "course")).toEqual(["pond"]);
-    // Ash carries the Travel Provisions aboard. Carried, they open nothing
-    // (rules 102); laid on deck they open the Piraeus lane for everyone
-    // aboard. The Trojan camp landing stays closed until Myrto's invitation.
+    // Provisions on deck open Piraeus. Troy still requires Myrto's invitation.
     s = act(s, "ash", "take", undefined);
     expect(s.items["greek-provisions"].holder).toBe("ash");
     s = act(s, "ash", "move", "greek-ship");

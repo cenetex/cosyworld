@@ -5,8 +5,8 @@ use super::{
     opening_pond_call_view::{completion_owners, drop_receipt},
     opening_pond_ship_board,
     opening_pond_ship_settlement::course_before_sailing,
-    opening_roster, opening_station_move, opening_station_read, opening_station_view,
-    opening_visitor_routes,
+    opening_pond_ship_wait, opening_roster, opening_station_move, opening_station_read,
+    opening_station_view, opening_visitor_routes,
     opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -20,7 +20,7 @@ fn entries(value: &Value) -> impl Iterator<Item = &Value> {
 
 fn quiet_turn(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
-    if !matches!(turn, 2..=9)
+    if !matches!(turn, 2..=10)
         || world.get("began").is_some_and(|began| began != 0)
         || world["playerActorId"] != "vale"
         || !world["standoffs"].as_array()?.is_empty()
@@ -53,6 +53,7 @@ fn quiet_turn(world: &Value) -> Option<u64> {
         }
         (8, "greek-ship") => opening_pond_ship_board::arrival(world).map(|_| ()),
         (9, "greek-ship") => course_before_sailing(world).map(|_| ()),
+        (10, "greek-ship") => opening_pond_ship_wait::before_docking(world).map(|_| ()),
         (5, "station") => opening_station_view::keeper_return::gift_head(world).map(|_| ()),
         (7, "pond") => pond_drop_scene(world),
         (_, "station") => opening_station_move::arrival(world)
@@ -265,7 +266,7 @@ fn quiet_departure_wait(
         opening_station_move::abandoned_train_arrival(world).is_some() || read.is_some();
     let round = world["turn"].as_u64()?;
     let station_departure = round == 7 || opening_station_move::departure_turn(world).is_some();
-    let boarded = matches!(round, 8 | 9);
+    let boarded = matches!(round, 8..=10);
     if (!same_room && !station_departure && !boarded && round != 3)
         || (!station_departure && !boarded && world["actors"]["vale"]["place"] != "station")
         || here == "station"
@@ -367,7 +368,10 @@ fn quiet_ada_aboard(world: &Value, geo: &Geography<'_>, custody: &Custody) -> Op
         || world["opening"]["met"]["ada"] != 8
         || world["packs"]["shared-homes"]["met"]["ada"] != 8
         || !world["routeKnowledge"]["ada"].is_null()
-        || !matches!(transport["phase"].as_str(), Some("docked" | "course"))
+        || !matches!(
+            (world["turn"].as_u64()?, transport["phase"].as_str()),
+            (8, Some("docked")) | (9, Some("course")) | (10, Some("sea"))
+        )
         || transport["dock"] != "pond"
         || transport["riders"] != json!([])
         || !geo.visiting_resident(world, "ada")
@@ -511,7 +515,7 @@ fn perform_visitor(
         return None;
     }
     if a["place"] != home {
-        if matches!(turn, 8 | 9) && actor == "ada" && a["place"] == "greek-ship" {
+        if matches!(turn, 8..=10) && actor == "ada" && a["place"] == "greek-ship" {
             return quiet_ada_aboard(world, geo, custody);
         }
         return quiet_departure_wait(world, geo, order, custody, actor, home, item);
@@ -532,7 +536,7 @@ fn perform_visitor(
     let destination = home_destination(world, geo, actor, home)?;
     if (historic_to.is_some() && destination != historic_to)
         || (destination.is_some()
-            && (matches!(turn, 8 | 9) || opening_station_move::departure_turn(world).is_some()))
+            && (matches!(turn, 8..=10) || opening_station_move::departure_turn(world).is_some()))
         || (turn == 7
             && destination.is_some_and(|to| {
                 world["items"]["lamp"]["lit"] != true || !pond_drop_route(actor, home, to)
