@@ -137,7 +137,9 @@ fn verify(
             "checkpoint differs from journal head at sequence {head}"
         ));
     }
-    report.heads.push(proof::Head::new(world, head, &state));
+    report
+        .heads
+        .push(proof::Head::read(c, world, head, &state)?);
     report.noncurrent_heads = usize::from(
         rebuilt.version != engine::version() || rebuilt.pack.as_deref() != Some(content::current()),
     );

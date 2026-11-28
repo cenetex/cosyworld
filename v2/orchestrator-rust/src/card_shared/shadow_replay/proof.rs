@@ -1,4 +1,6 @@
 use super::{content, direct, engine, Report, Result};
+use crate::card_shared::store::sql_error;
+use rusqlite::Connection;
 use serde::Serialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -13,16 +15,45 @@ pub(super) struct Head {
     world_id_sha256: String,
     head_sequence: String,
     checkpoint_sha256: String,
+    journal_sha256: String,
 }
 
 impl Head {
-    pub(super) fn new(world: &str, seq: i64, state: &str) -> Self {
-        Self {
+    pub(super) fn read(c: &Connection, world: &str, seq: i64, state: &str) -> Result<Self> {
+        Ok(Self {
             world_id_sha256: content::hash(world),
             head_sequence: seq.to_string(),
             checkpoint_sha256: content::hash(state),
-        }
+            journal_sha256: journal_sha256(c, world)?,
+        })
     }
+}
+
+fn journal_sha256(c: &Connection, world: &str) -> Result<String> {
+    let mut statement = c
+        .prepare("SELECT seq, at, command FROM card_full_log WHERE world=? ORDER BY seq")
+        .map_err(sql_error)?;
+    let mut rows = statement.query([world]).map_err(sql_error)?;
+    let mut digest = Sha256::new();
+    digest.update(b"cosyworld-sqlite-journal-v1\0");
+    while let Some(row) = rows.next().map_err(sql_error)? {
+        let seq: i64 = row.get(0).map_err(sql_error)?;
+        let at: i64 = row.get(1).map_err(sql_error)?;
+        let command = row
+            .get_ref(2)
+            .map_err(sql_error)?
+            .as_str()
+            .map_err(sql_error)?;
+        if seq <= 0 {
+            return Err("Journal sequences must be positive for epoch verification.".into());
+        }
+        digest.update(seq.to_be_bytes());
+        digest.update(at.to_be_bytes());
+        let length = u64::try_from(command.len()).map_err(sql_error)?;
+        digest.update(length.to_be_bytes());
+        digest.update(command.as_bytes());
+    }
+    Ok(format!("{:x}", digest.finalize()))
 }
 
 pub(super) fn export(
@@ -36,7 +67,7 @@ pub(super) fn export(
     let mut heads: Vec<_> = journal.heads.iter().collect();
     heads.sort_unstable_by(|a, b| a.world_id_sha256.cmp(&b.world_id_sha256));
     let proof = json!({
-        "format": "cosyworld-epoch-readiness/v1",
+        "format": "cosyworld-epoch-readiness/v2",
         "rules_version": engine::version(),
         "rules_sha256": content::hash(engine::current_source()),
         "content_sha256": content::current(),
@@ -77,8 +108,7 @@ fn publish(path: &Path, bytes: &[u8]) -> io::Result<()> {
 #[test]
 fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
     use super::{active_worlds, fixture, full_store, verify_worlds, World};
-    use crate::card_shared::store::sql_error;
-    use rusqlite::{Connection, OpenFlags, MAIN_DB};
+    use rusqlite::{OpenFlags, MAIN_DB};
     use serde_json::Value;
     use std::path::PathBuf;
 
@@ -140,6 +170,7 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
     assert_eq!(bytes, fs::read(&output).unwrap());
 
     let proof: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(proof["format"], "cosyworld-epoch-readiness/v2");
     assert_eq!(
         proof["candidate_sha256"],
         content::hash("synthetic candidate")
@@ -168,10 +199,73 @@ fn exports_only_complete_proof_from_a_read_only_snapshot() -> Result<()> {
             .unwrap();
         assert_eq!(head["head_sequence"], sequence);
         assert_eq!(head["checkpoint_sha256"], content::hash(&state));
+        assert_eq!(head["journal_sha256"], journal_sha256(&snapshot, world)?);
         assert!(!String::from_utf8_lossy(&bytes).contains(world));
     }
     drop(snapshot);
     drop(read);
     assert!(before == fs::read(&db).unwrap());
+    Ok(())
+}
+
+#[test]
+fn detects_changes_to_journal_rows_that_leave_the_checkpoint_identical() -> Result<()> {
+    use super::{fixture, verify};
+    use serde_json::Value;
+
+    let c = fixture()?;
+    let world = "shadow-replay";
+    let oracle = |version: &str, pack: Option<&str>, request: &Value| {
+        engine::reduce_journal(version, pack, request.clone()).map(Some)
+    };
+    let before = verify(&c, world, oracle)?;
+    c.execute(
+        "UPDATE card_full_log SET at=at+1 WHERE world=? AND seq=2",
+        [world],
+    )
+    .map_err(sql_error)?;
+    let after = verify(&c, world, oracle)?;
+    assert_eq!(before.checked, after.checked);
+    assert_eq!(before.heads[0].head_sequence, after.heads[0].head_sequence);
+    assert_eq!(
+        before.heads[0].checkpoint_sha256,
+        after.heads[0].checkpoint_sha256
+    );
+    assert_ne!(
+        before.heads[0].journal_sha256,
+        after.heads[0].journal_sha256
+    );
+
+    c.execute(
+        "INSERT INTO card_full_log(seq, world, command, at)
+        SELECT 0, world, command, at FROM card_full_log WHERE world=? AND seq=2",
+        [world],
+    )
+    .map_err(sql_error)?;
+    assert_eq!(
+        verify(&c, world, oracle).unwrap_err(),
+        "Journal sequences must be positive for epoch verification."
+    );
+    Ok(())
+}
+
+#[test]
+fn journal_digest_frames_exact_bytes_in_sequence_order() -> Result<()> {
+    let c = Connection::open_in_memory().map_err(sql_error)?;
+    super::full_store::schema(&c)?;
+    c.execute(
+        "INSERT INTO card_full_log(seq, world, command, at) VALUES (?, 'test', '{}', 4)",
+        [9007199254740993_i64],
+    )
+    .map_err(sql_error)?;
+    c.execute(
+        "INSERT INTO card_full_log(seq, world, command, at) VALUES (1, 'test', ?, -2)",
+        [r#"{"note":"é"}"#],
+    )
+    .map_err(sql_error)?;
+    assert_eq!(
+        journal_sha256(&c, "test")?,
+        "e91704f431d4e886ec54112cb55aafb071894390a24cd4c60ed0ceac49d92647"
+    );
     Ok(())
 }

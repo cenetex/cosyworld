@@ -112,7 +112,6 @@ pub(super) fn replay(
 
 pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
     store::exists(c, id)?;
-    // Rules older than the floor are never replayed (full_floor.rs).
     if floor::below(c, id)? {
         return Err(floor::CLOSED.into());
     }
