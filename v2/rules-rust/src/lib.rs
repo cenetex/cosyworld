@@ -15,6 +15,7 @@ pub mod opening_evidence;
 pub mod opening_history;
 mod opening_play;
 mod opening_reflection;
+pub mod opening_rumours;
 mod opening_speech;
 mod opening_view;
 mod pack_state;
