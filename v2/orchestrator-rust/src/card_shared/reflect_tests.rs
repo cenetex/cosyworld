@@ -175,9 +175,8 @@ fn refused_or_orphan_reflections_leave_the_world_whole() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), before);
 }
 
-// The whole path a shared reflection takes: after the line is journaled,
-// `spawn` asks the provider and journals one `reflect` row for the resting
-// speaker, dated to its speech, and a newer scene for the seat cancels it.
+// After committed speech, `spawn` asks the provider and journals one dated reflection for the
+// resting speaker. A newer scene for the seat cancels the pending reflection.
 #[tokio::test(flavor = "multi_thread")]
 async fn quiet_wait_reflects_privately_and_replays() {
     use crate::routes::card_game::narrative::tests::{

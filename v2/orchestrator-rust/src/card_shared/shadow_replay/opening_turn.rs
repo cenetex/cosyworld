@@ -319,7 +319,7 @@ fn sqlite_rules_wasm_parity_replays_station_after_history() -> Result<()> {
 fn sqlite_rules_wasm_parity_replays_awake_historic_station_follow() -> Result<()> {
     replay_opening_turns(
         "awake-historic-station-follow",
-        historic_opening(Some(99))?,
+        historic_opening(Some(17))?,
         true,
         &[
             AWAKE_HISTORIC_POND_MOVE,
@@ -331,10 +331,10 @@ fn sqlite_rules_wasm_parity_replays_awake_historic_station_follow() -> Result<()
 }
 
 #[test]
-fn sqlite_rules_wasm_parity_replays_awake_historic_station_with_cass() -> Result<()> {
+fn sqlite_rules_wasm_parity_replays_awake_historic_station_with_ada() -> Result<()> {
     replay_opening_turns(
-        "awake-historic-station-with-cass",
-        historic_opening(Some(17))?,
+        "awake-historic-station-with-ada",
+        historic_opening(Some(99))?,
         true,
         &[
             AWAKE_HISTORIC_POND_MOVE,
@@ -355,7 +355,7 @@ fn sqlite_rules_wasm_parity_reenters_awake_historic_station() -> Result<()> {
         &[
             AWAKE_HISTORIC_POND_MOVE,
             (BARE_STATION_MOVE.0, |lamp, reply| {
-                check_awake_historic_station_move(lamp, reply, false);
+                check_awake_historic_station_move(lamp, reply, true);
             }),
         ],
     )?;
@@ -505,10 +505,10 @@ fn check_quiet_station_departure(lamp: &Value, reply: &Value, destination: &str)
     assert_eq!(reply["exits"], json!(["station"]));
 }
 
-fn check_awake_historic_station_move(lamp: &Value, reply: &Value, cass_moves: bool) {
+fn check_awake_historic_station_move(lamp: &Value, reply: &Value, ada_moves: bool) {
     check_bare_station_move(lamp, reply);
     let events = reply["events"].as_array().unwrap();
-    assert_eq!(events.len(), 3 + usize::from(cass_moves));
+    assert_eq!(events.len(), 3 + usize::from(ada_moves));
     let world = &reply["world"];
     assert_eq!(world["turn"], 482);
 
@@ -518,18 +518,21 @@ fn check_awake_historic_station_move(lamp: &Value, reply: &Value, cass_moves: bo
     assert_eq!(world["actors"]["moth"]["heldItem"], "cloth");
     assert_eq!(world["actors"]["moth"]["sleeping"], Value::Null);
 
-    if cass_moves {
-        let cass = &events[2];
-        assert_eq!(cass["actorId"], "orin");
-        assert_eq!(cass["verb"], "move");
-        assert_eq!(cass["fromLocationId"], "pavilion");
-        assert_eq!(cass["locationId"], "willows-bank");
-        assert_eq!(world["actors"]["orin"]["place"], "willows-bank");
-        assert_eq!(world["items"]["board"]["holder"], "pavilion");
+    if ada_moves {
+        let ada = &events[2];
+        assert_eq!(ada["actorId"], "ada");
+        assert_eq!(ada["verb"], "move");
+        assert_eq!(ada["fromLocationId"], "loft");
+        assert_eq!(ada["locationId"], "greek-ship");
+        assert_eq!(world["actors"]["ada"]["place"], "greek-ship");
+        assert_eq!(world["actors"]["ada"]["heldItem"], Value::Null);
+        assert_eq!(world["items"]["shears"]["holder"], "loft");
+        assert_eq!(world["actors"]["moth"]["homeward"], Value::Null);
     } else {
-        assert_eq!(world["actors"]["orin"]["place"], "pavilion");
-        assert_eq!(world["items"]["board"]["holder"], "orin");
+        assert_eq!(world["actors"]["moth"]["homeward"], true);
     }
+    assert_eq!(world["actors"]["orin"]["place"], "pavilion");
+    assert_eq!(world["items"]["board"]["holder"], "orin");
 
     let wake = events.last().unwrap();
     assert_eq!(wake["actorId"], "keeper");
