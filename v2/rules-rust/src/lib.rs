@@ -172,7 +172,7 @@ pub fn reduce(request: &Value) -> Value {
             opening_wait::second_projection(request).unwrap_or(Value::Null)
         }
         Some("opening_second_resident_round") => {
-            opening_second_round::projection(request).unwrap_or(Value::Null)
+            opening_second_round::round(request).unwrap_or(Value::Null)
         }
         Some("opening_drop_step") => opening_drop::projection(request).unwrap_or(Value::Null),
         Some("opening_take_step") => opening_take::projection(request).unwrap_or(Value::Null),
