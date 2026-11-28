@@ -68,8 +68,15 @@ describe("Attica is simply there", () => {
     old.packs["greek-drama"].revision = 46;
     const former = ["greek-eleusis", "greek-colonus", "greek-attic-farm"]
       .flatMap((place) => [[place, marathon], [marathon, place]]);
-    const surviving = ["greek-eleusis", "greek-colonus"];
-    const towardMarathon = ["greek-athens", marathonRoad, marathon];
+    const surviving = ["greek-attic-farm", "greek-colonus"];
+    const towardMarathon = [
+      "greek-athens",
+      "greek-civic-avenue",
+      "greek-city-road-fork",
+      "greek-north-gate",
+      marathonRoad,
+      marathon,
+    ];
     old.routeKnowledge["greek-rhapsode"] = old.routeKnowledge["greek-rhapsode"]
       .filter(([from]) => !["greek-athens", marathon].includes(from));
     rememberRoutes(old, "greek-rhapsode", [...former, surviving]);

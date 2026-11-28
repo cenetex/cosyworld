@@ -133,7 +133,7 @@ describe("Greek ways between the districts are plain roads", () => {
     for (const [way, end] of [
       [road, "greek-eleusis"],
       [road, "greek-athens"],
-      [walls, "greek-athens"],
+      [walls, "greek-city-road-fork"],
       [walls, "greek-piraeus"],
     ]) {
       const s = at(world(), end);

@@ -26,6 +26,9 @@ describe("local town visits and road history", () => {
     );
     const attic = [
       "greek-athens",
+      "greek-civic-avenue",
+      "greek-city-road-fork",
+      "greek-north-gate",
       "greek-piraeus",
       "greek-colonus",
       "greek-eleusis",
@@ -43,13 +46,16 @@ describe("local town visits and road history", () => {
       "greek-road-athens-piraeus",
       "greek-road-sacred-way",
     ]);
+    expect(exits(w, "greek-athens", "vale")).toEqual([
+      "greek-acropolis",
+      "greek-road-athens-eleusis",
+      "greek-civic-avenue",
+    ]);
     // The Long Walls are open from either end, with no truce.
-    expect(exits(w, "greek-athens", "vale")).toEqual(
-      expect.arrayContaining(["greek-road-athens-eleusis", "greek-assembly"]),
+    expect(exits(w, "greek-city-road-fork", "vale")).toContain(
+      "greek-road-athens-piraeus",
     );
-    expect(exits(w, "greek-colonus", "vale")).toEqual(
-      expect.arrayContaining(["greek-eleusis", "greek-attic-farm"]),
-    );
+    expect(exits(w, "greek-colonus", "vale")).toEqual(["greek-attic-farm"]);
     expect(exits(w, "greek-piraeus", "vale")).toEqual([
       "greek-road-athens-piraeus",
     ]);

@@ -69,6 +69,8 @@ const stages = {
 const MARATHON = "greek-marathon";
 const PAGASAE = "greek-pagasae";
 const SCYLLA = "greek-scylla";
+const CIVIC_AVENUE = "greek-civic-avenue";
+const CITY_ROAD_FORK = "greek-city-road-fork";
 const AJAX_LANDING = "greek-ajax-landing";
 const EGYPT_TOMB = "greek-egypt-tomb";
 const HOMECOMING_BEACH = "greek-troy-beach";
@@ -445,6 +447,7 @@ describe("ports reachable on foot or by a free leg home", () => {
       "greek-eleusis",
       "greek-road-athens-eleusis",
       "greek-athens",
+      CIVIC_AVENUE,
       "greek-road-sacred-way",
       "greek-delphi",
       "greek-oeta",
@@ -454,7 +457,8 @@ describe("ports reachable on foot or by a free leg home", () => {
     ];
     const waypoints = {
       "greek-eleusis": "Sacred Way",
-      "greek-athens": "the road to the Delphic Temple",
+      "greek-athens": "Civic Avenue",
+      [CIVIC_AVENUE]: "Delphi",
       "greek-delphi": "The Oeta Road",
       "greek-oeta": "through Trachis",
       "greek-trachis": "down to Pherae",
@@ -462,7 +466,7 @@ describe("ports reachable on foot or by a free leg home", () => {
       [PAGASAE]: "Ask Philon",
     };
     for (const place of overland) {
-      t.move(place);
+      t.act("move", { target: place });
       if (waypoints[place])
         expect(placeText(t.s, place)).toContain(waypoints[place]);
     }
@@ -470,6 +474,7 @@ describe("ports reachable on foot or by a free leg home", () => {
     expect(exits(t.s, PAGASAE, "vale")).toContain("greek-pherae");
 
     expect(knowsLane(t.s, "vale", PAGASAE, "greek-lemnos")).toBe(false);
+    t.waitFor("pagasae-pilot");
     t.s = ajaxTalk(t.s, `lane:${PAGASAE}>greek-lemnos`, {
       target: "greek-pagasae-pilot",
     });
@@ -480,23 +485,20 @@ describe("ports reachable on foot or by a free leg home", () => {
     t.move("greek-greek-camp", AJAX_LANDING);
     sail("greek-lemnos");
     sail(PAGASAE);
-    t.move(
+    for (const target of [
       ...overland.slice(0, -1).reverse(),
-      "courtyard",
-      "road-thebes",
-      "harbor",
-    );
+      "greek-courtyard",
+      "greek-road-thebes",
+      "greek-harbor",
+    ])
+      t.act("move", { target });
     expect(t.s.actors.vale.place).toBe("greek-harbor");
     expect(t.s.actors.vale.visited).not.toContain("greek-ship");
     expect(t.s.items["greek-provisions"].holder).toBe("greek-harbor");
   });
 
   it("walks the land route home from Piraeus along the open Long Walls", () => {
-    // After the invitation: Vale ashore at Piraeus, the ship called to the
-    // harbor and the provisions carried ashore there. Until the herald's
-    // truce the quays have no road (the call brings the ship back, above).
-    // With the truce the Long Walls open, and the guard holding Creon's
-    // writ opens the City Gate, so the land route leads home.
+    // Vale is ashore at Piraeus when the ship and provisions go to the harbor.
     let s = openDoorStart();
     s = holding(s, "greek-creon-writ", "greek-guard");
     // Roaming residents aboard go ashore: the ship is empty.
@@ -531,6 +533,8 @@ describe("ports reachable on foot or by a free leg home", () => {
     expect(pack.places["greek-road-coast"].retired).toBe(true);
     for (const target of [
       "greek-road-athens-piraeus",
+      CITY_ROAD_FORK,
+      CIVIC_AVENUE,
       "greek-athens",
       "greek-road-athens-eleusis",
       "greek-eleusis",
@@ -559,9 +563,18 @@ const THEBES = [
   "greek-road-thebes",
   "greek-harbor",
 ];
-const COUNTRYSIDE = ["greek-cithaeron", "greek-eleusis", "greek-colonus"];
-// Assembly Hill and the Acropolis belong to full-scope worlds only.
-const CITY = ["greek-athens", "greek-road-athens-piraeus"];
+const COUNTRYSIDE = [
+  "greek-cithaeron",
+  "greek-eleusis",
+  "greek-eleusis-lower-precinct",
+  "greek-colonus",
+];
+const CITY = [
+  "greek-athens",
+  CIVIC_AVENUE,
+  CITY_ROAD_FORK,
+  "greek-road-athens-piraeus",
+];
 const holding = (world, item, holder) => {
   world.items[item].holder = holder;
   if (item === "greek-creon-writ" && holder === "greek-guard") {

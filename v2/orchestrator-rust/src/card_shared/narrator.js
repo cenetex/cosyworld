@@ -2356,7 +2356,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 47,
+        revision: 48,
         name: "The Wine-Dark Sea",
         description: "Roads through Thebes, Attica and Argos meet voyages to the shores of Greek drama. Meet the inhabitants at their gates, sanctuaries, houses and ports, and change what happens there.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2506,29 +2506,57 @@
           },
           "greek-athens": {
             name: "Athenian Agora",
-            text: "Follow the Long Walls to Piraeus Quays. The Marathon Road goes to the altar where the refugees are waiting. Take the road to the Delphic Temple to continue inland toward Pagasae.",
+            text: "The Sacred Way leads to Eleusis. Pass the Acropolis Treasury for the Areopagus. Take the Civic Avenue for Piraeus, Marathon, and Delphi.",
             exits: [
-              "greek-assembly",
               "greek-acropolis",
-              "greek-thinkery",
               "greek-road-athens-eleusis",
-              "greek-road-athens-marathon",
-              "greek-road-sacred-way"
+              "greek-civic-avenue"
             ],
             backdrop: "assets/greek-drama/athens-grand-agora.webp"
           },
+          "greek-civic-avenue": {
+            name: "Civic Avenue",
+            text: "The colonnade leads into the Agora. Take the Road to Delphi for Pagasae, or walk to the City Road Fork for Piraeus and Marathon.",
+            exits: [
+              "greek-athens",
+              "greek-road-sacred-way",
+              "greek-city-road-fork"
+            ],
+            backdrop: "assets/greek-drama/open-door-agora.webp"
+          },
+          "greek-city-road-fork": {
+            name: "City Road Fork",
+            text: "The Long Walls lead down to Piraeus Quays. The North Gate leads to Marathon and Assembly Hill. Follow the Civic Avenue into the Agora or onward to Delphi.",
+            exits: [
+              "greek-civic-avenue",
+              "greek-north-gate"
+            ],
+            backdrop: "assets/greek-drama/dipylon-road.svg"
+          },
+          "greek-north-gate": {
+            name: "North Gate",
+            text: "Marathon Road leads to the altar. Assembly Hill leads to the Thinkery and the House of Demos. Return to the City Road Fork for Piraeus or the Agora.",
+            exits: [
+              "greek-city-road-fork",
+              "greek-road-athens-marathon",
+              "greek-assembly"
+            ],
+            backdrop: "assets/greek-drama/city-gate-day.webp"
+          },
           "greek-piraeus": {
             name: "Piraeus Quays",
-            text: "Follow the Long Walls inland to the Athenian Agora.",
+            text: "Follow the Long Walls inland to the City Road Fork, then take the Civic Avenue to the Athenian Agora.",
             exits: [],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             seed: "From the Charybdis\u2019s quay, the Long Walls lead to Athens and the inland route to Pagasae."
           },
           "greek-assembly": {
             name: "The Assembly Hill",
+            text: "The lanes below the assembly steps lead to the House of Demos and the Thinkery. The North Gate leads back to the city roads.",
             exits: [
-              "greek-athens",
-              "greek-demos-house"
+              "greek-north-gate",
+              "greek-demos-house",
+              "greek-thinkery"
             ],
             backdrop: "assets/greek-drama/assembly-hill.webp",
             seed: "The conflict of Assemblywomen is unfolding here."
@@ -2553,8 +2581,9 @@
           },
           "greek-thinkery": {
             name: "The Thinkery",
+            text: "The Juror\u2019s House is next door. Return through Assembly Hill for the North Gate.",
             exits: [
-              "greek-athens",
+              "greek-assembly",
               "greek-jury-house"
             ],
             backdrop: "assets/greek-drama/courtyard.svg",
@@ -2578,8 +2607,9 @@
           },
           "greek-attic-farm": {
             name: "The Attic Farm",
+            text: "The farm paths lead to Colonus Grove and Acharnae Market. Return to the Lower Precinct for the sanctuary.",
             exits: [
-              "greek-eleusis",
+              "greek-eleusis-lower-precinct",
               "greek-colonus",
               "greek-acharnae"
             ],
@@ -2597,8 +2627,8 @@
           },
           "greek-colonus": {
             name: "Colonus Grove",
+            text: "The path out of the grove leads back to the Attic Farm.",
             exits: [
-              "greek-eleusis",
               "greek-attic-farm"
             ],
             backdrop: "assets/greek-drama/open-door-colonus.webp",
@@ -2606,20 +2636,39 @@
           },
           "greek-eleusis": {
             name: "Eleusinian Sanctuary",
-            text: "Take the Sacred Way to the Athenian Agora. The Cithaeron Road leads to the Exposed Battlefield on the way back to Thebes.",
+            text: "The Sacred Way leads to the Athenian Agora and the Cithaeron Road to the Exposed Battlefield. Go down to the Lower Precinct for the Attic Farm and the Underworld Landing.",
             exits: [
-              "greek-colonus",
-              "greek-attic-farm",
               "greek-cithaeron",
               "greek-road-athens-eleusis",
-              "greek-underworld"
+              "greek-eleusis-lower-precinct"
             ],
             backdrop: "assets/greek-drama/open-door-eleusis.webp",
             seed: "After the attack on Thebes, the Argive mothers seek their sons\u2019 remains here."
           },
+          "greek-eleusis-lower-precinct": {
+            name: "Lower Precinct",
+            text: "Climb back to the Eleusinian Sanctuary or follow the farm path to the Attic Farm. The stone steps descend to the Underworld Landing.",
+            exits: [
+              "greek-eleusis",
+              "greek-underworld",
+              "greek-attic-farm"
+            ],
+            backdrop: "assets/greek-drama/attic-road.webp",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/attic-road-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ]
+          },
           "greek-marathon": {
             name: "Marathon Altar",
-            text: "The Marathon Road returns to the Athenian Agora. From the Agora, the Long Walls lead to Piraeus.",
+            text: "Take Marathon Road to the North Gate. Continue to the City Road Fork for the Long Walls to Piraeus.",
             exits: [
               "greek-road-athens-marathon"
             ],
@@ -2628,19 +2677,20 @@
           },
           "greek-argolid-road": {
             name: "The Argolid Crossroads",
-            text: "The Shore Altar and Jury Yard are open to petitioners. Ismene keeps the tomb account, Creon the palace account, and Dione the farmhouse account. Giving the Record of the House of Atreus to one of them decides which household path opens for everyone.",
+            text: "The Shore Altar path leads to Corinth and the Jury Yard. The tomb path starts here. Ismene keeps the tomb account, Creon the palace account, and Dione the farmhouse account. Giving the Record of the House of Atreus to one of them decides which household path opens for everyone.",
             exits: [
               "greek-harbor",
-              "greek-argos-sanctuary",
-              "greek-corinth"
+              "greek-argos-sanctuary"
             ],
             backdrop: "assets/greek-drama/grove.svg"
           },
           "greek-argos-sanctuary": {
             name: "Argive Shore Altar",
+            text: "The coast path continues to Corinth. The inland path leads to the Argive Jury Yard, and the Crossroads lead back to the harbor.",
             exits: [
               "greek-argolid-road",
-              "greek-argive-jury"
+              "greek-argive-jury",
+              "greek-corinth"
             ],
             backdrop: "assets/greek-drama/suppliants-argive-shore-day.webp",
             seed: "The conflict of Suppliant Women is unfolding here."
@@ -2764,8 +2814,9 @@
           },
           "greek-corinth": {
             name: "Medea\u2019s House in Corinth",
+            text: "The coast path returns to the Argive Shore Altar. The other way leads to Troezen.",
             exits: [
-              "greek-argolid-road",
+              "greek-argos-sanctuary",
               "greek-troezen"
             ],
             backdrop: "assets/greek-drama/courtyard.svg",
@@ -2852,14 +2903,42 @@
           },
           "greek-greek-camp": {
             name: "The Greek Camp at Troy",
+            text: "Camp Lane leads to Ajax\u2019s household tent and grave. The other paths lead to the landing and the boarding shore.",
             exits: [
               "greek-troy",
               "greek-ajax-landing",
+              "greek-trojan-camp-lane"
+            ],
+            backdrop: "assets/greek-drama/ajax-camp-day.webp",
+            seed: "A named Trojan account, beginning after Ajax\u2019s death."
+          },
+          "greek-trojan-camp-lane": {
+            name: "Camp Lane",
+            text: "The lane forks toward Ajax\u2019s household tent and grave. The third path returns to the main camp.",
+            exits: [
+              "greek-greek-camp",
               "greek-ajax-household",
               "greek-ajax-grave"
             ],
             backdrop: "assets/greek-drama/ajax-camp-day.webp",
-            seed: "A named Trojan account, beginning after Ajax\u2019s death."
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/ajax-camp-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-ajax-open",
+                value: true
+              }
+            ]
           },
           "greek-trojan-camp": {
             name: "Trojan Night Camp",
@@ -2957,8 +3036,9 @@
           },
           "greek-underworld": {
             name: "The Underworld Landing",
+            text: "The stone steps lead back up to the Lower Precinct.",
             exits: [
-              "greek-eleusis"
+              "greek-eleusis-lower-precinct"
             ],
             backdrop: "assets/greek-drama/harbor.svg",
             seed: "The conflict of Frogs is unfolding here."
@@ -3062,13 +3142,14 @@
           },
           "greek-road-athens-piraeus": {
             name: "The Long Walls",
+            text: "The walls run from Piraeus Quays to the City Road Fork in Athens.",
             exits: [
               "greek-piraeus",
-              "greek-athens"
+              "greek-city-road-fork"
             ],
             road: [
               "greek-piraeus",
-              "greek-athens"
+              "greek-city-road-fork"
             ],
             backdrop: "assets/greek-drama/attic-road.webp"
           },
@@ -3099,13 +3180,13 @@
           },
           "greek-road-athens-marathon": {
             name: "Marathon Road",
-            text: "One way leads back to the Athenian Agora. The other continues to Marathon Altar.",
+            text: "One way leads back to the North Gate. The other continues to Marathon Altar.",
             exits: [
-              "greek-athens",
+              "greek-north-gate",
               "greek-marathon"
             ],
             road: [
-              "greek-athens",
+              "greek-north-gate",
               "greek-marathon"
             ],
             backdrop: "assets/greek-drama/grove.svg"
@@ -3151,12 +3232,13 @@
           },
           "greek-road-sacred-way": {
             name: "The Road to Delphi",
+            text: "The Civic Avenue leads into Athens. The Delphic Temple lies inland, on the way to Pagasae.",
             exits: [
-              "greek-athens",
+              "greek-civic-avenue",
               "greek-delphi"
             ],
             road: [
-              "greek-athens",
+              "greek-civic-avenue",
               "greek-delphi"
             ],
             backdrop: "assets/greek-drama/sacred-way.svg"
@@ -3250,7 +3332,7 @@
             name: "Ajax\u2019s Household Tent",
             seed: "A named Trojan account, beginning after Ajax\u2019s death.",
             exits: [
-              "greek-greek-camp"
+              "greek-trojan-camp-lane"
             ],
             backdrop: "assets/greek-drama/ajax-camp-day.webp",
             requires: [
@@ -3265,7 +3347,7 @@
             name: "Ajax\u2019s Grave",
             seed: "A named Trojan account, beginning after Ajax\u2019s death.",
             exits: [
-              "greek-greek-camp"
+              "greek-trojan-camp-lane"
             ],
             backdrop: "assets/greek-drama/ajax-camp-day.webp",
             requires: [
@@ -3444,6 +3526,7 @@
           },
           "greek-argive-jury": {
             name: "The Jury Yard of Argos",
+            text: "Return to the crossroads by way of the Shore Altar. The paths to the old palace and the farmhouse depend on which account of the House of Atreus has been given.",
             exits: [
               "greek-argos-sanctuary"
             ],
@@ -8986,7 +9069,7 @@
             to: "greek-argolid-road"
           },
           {
-            from: "greek-argolid-road",
+            from: "greek-argive-jury",
             to: "greek-mycenae-palace",
             requires: [
               {
@@ -9005,10 +9088,10 @@
           },
           {
             from: "greek-mycenae-palace",
-            to: "greek-argolid-road"
+            to: "greek-argive-jury"
           },
           {
-            from: "greek-argolid-road",
+            from: "greek-argive-jury",
             to: "greek-argive-farm",
             requires: [
               {
@@ -9027,7 +9110,7 @@
           },
           {
             from: "greek-argive-farm",
-            to: "greek-argolid-road"
+            to: "greek-argive-jury"
           },
           {
             from: "greek-argos-tomb",
@@ -9055,7 +9138,7 @@
             to: "greek-cithaeron"
           },
           {
-            from: "greek-athens",
+            from: "greek-city-road-fork",
             to: "greek-road-athens-piraeus"
           },
           {
@@ -18042,9 +18125,13 @@
             "greek-ship",
             "greek-scylla",
             "greek-athens",
+            "greek-civic-avenue",
+            "greek-city-road-fork",
+            "greek-north-gate",
             "greek-piraeus",
             "greek-colonus",
             "greek-eleusis",
+            "greek-eleusis-lower-precinct",
             "greek-road-thebes",
             "greek-road-athens-piraeus",
             "greek-road-athens-eleusis",
@@ -18052,6 +18139,7 @@
             "greek-cithaeron",
             "greek-polynices-hollow",
             "greek-greek-camp",
+            "greek-trojan-camp-lane",
             "greek-ajax-landing",
             "greek-ajax-household",
             "greek-ajax-grave",
@@ -18839,6 +18927,7 @@
             name: "Earth Beside the Ships",
             places: [
               "greek-greek-camp",
+              "greek-trojan-camp-lane",
               "greek-ajax-landing",
               "greek-ajax-household",
               "greek-ajax-grave"
@@ -25852,6 +25941,7 @@
       attica: {
         court: [
           "greek-athens",
+          "greek-civic-avenue",
           "greek-acropolis",
           "greek-acharnae",
           "greek-acharnae-stall",
@@ -25865,6 +25955,8 @@
           "greek-road-coast"
         ],
         open: [
+          "greek-city-road-fork",
+          "greek-north-gate",
           "greek-road-athens-piraeus",
           "greek-road-athens-colonus",
           "greek-road-athens-eleusis",
@@ -25884,6 +25976,7 @@
           "greek-festival",
           "greek-colonus",
           "greek-eleusis",
+          "greek-eleusis-lower-precinct",
           "greek-bird-wilderness"
         ]
       },
@@ -25936,6 +26029,7 @@
         open: [
           "greek-troy",
           "greek-trojan-camp",
+          "greek-trojan-camp-lane",
           "greek-ajax-grave"
         ],
         coast: [
@@ -31235,6 +31329,7 @@
         reconcileHomecomingBeach(s);
         reconcileMarathonRoad(s);
       }
+      if (greekRevision < 48) reconcileGreekJunctions(s);
     }
     if (reworked.has("elysium")) settleStrandedWayfinder(s);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
@@ -31439,6 +31534,44 @@
       "greek-harbor>greek-troy-beach",
       "greek-troy-beach>greek-harbor"
     ]));
+  }
+  var greekJunctionPaths = [
+    ["athens", "civic-avenue", "city-road-fork", "north-gate", "assembly"],
+    ["athens", "civic-avenue", "city-road-fork", "north-gate", "assembly", "thinkery"],
+    ["athens", "civic-avenue", "road-sacred-way"],
+    ["athens", "civic-avenue", "city-road-fork", "road-athens-piraeus"],
+    ["athens", "civic-avenue", "city-road-fork", "north-gate", "road-athens-marathon"],
+    ["argolid-road", "argos-sanctuary", "corinth"],
+    ["argolid-road", "argos-sanctuary", "argive-jury", "mycenae-palace"],
+    ["argolid-road", "argos-sanctuary", "argive-jury", "argive-farm"],
+    ["eleusis", "eleusis-lower-precinct", "attic-farm"],
+    ["eleusis", "eleusis-lower-precinct", "attic-farm", "colonus"],
+    ["eleusis", "eleusis-lower-precinct", "underworld"],
+    ["greek-camp", "trojan-camp-lane", "ajax-household"],
+    ["greek-camp", "trojan-camp-lane", "ajax-grave"]
+  ];
+  function reconcileGreekJunctions(s) {
+    const replacements = /* @__PURE__ */ new Map();
+    for (const junction of greekJunctionPaths) {
+      const path = junction.map((place) => `greek-${place}`);
+      for (const directed of [path, path.toReversed()]) {
+        const edges = directed.slice(1).map((to, index) => [directed[index], to]);
+        replacements.set(`${directed[0]}>${directed.at(-1)}`, edges);
+      }
+    }
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(edges)) continue;
+      const learned = [];
+      const kept = edges.filter((edge) => {
+        const steps = Array.isArray(edge) && replacements.get(edge.join(">"));
+        if (!steps) return true;
+        learned.push(...steps);
+        return false;
+      });
+      if (!learned.length) continue;
+      s.routeKnowledge[actor] = kept;
+      rememberRoutes(s, actor, learned);
+    }
   }
   function reconcileNorthernRoad(s) {
     const road = "greek-road-north";

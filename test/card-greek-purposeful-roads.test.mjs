@@ -41,7 +41,7 @@ function towns() {
 }
 
 const ROADS = [
-  ["greek-road-sacred-way", "greek-athens", "greek-delphi"],
+  ["greek-road-sacred-way", "greek-civic-avenue", "greek-delphi"],
   ["greek-oeta", "greek-delphi", "greek-trachis"],
   ["greek-road-royal", "greek-troy", "greek-susa"],
   ["greek-road-scythia", "greek-tauris", "greek-scythian-crag"],
@@ -56,6 +56,7 @@ const FAR_SHORES = [
 ];
 const CUT = [
   ["greek-athens", "greek-delphi"],
+  ["greek-civic-avenue", "greek-delphi"],
   ["greek-delphi", "greek-trachis"],
   ["greek-troy", "greek-susa"],
   ["greek-tauris", "greek-scythian-crag"],

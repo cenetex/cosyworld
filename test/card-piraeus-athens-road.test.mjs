@@ -40,10 +40,14 @@ describe("Piraeus to Athens needs no burial", () => {
     expect(s.actors.vale.place).toBe("greek-piraeus");
     expect(exits(s, "greek-piraeus", "vale")).toContain(WALLS);
     s = step(s, "move", { target: WALLS });
-    expect(exits(s, WALLS, "vale")).toContain("greek-athens");
-    s = step(s, "move", { target: "greek-athens" });
+    const city = ["greek-city-road-fork", "greek-civic-avenue", "greek-athens"];
+    expect(exits(s, WALLS, "vale")).toEqual(["greek-piraeus", city[0]]);
+    for (const target of city) s = step(s, "move", { target });
     expect(s.actors.vale.place).toBe("greek-athens");
     expect(s.packs["greek-drama"].flags["greek-burial-performed"]).toBeFalsy();
+    for (const target of [city[1], city[0], WALLS, "greek-piraeus"])
+      s = step(s, "move", { target });
+    expect(s.actors.vale.place).toBe("greek-piraeus");
     // Neither end of the Walls waits on the land gate, the herald or a burial.
     const seals = pack.routes.filter((r) => r.to === WALLS);
     expect(seals.every((r) => !r.requires?.length)).toBe(true);

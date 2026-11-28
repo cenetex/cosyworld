@@ -40,9 +40,10 @@ import {
 import { stowProvisions } from "./helpers/provisions.mjs";
 import { learnLane } from "../v2/card-game/pack-transport.mjs";
 
-// The countryside reaches the harbour only through the city, so only Piraeus
-// reaches the harbor without passing through the Agora.
-const paths = [["piraeus", "harbor"]];
+const AVENUE = "greek-civic-avenue";
+// The City Road Fork keeps the crossing from the Avenue to the harbor open
+// while four visitors fill the Agora.
+const paths = [["civic-avenue", "city-road-fork", "piraeus", "harbor"]];
 
 describe("roads around a full Agora", () => {
   it.each(paths.map((path) => [path[0], path]))(
@@ -132,11 +133,12 @@ describe("roads around a full Agora", () => {
   );
   it("rejects a stale Agora move and restores the road when someone leaves", () => {
     const world = crowdedAgoraWorld();
-    world.actors.vale.place = "greek-road-athens-piraeus";
+    world.actors.vale.place = AVENUE;
     const alone = agoraView(world, ["vale"]);
     const action = alone.actions.find(
       (a) => a.kind === "move" && a.target === "greek-athens",
     );
+    expect(action).toBeDefined();
     const rejected = dispatchShared({
       op: "play",
       world,
@@ -146,7 +148,7 @@ describe("roads around a full Agora", () => {
       action,
     });
     expect(rejected.ok).toBe(false);
-    expect(rejected.world.actors.vale.place).toBe("greek-road-athens-piraeus");
+    expect(rejected.world.actors.vale.place).toBe(AVENUE);
     expect(rejected.world.turn).toBe(world.turn);
     const present = agoraVisitors.filter((id) => id !== "tavi");
     const reopened = agoraView(world, present);

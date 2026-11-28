@@ -21,6 +21,7 @@ import {
 import { greekStart, playGreek as playOpenDoor } from "./helpers/open-door.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { learnLane } from "../v2/card-game/pack-transport.mjs";
+import { MAX_DWELL } from "../v2/card-game/world/dwell.mjs";
 import {
   ajaxStart,
   ajaxCamp,
@@ -37,6 +38,7 @@ import {
 } from "./helpers/greek-ajax.mjs";
 
 const pack = packDefinition("greek-drama");
+const campLane = "greek-trojan-camp-lane";
 const reload = (world) => decodeSave(encodeSave(world));
 const graveRite = (world) => packWaitChoice(world, "vale")?.choiceId;
 // A deed is a committed pack choice: its receipt turn and its actor.
@@ -71,7 +73,11 @@ describe("Earth Beside the Ships", () => {
         ajaxState(harbor).receipts["greek-ajax-invitation"],
       ).toBeUndefined();
       expect(entityActive(harbor, "greek-ajax-landing")).toBe(false);
+      expect(entityActive(harbor, campLane)).toBe(false);
       expect(entityActive(harbor, "greek-ajax-teucer")).toBe(false);
+      expect(exits(harbor, "greek-troy").includes("greek-greek-camp")).toBe(scope === "full");
+      expect(exits(harbor, "greek-greek-camp")).not.toContain("greek-ajax-landing");
+      expect(exits(harbor, "greek-greek-camp")).not.toContain(campLane);
       expect(exits(harbor, "greek-ship")).not.toContain("greek-ajax-landing");
       expect(exits(harbor, "greek-scylla")).not.toContain("greek-ajax-landing");
       expect(legalActions(harbor).filter((a) => a.kind === "choose")).toEqual(
@@ -81,7 +87,10 @@ describe("Earth Beside the Ships", () => {
       expect(ajaxState(world).choices["greek-ajax-frame"]).toBe(
         "trojan-after-ajax",
       );
-      expect(entityActive(reload(world), "greek-ajax-landing")).toBe(true);
+      const saved = reload(world);
+      expect(entityActive(saved, "greek-ajax-landing")).toBe(true);
+      expect(entityActive(saved, campLane)).toBe(true);
+      expect(exits(saved, "greek-troy")).toContain("greek-greek-camp");
       expect(exits(world, "greek-harbor")).not.toContain("greek-road-north");
       expect(exits(world, "greek-ship")).not.toContain("greek-ajax-landing");
       expect(exits(world, "greek-scylla")).toContain("greek-ajax-landing");
@@ -290,16 +299,26 @@ describe("Earth Beside the Ships", () => {
     expect(knowsFact(narrated, "vale", "greek-ajax-plea")).toBe(true);
     expect(entityActive(narrated, "greek-ajax-plea")).toBe(true);
   });
-  it("uses local paths inside the camp and a ship stop between its shores", () => {
-    const world = ajaxPlea();
-    for (const id of [
-      "greek-ajax-landing",
-      "greek-ajax-household",
-      "greek-ajax-grave",
-    ])
-      expect(exits(world, "greek-greek-camp")).toContain(id);
-    expect(exits(world, "greek-ajax-landing")).toContain("greek-greek-camp");
-    expect(pack.places["greek-ajax-household"].name).toContain("Household");
+  it("walks through Camp Lane in both directions between the main camp, tent and grave", () => {
+    const camp = "greek-greek-camp";
+    const landing = "greek-ajax-landing";
+    const tent = "greek-ajax-household";
+    const grave = "greek-ajax-grave";
+    const world = ajaxCamp();
+    expect(exits(world, camp).sort()).toEqual(
+      ["greek-troy", landing, campLane].sort(),
+    );
+    expect(exits(world, landing)).toContain(camp);
+    expect(pack.places[tent].name).toContain("Household");
+    const walk = (at, target) => playOpenDoor(at, "move", { target });
+    const atLane = walk(world, campLane);
+    expect(exits(atLane, campLane).sort()).toEqual([camp, tent, grave].sort());
+    for (const place of [tent, grave]) {
+      const atSite = walk(atLane, place);
+      expect(atSite.actors.vale.place).toBe(place);
+      expect(exits(atSite, place)).toEqual([campLane]);
+      expect(walk(walk(atSite, campLane), camp).actors.vale.place).toBe(camp);
+    }
   });
 });
 
@@ -327,12 +346,14 @@ describe("shared Ajax testimony", () => {
       world = result.world;
       return result;
     };
-    const act = (actor, kind, fields = {}) => {
-      const action = request("view", actor).actions.find(
+    const available = (actor, kind, fields = {}) =>
+      request("view", actor).actions.find(
         (a) =>
           a.kind === kind &&
           Object.entries(fields).every(([k, v]) => a[k] === v),
       );
+    const act = (actor, kind, fields = {}) => {
+      const action = available(actor, kind, fields);
       expect(action, `${actor} ${kind} ${JSON.stringify(fields)}`).toBeTruthy();
       return request("play", actor, { action });
     };
@@ -366,7 +387,10 @@ describe("shared Ajax testimony", () => {
     act("mara", "move", { target: "greek-pagasae" });
     for (const target of greekTravelTargets("greek-pagasae", "greek-courtyard"))
       act("mara", "move", { target });
-    act("mara", "give", { item: "greek-ajax-plea", target: "greek-baker" });
+    const handoff = { item: "greek-ajax-plea", target: "greek-baker" };
+    for (let n = 0; n < 2 * MAX_DWELL && !available("mara", "give", handoff); n++)
+      act("mara", "wait");
+    act("mara", "give", handoff);
     expect(world.items["greek-ajax-plea"].holder).toBe("greek-courtyard");
     expect(ajaxState(world).receipts["greek-ajax-return-public"]).toBe(
       world.turn,

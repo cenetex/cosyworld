@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave, legalActions, play } from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { knowsLane } from "../v2/card-game/pack-transport.mjs";
+import { knownRoute } from "../v2/card-game/roaming-routes.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { gainTrust } from "../v2/card-game/world/company.mjs";
 import { act, witnessed } from "./fixtures/card-branch-ways.mjs";
@@ -15,8 +16,10 @@ const rhapsode = "greek-rhapsode";
 const retiredReturn = ["greek-lemnos", "greek-piraeus"];
 const survivingRoad = ["greek-harbor", "greek-road-thebes"];
 
-async function releasedRules() {
-  const revision = "a5f722f147e2d6cd8ff7381c96c138a77f15eb73";
+async function releasedRules(
+  revision = "a5f722f147e2d6cd8ff7381c96c138a77f15eb73",
+  version = 229,
+) {
   const git = promisify(execFile);
   const prior = (name) =>
     git(
@@ -26,7 +29,7 @@ async function releasedRules() {
     ).then(({ stdout }) => stdout);
   const [content, source] = await Promise.all([
     prior("content.json"),
-    prior("engine-v229.js"),
+    prior(`engine-v${version}.js`),
   ]);
   const runtime = vm.createContext({
     cardContent: JSON.parse(content),
@@ -181,6 +184,35 @@ it("stores resident trust when it is earned and compacts old zero entries", () =
   expect(loaded.actors[creon].trust[guard]).toBeUndefined();
   expect(loaded.actors[guard].trust[creon]).toBe(1);
   expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
+});
+
+it("translates known directions in revision 47 saves and lets travelers leave the Long Walls", async () => {
+  const prior = await releasedRules("0c5f4f1d683f33061a500ec64aebf4e8ce14df51", 232);
+  const old = prior.createWorld();
+  const agora = "greek-athens", walls = "greek-road-athens-piraeus";
+  const avenue = "greek-civic-avenue", fork = "greek-city-road-fork";
+  old.actors.vale.place = walls;
+  old.crossings["pond-greek-harbor"].discovered = true;
+  old.items.bell.holder = "vale";
+  old.routeKnowledge.vale = [[agora, walls]];
+  expect(old.packs[greek].revision).toBe(47);
+  prior.validateWorld(old);
+
+  const save = JSON.stringify(old);
+  const shared = dispatchShared({ op: "create", save });
+  expect(shared.ok, shared.error).toBe(true);
+  for (const loaded of [decodeSave(save), shared.world]) {
+    expect(loaded.packs[greek].revision).toBe(48);
+    expect(loaded.items.bell.holder).toBe("vale");
+    expect(loaded.actors.vale.place).toBe(walls);
+    expect(knownRoute(loaded, "vale", agora, walls)).toEqual([agora, avenue, fork, walls]);
+    expect(knownRoute(loaded, "vale", walls, agora)).toBeNull();
+    expect(loaded.routeKnowledge.vale).not.toContainEqual([agora, walls]);
+    expect(knownRoute(loaded, rhapsode, "greek-argive-farm", "greek-argolid-road")).toEqual([
+      "greek-argive-farm", "greek-argive-jury", "greek-argos-sanctuary", "greek-argolid-road",
+    ]);
+    expect(act(loaded, "move", (action) => action.target === fork).actors.vale.place).toBe(fork);
+  }
 });
 
 describe("retired Greek place cards", () => {

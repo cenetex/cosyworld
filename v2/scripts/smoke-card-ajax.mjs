@@ -25,6 +25,7 @@ const tecmessa = "greek-ajax-tecmessa";
 const pagasae = "greek-pagasae";
 const lemnos = "greek-lemnos";
 const pilot = "greek-pagasae-pilot";
+const campLane = "greek-trojan-camp-lane";
 
 function steps(route) {
   const move = (target) => ({ kind: "move", target });
@@ -45,24 +46,32 @@ function steps(route) {
     move("greek-greek-camp"),
     choose("learn-shield-teucer"),
     take("shield"),
+    move(campLane),
     move("greek-ajax-household"),
     choose("deliver-shield"),
+    move(campLane),
     move("greek-greek-camp"),
     choose("hear-plea"),
     take("plea"),
     choose("deliver-plea"),
-    ...(route === "household" ? [move("greek-ajax-household")] : []),
+    ...(route === "household"
+      ? [move(campLane), move("greek-ajax-household")]
+      : []),
     choose(`choose-${route}`),
-    ...(route === "household" ? [take("plea"), move("greek-greek-camp")] : []),
+    ...(route === "household"
+      ? [take("plea"), move(campLane), move("greek-greek-camp")]
+      : []),
     ...(route === "appeal" ? [choose("witness-appeal")] : []),
     take("tools"),
     take("cloth"),
+    move(campLane),
     move("greek-ajax-grave"),
     drop("tools"),
     drop("cloth"),
     choose("prepare-grave"),
     choose("lay-cloth"),
     choose(`bury-${route}`),
+    move(campLane),
     move("greek-greek-camp"),
     ...(route === "household" ? [] : [take("plea")]),
     choose(`record-${route}`),

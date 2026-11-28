@@ -130,13 +130,15 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
     let (path, c, id, mut world) = fixture();
     assert_eq!(world.version, engine::version());
     assert!(world.game["packs"]["greek-drama"]["receipts"]["greek-ajax-bury-appeal"].is_null());
-    play(
-        &c,
-        &id,
-        &mut world,
-        0,
-        &[("kind", "move"), ("target", "greek-greek-camp")],
-    );
+    for target in ["greek-trojan-camp-lane", "greek-greek-camp"] {
+        play(
+            &c,
+            &id,
+            &mut world,
+            0,
+            &[("kind", "move"), ("target", target)],
+        );
+    }
     play(
         &c,
         &id,
@@ -144,20 +146,17 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         0,
         &[("kind", "talk"), ("target", "greek-ajax-odysseus")],
     );
-    play(
-        &c,
-        &id,
-        &mut world,
-        0,
-        &[("kind", "move"), ("target", "greek-ajax-grave")],
-    );
-    play(
-        &c,
-        &id,
-        &mut world,
-        1,
-        &[("kind", "move"), ("target", "greek-ajax-grave")],
-    );
+    for actor in [0, 1] {
+        for target in ["greek-trojan-camp-lane", "greek-ajax-grave"] {
+            play(
+                &c,
+                &id,
+                &mut world,
+                actor,
+                &[("kind", "move"), ("target", target)],
+            );
+        }
+    }
     play(
         &c,
         &id,
@@ -181,13 +180,15 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         "appeal"
     );
     for actor in [0, 1] {
-        play(
-            &c,
-            &id,
-            &mut world,
-            actor,
-            &[("kind", "move"), ("target", "greek-greek-camp")],
-        );
+        for target in ["greek-trojan-camp-lane", "greek-greek-camp"] {
+            play(
+                &c,
+                &id,
+                &mut world,
+                actor,
+                &[("kind", "move"), ("target", target)],
+            );
+        }
     }
     play(
         &c,
@@ -242,6 +243,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         "greek-oeta",
         "greek-delphi",
         "greek-road-sacred-way",
+        "greek-civic-avenue",
         "greek-athens",
         "greek-road-athens-eleusis",
         "greek-eleusis",
