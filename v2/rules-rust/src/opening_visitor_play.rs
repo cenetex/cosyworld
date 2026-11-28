@@ -44,6 +44,9 @@ fn quiet_turn(world: &Value) -> Option<u64> {
             })
             .then_some(()),
         (2, "pond") => opening_mirror_move::second_arrival(world),
+        (3, "behind-station") | (4, "pond") => {
+            opening_station_move::departure_turn(world).map(|_| ())
+        }
         (_, "station") => opening_station_move::arrival(world)
             .or_else(|| opening_station_move::abandoned_train_arrival(world))
             .or_else(|| opening_station_read::after_first_log(world))
@@ -160,9 +163,10 @@ fn quiet_departure_wait(
     let read = opening_station_read::after_first_log(world);
     let same_room =
         opening_station_move::abandoned_train_arrival(world).is_some() || read.is_some();
+    let station_departure = opening_station_move::departure_turn(world).is_some();
     let round = world["turn"].as_u64()?;
-    if (!same_room && round != 3)
-        || world["actors"]["vale"]["place"] != "station"
+    if (!same_room && !station_departure && round != 3)
+        || (!station_departure && world["actors"]["vale"]["place"] != "station")
         || here == "station"
         || resident["crossed"] != 1
         || resident["dwellUntil"].as_u64()? <= round
@@ -362,7 +366,9 @@ fn perform_visitor(
         return None;
     }
     let destination = home_destination(world, geo, actor, home)?;
-    if historic && destination != Some("willows-bank") {
+    if (historic && destination != Some("willows-bank"))
+        || (destination.is_some() && opening_station_move::departure_turn(world).is_some())
+    {
         return None;
     }
     let Some(to) = destination else {

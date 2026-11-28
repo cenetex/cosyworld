@@ -2,11 +2,10 @@
 // displaced, and take a step at dawn and dusk where no player is (residentRound
 // in world.mjs). Sleep and Guard have their own modules. Walks use id order.
 //
-// The data is `world-life.json`: defaults, per-pack defaults and per-resident
-// `range` (hops from home), `sails`, `sleep` ({from, to} in clock turns, or
-// null for one who never sleeps) and `guards`, plus the guardable ways. It
-// sits beside the packs, not in them, so the released rules (v93 to v99)
-// still read this content. See docs/design/rules-100-world-life.md.
+// `world-life.json` has global and per-pack defaults, resident `range` (hops),
+// `sails`, `sleep` (clock turns or null), `guards` and guardable ways. The
+// file sits beside the packs so released rules v93–v99 can still read it.
+// See docs/design/rules-100-world-life.md.
 import forest from "./forest.json" with { type: "json" };
 import life from "./world-life.json" with { type: "json" };
 import {

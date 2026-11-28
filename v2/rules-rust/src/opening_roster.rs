@@ -155,6 +155,15 @@ pub(super) fn residents<'a>(
     actor: &str,
 ) -> Option<Vec<&'a str>> {
     let place = world["actors"][actor]["place"].as_str()?;
+    residents_at(world, geo, known, place)
+}
+
+pub(super) fn residents_at<'a>(
+    world: &Value,
+    geo: &Geography,
+    known: &[&'a str],
+    place: &str,
+) -> Option<Vec<&'a str>> {
     let mut residents = vec!["moth", "keeper"];
     if known.contains(&"boardyai") {
         residents.push("boardyai");

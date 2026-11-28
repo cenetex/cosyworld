@@ -84,6 +84,20 @@ pub(super) fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool
         && (event["itemId"].is_null() || event["itemId"] == LAMP)
 }
 
+pub(super) fn departure_turn(world: &Value) -> Option<u64> {
+    let turn = world["turn"].as_u64()?;
+    let to = world["actors"][VALE]["place"].as_str()?;
+    let event = world["log"].as_array()?.last()?;
+    (matches!((turn, to), (3, BEHIND) | (4, POND))
+        && world["arrival"]["fromLocationId"] == STATION
+        && world["arrival"]["locationId"] == to
+        && world["arrival"]["seq"] == world["eventSeq"]
+        && event["seq"] == world["eventSeq"]
+        && vale_action(event)
+        && move_event(event, turn, STATION, to))
+    .then_some(turn)
+}
+
 pub(super) fn arrival(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
     (matches!(turn, 2 | 3) && world.get("began").is_none()).then_some(())?;
