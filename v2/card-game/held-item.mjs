@@ -30,10 +30,9 @@ export const validHeldItems = (world) =>
         Object.hasOwn(world.items, actor.heldItem)),
   );
 
-// Every play chooses from its actual result. A fresh receipt takes the hand;
-// a valid existing choice stays otherwise. Old saves use the same stable
-// fallback. Explicit null means deliberately put away, not a missing legacy
-// choice. A new receipt may still take that empty hand.
+// A fresh receipt takes the hand. Otherwise keep a valid choice, using the
+// stable fallback for legacy saves. Null keeps the hand deliberately empty
+// until a new receipt.
 export function settleHeldItems(world, before = null) {
   if (!validHeldItems(world)) throw new Error("The held item is invalid.");
   const hands = handSnapshot(world);
