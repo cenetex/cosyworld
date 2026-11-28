@@ -37,6 +37,8 @@ pub(super) const ACCEPT_TRAIN: &str = "accept:vale::box:train";
 pub(super) const ABANDON_QUEST: &str = "drop:vale:::0";
 const KEEPER_QUEST: &str = "quest:keeper:pond";
 const KEEPER_FROM: &str = "quest:from:keeper";
+const KEEPER_TERMS: &str =
+    r#"["place","pond",[["crossing","pond-greek-harbor"],["verb","call"]],null]"#;
 const TRAIN_TERMS: &str = r#"["item","routes",[["at","station"],["verb","bring"]],null]"#;
 const EXITS: [&str; 2] = [POND, "behind-station"];
 const LAMP: &str = "lamp";
@@ -997,6 +999,92 @@ fn abandonment_events(world: &Value) -> Option<&[Value]> {
     .then_some(events)
 }
 
+fn release_station_quest(
+    world: &mut Value,
+    turn: u64,
+    revision: u64,
+    from: &str,
+    target: &str,
+    terms: &str,
+) -> Option<()> {
+    world["turn"] = turn.into();
+    world["revision"] = revision.into();
+    world["playerActorId"] = json!(VALE);
+    for field in ["heldActors", "controlledActors", "presentActors"] {
+        world[field] = json!([VALE]);
+    }
+    let vale = world["actors"][VALE].as_object_mut()?;
+    for field in ["under", "offered", "guarding"] {
+        vale.remove(field);
+    }
+    vale.insert("want".into(), Value::Null);
+    vale.insert("gaveUp".into(), json!({"target":target,"turn":turn}));
+    vale.insert("closed".into(), json!({(from):[turn,terms]}));
+    Some(())
+}
+
+pub fn begin_keeper_abandon(
+    request: &Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    order: &[&str],
+    evidence: &ResidentEvidence,
+) -> Option<Value> {
+    let before = station_action_world(request, ABANDON_QUEST)?;
+    let [read, _] = settled_first_read(before)?;
+    let revision = before["revision"].as_u64()?.checked_add(1)?;
+    if revision <= 4
+        || revision > opening::MAX_REVISION
+        || before["speechVoices"][VALE] != json!([])
+        || before["actors"][VALE]["want"]["from"] != KEEPER_FROM
+    {
+        return None;
+    }
+    station_scene(before, geo, order, false, false)?;
+    station_paths(before, geo)?;
+    let mut world = before.clone();
+    if !world["placeCard"][STATION].is_null()
+        && world["knowledge"]["facts"][format!("quest:{STATION}:{WAYFINDER}")].is_null()
+    {
+        return None;
+    }
+    observe_place(&mut world, geo, read["seq"].as_u64()?)?;
+    release_station_quest(&mut world, 4, revision, KEEPER_FROM, POND, KEEPER_TERMS)?;
+    let cast = known_actors(&world, geo, order, Some(STATION))?;
+    let items = visible_items(&world, geo, authored, STATION)?;
+    let witnesses: Vec<_> = authored
+        .actors
+        .iter()
+        .map(String::as_str)
+        .filter(|id| cast.contains(id))
+        .chain(items.iter().copied())
+        .collect();
+    let name = |id: &str| evidence.profile(id)?.get("name")?.as_str();
+    let goal = keeper_call_goal(name("cloth")?, name(POND)?, name(LAMP)?);
+    let text = format!("{} abandons their quest to {goal}.", name(VALE)?);
+    evidence.record(
+        &mut world,
+        &cast,
+        &items,
+        json!({
+            "speaker":"World","text":text,"kind":"action","actorId":VALE,"verb":"drop",
+            "locationId":STATION,"witnesses":witnesses,
+        }),
+        true,
+    )?;
+    Some(world)
+}
+
+pub(super) fn keeper_abandon_projection(request: &Value) -> Option<Value> {
+    let order = opening_roster::actor_order(request, request.get("world")?)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let evidence = ResidentEvidence::new(&files)?;
+    let world = begin_keeper_abandon(request, &geo, &authored, &order, &evidence)?;
+    Some(json!({"ok":true,"world":world}))
+}
+
 pub(super) fn abandon_train(request: &Value) -> Option<Value> {
     let before = train_action_world(request, ABANDON_QUEST)?;
     let before_seq = before["eventSeq"].as_u64()?;
@@ -1029,22 +1117,14 @@ pub(super) fn abandon_train(request: &Value) -> Option<Value> {
     confirm_pip_wait(before, &geo)?;
     opening_hub_residents::at_home(before, &geo, KEEPER, "oil")?;
     let mut world = before.clone();
-    world["turn"] = turn.into();
-    world["revision"] = revision.into();
-    world["playerActorId"] = json!(VALE);
-    for field in ["heldActors", "controlledActors", "presentActors"] {
-        world[field] = json!([VALE]);
-    }
-    let vale = world["actors"][VALE].as_object_mut()?;
-    for field in ["under", "offered", "guarding"] {
-        vale.remove(field);
-    }
-    vale.insert("want".into(), Value::Null);
-    vale.insert("gaveUp".into(), json!({"target":ROUTES,"turn":turn}));
-    vale.insert(
-        "closed".into(),
-        json!({"quest:box:train":[turn,TRAIN_TERMS]}),
-    );
+    release_station_quest(
+        &mut world,
+        turn,
+        revision,
+        "quest:box:train",
+        ROUTES,
+        TRAIN_TERMS,
+    )?;
     let cast = known_actors(&world, &geo, &order, Some(STATION))?;
     let items = visible_items(&world, &geo, &authored, STATION)?;
     let witnesses: Vec<_> = authored
