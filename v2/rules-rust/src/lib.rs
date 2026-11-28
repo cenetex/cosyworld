@@ -25,6 +25,7 @@ pub mod opening_evidence;
 mod opening_full_move;
 mod opening_full_wait;
 mod opening_grounded_lamp;
+mod opening_held_items;
 pub mod opening_history;
 mod opening_history_walkers;
 mod opening_hub_residents;
@@ -219,6 +220,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_second_hub_idle") => {
             opening_hub_residents::second_projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_final_hands") => {
+            opening_held_items::projection(request).unwrap_or(Value::Null)
         }
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
