@@ -199,7 +199,6 @@ describe("the reflected shore card game", () => {
     expect(
       legalActions(s).some((a) => a.kind === "take" && a.item === "lamp"),
     ).toBe(false);
-    // The keeper values the lamp little and hands it over.
     s = createWorld();
     s.actors.keeper.place = "station";
     s.items.lamp.holder = "keeper";

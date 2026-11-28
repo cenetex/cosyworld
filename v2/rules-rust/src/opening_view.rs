@@ -48,6 +48,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     match request["world"]["actors"]["vale"]["place"].as_str() {
         Some("pond") => return super::opening_pond_view::private_view(request, &present),
         Some("station") => return super::opening_station_view::private_view(request, &present),
+        Some("greek-harbor") => {
+            return super::opening_greek_harbor_view::private_view(request, &present)
+        }
         Some("greek-ship") => {
             return super::opening_pond_ship_view::private_view(request, &present)
         }
