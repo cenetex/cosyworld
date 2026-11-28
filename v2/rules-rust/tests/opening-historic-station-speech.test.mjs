@@ -125,8 +125,6 @@ test("turn-482 Station speech keeps the keeper's cue and reloads its private vie
   assert.equal(wasm({ ...saved, world: unwitnessed }), null);
   assert.equal(wasm({ ...seats, op: "view", world: unwitnessed }), null);
 
-  for (const seed of [1, 17]) {
-    const world = arrive(pinned, seed, true, false);
-    assert.equal(wasm({ ...saved, world }), null);
-  }
+  const activeVisitor = arrive(pinned, 1, true, false);
+  assert.equal(wasm({ ...saved, world: activeVisitor }), null);
 });

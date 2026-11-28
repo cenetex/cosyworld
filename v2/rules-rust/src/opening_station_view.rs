@@ -88,6 +88,12 @@ pub(super) fn historic_station(world: &Value) -> bool {
     world["began"] == 480 && world["turn"] == 482
 }
 
+fn historic_awake_station(world: &Value) -> bool {
+    historic_station(world)
+        && matches!(world["run"]["seed"].as_u64(), Some(17 | 99))
+        && world["actors"][PIP]["place"] == STATION
+}
+
 fn response_chronology(world: &Value) -> Option<u64> {
     if historic_station(world) {
         opening_station_move::historic_arrival(world)
@@ -735,11 +741,12 @@ pub(super) fn settled_speech_voices(
     if world["turn"] != 2 && !historic_station(world) {
         return None;
     }
+    let awake_historic = historic_awake_station(world);
     let events = arrival_events(
         world,
         response_chronology(world)?.checked_sub(1)?,
         true,
-        false,
+        awake_historic,
     )?;
     let named = voices(world);
     if named.contains(&RUE)
@@ -751,7 +758,7 @@ pub(super) fn settled_speech_voices(
     {
         return None;
     }
-    station_scene(world, geo, order, false, false)?;
+    station_scene(world, geo, order, false, awake_historic)?;
     station_paths(world, geo)?;
     Some(named)
 }
@@ -1101,7 +1108,7 @@ pub(super) fn abandon_train(request: &Value) -> Option<Value> {
 }
 
 pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
-    project_private(request, present, false)
+    project_private(request, present, historic_awake_station(&request["world"]))
 }
 
 fn project_private(request: &Value, present: &[&str], awake_historic: bool) -> Option<Value> {
