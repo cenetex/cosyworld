@@ -138,13 +138,8 @@ for (const pack of packs) {
   }
 }
 
-// Entries: each pack's ways in, as `{joins, at, arrive, via}`. `joins` is
-// the hub or another pack, `at` its place where this pack's travelers come
-// out, `arrive` this pack's place where they enter, and `via` the existing
-// crossing between the two, so passage keeps one source of truth. Every
-// place is in the pack's release. The hub declares its `start` and the
-// switchable groups. The rules read the entries from the hub
-// (`packEntries`), so no pack schema changes (v2/docs/card-packs.md).
+// Each pack entry references an existing crossing between released places.
+// The rules read these links from the compiled hub's packEntries.
 const hub = table.hub || {};
 const sides = {
   hub: { places: Object.fromEntries((hub.places || []).map((id) => [id, {}])) },
