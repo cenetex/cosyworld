@@ -14,6 +14,7 @@ mod initial_wants;
 mod join;
 mod opening;
 mod opening_candidates;
+mod opening_content;
 pub mod opening_evidence;
 pub mod opening_history;
 mod opening_play;
