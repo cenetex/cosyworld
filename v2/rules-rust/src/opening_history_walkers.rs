@@ -2,6 +2,7 @@ use super::{
     create_geography::Geography,
     opening_content, opening_quiet_life,
     opening_resident_sleep::{self, Residents},
+    opening_wants,
     pack_state::Catalog,
 };
 use serde_json::{json, Value};
@@ -16,7 +17,8 @@ pub(super) fn verify(
     let turn = match room {
         "attic" => opening_resident_sleep::historic_attic(world)?,
         "pond" => opening_resident_sleep::historic_pond(world)?,
-        "station" => opening_resident_sleep::historic_station(world, geo)?,
+        "station" => opening_resident_sleep::historic_station(world, geo)
+            .or_else(|| opening_wants::verify_awake_station(world, geo).map(|()| 482))?,
         _ => return None,
     };
     let turn = u64::try_from(turn).ok()?;

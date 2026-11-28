@@ -270,7 +270,6 @@ describe("the full world shared by human avatars", () => {
     world.items.lamp.holder = "vale";
     world.actors.mara.place = "pond";
     world.actors.vale.place = "pond";
-    // A want one move away: residents content after a met want only wait.
     world.actors.mara.want = {
       kind: "place",
       target: "station",
