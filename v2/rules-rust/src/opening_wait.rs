@@ -1,7 +1,8 @@
 use super::{
     opening::{self, MAX_REVISION},
+    opening_attic_rest,
     opening_evidence::{remember, trim_log},
-    opening_play,
+    opening_play, opening_wait_response,
 };
 use serde_json::{json, Map, Value};
 
@@ -78,7 +79,10 @@ fn begin_wait(world: &mut Value, files: &Value) -> Option<Value> {
 }
 
 pub(super) fn wait_world(request: &Value) -> Option<&Value> {
-    let world = opening::supported_world(request)?;
+    wait_request(request, opening::supported_world(request)?)
+}
+
+fn wait_request<'a>(request: &Value, world: &'a Value) -> Option<&'a Value> {
     let action = &request["action"];
     if request["actor"] != ACTOR
         || !opening::seats(&request["present"])?.contains(&ACTOR)
@@ -89,6 +93,21 @@ pub(super) fn wait_world(request: &Value) -> Option<&Value> {
             .is_some_and(|ids| ids.iter().any(|id| id == ACTOR))
         || action["kind"] == "pack"
         || action.as_str().or_else(|| action["key"].as_str()) != Some(WAIT)
+    {
+        return None;
+    }
+    Some(world)
+}
+
+pub(super) fn second_world(request: &Value) -> Option<&Value> {
+    let world = wait_request(request, opening::supported_after_first_turn(request)?)?;
+    if opening::seats(&request["claimed"])? != [ACTOR]
+        || opening::seats(&request["present"])? != [ACTOR]
+        || ["absent", "hidden", "homecoming", "gone", "disabledPacks"]
+            .iter()
+            .any(|key| !world[*key].is_null())
+        || !world["stationExitOrder"].as_array()?.is_empty()
+        || opening_wait_response::settled_first_wait(world)? != 1
     {
         return None;
     }
@@ -106,6 +125,26 @@ pub(super) fn begin_with_files(world: &Value, files: &Value) -> Option<(Value, V
     let mut next = world.clone();
     let event = begin_wait(&mut next, files)?;
     Some((next, event))
+}
+
+pub(super) fn begin_second(before: &Value, files: &Value) -> Option<Value> {
+    let mut world = before.clone();
+    world["playerActorId"] = json!(ACTOR);
+    for field in ["heldActors", "controlledActors", "presentActors"] {
+        world[field] = json!([ACTOR]);
+    }
+    world["actors"][ACTOR].as_object_mut()?.remove("offered");
+    opening_attic_rest::rest_vale(&mut world, files)?;
+    begin_wait(&mut world, files)?;
+    opening_attic_rest::settle_vale_wants(&mut world, files)?;
+    Some(world)
+}
+
+pub(super) fn second_projection(request: &Value) -> Option<Value> {
+    let before = second_world(request)?;
+    let files = opening_play::attic_content_files(request)?;
+    let world = begin_second(before, &files)?;
+    Some(json!({ "ok":true, "world":world }))
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {

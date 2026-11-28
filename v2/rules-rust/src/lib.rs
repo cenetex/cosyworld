@@ -161,6 +161,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
+        Some("opening_second_wait_step") => {
+            opening_wait::second_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_drop_step") => opening_drop::projection(request).unwrap_or(Value::Null),
         Some("opening_take_step") => opening_take::projection(request).unwrap_or(Value::Null),
         Some("opening_drop_reflection") => {
