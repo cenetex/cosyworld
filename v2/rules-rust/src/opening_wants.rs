@@ -94,7 +94,7 @@ fn player_want(want: &Value) -> Option<()> {
     (!talk).then_some(())
 }
 
-pub(super) fn settle_first_wait(world: &mut Value, files: &Value) -> Option<()> {
+pub(super) fn settle_first_wait(world: &mut Value, geo: &Geography) -> Option<()> {
     let turn = world["turn"].as_u64()?;
     if turn != 1
         || world.get("began").is_some_and(|turn| turn != 0)
@@ -113,9 +113,7 @@ pub(super) fn settle_first_wait(world: &mut Value, files: &Value) -> Option<()> 
     {
         return None;
     }
-    let catalog = Catalog::from_files(files)?;
-    let geo = Geography::new(files, catalog.packs())?;
-    let loss = Loss::new(world, &geo)?;
+    let loss = Loss::new(world, geo)?;
     let actors = world["actors"].as_object()?;
     let mut retime = Vec::new();
     let mut expired = Vec::new();
@@ -179,9 +177,11 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         return None;
     }
     let files = opening_play::attic_files(world, request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
     let mut next = world.clone();
     next["turn"] = json!(1);
-    settle_first_wait(&mut next, &files)?;
+    settle_first_wait(&mut next, &geo)?;
     let wants: Map<_, _> = next["actors"]
         .as_object()?
         .iter()

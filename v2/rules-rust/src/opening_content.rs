@@ -114,6 +114,9 @@ impl<'de> Visitor<'de> for PackVisitor {
 #[derive(Deserialize)]
 struct Choice {
     id: Option<String>,
+    at: Option<String>,
+    on: Option<String>,
+    archived: Option<bool>,
     effects: Option<Vec<Effect>>,
 }
 
@@ -126,26 +129,40 @@ struct Effect {
 }
 
 fn project_choices(choices: Vec<Choice>) -> Value {
-    Value::Array(
-        choices
-            .into_iter()
-            .filter_map(|choice| {
-                let id = choice.id?;
-                let effects: Vec<_> = choice
-                    .effects?
-                    .into_iter()
-                    .filter(|effect| {
-                        effect.kind.as_deref() == Some("retire_item")
-                            && effect.wait_at_home == Some(true)
-                    })
-                    .map(|effect| {
-                        json!({"kind":"retire_item", "item":effect.item, "waitAtHome":true})
-                    })
-                    .collect();
-                (!effects.is_empty()).then(|| json!({"id":id,"effects":effects}))
-            })
-            .collect(),
-    )
+    Value::Array(choices.into_iter().filter_map(project_choice).collect())
+}
+
+fn project_choice(choice: Choice) -> Option<Value> {
+    let wait_sign = choice.at.as_deref() == Some("attic") && choice.on.as_deref() == Some("wait");
+    let effects: Vec<_> = choice
+        .effects
+        .into_iter()
+        .flatten()
+        .filter_map(|effect| match effect.kind.as_deref() {
+            Some("retire_item") if effect.wait_at_home == Some(true) => {
+                Some(json!({"kind":"retire_item","item":effect.item,"waitAtHome":true}))
+            }
+            Some("drop_item") if choice.archived != Some(true) => {
+                Some(json!({"kind":"drop_item","item":effect.item}))
+            }
+            _ => None,
+        })
+        .collect();
+    if !wait_sign && effects.is_empty() {
+        return None;
+    }
+    let mut projected = Map::new();
+    if let Some(id) = choice.id {
+        projected.insert("id".into(), Value::String(id));
+    }
+    if wait_sign {
+        projected.insert("at".into(), json!("attic"));
+        projected.insert("on".into(), json!("wait"));
+    }
+    if !effects.is_empty() {
+        projected.insert("effects".into(), Value::Array(effects));
+    }
+    Some(Value::Object(projected))
 }
 
 pub(super) fn files(request: &Value) -> Option<Value> {
@@ -158,7 +175,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn preserves_opening_pack_data_and_waiting_retire_effects() {
+    fn preserves_choice_markers_used_by_opening_rules() {
         let input = json!({"schema":1,"files":{
             "v2/card-game/packs.json":{"hub":{"places":["station"]},"packs":[
                 {"id":"example","works":{"a":"metadata"},"places":{"home":{}}, "choices":[
@@ -167,7 +184,10 @@ mod tests {
                         {"kind":"retire_item", "item":"b", "waitAtHome":true},
                         {"kind":"mark_choice", "item":"b", "waitAtHome":true}
                     ]},
-                    {"id":"two", "effects":[]}
+                    {"id":"two", "effects":[]},
+                    {"at":"attic", "on":"wait", "text":"A sign"},
+                    {"id":"drop", "effects":[{"kind":"drop_item", "item":"b"}]},
+                    {"id":"archived", "archived":true, "effects":[{"kind":"drop_item", "item":"c"}]}
                 ]},
                 {"id":"empty", "choices":[]},
                 {"id":"absent"}
@@ -180,7 +200,9 @@ mod tests {
             Some(json!({
                 "v2/card-game/packs.json":{"hub":{"places":["station"]},"packs":[
                     {"id":"example", "places":{"home":{}}, "choices":[
-                        {"id":"one", "effects":[{"kind":"retire_item", "item":"b", "waitAtHome":true}]}
+                        {"id":"one", "effects":[{"kind":"retire_item", "item":"b", "waitAtHome":true}]},
+                        {"at":"attic", "on":"wait"},
+                        {"id":"drop", "effects":[{"kind":"drop_item", "item":"b"}]}
                     ]},
                     {"id":"empty", "choices":[]},
                     {"id":"absent"}

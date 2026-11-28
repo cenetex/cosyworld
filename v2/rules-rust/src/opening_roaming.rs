@@ -54,9 +54,7 @@ struct Move {
     sanctuary: bool,
 }
 
-fn chosen_move(world: &Value, files: &Value, turn: u64) -> Option<Move> {
-    let catalog = Catalog::from_files(files)?;
-    let geo = Geography::new(files, catalog.packs())?;
+fn chosen_move(world: &Value, geo: &Geography, turn: u64) -> Option<Move> {
     let pack = geo.packs().find(|pack| pack["id"] == GREEK)?;
     let person = &pack["avatars"][BARD];
     let actor = &world["actors"][BARD];
@@ -94,7 +92,7 @@ fn chosen_move(world: &Value, files: &Value, turn: u64) -> Option<Move> {
     {
         return None;
     }
-    let forest = files.get("v2/card-game/forest.json")?;
+    let forest = geo.files().get("v2/card-game/forest.json")?;
     let authored = create::authored_edges(forest, geo.packs())?;
     let mut known = Vec::new();
     for edge in world["routeKnowledge"][BARD].as_array()? {
@@ -108,7 +106,7 @@ fn chosen_move(world: &Value, files: &Value, turn: u64) -> Option<Move> {
         let ways = match exits.entry(start) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
-                entry.insert(opening_visitor_routes::exits(world, &geo, BARD, start)?)
+                entry.insert(opening_visitor_routes::exits(world, geo, BARD, start)?)
             }
         };
         Some(ways.contains(to))
@@ -132,7 +130,7 @@ fn chosen_move(world: &Value, files: &Value, turn: u64) -> Option<Move> {
     {
         return None;
     }
-    let life = &files["v2/card-game/world-life.json"];
+    let life = &geo.files()["v2/card-game/world-life.json"];
     if life["guardable"].as_array()?.iter().any(|way| {
         (way["from"] == from && way["to"] == to) || (way["from"] == to && way["to"] == from)
     }) {
@@ -149,13 +147,13 @@ fn chosen_move(world: &Value, files: &Value, turn: u64) -> Option<Move> {
     })
 }
 
-pub(super) fn bard_move(world: &mut Value, files: &Value) -> Option<Value> {
+pub(super) fn bard_move(world: &mut Value, geo: &Geography) -> Option<Value> {
     let turn = world["turn"].as_u64()?;
     let began = world.get("began").map_or(Some(0), Value::as_u64)?;
     if began.checked_add(1)? != turn || world["actors"]["vale"]["place"] != "attic" {
         return None;
     }
-    let chosen = chosen_move(world, files, turn)?;
+    let chosen = chosen_move(world, geo, turn)?;
     let dwell = turn.checked_add(24 + u64::from(seed::hash(&format!("{BARD}@{turn}")) % 6))?;
     let actor = &mut world["actors"][BARD];
     let visited = actor["visited"].as_array_mut()?;
@@ -190,9 +188,11 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     }
     let turn = opening::unplayed_turn(world)?.checked_add(1)?;
     let files = opening_play::attic_files(world, request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
     let mut next = world.clone();
     next["turn"] = json!(turn);
-    let event = bard_move(&mut next, &files)?;
+    let event = bard_move(&mut next, &geo)?;
     Some(
         json!({"ok":true,"event":event,"actor":next["actors"][BARD],"routes":next["routeKnowledge"][BARD]}),
     )
