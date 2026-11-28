@@ -153,7 +153,6 @@ fn verified_opening(saved: &Value, files: &Value) -> Option<Value> {
         0 => initial,
         1 => opening::hold_solo_vale(initial, held)?,
         2 if initial["actors"]["vale"]["heldItem"] == "lamp" => {
-            // Stowing the lit lamp can add this marker, and a quiet hold never removes it.
             let first = if initial.get("opened") == saved.get("opened") {
                 json!("lamp")
             } else {

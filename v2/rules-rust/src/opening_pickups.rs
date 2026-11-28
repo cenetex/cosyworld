@@ -3,6 +3,29 @@ use super::{
     resident_evidence::ResidentEvidence,
 };
 use serde_json::{json, Map, Value};
+use std::collections::BTreeMap;
+
+pub(super) struct Custody(BTreeMap<String, usize>);
+
+impl Custody {
+    pub(super) fn new(world: &Value) -> Option<Self> {
+        let mut counts = BTreeMap::new();
+        for item in world["items"].as_object()?.keys() {
+            let holder = initial_wants::root(world, item)?;
+            *counts.entry(holder.to_owned()).or_default() += 1;
+        }
+        Some(Self(counts))
+    }
+
+    fn take(&mut self, home: &str, actor: &str) -> Option<()> {
+        if self.0.get(home) != Some(&1) || self.0.contains_key(actor) {
+            return None;
+        }
+        self.0.remove(home);
+        self.0.insert(actor.into(), 1);
+        Some(())
+    }
+}
 
 fn lists(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
@@ -53,6 +76,7 @@ pub(super) fn take(
     claimed: &[&str],
     present: &[&str],
     actor: &str,
+    custody: &mut Custody,
 ) -> Option<Option<Value>> {
     if actor == "vale"
         || present.contains(&actor)
@@ -106,11 +130,10 @@ pub(super) fn take(
     {
         return None;
     }
-    for other in world["items"].as_object()?.keys().filter(|id| *id != item) {
-        if [actor, home].contains(&initial_wants::root(world, other)?) {
-            return None;
-        }
+    if initial_wants::root(world, item)? != home || world["items"].get(actor).is_some() {
+        return None;
     }
+    custody.take(home, actor)?;
 
     let name = avatar["name"].as_str()?;
     let item_name = item_as_named(avatar["item"]["name"].as_str()?);
@@ -178,8 +201,17 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let mut actors = Map::new();
     let mut items = Map::new();
     let mut memories = Map::new();
+    let mut custody = Custody::new(&world)?;
     for actor in roster {
-        if let Some(event) = take(&mut world, &geography, &evidence, &claimed, &present, actor)? {
+        if let Some(event) = take(
+            &mut world,
+            &geography,
+            &evidence,
+            &claimed,
+            &present,
+            actor,
+            &mut custody,
+        )? {
             let item = event["itemId"].as_str()?;
             let home = event["locationId"].as_str()?;
             actors.insert(actor.into(), world["actors"][actor].clone());
