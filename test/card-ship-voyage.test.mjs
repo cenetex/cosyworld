@@ -245,7 +245,6 @@ describe("a real voyage", () => {
   it("an empty ship stays put, and a human waiting at a port brings it one lane closer", () => {
     let s = setup("greek-piraeus");
     for (const id of players) s.actors[id].place = "pond";
-    // The Travel Provisions on deck keep the Piraeus lane open.
     stowProvisions(s, "greek-ship");
     s = reload(s);
     // Piraeus to Black Pond is two lanes, through the Wine-Dark Harbor.
