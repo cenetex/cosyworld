@@ -202,8 +202,19 @@ test("Keeper Log reading, abandonment, Pip’s gift, and reload match pinned sta
     );
     assert.equal(wasm({ ...complete, present: [] }), null);
     assert.equal(wasm({ ...complete, world: stage }), null);
+    const played = wasm(drop);
+    const changedField = Object.keys(fullDrop.world).find(
+      (key) => !isDeepStrictEqual(played?.world[key], fullDrop.world[key]),
+    );
+    assert.ok(
+      isDeepStrictEqual(played, fullDrop),
+      `normal drop ${seed} ${changedField ?? ""}`,
+    );
+    assert.equal(wasm({ ...drop, revision: drop.world.revision - 1 }), null);
+    assert.equal(wasm({ ...drop, present: [] }), null);
+    assert.equal(wasm({ ...drop, world: played.world }), null);
     for (const present of [["vale"], []]) {
-      const request = { ...seats, op: "view", world: reply.world, present };
+      const request = { ...seats, op: "view", world: played.world, present };
       assert.ok(
         isDeepStrictEqual(wasm(request), run(request)),
         `drop private ${seed}/${present}`,

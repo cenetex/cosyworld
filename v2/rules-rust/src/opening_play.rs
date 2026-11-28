@@ -23,7 +23,7 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if key == Some(opening_station_view::ABANDON_QUEST)
         && request["world"]["actors"]["vale"]["place"] == "station"
     {
-        return opening_station_view::abandon_train(request);
+        return opening_station_view::abandon(request);
     }
     if matches!(key, Some("move:vale::station" | "move:vale:lamp:station")) {
         return super::opening_full_station_move::reduce(request);

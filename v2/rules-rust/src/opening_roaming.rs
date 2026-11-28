@@ -1,7 +1,7 @@
 use super::{
     create, create_geography::Geography, opening, opening_content, opening_play,
-    opening_resident_sleep, opening_station_move, opening_station_read, opening_visitor_routes,
-    opening_wait_response::vale_action, pack_state::Catalog, seed,
+    opening_resident_sleep, opening_station_move, opening_station_read, opening_station_view,
+    opening_visitor_routes, opening_wait_response::vale_action, pack_state::Catalog, seed,
 };
 use serde_json::{json, Value};
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, VecDeque};
@@ -359,7 +359,8 @@ pub(super) fn settle_dwell(world: &mut Value, geo: &Geography<'_>) -> Option<()>
                 .or_else(|| opening_station_move::abandoned_train_arrival(world))
                 .is_none()
             {
-                opening_station_read::after_first_log(world)?;
+                opening_station_read::after_first_log(world)
+                    .or_else(|| opening_station_view::keeper_abandon_head(world))?;
                 only_bard_roams(world, geo)?;
             }
             1

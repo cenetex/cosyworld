@@ -1,6 +1,6 @@
 use super::{
     initial_wants, lamp_state, opening_content, opening_crossings, opening_mirror_move,
-    opening_station_move, opening_station_read, pack_state::Catalog,
+    opening_station_move, opening_station_read, opening_station_view, pack_state::Catalog,
 };
 use crate::{Geography, LampPosition};
 use serde_json::{json, Value};
@@ -68,7 +68,8 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
     opening_station_move::arrival(world)
         .or_else(|| opening_station_move::historic_arrival(world))
         .or_else(|| opening_station_move::abandoned_train_arrival(world))
-        .or_else(|| opening_station_read::after_first_log(world))?;
+        .or_else(|| opening_station_read::after_first_log(world))
+        .or_else(|| opening_station_view::keeper_abandon_head(world))?;
     settle_carried_at(world, geo, "station")
 }
 
@@ -85,6 +86,13 @@ fn settle_carried_lamp(world: &mut Value, place: &str) -> Option<()> {
     let held = match world["actors"][VALE].get("heldItem")? {
         Value::Null => false,
         item if item == LAMP => true,
+        item if place == "station"
+            && item == "cloth"
+            && world["items"]["cloth"]["holder"] == VALE
+            && opening_station_view::keeper_abandon_head(world).is_some() =>
+        {
+            false
+        }
         _ => return None,
     };
     let lamp = &mut world["items"][LAMP];

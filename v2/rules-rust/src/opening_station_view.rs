@@ -13,6 +13,7 @@ use super::{
     opening_roaming,
     opening_roster::{self, known_actors},
     opening_second_attic_lamp, opening_second_attic_tail, opening_second_round, opening_settlement,
+    opening_station_keeper_gift::settle_keeper_abandon_gift,
     opening_station_move::{self, rue_arrived},
     opening_station_quest_drop_learning::confirm_pip_wait,
     opening_station_read::{after_first_log, first_log_history, keeper_book_claim},
@@ -1030,18 +1031,34 @@ pub(super) fn keeper_abandoned(world: &Value) -> bool {
         && vale["closed"] == json!({(KEEPER_FROM):[4,KEEPER_TERMS]})
 }
 
-fn keeper_abandon_events<'a>(world: &'a Value, geo: &Geography<'_>) -> Option<&'a [Value]> {
-    if !keeper_abandoned(world) {
-        return None;
-    }
-    let log = world["log"].as_array()?;
-    let [.., read, wait, drop, gift] = log.as_slice() else {
+pub(super) fn keeper_abandon_head(world: &Value) -> Option<u64> {
+    let [.., read, wait, drop, gift] = world["log"].as_array()?.as_slice() else {
         return None;
     };
+    if !keeper_abandoned(world) || drop["verb"] != "drop" {
+        return None;
+    }
     let read_seq = first_log_history(world, Some(drop))?;
     witnessed_read_wait(world, read, wait, read_seq)?;
-    keeper_book_claim(world, geo)?;
     let seq = read_seq.checked_add(3)?;
+    (drop["seq"] == seq.checked_sub(1)?
+        && gift["seq"] == seq
+        && world["eventSeq"] == seq
+        && gift["actorId"] == PIP
+        && gift["verb"] == "give"
+        && gift["itemId"] == "cloth"
+        && gift["targetId"] == VALE
+        && gift["accepted"] == true)
+        .then_some(seq)
+}
+
+fn keeper_abandon_events<'a>(world: &'a Value, geo: &Geography<'_>) -> Option<&'a [Value]> {
+    keeper_abandon_head(world)?;
+    let log = world["log"].as_array()?;
+    let [.., wait, drop, gift] = log.as_slice() else {
+        return None;
+    };
+    keeper_book_claim(world, geo)?;
     let events = log.get(log.len().checked_sub(2)?..)?;
     let forest = &geo.files()["v2/card-game/forest.json"];
     let vale = forest["people"][VALE]["name"].as_str()?;
@@ -1054,33 +1071,22 @@ fn keeper_abandon_events<'a>(world: &'a Value, geo: &Geography<'_>) -> Option<&'
     );
     let cast = gift["cast"].as_array()?;
     let cloth_id = |item: &&Value| item["id"] == "cloth";
-    (drop["seq"] == seq.checked_sub(1)?
-        && gift["seq"] == seq
-        && world["eventSeq"] == seq
-        && events.iter().all(|event| {
-            event["turn"] == 4
-                && event["kind"] == "action"
-                && event["speaker"] == "World"
-                && event["locationId"] == STATION
-                && event["generated"] != true
-                && event["cast"] == gift["cast"]
-                && event["witnesses"] == wait["witnesses"]
-                && event["light"] == false
-        })
-        && cast.len() == 3
+    (events.iter().all(|event| {
+        event["turn"] == 4
+            && event["kind"] == "action"
+            && event["speaker"] == "World"
+            && event["locationId"] == STATION
+            && event["generated"] != true
+            && event["cast"] == gift["cast"]
+            && event["witnesses"] == wait["witnesses"]
+            && event["light"] == false
+    }) && cast.len() == 3
         && [VALE, PIP, KEEPER]
             .iter()
             .all(|id| cast.iter().any(|member| member == id))
-        && drop["actorId"] == VALE
-        && drop["verb"] == "drop"
         && drop["text"] == format!("{vale} abandons their quest to {goal}.")
         && entries(&drop["items"]).find(cloth_id)?["holder"] == PIP
-        && gift["actorId"] == PIP
-        && gift["verb"] == "give"
-        && gift["itemId"] == "cloth"
-        && gift["targetId"] == VALE
         && gift["fromLocationId"] == STATION
-        && gift["accepted"] == true
         && entries(&gift["items"]).find(cloth_id)?["holder"] == VALE
         && gift["text"] == format!("{pip} gives {} to {vale}.", item_as_named(cloth)))
     .then_some(events)
@@ -1237,7 +1243,47 @@ pub(super) fn keeper_abandon_projection(request: &Value) -> Option<Value> {
     Some(json!({"ok":true,"world":world}))
 }
 
-pub(super) fn abandon_train(request: &Value) -> Option<Value> {
+fn abandon_keeper(request: &Value) -> Option<Value> {
+    let before = station_action_world(request, ABANDON_QUEST)?;
+    let before_seq = before["eventSeq"].as_u64()?;
+    let order = opening_roster::actor_order(request, before)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let evidence = ResidentEvidence::new(&files)?;
+    let mut world = begin_keeper_abandon(request, &geo, &authored, &order, &evidence)?;
+    let known = known_actors(&world, &geo, &order, None)?;
+    let residents = opening_roster::residents(&world, &geo, &known, VALE)?;
+    let deck = Deck::new(&world, &geo)?;
+    deck.settle(&mut world, &geo, None)?;
+    let mut world = settle_keeper_abandon_gift(world, &geo, &authored, &order, &evidence)?;
+    opening_hub_residents::at_home(&world, &geo, KEEPER, "oil")?;
+    opening_second_round::settle_visitors(
+        &mut world, &geo, &authored, &order, &evidence, &deck, &residents,
+    )?;
+    if keeper_abandon_head(&world)? != before_seq.checked_add(2)?
+        || world["placeCard"] != before["placeCard"]
+        || world["items"]["bell"]["ringing"] != 0
+    {
+        return None;
+    }
+    opening_second_attic_tail::settle_quiet_station_before_wants(
+        before, &mut world, &geo, &catalog,
+    )?;
+    opening_wants::settle_station(&mut world, &geo)?;
+    opening_second_attic_tail::settle_quiet_station_after_wants(before, &mut world, &geo)?;
+    let profiles = evidence.into_profiles();
+    completed_keeper_abandon(world, &geo, &authored, &order, before_seq, profiles)
+}
+
+pub(super) fn abandon(request: &Value) -> Option<Value> {
+    if request["world"]["actors"][VALE]["want"]["from"] == KEEPER_FROM {
+        return abandon_keeper(request);
+    }
+    abandon_train(request)
+}
+
+fn abandon_train(request: &Value) -> Option<Value> {
     let before = train_action_world(request, ABANDON_QUEST)?;
     let before_seq = before["eventSeq"].as_u64()?;
     let turn = before["turn"].as_u64()?.checked_add(1)?;

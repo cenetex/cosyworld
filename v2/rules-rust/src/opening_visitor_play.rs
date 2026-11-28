@@ -2,7 +2,8 @@ use super::{
     authored_order::Order,
     opening_content, opening_crossings, opening_full_wait, opening_mirror_move,
     opening_pickups::{self, Custody},
-    opening_roster, opening_station_move, opening_station_read, opening_visitor_routes,
+    opening_roster, opening_station_move, opening_station_read, opening_station_view,
+    opening_visitor_routes,
     opening_wait_response::vale_action,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
@@ -50,6 +51,7 @@ fn quiet_turn(world: &Value) -> Option<u64> {
         (_, "station") => opening_station_move::arrival(world)
             .or_else(|| opening_station_move::abandoned_train_arrival(world))
             .or_else(|| opening_station_read::after_first_log(world))
+            .or_else(|| opening_station_view::keeper_abandon_head(world))
             .map(|_| ()),
         _ => None,
     }?;
@@ -160,7 +162,8 @@ fn quiet_departure_wait(
     let resident = world["actors"].get(actor)?;
     let here = resident["place"].as_str()?;
     let want = &resident["want"];
-    let read = opening_station_read::after_first_log(world);
+    let read = opening_station_read::after_first_log(world)
+        .or_else(|| opening_station_view::keeper_abandon_head(world)?.checked_sub(3));
     let same_room =
         opening_station_move::abandoned_train_arrival(world).is_some() || read.is_some();
     let station_departure = opening_station_move::departure_turn(world).is_some();
