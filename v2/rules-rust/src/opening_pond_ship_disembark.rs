@@ -6,7 +6,9 @@ use super::{
     opening_full_wait::visible_items,
     opening_held_items,
     opening_pickups::item_as_named,
-    opening_pond_ship_wait, opening_roster,
+    opening_pond_ship_view, opening_pond_ship_wait,
+    opening_reflection::{trim_text, valid_text},
+    opening_roster,
     opening_station_move::{self, departure_witnesses, quiet_opening},
     opening_visitor_routes,
     opening_wait_response::vale_action,
@@ -101,8 +103,15 @@ fn quiet_harbor(world: &Value, geo: &Geography<'_>) -> Option<()> {
     Some(())
 }
 
-fn ready(world: &Value, geo: &Geography<'_>, authored: &Order) -> Option<Vec<&'static str>> {
+fn ready(
+    world: &Value,
+    geo: &Geography<'_>,
+    authored: &Order,
+    evidence: &ResidentEvidence,
+) -> Option<Vec<&'static str>> {
     let docking = opening_pond_ship_wait::docking_event(world)?;
+    let log = world["log"].as_array()?;
+    let head = log.last()?;
     let vale = &world["actors"][VALE];
     let lamp = &world["items"]["lamp"];
     let ship = &world["transports"][SHIP];
@@ -111,8 +120,7 @@ fn ready(world: &Value, geo: &Geography<'_>, authored: &Order) -> Option<Vec<&'s
         ["sea:greek-harbor", "sea:pond"],
         ["sea:pond", "sea:greek-harbor"]
     ]);
-    if docking["seq"] != world["eventSeq"]
-        || world["log"].as_array()?.last()? != docking
+    if head["seq"] != world["eventSeq"]
         || world["schema"] != 8
         || world["sharedVersion"] != 1
         || !quiet_opening(world)
@@ -148,6 +156,21 @@ fn ready(world: &Value, geo: &Geography<'_>, authored: &Order) -> Option<Vec<&'s
     {
         return None;
     }
+    if head != docking {
+        opening_pond_ship_view::settled_speakers(world, geo, |id| {
+            evidence.profile(id)?["name"].as_str()
+        })?;
+        let offset = log.iter().rposition(|line| line == docking)?;
+        if log.get(offset + 1..)?.iter().any(|line| {
+            !line["text"]
+                .as_str()
+                .is_some_and(|text| valid_text(text, 600) && trim_text(text) == text)
+                || line.get("witnesses").is_some()
+                || line.get("verb").is_some()
+        }) {
+            return None;
+        }
+    }
     let items = world["items"].as_object()?;
     for id in items.keys().filter(|id| id.as_str() != CLOTH) {
         if root_in(items, id)? == VALE {
@@ -168,7 +191,7 @@ pub(super) fn begin_with<T>(
     carry: bool,
     prepare: impl FnOnce(&Value) -> Option<T>,
 ) -> Option<(Value, T)> {
-    let mut remaining = ready(before, geo, authored)?;
+    let mut remaining = ready(before, geo, authored, evidence)?;
     remaining.retain(|&id| id != VALE);
     let revision = before["revision"].as_u64()?.checked_add(1)?;
     if revision > MAX_REVISION {
