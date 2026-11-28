@@ -1,6 +1,7 @@
 use super::{
-    create, initial_wants, opening_content, opening_mirror_move, opening_wait_response,
-    pack_state::Catalog, Geography,
+    create, initial_wants, opening_content, opening_held_items, opening_mirror_move,
+    opening_second_attic_lamp, opening_station_move, opening_wait_response, pack_state::Catalog,
+    Geography,
 };
 use serde_json::{json, Value};
 
@@ -8,6 +9,7 @@ const STATION: &str = "station";
 const WAYFINDER: &str = "elysium-wayfinder";
 const POND: &str = "pond";
 const PIP: &str = "moth";
+const KEEPER: &str = "keeper";
 
 fn fresh_attic(world: &Value) -> Option<u64> {
     let turn = world["turn"].as_u64()?;
@@ -20,7 +22,7 @@ fn fresh_attic(world: &Value) -> Option<u64> {
 
 pub(super) fn verify_station(world: &Value, geo: &Geography) -> Option<()> {
     if fresh_attic(world).is_none() {
-        opening_mirror_move::second_arrival(world)?;
+        arrived_scene(world)?;
     }
     verify_station_order(world, geo)
 }
@@ -51,7 +53,7 @@ pub(super) fn verify_station_order(world: &Value, geo: &Geography) -> Option<()>
 
 pub(super) fn verify_wayfinder(world: &Value, geo: &Geography) -> Option<()> {
     if fresh_attic(world) != Some(2) {
-        opening_mirror_move::second_arrival(world)?;
+        arrived_scene(world)?;
     }
     if !world["items"].as_object()?.contains_key(WAYFINDER) {
         return Some(());
@@ -65,24 +67,37 @@ pub(super) fn verify_wayfinder(world: &Value, geo: &Geography) -> Option<()> {
 
 fn second_attic(world: &Value) -> Option<()> {
     (fresh_attic(world)? == 2
-        && ["heldActors", "presentActors", "controlledActors"]
-            .iter()
-            .all(|key| {
-                world[*key]
-                    .as_array()
-                    .is_some_and(|ids| ids.len() == 1 && ids[0] == "vale")
-            })
+        && solo(world)
         && (world["playerActorId"].is_null() || world["playerActorId"] == "vale"))
         .then_some(())
 }
 
-fn second_scene(world: &Value) -> Option<&'static str> {
-    if world["actors"]["vale"]["place"] == POND {
+fn solo(world: &Value) -> bool {
+    ["heldActors", "presentActors", "controlledActors"]
+        .iter()
+        .all(|key| {
+            world[*key]
+                .as_array()
+                .is_some_and(|ids| ids.len() == 1 && ids[0] == "vale")
+        })
+}
+
+fn arrived_scene(world: &Value) -> Option<&'static str> {
+    if world["actors"]["vale"]["place"] == STATION {
+        opening_station_move::arrival(world)?;
+        (solo(world) && world["playerActorId"] == "vale").then_some(STATION)
+    } else {
         opening_mirror_move::second_arrival(world)?;
         Some(POND)
-    } else {
+    }
+}
+
+fn second_scene(world: &Value) -> Option<&'static str> {
+    if world["actors"]["vale"]["place"] == "attic" {
         second_attic(world)?;
         Some("attic")
+    } else {
+        arrived_scene(world)
     }
 }
 
@@ -99,19 +114,29 @@ fn no_arcana(world: &Value, geo: &Geography) -> Option<()> {
 pub(super) fn verify_stops(world: &Value, geo: &Geography) -> Option<()> {
     let scene = second_scene(world)?;
     no_arcana(world, geo)?;
-    let pond = scene == POND;
-    if pond && (world["actors"][PIP]["place"] != POND || !geo.entity_active(world, PIP)?) {
-        return None;
+    let residents: &[&str] = match scene {
+        POND => &[PIP],
+        STATION => &[PIP, KEEPER],
+        _ => &[],
+    };
+    for &resident in residents {
+        if world["actors"][resident]["place"] != scene || !geo.entity_active(world, resident)? {
+            return None;
+        }
     }
     let forest = &geo.files()["v2/card-game/forest.json"];
     (forest["people"]["vale"]["stops"].is_null()
         && geo.packs().all(|pack| {
-            pack["avatars"].get("vale").is_none() && (!pond || pack["avatars"].get(PIP).is_none())
+            pack["avatars"].get("vale").is_none()
+                && residents
+                    .iter()
+                    .all(|id| pack["avatars"].get(*id).is_none())
         })
         && world["actors"].as_object()?.iter().all(|(id, actor)| {
             id == "vale"
                 || actor["place"] != scene
-                || (pond && (id == PIP || geo.entity_active(world, id) == Some(false)))
+                || residents.contains(&id.as_str())
+                || (!residents.is_empty() && geo.entity_active(world, id) == Some(false))
         }))
     .then_some(())
 }
@@ -195,7 +220,7 @@ pub(super) fn no_box_release(world: &Value) -> Option<()> {
 
 fn no_new_rumours(before: &Value, world: &Value) -> Option<()> {
     let since = before["eventSeq"].as_u64()?;
-    if before["turn"] != 1
+    if before["turn"].as_u64()?.checked_add(1) != world["turn"].as_u64()
         || ["usedUp", "gone", "opened"]
             .iter()
             .any(|key| before[*key] != world[*key])
@@ -245,6 +270,12 @@ pub(super) fn verify_final(before: &Value, world: &Value, geo: &Geography) -> Op
     {
         return None;
     }
+    if scene == STATION
+        && (before["actors"]["vale"]["place"] != POND
+            || before["eventSeq"].as_u64()?.checked_add(1) != world["arrival"]["seq"].as_u64())
+    {
+        return None;
+    }
     no_arcana(world, geo)?;
     sealed_at_rest(world, geo)?;
     guards_stable(world, geo)?;
@@ -268,10 +299,17 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let world = request.get("world")?;
     match request["phase"].as_str()? {
         "station" => verify_station(world, &geo)?,
+        "station_order" => verify_station_order(world, &geo)?,
         "wayfinder" => verify_wayfinder(world, &geo)?,
         "stops" => verify_stops(world, &geo)?,
         "wake" => verify_wake(world)?,
         "quiet" => verify_final(request.get("before")?, world, &geo)?,
+        "station_hands_lamp" => {
+            let mut next = world.clone();
+            opening_held_items::settle(&mut next, &geo, Some(request.get("before")?))?;
+            opening_second_attic_lamp::settle_station(&mut next, &geo)?;
+            return Some(json!({"ok":true,"world":next}));
+        }
         _ => return None,
     }
     Some(json!({"ok":true,"world":world}))

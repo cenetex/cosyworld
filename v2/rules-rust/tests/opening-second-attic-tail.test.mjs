@@ -261,3 +261,157 @@ test("the second pond arrival keeps the pinned working-world tail stable", async
     null,
   );
 });
+
+test("both Station arrival horizons match the pinned settling boundaries", async () => {
+  const { pinned, wasm } = await reducers();
+  const reference = currentSharedEngine((source) =>
+    traceQuiet(traceTail(source)),
+  );
+  const save = (request) => {
+    const reply = pinned(request);
+    assert.equal(reply.ok, true, reply.error);
+    return reply.world;
+  };
+  const op = "opening_second_attic_tail";
+  let before;
+  let tail;
+  let quiet;
+  for (const seed of [undefined, 0, 2, 17, 42, 4242, 4_294_967_295]) {
+    for (const waited of [false, true]) {
+      for (const lamp of ["stowed", "dry"]) {
+        let world = save({ op: "create", seed });
+        if (lamp === "stowed") {
+          world = save({
+            ...seats,
+            op: "hold",
+            world,
+            choice: { item: null, revision: world.revision },
+          });
+        } else {
+          Object.assign(world.items.lamp, {
+            fuel: 0,
+            fuelRooms: 0,
+            lit: false,
+          });
+        }
+        if (waited)
+          world = save({ ...seats, op: "play", world, action: "wait:vale::" });
+        before = save({
+          ...seats,
+          op: "play",
+          world,
+          action: "move:vale::pond",
+        });
+        if (lamp === "dry") {
+          before = save({
+            ...seats,
+            op: "speech",
+            world: before,
+            room: "pond",
+            lines: [{ entityId: "pond", text: "Water laps the shore." }],
+          });
+        }
+        if (seed === 2 || seed === 4242) {
+          before.actors = Object.fromEntries(
+            Object.entries(before.actors).toSorted(),
+          );
+        }
+        const action =
+          (lamp === "dry") !== waited
+            ? "move:vale:lamp:station"
+            : "move:vale::station";
+        reference.tail = {};
+        reference.quiet = {};
+        const played = JSON.parse(
+          reference.cardShared(
+            JSON.stringify({ ...seats, op: "play", world: before, action }),
+          ),
+        );
+        assert.equal(played.ok, true, played.error);
+        tail = JSON.parse(JSON.stringify(reference.tail));
+        quiet = JSON.parse(JSON.stringify(reference.quiet));
+        assert.equal(quiet.stops.turn, waited ? 3 : 2);
+        assert.equal(quiet.stops.opening.met.moth, quiet.stops.turn - 1);
+        assert.equal(quiet.stops.opening.met.keeper, quiet.stops.turn);
+        for (const [phase, input, expected] of [
+          ["station_order", tail.earlyStation.before, tail.earlyStation.after],
+          ["stops", quiet.stops, quiet.stopsAfter],
+          ["wake", quiet.wake, quiet.wakeAfter],
+          ["quiet", quiet.arcana, quiet.arcanaAfter],
+          ["wayfinder", tail.wayfinder.before, tail.wayfinder.after],
+          ["station_hands_lamp", tail.wayfinder.after, tail.lateStation.before],
+          ["station", tail.lateStation.before, tail.lateStation.after],
+          ["quiet", quiet.facts, quiet.factsAfter],
+        ]) {
+          const label = `${seed} ${waited} ${lamp} turn ${input.turn} ${phase}`;
+          assert.ok(
+            isDeepStrictEqual(input, expected),
+            `pinned changed ${label}`,
+          );
+          const actual = wasm({ op, phase, before, world: input });
+          assert.ok(
+            isDeepStrictEqual(actual, { ok: true, world: expected }),
+            label,
+          );
+        }
+      }
+    }
+  }
+  for (const [phase, saved, change] of [
+    [
+      "stops",
+      quiet.stops,
+      (world) => {
+        delete world.opening.met.keeper;
+      },
+    ],
+    [
+      "stops",
+      quiet.stops,
+      (world) => {
+        world.actors.mara.place = "station";
+      },
+    ],
+    [
+      "wake",
+      quiet.wake,
+      (world) => {
+        world.actors.vale.sleeping = {
+          since: 2,
+          place: "station",
+          present: [],
+        };
+      },
+    ],
+    [
+      "wayfinder",
+      tail.wayfinder.before,
+      (world) => {
+        world.items["elysium-wayfinder"].holder = "elysium-void-001";
+      },
+    ],
+    [
+      "station_hands_lamp",
+      tail.wayfinder.after,
+      (world) => {
+        world.items.oil.holder = "vale";
+      },
+    ],
+    [
+      "quiet",
+      quiet.facts,
+      (world) => {
+        world.actors.vale.want = { from: "quest:box:pond" };
+      },
+    ],
+  ]) {
+    const world = structuredClone(saved);
+    change(world);
+    assert.equal(wasm({ op, phase, before, world }), null);
+  }
+  const wrongSource = { ...before, eventSeq: before.eventSeq - 1 };
+  assert.equal(
+    wasm({ op, phase: "quiet", before: wrongSource, world: quiet.facts }),
+    null,
+  );
+});

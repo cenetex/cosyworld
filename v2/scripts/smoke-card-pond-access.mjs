@@ -225,7 +225,6 @@ try {
     await assertShut("attic");
     // A lit lamp carried away from both shores leaves the mirror closed.
     const away = structuredClone(spent);
-    // A synthetic filled tank at the new room leaves fuel for the return.
     away.actors.moth.place = "station";
     fillLampFuel(away);
     settleLamp(away);
