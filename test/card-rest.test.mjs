@@ -188,7 +188,6 @@ describe("rest and sanctuary", () => {
       woke: "arrival",
       text: "Mara wakes as Iris arrives.",
     });
-    // The clearing is no sanctuary: no long rest.
     expect(woke(s, "mara").rest).toBeUndefined();
     expect(legalActions(s, "mara").some((a) => a.sleep)).toBe(true);
     expect(validateWorld(s)).toBe(s);
