@@ -1,4 +1,3 @@
-//! Pinned dialogue downloads are checked once during setup.
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
