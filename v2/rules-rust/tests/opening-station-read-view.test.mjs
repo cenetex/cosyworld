@@ -4,8 +4,9 @@ import { isDeepStrictEqual } from "node:util";
 import { reducers } from "./parity.mjs";
 
 const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+const keeperQuest = "accept:vale::keeper";
 
-test("reading the Keeper’s Log and reloading Station match the pinned replies", async () => {
+test("reading the Keeper’s Log, accepting the quest, and reloading match pinned replies", async () => {
   const { pinned, wasm } = await reducers();
   const run = (request) => {
     const reply = pinned(request);
@@ -15,6 +16,8 @@ test("reading the Keeper’s Log and reloading Station match the pinned replies"
   const play = (world, action) =>
     run({ ...seats, op: "play", world, action }).world;
   let sample;
+  let acceptance;
+  let accepted;
   for (const [seed, dry, spoken, sorted] of [
     [undefined, false, false, false],
     [0, true, false, true],
@@ -84,6 +87,24 @@ test("reading the Keeper’s Log and reloading Station match the pinned replies"
       assert.deepEqual(actual.world.speechVoices.vale, []);
       sample = request;
     }
+    acceptance = {
+      ...read,
+      world: expectedRead.world,
+      action: sorted ? { key: keeperQuest } : keeperQuest,
+      revision: world.revision,
+    };
+    accepted = wasm(acceptance);
+    assert.ok(isDeepStrictEqual(accepted, run(acceptance)), `accept ${seed}`);
+    assert.deepEqual(accepted.events, []);
+    assert.equal(accepted.world.eventSeq, world.eventSeq);
+    assert.equal(accepted.world.turn, world.turn);
+    assert.equal(accepted.world.revision, world.revision + 1);
+    assert.equal(accepted.world.actors.vale.want.from, "quest:from:keeper");
+    assert.equal(accepted.actions.at(-1).key, "drop:vale:::0");
+    for (const present of [["vale"], []]) {
+      const request = { ...seats, op: "view", world: structuredClone(accepted.world), present };
+      assert.ok(isDeepStrictEqual(wasm(request), run(request)), `accepted ${seed}/${present}`);
+    }
   }
   for (const change of [
     (world) => {
@@ -100,4 +121,18 @@ test("reading the Keeper’s Log and reloading Station match the pinned replies"
     change(world);
     assert.equal(wasm({ ...sample, world }), null);
   }
+  const repeat = { ...acceptance, world: accepted.world, revision: accepted.world.revision };
+  assert.equal(pinned(repeat).ok, false);
+  assert.equal(wasm(repeat), null);
+  assert.equal(wasm({ ...acceptance, revision: acceptance.revision - 1 }), null);
+  assert.equal(wasm({ ...acceptance, present: [] }), null);
+  const missingClaim = structuredClone(acceptance.world);
+  delete missingClaim.knowledge.facts["claim:hub:keeper-log:pond-signal"];
+  assert.equal(wasm({ ...acceptance, world: missingClaim }), null);
+  const forgedFact = structuredClone(acceptance.world);
+  forgedFact.knowledge.facts["quest:keeper:pond"].source.eventSeq = 1;
+  assert.equal(wasm({ ...acceptance, world: forgedFact }), null);
+  const changedWant = structuredClone(accepted.world);
+  changedWant.actors.vale.want.step.crossing = "train";
+  assert.equal(wasm({ ...seats, op: "view", world: changedWant }), null);
 });

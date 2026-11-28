@@ -142,6 +142,7 @@ fn encode_request(
             "move:vale::station"
                 | "move:vale:lamp:station"
                 | "accept:vale::box:train"
+                | "accept:vale::keeper"
                 | "drop:vale:::0"
                 | "read:vale:keeper-log:"
         )
@@ -311,12 +312,13 @@ mod tests {
     }
 
     #[test]
-    fn orders_station_train_play_and_its_private_reload() {
+    fn orders_station_quest_play_and_private_reload() {
         let world = json!({"actors":{"vale":{"place":"station"},"moth":{},"keeper":{}}});
         let keys: Vec<_> = world["actors"].as_object().unwrap().keys().collect();
         for request in [
             json!({"op":"play", "action":"accept:vale::box:train", "world":world}),
             json!({"op":"play", "action":{"key":"accept:vale::box:train"}, "world":world}),
+            json!({"op":"play", "action":"accept:vale::keeper", "world":world}),
             json!({"op":"view", "world":world}),
         ] {
             let encoded = encode_request(&request, Some("{}"), false).unwrap();

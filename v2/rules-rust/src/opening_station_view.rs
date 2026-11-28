@@ -2,6 +2,7 @@ use super::{
     authored_order::Order,
     initial_wants::root_in,
     lamp_state, opening, opening_content,
+    opening_evidence::keeper_call_goal,
     opening_full_wait::visible_items,
     opening_hub_residents,
     opening_pickups::item_as_named,
@@ -14,7 +15,7 @@ use super::{
     opening_second_attic_lamp, opening_second_attic_tail, opening_second_round, opening_settlement,
     opening_station_move::{self, rue_arrived},
     opening_station_quest_drop_learning::confirm_pip_wait,
-    opening_station_read::after_first_log,
+    opening_station_read::{after_first_log, keeper_book_claim},
     opening_station_read_wait::{observe_place, record_wait_learning},
     opening_view, opening_visitor_routes, opening_wants,
     pack_state::Catalog,
@@ -31,8 +32,11 @@ const RUE: &str = "rue";
 const STATION: &str = "station";
 const POND: &str = "pond";
 const ROUTES: &str = "routes";
+pub(super) const ACCEPT_KEEPER: &str = "accept:vale::keeper";
 pub(super) const ACCEPT_TRAIN: &str = "accept:vale::box:train";
-pub(super) const ABANDON_TRAIN: &str = "drop:vale:::0";
+pub(super) const ABANDON_QUEST: &str = "drop:vale:::0";
+const KEEPER_QUEST: &str = "quest:keeper:pond";
+const KEEPER_FROM: &str = "quest:from:keeper";
 const TRAIN_TERMS: &str = r#"["item","routes",[["at","station"],["verb","bring"]],null]"#;
 const EXITS: [&str; 2] = [POND, "behind-station"];
 const LAMP: &str = "lamp";
@@ -55,6 +59,13 @@ fn records(value: &Value) -> impl Iterator<Item = &Value> {
         .as_object()
         .into_iter()
         .flat_map(serde_json::Map::values)
+}
+
+fn abandon_offer(text: String) -> Value {
+    let mut action = offer("drop", None, None, text, &[]);
+    action["quest"] = json!(0);
+    action["key"] = json!(ABANDON_QUEST);
+    action
 }
 
 fn is_move(event: &Value, actor: &str, from: &str, to: &str) -> bool {
@@ -91,7 +102,7 @@ fn settled_first_read(world: &Value) -> Option<[&Value; 2]> {
         return None;
     };
     let next = seq.checked_add(1)?;
-    let learned = &world["knowledge"]["known"][VALE]["quest:keeper:pond"];
+    let learned = &world["knowledge"]["known"][VALE][KEEPER_QUEST];
     (read["seq"] == seq
         && wait["seq"] == next
         && world["eventSeq"] == next
@@ -108,6 +119,47 @@ fn settled_first_read(world: &Value) -> Option<[&Value; 2]> {
                 "kind":"read","teller":null,"eventSeq":seq,"learnedTurn":3,"book":"keeper-log"
             }))
     .then_some([read, wait])
+}
+
+fn keeper_want(world: &Value, geo: &Geography) -> Option<Value> {
+    let [read, _] = settled_first_read(world)?;
+    let claim = keeper_book_claim(world, geo)?;
+    let id = format!("claim:hub:keeper-log:{}", claim["id"].as_str()?);
+    let forest = &geo.files()["v2/card-game/forest.json"];
+    let keeper = forest["people"][KEEPER]["name"].as_str()?;
+    let goal = keeper_call_goal(
+        forest["things"]["cloth"]["name"].as_str()?,
+        forest["places"][POND]["name"].as_str()?,
+        forest["things"][LAMP]["name"].as_str()?,
+    );
+    let facts = &world["knowledge"]["facts"];
+    let known = &world["knowledge"]["known"][VALE];
+    if world["knowledge"]["version"] != 1
+        || !world["knowledge"]["pending"].as_array()?.is_empty()
+        || facts[KEEPER_QUEST]
+            != json!({
+                "id":KEEPER_QUEST,"text":format!("{keeper} wants you to {goal}."),"source":{
+                    "kind":"quest","eventSeq":2,"turn":0,"actorId":KEEPER,
+                    "locationId":STATION,"witnesses":[VALE],"topic":null,
+                },
+            })
+        || known[&id] != known[KEEPER_QUEST]
+        || facts[&id]
+            != json!({
+                "id":id,"text":claim["text"],"source":{
+                    "kind":"claim","eventSeq":read["seq"],"turn":3,"actorId":VALE,
+                    "locationId":STATION,"witnesses":[VALE],"topic":null,"book":"keeper-log",
+                    "claim":claim["id"],"author":KEEPER,"about":claim["about"],
+                },
+            })
+    {
+        return None;
+    }
+    let mut want = forest["people"][KEEPER]["want"].clone();
+    want["since"] = world["turn"].clone();
+    want["refusals"] = json!(0);
+    want["from"] = json!(KEEPER_FROM);
+    Some(want)
 }
 
 fn historic_sleepers(world: &Value, geo: &Geography<'_>) -> Option<()> {
@@ -273,7 +325,12 @@ fn station_scene<'a>(
         {
             return None;
         }
-    } else if !vale["want"].is_null() {
+    } else if !vale["want"].is_null()
+        && (!after_read
+            || vale.get("content").is_some()
+            || vale.get("offered").is_some()
+            || vale["want"] != keeper_want(world, geo)?)
+    {
         return None;
     }
     let mut cast = vec![VALE, KEEPER];
@@ -471,10 +528,7 @@ fn actions(
     if train_accepted {
         let board = name(ROUTES)?;
         let text = format!("{vale} abandons their quest to bring {board} to {station}.");
-        let mut abandon = offer("drop", None, None, text, &[]);
-        abandon["quest"] = json!(0);
-        abandon["key"] = json!(ABANDON_TRAIN);
-        out.push(abandon);
+        out.push(abandon_offer(text));
     }
     Some(out)
 }
@@ -495,11 +549,20 @@ fn station_projection(
         && world["opening"]["met"][KEEPER] == 2
         && settled_first_read(world).is_some()
     {
-        let index = plans.iter().position(|plan| plan["key"] == ACCEPT_TRAIN)?;
         let vale = profiles[VALE]["name"].as_str()?;
-        let keeper = profiles[KEEPER]["name"].as_str()?;
-        let text = format!("{vale} accepts {keeper}'s quest.");
-        plans.insert(index, offer("accept", None, Some(KEEPER), text, &[]));
+        if world["actors"][VALE]["want"]["from"] == KEEPER_FROM {
+            let cloth = profiles["cloth"]["name"].as_str()?;
+            let pond = profiles[POND]["name"].as_str()?;
+            let lamp = profiles[LAMP]["name"].as_str()?;
+            let goal = keeper_call_goal(cloth, pond, lamp);
+            let text = format!("{vale} abandons their quest to {goal}.");
+            plans.push(abandon_offer(text));
+        } else {
+            let index = plans.iter().position(|plan| plan["key"] == ACCEPT_TRAIN)?;
+            let keeper = profiles[KEEPER]["name"].as_str()?;
+            let text = format!("{vale} accepts {keeper}'s quest.");
+            plans.insert(index, offer("accept", None, Some(KEEPER), text, &[]));
+        }
     }
     Some((plans, profiles))
 }
@@ -695,7 +758,7 @@ fn train_want(turn: u64) -> Value {
     })
 }
 
-fn train_action_world<'a>(request: &'a Value, key: &str) -> Option<&'a Value> {
+fn station_action_world<'a>(request: &'a Value, key: &str) -> Option<&'a Value> {
     let world = request.get("world")?;
     let action = &request["action"];
     if request["actor"] != VALE
@@ -709,11 +772,46 @@ fn train_action_world<'a>(request: &'a Value, key: &str) -> Option<&'a Value> {
             || request["elysiumPortraits"]
                 .as_array()
                 .is_some_and(Vec::is_empty))
-        || world["speechVoices"][VALE] != json!([VALE, KEEPER])
     {
         return None;
     }
     Some(world)
+}
+
+fn train_action_world<'a>(request: &'a Value, key: &str) -> Option<&'a Value> {
+    let world = station_action_world(request, key)?;
+    (world["speechVoices"][VALE] == json!([VALE, KEEPER])).then_some(world)
+}
+
+pub(super) fn accept_keeper(request: &Value) -> Option<Value> {
+    let before = station_action_world(request, ACCEPT_KEEPER)?;
+    let vale = &before["actors"][VALE];
+    let revision = before["revision"].as_u64()?.checked_add(1)?;
+    if !vale["want"].is_null()
+        || vale.get("offered").is_some()
+        || before["speechVoices"][VALE] != json!([])
+        || revision <= before["turn"].as_u64()?
+        || revision > opening::MAX_REVISION
+    {
+        return None;
+    }
+    let order = opening_roster::actor_order(request, before)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let want = keeper_want(before, &geo)?;
+    let mut world = before.clone();
+    let vale = world["actors"][VALE].as_object_mut()?;
+    vale.remove("content");
+    vale.insert("want".into(), want);
+    world["revision"] = revision.into();
+    let (plans, profiles) = station_projection(&world, &geo, &authored, &order, false, || {
+        profiles::project(geo.files())
+    })?;
+    super::opening_held_items::settle(&mut world, &geo, None)?;
+    let mut response = station_response(opening::stored_response(world)?, plans, profiles);
+    response["events"] = json!([]);
+    Some(response)
 }
 
 pub(super) fn accept_train(request: &Value) -> Option<Value> {
@@ -780,7 +878,7 @@ fn abandonment_events(world: &Value) -> Option<&[Value]> {
 }
 
 pub(super) fn abandon_train(request: &Value) -> Option<Value> {
-    let before = train_action_world(request, ABANDON_TRAIN)?;
+    let before = train_action_world(request, ABANDON_QUEST)?;
     let before_seq = before["eventSeq"].as_u64()?;
     let turn = before["turn"].as_u64()?.checked_add(1)?;
     let revision = before["revision"].as_u64()?.checked_add(1)?;
@@ -796,7 +894,7 @@ pub(super) fn abandon_train(request: &Value) -> Option<Value> {
         profiles::project(&files)
     })?;
     let abandon = plans.pop()?;
-    if abandon["key"] != ABANDON_TRAIN
+    if abandon["key"] != ABANDON_QUEST
         || before["actors"][KEEPER]["want"]["step"]["verb"] != "call"
         || before["items"]["bell"]["ringing"] != 0
     {
@@ -885,7 +983,7 @@ pub(super) fn abandon_train(request: &Value) -> Option<Value> {
 
 pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let world = request.get("world")?;
-    let train_accepted = !world["actors"][VALE]["want"].is_null();
+    let train_accepted = world["actors"][VALE]["want"]["from"] == "quest:box:train";
     let abandoned = train_abandoned(world);
     let after_read = world["turn"] == 3 && settled_first_read(world).is_some();
     let named = if after_read {

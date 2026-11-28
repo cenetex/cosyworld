@@ -1,5 +1,4 @@
-// Talk teaches the quest described by a resident's want.
-// Item wants ask for a gift; ordinary place wants ask for an escort.
+// Talk turns item wants into gifts and ordinary place wants into escorts.
 // Explicit steps keep their conditions. Completed calls keep their receipt.
 import { closedBy, heldOf, releaseQuest } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
