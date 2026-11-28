@@ -298,8 +298,7 @@ export function boxOpen(s, box, actor = currentActor(s)) {
 
 // --- What opens a shut box --------------------------------------------------
 
-// The first unmet condition as a goal a quest card can state. "Something
-// heard while holding a thing" has no goal.
+// A quest may describe the first unmet condition with a playable goal.
 function conditionGoal(s, packId, conditions, actor) {
   if (!conditions) return null;
   const met = (c) =>

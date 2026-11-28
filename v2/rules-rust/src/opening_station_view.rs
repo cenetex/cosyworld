@@ -18,6 +18,8 @@ const KEEPER: &str = "keeper";
 const RUE: &str = "rue";
 const STATION: &str = "station";
 const POND: &str = "pond";
+const ROUTES: &str = "routes";
+const ACCEPT_TRAIN: &str = "accept:vale::box:train";
 const EXITS: [&str; 2] = [POND, "behind-station"];
 const LAMP: &str = "lamp";
 const WAYFINDER: &str = "elysium-wayfinder";
@@ -355,7 +357,7 @@ fn actions(
     let text = format!("{vale} accepts the closed box's quest.");
     let mut train = offer("accept", None, None, text, &[]);
     train["box"] = json!("train");
-    train["key"] = json!("accept:vale::box:train");
+    train["key"] = json!(ACCEPT_TRAIN);
     out.push(train);
     if world["placeCard"][STATION] == WAYFINDER {
         let text = format!("{vale} accepts {station}'s quest.");
@@ -511,6 +513,70 @@ pub(super) fn completed_station_response_with_profiles(
         .insert(VALE.into(), voices);
     let mut response = station_response(opening::stored_response(world)?, plans, profiles);
     response["events"] = Value::Array(events);
+    Some(response)
+}
+
+pub(super) fn accept_train(request: &Value) -> Option<Value> {
+    let world = request.get("world")?;
+    let action = &request["action"];
+    if request["actor"] != VALE
+        || opening::seats(&request["claimed"])? != [VALE]
+        || opening::seats(&request["present"])? != [VALE]
+        || action.as_str().or_else(|| action["key"].as_str()) != Some(ACCEPT_TRAIN)
+        || action["kind"] == "pack"
+        || !request["selectedIds"].is_null()
+        || (!request["revision"].is_null() && request["revision"] != world["revision"])
+        || !(request["elysiumPortraits"].is_null()
+            || request["elysiumPortraits"]
+                .as_array()
+                .is_some_and(Vec::is_empty))
+        || world["speechVoices"][VALE] != json!([VALE, KEEPER])
+        || world["items"].get(ROUTES).is_none()
+    {
+        return None;
+    }
+    let revision = world["revision"].as_u64()?.checked_add(1)?;
+    if revision > opening::MAX_REVISION {
+        return None;
+    }
+    arrival_events(
+        world,
+        chronology(world)?.checked_sub(1)?,
+        world["turn"] == 2,
+    )?;
+    let order = super::opening_roster::actor_order(request, world)?;
+    let (files, authored) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    let (mut plans, profiles) = station_projection(world, &geo, &authored, &order, || {
+        profiles::project(geo.files())
+    })?;
+    let train = plans.iter().position(|plan| plan["key"] == ACCEPT_TRAIN)?;
+    plans.remove(train);
+    let vale = profiles[VALE]["name"].as_str()?;
+    let board = profiles[ROUTES]["name"].as_str()?;
+    let station = profiles[STATION]["name"].as_str()?;
+    let text = format!("{vale} abandons their quest to bring {board} to {station}.");
+    let mut abandon = offer("drop", None, None, text, &[]);
+    abandon["quest"] = json!(0);
+    abandon["key"] = json!("drop:vale:::0");
+    plans.push(abandon);
+
+    let turn = world["turn"].as_u64()?;
+    let mut world = world.clone();
+    let vale = world["actors"][VALE].as_object_mut()?;
+    vale.remove("content");
+    vale.insert(
+        "want".into(),
+        json!({
+            "kind":"item", "target":ROUTES, "since":turn, "refusals":0, "story":true,
+            "step":{"verb":"bring","at":STATION}, "from":"quest:box:train",
+        }),
+    );
+    world["revision"] = revision.into();
+    super::opening_held_items::settle(&mut world, &geo, None)?;
+    let mut response = station_response(opening::stored_response(world)?, plans, profiles);
+    response["events"] = json!([]);
     Some(response)
 }
 
