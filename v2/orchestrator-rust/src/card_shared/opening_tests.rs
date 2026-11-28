@@ -13,7 +13,6 @@ fn new_shared_world_starts_in_the_lit_attic_and_moves_after_stowing_the_lamp() {
         world.game["opening"],
         json!({"version":1,"crossed":false,"met":{"vale":0}})
     );
-    // Stowing the lamp opens the mirror without committing a turn.
     let turn = world.game["turn"].clone();
     let history = world.game["log"].clone();
     let stow = json!({"op":"hold","actor":"vale","choice":{
