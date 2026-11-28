@@ -1,4 +1,6 @@
-use super::{create_geography::Geography, opening, opening_content, pack_state::Catalog};
+use super::{
+    create_geography::Geography, opening, opening_content, opening_play, pack_state::Catalog,
+};
 use serde_json::{json, Map, Value};
 
 const ATTIC: &str = "attic";
@@ -105,7 +107,31 @@ fn solo(value: &Value) -> bool {
 }
 
 pub(super) fn confirm_idle(world: &Value, geo: &Geography) -> Option<()> {
+    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
+    if world["turn"].as_u64()? != began.checked_add(1)? {
+        return None;
+    }
     idle_plans(world, geo).map(|_| ())
+}
+
+pub(super) fn confirm_second_idle(world: &Value, geo: &Geography) -> Option<()> {
+    let (first, second) = opening_play::second_attic_plays(world)?;
+    if world["items"]["lamp"]["holder"] != "vale"
+        || !world["homecoming"].is_null()
+        || world["log"].as_array()?.last()? != second
+        || second["seq"] != world["eventSeq"]
+        || (first["verb"] == "drop"
+            && (first["itemId"] != "lamp"
+                || first["targetId"] != ATTIC
+                || second["itemId"] != "lamp"
+                || world["actors"]["vale"]["heldItem"] != "lamp"))
+    {
+        return None;
+    }
+    idle_plans(world, geo)?
+        .iter()
+        .all(Option::is_some)
+        .then_some(())
 }
 
 pub(super) fn keeper_idle_after_move(world: &Value, geo: &Geography<'_>) -> Option<()> {
@@ -124,9 +150,7 @@ pub(super) fn keeper_idle_after_move(world: &Value, geo: &Geography<'_>) -> Opti
 }
 
 fn idle_plans(world: &Value, geo: &Geography) -> Option<[Option<&'static str>; 2]> {
-    let began = world.get("began").map_or(Some(0), Value::as_u64)?;
-    if world["turn"].as_u64()? != began.checked_add(1)?
-        || world["sharedVersion"] != 1
+    if world["sharedVersion"] != 1
         || world["opening"]["crossed"] != false
         || !world["standoffs"].as_array()?.is_empty()
         || !empty_record(&world["defeats"])
@@ -186,6 +210,25 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     }
     next["turn"] = json!(turn);
     let plans = idle_plans(&next, &geo)?;
+    Some(response(world, plans))
+}
+
+pub(super) fn second_projection(request: &Value) -> Option<Value> {
+    if request["actor"] != "vale"
+        || request["claimed"] != json!(["vale"])
+        || request["present"] != json!(["vale"])
+    {
+        return None;
+    }
+    let world = request.get("world")?;
+    let (files, _) = opening_content::wait_files(request)?;
+    let catalog = Catalog::from_files(&files)?;
+    let geo = Geography::new(&files, catalog.packs())?;
+    confirm_second_idle(world, &geo)?;
+    Some(response(world, HUB.map(|(_, _, wait)| Some(wait))))
+}
+
+fn response(world: &Value, plans: [Option<&str>; 2]) -> Value {
     let actors: Map<_, _> = HUB
         .iter()
         .map(|(id, _, _)| ((*id).into(), world["actors"][*id].clone()))
@@ -194,9 +237,9 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
         .iter()
         .map(|(id, _, _)| ((*id).into(), world["memories"][*id].clone()))
         .collect();
-    Some(json!({
+    json!({
         "ok":true,
         "plans":plans,
         "actors":actors, "memories":memories, "events":[],
-    }))
+    })
 }

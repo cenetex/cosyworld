@@ -194,6 +194,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_second_attic_wants") => {
             opening_wants::second_attic_projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_second_attic_life") => {
+            opening_quiet_life::second_attic_projection(request).unwrap_or(Value::Null)
+        }
         Some("opening_history_walkers") => {
             opening_history_walkers::projection(request).unwrap_or(Value::Null)
         }
@@ -206,6 +209,9 @@ pub fn reduce(request: &Value) -> Value {
         }
         Some("opening_hub_idle") => {
             opening_hub_residents::projection(request).unwrap_or(Value::Null)
+        }
+        Some("opening_second_hub_idle") => {
+            opening_hub_residents::second_projection(request).unwrap_or(Value::Null)
         }
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
