@@ -25,8 +25,7 @@ export const offerId = (kind, source) =>
   kind === "place" ? `${PLACE_FROM}${source}` : `quest:${kind === "resident" ? "from" : kind}:${source}`;
 export const isOfferId = (id) => typeof id === "string" && id.startsWith("quest:");
 
-// The quest a shut box gives: the thing to hold or bring, the place to reach
-// or the person to see (the sealed card's own quest, or read from its lock).
+// A shut box's quest comes from its sealed card or its lock condition.
 const boxQuest = (s, { kind, target, step, lit }) => ({
   kind,
   target,
