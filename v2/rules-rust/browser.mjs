@@ -90,6 +90,7 @@ export function browserRules(bytes) {
           "opening_pond_ship_board",
           "opening_pond_ship_course",
           "opening_pond_ship_course_depart",
+          "opening_pond_ship_wait",
           "opening_station_residents",
           "opening_pond_place_returns",
           "opening_pond_resident_sleep",
