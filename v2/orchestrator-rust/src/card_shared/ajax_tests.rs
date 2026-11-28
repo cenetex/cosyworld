@@ -78,6 +78,7 @@ fn talk(c: &rusqlite::Connection, id: &str, world: &mut World, actor: usize, top
 
 // The source-model fixture reaches this saved vigil through every earlier
 // journey. The native host validates it before journaling the remaining rite.
+// Start the journal after the light changes so the first witness is at the camp.
 fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -90,9 +91,13 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
             "--input-type=module",
             "-e",
             "import { ajaxGrave } from './test/helpers/greek-ajax.mjs';\
+             import { playGreek } from './test/helpers/open-door.mjs';\
+             import { DAYLIGHT_TURNS } from './v2/card-game/daylight.mjs';\
              import { learnLane } from './v2/card-game/pack-transport.mjs';\
              import { startDwell } from './v2/card-game/world/dwell.mjs';\
-             const world = ajaxGrave('appeal', false);\
+             let world = ajaxGrave('appeal', false);\
+             startDwell(world, 'greek-ajax-odysseus');\
+             while (world.turn % DAYLIGHT_TURNS) world = playGreek(world, 'wait');\
              startDwell(world, 'greek-ajax-teucer');\
              const dione = world.actors['greek-baker'];\
              dione.place = 'greek-courtyard';\
@@ -130,13 +135,15 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
     let (path, c, id, mut world) = fixture();
     assert_eq!(world.version, engine::version());
     assert!(world.game["packs"]["greek-drama"]["receipts"]["greek-ajax-bury-appeal"].is_null());
-    play(
-        &c,
-        &id,
-        &mut world,
-        0,
-        &[("kind", "move"), ("target", "greek-greek-camp")],
-    );
+    for target in ["greek-trojan-camp-lane", "greek-greek-camp"] {
+        play(
+            &c,
+            &id,
+            &mut world,
+            0,
+            &[("kind", "move"), ("target", target)],
+        );
+    }
     play(
         &c,
         &id,
@@ -144,20 +151,17 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         0,
         &[("kind", "talk"), ("target", "greek-ajax-odysseus")],
     );
-    play(
-        &c,
-        &id,
-        &mut world,
-        0,
-        &[("kind", "move"), ("target", "greek-ajax-grave")],
-    );
-    play(
-        &c,
-        &id,
-        &mut world,
-        1,
-        &[("kind", "move"), ("target", "greek-ajax-grave")],
-    );
+    for actor in [0, 1] {
+        for target in ["greek-trojan-camp-lane", "greek-ajax-grave"] {
+            play(
+                &c,
+                &id,
+                &mut world,
+                actor,
+                &[("kind", "move"), ("target", target)],
+            );
+        }
+    }
     play(
         &c,
         &id,
@@ -181,13 +185,15 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         "appeal"
     );
     for actor in [0, 1] {
-        play(
-            &c,
-            &id,
-            &mut world,
-            actor,
-            &[("kind", "move"), ("target", "greek-greek-camp")],
-        );
+        for target in ["greek-trojan-camp-lane", "greek-greek-camp"] {
+            play(
+                &c,
+                &id,
+                &mut world,
+                actor,
+                &[("kind", "move"), ("target", target)],
+            );
+        }
     }
     play(
         &c,
@@ -242,6 +248,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         "greek-oeta",
         "greek-delphi",
         "greek-road-sacred-way",
+        "greek-civic-avenue",
         "greek-athens",
         "greek-road-athens-eleusis",
         "greek-eleusis",

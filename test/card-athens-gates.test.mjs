@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
 import { openDoorStart, traveler } from "./helpers/open-door.mjs";
 
-// Athens has no gates (open-door-rework). The Sacred Way joins Eleusis and
-// the Agora, and the Long Walls the Agora and Piraeus, open from both ends
+// The Sacred Way joins Eleusis and the Agora. The Long Walls join the
+// City Road Fork and Piraeus. Both roads are open from either end
 // from the start: no petition, burial or truce is read by either road.
 const reload = (s) => decodeSave(encodeSave(s));
 const SACRED = "greek-road-athens-eleusis",
@@ -12,7 +12,7 @@ const opens = (s, from, road) => exits(s, from, "vale").includes(road);
 const ends = [
   ["greek-eleusis", SACRED],
   ["greek-athens", SACRED],
-  ["greek-athens", WALLS],
+  ["greek-city-road-fork", WALLS],
   ["greek-piraeus", WALLS],
 ];
 

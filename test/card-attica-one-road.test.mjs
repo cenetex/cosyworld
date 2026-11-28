@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, exits } from "../v2/card-game/world.mjs";
+import { createWorld, exits, legalActions, play } from "../v2/card-game/world.mjs";
 import {
   entityActive,
   localRoadEnds,
@@ -21,28 +21,76 @@ describe("one road in Attica", () => {
   );
 
   it("Athens and Piraeus are joined by exactly one road", () => {
-    const joining = walkableRoads.filter(([, place]) =>
-      ["greek-athens", "greek-piraeus"].every((end) =>
-        place.road.includes(end),
-      ),
+    const athens = [
+      "greek-athens",
+      "greek-civic-avenue",
+      "greek-city-road-fork",
+      "greek-north-gate",
+    ];
+    const joining = walkableRoads.filter(
+      ([, place]) => place.road.includes("greek-piraeus") &&
+        athens.some((end) => place.road.includes(end)),
     );
     expect(joining.map(([id]) => id)).toEqual(["greek-road-athens-piraeus"]);
+    expect(joining[0][1].road).toEqual(["greek-piraeus", "greek-city-road-fork"]);
     expect(exits(world, "greek-athens", "vale")).not.toContain("greek-piraeus");
   });
 
-  it("reaches Marathon Altar only by the plain road from the Agora", () => {
+  it("reaches Marathon Altar only by the plain road from the North Gate", () => {
     const road = "greek-road-athens-marathon";
     const athens = "greek-athens";
+    const gate = "greek-north-gate";
     const altar = "greek-marathon";
-    expect(exits(world, athens, "vale")).toContain(road);
+    expect(exits(world, gate, "vale")).toContain(road);
+    expect(exits(world, athens, "vale")).not.toContain(road);
     expect(exits(world, athens, "vale")).not.toContain(altar);
-    expect(exits(world, road, "vale")).toEqual([athens, altar]);
+    expect(exits(world, road, "vale")).toEqual([gate, altar]);
     expect(exits(world, altar, "vale")).toEqual([road]);
-    const neighbors = ["greek-eleusis", "greek-colonus", "greek-attic-farm"];
+    const neighbors = [
+      "greek-eleusis",
+      "greek-eleusis-lower-precinct",
+      "greek-colonus",
+      "greek-attic-farm",
+    ];
     for (const neighbor of neighbors) {
       const ways = exits(world, neighbor, "vale");
       expect(ways).not.toContain(altar);
-      expect(ways).toEqual(expect.arrayContaining(neighbors.filter((id) => id !== neighbor)));
+    }
+  });
+
+  it("keeps the Eleusis approach open while routing local visits through the Lower Precinct", () => {
+    const sanctuary = "greek-eleusis";
+    const precinct = "greek-eleusis-lower-precinct";
+    const farm = "greek-attic-farm";
+    const grove = "greek-colonus";
+    const landing = "greek-underworld";
+    let local = createWorld();
+    local.actors.vale.place = sanctuary;
+    expect(local.packs[pack.id].scope).toBe("opening");
+    expect(exits(local, sanctuary, "vale")).toEqual([
+      "greek-cithaeron",
+      "greek-road-athens-eleusis",
+      precinct,
+    ]);
+    expect(exits(local, precinct, "vale")).toEqual([sanctuary, landing, farm]);
+    expect(exits(local, farm, "vale")).toEqual([
+      precinct,
+      grove,
+      "greek-acharnae",
+    ]);
+    expect(exits(local, grove, "vale")).toEqual([farm]);
+    expect(exits(local, landing, "vale")).toEqual([precinct]);
+
+    const visit = [precinct, landing, precinct, farm, grove, farm, precinct, sanctuary];
+    for (const target of visit) {
+      const move = legalActions(local, "vale").find((action) =>
+        action.kind === "move" && action.target === target,
+      );
+      expect(move, target).toBeDefined();
+      const result = play(local, move);
+      expect(result.ok, result.error).toBe(true);
+      local = result.state;
+      expect(local.actors.vale.place).toBe(target);
     }
   });
 

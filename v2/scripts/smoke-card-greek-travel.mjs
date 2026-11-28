@@ -35,19 +35,22 @@ try {
         }
       : {}),
   });
-  // Mara walks the Long Walls to Piraeus and back, the Sacred Way to the
-  // countryside and back, then the ship takes her home from Piraeus.
+  const cityApproach = ["greek-civic-avenue", "greek-city-road-fork"];
+  const countryside = ["greek-eleusis", "greek-eleusis-lower-precinct", "greek-attic-farm"];
   const athens = [
+    ...cityApproach,
     "greek-road-athens-piraeus",
     "greek-piraeus",
     "greek-road-athens-piraeus",
+    ...cityApproach.toReversed(),
     "greek-athens",
     "greek-road-athens-eleusis",
-    "greek-eleusis",
+    ...countryside,
     "greek-colonus",
-    "greek-eleusis",
+    ...countryside.toReversed(),
     "greek-road-athens-eleusis",
     "greek-athens",
+    ...cityApproach,
     "greek-road-athens-piraeus",
     "greek-piraeus",
     "greek-ship",
@@ -60,6 +63,7 @@ try {
   // the Theban City Gate.
   const land = [
     "greek-road-athens-piraeus",
+    ...cityApproach.toReversed(),
     "greek-athens",
     "greek-road-athens-eleusis",
     "greek-eleusis",
@@ -299,7 +303,7 @@ try {
             fullPage: true,
           });
         }
-        // The olive branch rests in the Agora, where it opens the Long Walls.
+        // The olive branch rests in the Agora.
         if (target === "greek-athens" && !branchSeen) {
           branchSeen = true;
           await selectCard(page, "greek-olive-branch", {
@@ -393,10 +397,10 @@ try {
             (await state()).actors.mara.place,
             before.actors.mara.place,
           );
-          await selectCard(page, "greek-athens", { touch: width === 390 });
+          await selectCard(page, "greek-city-road-fork", { touch: width === 390 });
           assert.equal(
             await page
-              .locator('#hand [data-card="greek-athens"]')
+              .locator('#hand [data-card="greek-city-road-fork"]')
               .getAttribute("aria-pressed"),
             "true",
           );

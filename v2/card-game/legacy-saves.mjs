@@ -152,6 +152,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
       reconcileHomecomingBeach(s);
       reconcileMarathonRoad(s);
     }
+    if (greekRevision < 48) reconcileGreekJunctions(s);
   }
   if (reworked.has("elysium")) settleStrandedWayfinder(s);
   // A told lane keeps its id; its words follow the lane's current conditions.
@@ -394,6 +395,46 @@ function reconcileHomecomingBeach(s) {
     "greek-harbor>greek-troy-beach",
     "greek-troy-beach>greek-harbor",
   ]));
+}
+
+const greekJunctionPaths = [
+  ["athens", "civic-avenue", "city-road-fork", "north-gate", "assembly"],
+  ["athens", "civic-avenue", "city-road-fork", "north-gate", "assembly", "thinkery"],
+  ["athens", "civic-avenue", "road-sacred-way"],
+  ["athens", "civic-avenue", "city-road-fork", "road-athens-piraeus"],
+  ["athens", "civic-avenue", "city-road-fork", "north-gate", "road-athens-marathon"],
+  ["argolid-road", "argos-sanctuary", "corinth"],
+  ["argolid-road", "argos-sanctuary", "argive-jury", "mycenae-palace"],
+  ["argolid-road", "argos-sanctuary", "argive-jury", "argive-farm"],
+  ["eleusis", "eleusis-lower-precinct", "attic-farm"],
+  ["eleusis", "eleusis-lower-precinct", "attic-farm", "colonus"],
+  ["eleusis", "eleusis-lower-precinct", "underworld"],
+  ["greek-camp", "trojan-camp-lane", "ajax-household"],
+  ["greek-camp", "trojan-camp-lane", "ajax-grave"],
+];
+
+function reconcileGreekJunctions(s) {
+  const replacements = new Map();
+  for (const junction of greekJunctionPaths) {
+    const path = junction.map((place) => `greek-${place}`);
+    for (const directed of [path, path.toReversed()]) {
+      const edges = directed.slice(1).map((to, index) => [directed[index], to]);
+      replacements.set(`${directed[0]}>${directed.at(-1)}`, edges);
+    }
+  }
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(edges)) continue;
+    const learned = [];
+    const kept = edges.filter((edge) => {
+      const steps = Array.isArray(edge) && replacements.get(edge.join(">"));
+      if (!steps) return true;
+      learned.push(...steps);
+      return false;
+    });
+    if (!learned.length) continue;
+    s.routeKnowledge[actor] = kept;
+    rememberRoutes(s, actor, learned);
+  }
 }
 
 function reconcileNorthernRoad(s) {

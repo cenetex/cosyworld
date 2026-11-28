@@ -25,7 +25,12 @@ const pack = packDefinition("greek-drama");
 const section = () => ({
   id: "test-open-door",
   name: "The Open Door",
-  places: ["greek-athens", "greek-piraeus", "greek-colonus"],
+  places: [
+    "greek-athens",
+    "greek-city-road-fork",
+    "greek-piraeus",
+    "greek-colonus",
+  ],
   requires: [{ kind: "flag", key: "greek-water-returned", value: true }],
 });
 const original = structuredClone({
@@ -86,7 +91,7 @@ describe("permanent pack sections", () => {
     pack.routes.push({ from: "greek-harbor", to: "greek-piraeus" });
     for (const actor of ["vale", "mara", "greek-shipmaster"]) {
       expect(exits(before, "greek-road-athens-piraeus", actor)).not.toContain(
-        "greek-athens",
+        "greek-city-road-fork",
       );
       expect(packExits(before, "greek-harbor", actor)).not.toContain(
         "greek-piraeus",
@@ -99,7 +104,7 @@ describe("permanent pack sections", () => {
     });
     for (const actor of ["vale", "mara", "greek-shipmaster"]) {
       expect(exits(opened, "greek-road-athens-piraeus", actor)).toContain(
-        "greek-athens",
+        "greek-city-road-fork",
       );
       expect(packExits(opened, "greek-harbor", actor)).toContain(
         "greek-piraeus",
@@ -108,7 +113,7 @@ describe("permanent pack sections", () => {
     expect(entityActive(opened, "greek-market-neighbor")).toBe(true);
     const loaded = decodeSave(encodeSave(opened));
     expect(exits(loaded, "greek-road-athens-piraeus", "vale")).toContain(
-      "greek-athens",
+      "greek-city-road-fork",
     );
   });
 

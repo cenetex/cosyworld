@@ -9,10 +9,13 @@ const STALL = "greek-acharnae-stall";
 const SEAL = "greek-story-aristophanes-acharnians-object";
 const DICAEOPOLIS = "greek-story-aristophanes-acharnians-first";
 const MEGARIAN = "greek-story-aristophanes-acharnians-second";
+const CROSSROADS = "greek-argolid-road";
+const ALTAR = "greek-argos-sanctuary";
+const JURY = "greek-argive-jury";
 const ATREID_ROUTES = [
-  ["greek-argos-tomb", "ismene", "sanctuary"],
-  ["greek-mycenae-palace", "creon", "palace"],
-  ["greek-argive-farm", "baker", "courtyard"],
+  ["greek-argos-tomb", "ismene", "sanctuary", CROSSROADS],
+  ["greek-mycenae-palace", "creon", "palace", JURY],
+  ["greek-argive-farm", "baker", "courtyard", JURY],
 ];
 
 function expectOffer(world, id, mode) {
@@ -44,14 +47,47 @@ describe("sealed Greek ways after a commitment", () => {
     expectOffer(decodeSave(encodeSave(market.s)), STALL, "gone");
   });
 
-  it.each(ATREID_ROUTES)("retains only the chosen road to %s", (destination, keeper, home) => {
-    const road = traveler(greekStart()).move("harbor", "argolid-road");
-    for (const [id] of ATREID_ROUTES) expectOffer(road.s, id, "shut");
-
-    road.take("atreid-record").move(home).waitFor(keeper).give("atreid-record", keeper)
-      .move("argolid-road");
-    for (const [id] of ATREID_ROUTES)
-      expectOffer(road.s, id, id === destination ? "passable" : "gone");
-    road.act("move", { target: destination }).act("move", { target: "greek-argolid-road" });
+  it("keeps the shoreline walk to Corinth and Troezen open before any settlement", () => {
+    const t = traveler(greekStart()).move("harbor", CROSSROADS);
+    for (const target of [
+      ALTAR,
+      "greek-corinth",
+      "greek-troezen",
+      "greek-corinth",
+      ALTAR,
+      CROSSROADS,
+    ])
+      t.act("move", { target });
+    expect(
+      t.s.packs["greek-drama"].choices["greek-atreid-account"],
+    ).toBeUndefined();
   });
+
+  it.each(ATREID_ROUTES)(
+    "retains only the chosen road to %s",
+    (destination, keeper, home, origin) => {
+      const road = traveler(greekStart()).move("harbor", CROSSROADS);
+      const shutYard = road.fork().move(ALTAR, JURY).s;
+      for (const [id, , , from] of ATREID_ROUTES)
+        expectOffer(from === CROSSROADS ? road.s : shutYard, id, "shut");
+
+      road
+        .take("atreid-record")
+        .move(home)
+        .waitFor(keeper)
+        .give("atreid-record", keeper)
+        .move(CROSSROADS);
+      const settledYard = road.fork().move(ALTAR, JURY).s;
+      for (const [id, , , from] of ATREID_ROUTES)
+        expectOffer(
+          from === CROSSROADS ? road.s : settledYard,
+          id,
+          id === destination ? "passable" : "gone",
+        );
+      road
+        .move(origin)
+        .act("move", { target: destination })
+        .act("move", { target: origin });
+    },
+  );
 });

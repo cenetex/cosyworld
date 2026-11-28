@@ -18,6 +18,9 @@ import {
   crowdedAgoraWorld,
 } from "../../test/helpers/greek-capacity.mjs";
 
+const AVENUE = "greek-civic-avenue";
+const FORK = "greek-city-road-fork";
+
 // This uses five separate passkeys, the HTTP service, Rust seat guard,
 // QuickJS rules, SQLite journal, and a fixture speech provider.
 const dir = await mkdtemp(join(tmpdir(), "greek-capacity-"));
@@ -190,7 +193,7 @@ try {
     pages.push(page);
     if (avatar === "vale") {
       const saved = crowdedAgoraWorld();
-      saved.actors.vale.place = "greek-road-athens-piraeus";
+      saved.actors.vale.place = AVENUE;
       learnLane(saved, "vale", "greek-piraeus", "greek-harbor");
       stowProvisions(saved, "greek-ship");
       const result = await request(
@@ -256,14 +259,15 @@ try {
   }
   const blocked = await view(vale);
   assert.equal(blocked.world.presentActors.length, 5);
-  assert.equal(blocked.world.actors.vale.place, "greek-road-athens-piraeus");
+  assert.equal(blocked.world.actors.vale.place, AVENUE);
   assert.ok(!blocked.exits.includes("greek-athens"));
-  assert.ok(blocked.exits.includes("greek-piraeus"));
+  assert.ok(blocked.exits.includes(FORK));
   const earlier = crowdedAgoraWorld();
-  earlier.actors.vale.place = "greek-road-athens-piraeus";
+  earlier.actors.vale.place = AVENUE;
   const oldAction = agoraView(earlier, ["vale"]).actions.find(
     (a) => a.kind === "move" && a.target === "greek-athens",
   );
+  assert.ok(oldAction);
   const denied = await request(vale, {
     op: "play",
     key: crypto.randomUUID(),
@@ -278,9 +282,7 @@ try {
   });
   await vale.reload();
   assert.ok(!(await view(vale)).exits.includes("greek-athens"));
-  // Walk the Piraeus side with the four other people still in Agora. The
-  // countryside, Eleusis included, reaches the harbor only through the city,
-  // so it waits behind the Agora.
+  // Walk via the City Road Fork and Long Walls with the Agora still full.
   for (const destination of ["piraeus", "harbor", "piraeus"]) {
     const state = await view(vale);
     assert.ok(!state.exits.includes("greek-athens"));
@@ -294,7 +296,7 @@ try {
     name: "Piraeus connects to the harbor around four present people in Agora",
     passed: true,
   });
-  await move("greek-road-athens-piraeus");
+  await move(AVENUE);
   await command(tavi, { op: "leave" });
   presentPages.delete(tavi);
   const open = await view(vale);

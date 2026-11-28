@@ -2,6 +2,7 @@ import { legalActions, play } from "../../v2/card-game/world.mjs";
 import { greekStart, playGreek as playOpenDoor } from "./open-door.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
+import { MAX_DWELL } from "../../v2/card-game/world/dwell.mjs";
 import { openGreekGate } from "./greek-gate.mjs";
 
 export const ajaxState = (world) => world.packs["greek-drama"];
@@ -16,6 +17,15 @@ export function ajaxChoice(world, id) {
     on === "give" ? requires.find((c) => c.kind === "holding").item : null;
   const fields =
     on === "give" ? { item, target } : on === "talk" ? { target } : {};
+  if (on === "give" || on === "talk") {
+    // The extra camp paths can land a traveler during the resident's rest.
+    const canAct = () => legalActions(world).some((action) =>
+      action.kind === on && !action.guards &&
+      Object.entries(fields).every(([key, value]) => action[key] === value),
+    );
+    for (let n = 0; n < 2 * MAX_DWELL && !canAct(); n++)
+      world = playOpenDoor(world, "wait");
+  }
   const next = playOpenDoor(world, on, fields);
   if (ajaxState(next).receipts[choiceId] !== next.turn)
     throw new Error(`Missing Ajax receipt for ${choiceId}`);

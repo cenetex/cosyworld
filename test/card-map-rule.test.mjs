@@ -13,6 +13,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { visitors } from "../v2/card-game/human-cast.mjs";
+import { guardedExits } from "../v2/card-game/resident-guard.mjs";
 import { exits } from "../v2/card-game/world.mjs";
 
 const TOWNS = {
@@ -23,7 +24,6 @@ const TOWNS = {
     "greek-argos-sanctuary",
     "greek-corinth",
     "greek-troezen",
-    // The household story doors open from the Argolid crossroads.
     "greek-argos-tomb",
     "greek-argos-palace",
     "greek-mycenae-palace",
@@ -51,6 +51,7 @@ const TOWNS = {
   // city, and the Long Walls join the city to its harbour.
   "athens-countryside": [
     "greek-eleusis",
+    "greek-eleusis-lower-precinct",
     "greek-colonus",
     "greek-attic-farm",
     "greek-acharnae",
@@ -61,6 +62,9 @@ const TOWNS = {
   ],
   "athens-city": [
     "greek-athens",
+    "greek-civic-avenue",
+    "greek-city-road-fork",
+    "greek-north-gate",
     "greek-assembly",
     "greek-acropolis",
     "greek-thinkery",
@@ -77,6 +81,7 @@ const TOWNS = {
     "greek-troy",
     "greek-greek-camp",
     "greek-trojan-camp",
+    "greek-trojan-camp-lane",
     "greek-ajax-landing",
     "greek-ajax-household",
     "greek-ajax-grave",
@@ -129,9 +134,7 @@ const TOWNS = {
 // Boarding a ship is one link however many lanes it sails, and the ship has
 // no cap. Every place counts: there are no interiors (owner, 2026-11-04).
 const LINK_CAP = 3;
-// Still over the cap while their maps are redrawn. Remove each place as its
-// pack lands: Hoppy Cat (#1785), the hub, Athens, Argos, the Greek Camp
-// and the harbor's story doors.
+// Remaining exceptions for the hub and Hoppy Cat (#1785).
 const OVER_CAP_FOR_NOW = new Set([
   "pond",
   "hoppycat-halfway-tea-garden",
@@ -141,12 +144,6 @@ const OVER_CAP_FOR_NOW = new Set([
   "hoppycat-context-greenhouse",
   "hoppycat-concordance-tidelands",
   "hoppycat-settled-light-theatre",
-  "greek-athens",
-  "greek-argolid-road",
-  "greek-harbor",
-  "greek-eleusis",
-  "greek-attic-farm",
-  "greek-greek-camp",
 ]);
 const ships = new Set(Object.values(transports).map((t) => t.place));
 // A home's door opens at one of its authored places, the world's pick, so
@@ -166,9 +163,11 @@ function links(world = worlds[0]) {
     if (ships.has(from)) return;
     out.set(from, (out.get(from) || new Set()).add(to));
   };
-  for (const [id, place] of Object.entries(places))
-    if (!place.retired && !(place.road && localRoadEnds(id)))
-      for (const to of place.exits || []) if (!places[to]?.retired) add(id, to);
+  for (const [id, place] of Object.entries(places)) {
+    if (place.retired || (place.road && localRoadEnds(id))) continue;
+    for (const to of [...(place.exits || []), ...guardedExits(world, id)])
+      if (!places[to]?.retired) add(id, to);
+  }
   for (const r of forest.reflectionRoutes || []) add(r.from, r.to);
   for (const pack of packDefinitions)
     for (const r of pack.routes || []) add(r.from, r.to);
@@ -234,19 +233,17 @@ describe("the map rule", () => {
       const [a, b] = packPlaces[id].road;
       expect(packPlaces[id].exits, id).toEqual([a, b]);
       expect(town(a), `${id} stays inside ${town(a)}`).not.toBe(town(b));
-      // A gated end leads onto its road by a route instead of an exit.
-      for (const end of [a, b])
-        expect(
-          steps.some(([from, to]) => from === end && to === id),
-          `${end} leads onto ${id}`,
-        ).toBe(true);
+      const approaches = new Set(
+        steps.filter(([, to]) => to === id).map(([from]) => from),
+      );
+      expect(approaches, id).toEqual(new Set([a, b]));
       const key = [town(a), town(b)].sort().join("|");
       expect(pairs.get(key), `${key} has two roads`).toBeUndefined();
       pairs.set(key, id);
     }
   });
 
-  it("gives every place at most three links", () => {
+  it("gives every place at most three links even when a way is closed", () => {
     for (const world of worlds)
       for (const [id, to] of links(world))
         if (!OVER_CAP_FOR_NOW.has(id))
@@ -294,7 +291,7 @@ describe("the map rule", () => {
       roads.filter((id) =>
         [a, b].every((end) => packPlaces[id].road.includes(end)),
       );
-    expect(joining("greek-athens", "greek-piraeus")).toEqual([
+    expect(joining("greek-city-road-fork", "greek-piraeus")).toEqual([
       "greek-road-athens-piraeus",
     ]);
     expect(joining("greek-harbor", "greek-courtyard")).toEqual([

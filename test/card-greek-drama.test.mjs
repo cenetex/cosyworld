@@ -720,30 +720,38 @@ describe("incompatible histories become playable branches", () => {
         (c) => c.id === `greek-atreid-${branch}`,
       );
       const record = "greek-atreid-record";
-      let world = take(move(harbor("opening"), "greek-argolid-road"), record);
-      world = choose(move(world, choice.at), choice.id);
-      expect(world.items[record].holder).toBe(choice.at);
-      world = move(world, "greek-argolid-road");
-      const routes = [
+      const crossroads = "greek-argolid-road";
+      const yard = "greek-argive-jury";
+      const yardPath = ["greek-argos-sanctuary", yard];
+      const approach = branch === "aeschylus" ? [] : yardPath;
+      const destinations = [
         "greek-argos-tomb",
         "greek-mycenae-palace",
         "greek-argive-farm",
       ];
+      let world = take(move(harbor("opening"), crossroads), record);
+      world = choose(move(world, choice.at), choice.id);
+      expect(world.items[record].holder).toBe(choice.at);
+      world = move(world, crossroads);
+      const yardWorld = walk(world, ...yardPath);
       expect(
-        exits(world, "greek-argolid-road", "vale").filter((id) =>
-          routes.includes(id),
-        ),
+        [
+          ...exits(world, crossroads, "vale"),
+          ...exits(yardWorld, yard, "vale"),
+        ].filter((id) => destinations.includes(id)),
       ).toEqual([destination]);
-      world = move(world, destination);
+      world = move(branch === "aeschylus" ? world : yardWorld, destination);
       world = choose(world, `greek-hear-electra-${branch}`);
       world = take(world, evidence);
       world = walk(
         reload(world),
-        "greek-argolid-road",
+        ...approach.toReversed(),
+        crossroads,
         HARBOR,
         "pond",
         HARBOR,
-        "greek-argolid-road",
+        crossroads,
+        ...approach,
       );
       expect(stateOf(world).choices["greek-atreid-account"]).toBe(branch);
       expect(rootHolder(world, evidence)).toBe("vale");

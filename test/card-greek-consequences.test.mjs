@@ -116,6 +116,8 @@ function walkToQuay(t) {
     "eleusis",
     "road-athens-eleusis",
     "athens",
+    "civic-avenue",
+    "city-road-fork",
     "road-athens-piraeus",
     PIREAUS,
   );

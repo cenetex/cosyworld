@@ -89,13 +89,15 @@ describe("the Greek pack's locked boxes", () => {
     expect(canMove(s, card)).toBe(false);
   });
 
-  it("draws the Atreid roads locked at the Argolid road, each waiting on its own giver", () => {
-    const s = at(full(), "greek-argolid-road");
+  it("draws the Atreid seals at the Crossroads and Jury Yard", () => {
+    const s = full();
     const wants = [
-      "greek-argos-tomb",
-      "greek-mycenae-palace",
-      "greek-argive-farm",
-    ].map((card) => {
+      ["greek-argolid-road", "greek-argos-tomb"],
+      ["greek-argive-jury", "greek-mycenae-palace"],
+      ["greek-argive-jury", "greek-argive-farm"],
+    ].map(([place, card]) => {
+      at(s, place);
+      expect(availableCards(s)).toContain(card);
       expect(isLockedBox(s, card), card).toBe(true);
       return lockText(s, card);
     });

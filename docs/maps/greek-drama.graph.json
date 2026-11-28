@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 47,
+  "revision": 48,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -20,8 +20,40 @@
   "space": {
     "districts": [
       {
-        "id": "d-greek-argolid-road",
-        "name": "The Argolid Crossroads",
+        "id": "d-greek-acharnae",
+        "name": "Acharnae Market",
+        "places": [
+          "greek-acharnae",
+          "greek-acharnae-stall",
+          "greek-attic-farm",
+          "greek-bird-wilderness",
+          "greek-colonus",
+          "greek-divine-heights",
+          "greek-eleusis",
+          "greek-eleusis-lower-precinct",
+          "greek-underworld"
+        ]
+      },
+      {
+        "id": "d-greek-acropolis",
+        "name": "Acropolis Treasury",
+        "places": [
+          "greek-acropolis",
+          "greek-areopagus",
+          "greek-assembly",
+          "greek-athens",
+          "greek-city-road-fork",
+          "greek-civic-avenue",
+          "greek-demos-house",
+          "greek-festival",
+          "greek-jury-house",
+          "greek-north-gate",
+          "greek-thinkery"
+        ]
+      },
+      {
+        "id": "d-greek-argive-jury",
+        "name": "The Jury Yard of Argos",
         "places": [
           "greek-argive-farm",
           "greek-argive-jury",
@@ -33,20 +65,6 @@
           "greek-harbor",
           "greek-mycenae-palace",
           "greek-troezen"
-        ]
-      },
-      {
-        "id": "d-greek-athens",
-        "name": "Athenian Agora",
-        "places": [
-          "greek-acropolis",
-          "greek-areopagus",
-          "greek-assembly",
-          "greek-athens",
-          "greek-demos-house",
-          "greek-festival",
-          "greek-jury-house",
-          "greek-thinkery"
         ]
       },
       {
@@ -91,20 +109,6 @@
         ]
       },
       {
-        "id": "d-greek-eleusis",
-        "name": "Eleusinian Sanctuary",
-        "places": [
-          "greek-acharnae",
-          "greek-acharnae-stall",
-          "greek-attic-farm",
-          "greek-bird-wilderness",
-          "greek-colonus",
-          "greek-divine-heights",
-          "greek-eleusis",
-          "greek-underworld"
-        ]
-      },
-      {
         "id": "d-greek-greek-camp",
         "name": "The Greek Camp at Troy",
         "places": [
@@ -113,6 +117,7 @@
           "greek-ajax-landing",
           "greek-greek-camp",
           "greek-trojan-camp",
+          "greek-trojan-camp-lane",
           "greek-troy"
         ]
       },
@@ -195,20 +200,20 @@
         "id": "greek-acharnae",
         "name": "Acharnae Market",
         "kind": "place",
-        "district": "d-greek-eleusis"
+        "district": "d-greek-acharnae"
       },
       {
         "id": "greek-acharnae-stall",
         "name": "The Megarian's Market Stall",
         "kind": "place",
-        "district": "d-greek-eleusis",
+        "district": "d-greek-acharnae",
         "gate": "place:greek-acharnae-stall"
       },
       {
         "id": "greek-acropolis",
         "name": "Acropolis Treasury",
         "kind": "place",
-        "district": "d-greek-athens"
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-ajax-grave",
@@ -235,64 +240,64 @@
         "id": "greek-areopagus",
         "name": "The Court on the Areopagus",
         "kind": "place",
-        "district": "d-greek-athens"
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-argive-farm",
         "name": "The Argive Farmhouse",
         "kind": "place",
-        "district": "d-greek-argolid-road",
+        "district": "d-greek-argive-jury",
         "gate": "place:greek-argive-farm"
       },
       {
         "id": "greek-argive-jury",
         "name": "The Jury Yard of Argos",
         "kind": "place",
-        "district": "d-greek-argolid-road"
+        "district": "d-greek-argive-jury"
       },
       {
         "id": "greek-argolid-road",
         "name": "The Argolid Crossroads",
         "kind": "place",
-        "district": "d-greek-argolid-road"
+        "district": "d-greek-argive-jury"
       },
       {
         "id": "greek-argos-palace",
         "name": "Argive Palace Threshold",
         "kind": "place",
-        "district": "d-greek-argolid-road",
+        "district": "d-greek-argive-jury",
         "gate": "place:greek-argos-palace"
       },
       {
         "id": "greek-argos-sanctuary",
         "name": "Argive Shore Altar",
         "kind": "place",
-        "district": "d-greek-argolid-road"
+        "district": "d-greek-argive-jury"
       },
       {
         "id": "greek-argos-tomb",
         "name": "Agamemnon's Tomb",
         "kind": "place",
-        "district": "d-greek-argolid-road",
+        "district": "d-greek-argive-jury",
         "gate": "place:greek-argos-tomb"
       },
       {
         "id": "greek-assembly",
         "name": "The Assembly Hill",
         "kind": "place",
-        "district": "d-greek-athens"
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-athens",
         "name": "Athenian Agora",
         "kind": "place",
-        "district": "d-greek-athens"
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-attic-farm",
         "name": "The Attic Farm",
         "kind": "place",
-        "district": "d-greek-eleusis"
+        "district": "d-greek-acharnae"
       },
       {
         "id": "greek-aulis",
@@ -310,7 +315,7 @@
         "id": "greek-bird-wilderness",
         "name": "The Hoopoe's Thicket",
         "kind": "place",
-        "district": "d-greek-eleusis"
+        "district": "d-greek-acharnae"
       },
       {
         "id": "greek-cadmea-street",
@@ -330,16 +335,28 @@
         "district": "d-greek-battlefield"
       },
       {
+        "id": "greek-city-road-fork",
+        "name": "City Road Fork",
+        "kind": "place",
+        "district": "d-greek-acropolis"
+      },
+      {
+        "id": "greek-civic-avenue",
+        "name": "Civic Avenue",
+        "kind": "place",
+        "district": "d-greek-acropolis"
+      },
+      {
         "id": "greek-colonus",
         "name": "Colonus Grove",
         "kind": "place",
-        "district": "d-greek-eleusis"
+        "district": "d-greek-acharnae"
       },
       {
         "id": "greek-corinth",
         "name": "Medea’s House in Corinth",
         "kind": "place",
-        "district": "d-greek-argolid-road"
+        "district": "d-greek-argive-jury"
       },
       {
         "id": "greek-courtyard",
@@ -357,13 +374,13 @@
         "id": "greek-demos-house",
         "name": "House of Demos",
         "kind": "place",
-        "district": "d-greek-athens"
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-divine-heights",
         "name": "The Divine Heights",
         "kind": "place",
-        "district": "d-greek-eleusis"
+        "district": "d-greek-acharnae"
       },
       {
         "id": "greek-egypt-tomb",
@@ -376,13 +393,19 @@
         "id": "greek-eleusis",
         "name": "Eleusinian Sanctuary",
         "kind": "place",
-        "district": "d-greek-eleusis"
+        "district": "d-greek-acharnae"
+      },
+      {
+        "id": "greek-eleusis-lower-precinct",
+        "name": "Lower Precinct",
+        "kind": "place",
+        "district": "d-greek-acharnae"
       },
       {
         "id": "greek-festival",
         "name": "The Thesmophorion",
         "kind": "place",
-        "district": "d-greek-athens"
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-gate",
@@ -400,7 +423,7 @@
         "id": "greek-harbor",
         "name": "The Wine-Dark Harbor",
         "kind": "place",
-        "district": "d-greek-argolid-road"
+        "district": "d-greek-argive-jury"
       },
       {
         "id": "greek-heracles-altar",
@@ -424,7 +447,7 @@
         "id": "greek-jury-house",
         "name": "The Juror's House",
         "kind": "place",
-        "district": "d-greek-athens"
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-lemnos",
@@ -442,8 +465,14 @@
         "id": "greek-mycenae-palace",
         "name": "Mycenaean Palace",
         "kind": "place",
-        "district": "d-greek-argolid-road",
+        "district": "d-greek-argive-jury",
         "gate": "place:greek-mycenae-palace"
+      },
+      {
+        "id": "greek-north-gate",
+        "name": "North Gate",
+        "kind": "place",
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-oedipus-court",
@@ -577,7 +606,7 @@
         "id": "greek-thinkery",
         "name": "The Thinkery",
         "kind": "place",
-        "district": "d-greek-athens"
+        "district": "d-greek-acropolis"
       },
       {
         "id": "greek-thrace",
@@ -595,13 +624,20 @@
         "id": "greek-troezen",
         "name": "The Palace Steps at Troezen",
         "kind": "place",
-        "district": "d-greek-argolid-road"
+        "district": "d-greek-argive-jury"
       },
       {
         "id": "greek-trojan-camp",
         "name": "Trojan Night Camp",
         "kind": "place",
         "district": "d-greek-greek-camp"
+      },
+      {
+        "id": "greek-trojan-camp-lane",
+        "name": "Camp Lane",
+        "kind": "place",
+        "district": "d-greek-greek-camp",
+        "gate": "place:greek-trojan-camp-lane"
       },
       {
         "id": "greek-troy",
@@ -620,7 +656,7 @@
         "id": "greek-underworld",
         "name": "The Underworld Landing",
         "kind": "place",
-        "district": "d-greek-eleusis"
+        "district": "d-greek-acharnae"
       },
       {
         "id": "greek-well",
@@ -684,15 +720,15 @@
       },
       {
         "from": "greek-ajax-grave",
-        "to": "greek-greek-camp",
+        "to": "greek-trojan-camp-lane",
         "kind": "exit",
-        "gate": null
+        "gate": "place:greek-trojan-camp-lane"
       },
       {
         "from": "greek-ajax-household",
-        "to": "greek-greek-camp",
+        "to": "greek-trojan-camp-lane",
         "kind": "exit",
-        "gate": null
+        "gate": "place:greek-trojan-camp-lane"
       },
       {
         "from": "greek-ajax-landing",
@@ -715,9 +751,15 @@
       },
       {
         "from": "greek-argive-farm",
-        "to": "greek-argolid-road",
+        "to": "greek-argive-jury",
         "kind": "route",
         "gate": null
+      },
+      {
+        "from": "greek-argive-jury",
+        "to": "greek-argive-farm",
+        "kind": "route",
+        "gate": "route:greek-argive-jury>greek-argive-farm"
       },
       {
         "from": "greek-argive-jury",
@@ -726,10 +768,10 @@
         "gate": null
       },
       {
-        "from": "greek-argolid-road",
-        "to": "greek-argive-farm",
+        "from": "greek-argive-jury",
+        "to": "greek-mycenae-palace",
         "kind": "route",
-        "gate": "route:greek-argolid-road>greek-argive-farm"
+        "gate": "route:greek-argive-jury>greek-mycenae-palace"
       },
       {
         "from": "greek-argolid-road",
@@ -745,21 +787,9 @@
       },
       {
         "from": "greek-argolid-road",
-        "to": "greek-corinth",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-argolid-road",
         "to": "greek-harbor",
         "kind": "exit",
         "gate": null
-      },
-      {
-        "from": "greek-argolid-road",
-        "to": "greek-mycenae-palace",
-        "kind": "route",
-        "gate": "route:greek-argolid-road>greek-mycenae-palace"
       },
       {
         "from": "greek-argos-palace",
@@ -780,6 +810,12 @@
         "gate": null
       },
       {
+        "from": "greek-argos-sanctuary",
+        "to": "greek-corinth",
+        "kind": "exit",
+        "gate": null
+      },
+      {
         "from": "greek-argos-tomb",
         "to": "greek-argolid-road",
         "kind": "route",
@@ -793,13 +829,19 @@
       },
       {
         "from": "greek-assembly",
-        "to": "greek-athens",
+        "to": "greek-demos-house",
         "kind": "exit",
         "gate": null
       },
       {
         "from": "greek-assembly",
-        "to": "greek-demos-house",
+        "to": "greek-north-gate",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-assembly",
+        "to": "greek-thinkery",
         "kind": "exit",
         "gate": null
       },
@@ -811,37 +853,13 @@
       },
       {
         "from": "greek-athens",
-        "to": "greek-assembly",
+        "to": "greek-civic-avenue",
         "kind": "exit",
         "gate": null
       },
       {
         "from": "greek-athens",
         "to": "greek-road-athens-eleusis",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-athens",
-        "to": "greek-road-athens-marathon",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-athens",
-        "to": "greek-road-athens-piraeus",
-        "kind": "route",
-        "gate": null
-      },
-      {
-        "from": "greek-athens",
-        "to": "greek-road-sacred-way",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-athens",
-        "to": "greek-thinkery",
         "kind": "exit",
         "gate": null
       },
@@ -859,7 +877,7 @@
       },
       {
         "from": "greek-attic-farm",
-        "to": "greek-eleusis",
+        "to": "greek-eleusis-lower-precinct",
         "kind": "exit",
         "gate": null
       },
@@ -937,20 +955,50 @@
         "gate": null
       },
       {
+        "from": "greek-city-road-fork",
+        "to": "greek-civic-avenue",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-city-road-fork",
+        "to": "greek-north-gate",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-city-road-fork",
+        "to": "greek-road-athens-piraeus",
+        "kind": "route",
+        "gate": null
+      },
+      {
+        "from": "greek-civic-avenue",
+        "to": "greek-athens",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-civic-avenue",
+        "to": "greek-city-road-fork",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-civic-avenue",
+        "to": "greek-road-sacred-way",
+        "kind": "exit",
+        "gate": null
+      },
+      {
         "from": "greek-colonus",
         "to": "greek-attic-farm",
         "kind": "exit",
         "gate": null
       },
       {
-        "from": "greek-colonus",
-        "to": "greek-eleusis",
-        "kind": "exit",
-        "gate": null
-      },
-      {
         "from": "greek-corinth",
-        "to": "greek-argolid-road",
+        "to": "greek-argos-sanctuary",
         "kind": "exit",
         "gate": null
       },
@@ -1016,8 +1064,20 @@
         "transport": "greek-scylla"
       },
       {
-        "from": "greek-eleusis",
+        "from": "greek-eleusis-lower-precinct",
         "to": "greek-attic-farm",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-eleusis-lower-precinct",
+        "to": "greek-eleusis",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-eleusis-lower-precinct",
+        "to": "greek-underworld",
         "kind": "exit",
         "gate": null
       },
@@ -1029,19 +1089,13 @@
       },
       {
         "from": "greek-eleusis",
-        "to": "greek-colonus",
+        "to": "greek-eleusis-lower-precinct",
         "kind": "exit",
         "gate": null
       },
       {
         "from": "greek-eleusis",
         "to": "greek-road-athens-eleusis",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-eleusis",
-        "to": "greek-underworld",
         "kind": "exit",
         "gate": null
       },
@@ -1065,21 +1119,15 @@
       },
       {
         "from": "greek-greek-camp",
-        "to": "greek-ajax-grave",
-        "kind": "exit",
-        "gate": "place:greek-ajax-grave"
-      },
-      {
-        "from": "greek-greek-camp",
-        "to": "greek-ajax-household",
-        "kind": "exit",
-        "gate": "place:greek-ajax-household"
-      },
-      {
-        "from": "greek-greek-camp",
         "to": "greek-ajax-landing",
         "kind": "exit",
         "gate": "place:greek-ajax-landing"
+      },
+      {
+        "from": "greek-greek-camp",
+        "to": "greek-trojan-camp-lane",
+        "kind": "exit",
+        "gate": "place:greek-trojan-camp-lane"
       },
       {
         "from": "greek-greek-camp",
@@ -1174,8 +1222,26 @@
       },
       {
         "from": "greek-mycenae-palace",
-        "to": "greek-argolid-road",
+        "to": "greek-argive-jury",
         "kind": "route",
+        "gate": null
+      },
+      {
+        "from": "greek-north-gate",
+        "to": "greek-assembly",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-north-gate",
+        "to": "greek-city-road-fork",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "greek-north-gate",
+        "to": "greek-road-athens-marathon",
+        "kind": "exit",
         "gate": null
       },
       {
@@ -1328,19 +1394,19 @@
       },
       {
         "from": "greek-road-athens-marathon",
-        "to": "greek-athens",
-        "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "greek-road-athens-marathon",
         "to": "greek-marathon",
         "kind": "exit",
         "gate": null
       },
       {
+        "from": "greek-road-athens-marathon",
+        "to": "greek-north-gate",
+        "kind": "exit",
+        "gate": null
+      },
+      {
         "from": "greek-road-athens-piraeus",
-        "to": "greek-athens",
+        "to": "greek-city-road-fork",
         "kind": "exit",
         "gate": null
       },
@@ -1364,7 +1430,7 @@
       },
       {
         "from": "greek-road-sacred-way",
-        "to": "greek-athens",
+        "to": "greek-civic-avenue",
         "kind": "exit",
         "gate": null
       },
@@ -1456,7 +1522,7 @@
       },
       {
         "from": "greek-thinkery",
-        "to": "greek-athens",
+        "to": "greek-assembly",
         "kind": "exit",
         "gate": null
       },
@@ -1499,6 +1565,24 @@
         "gate": null
       },
       {
+        "from": "greek-trojan-camp-lane",
+        "to": "greek-ajax-grave",
+        "kind": "exit",
+        "gate": "place:greek-ajax-grave"
+      },
+      {
+        "from": "greek-trojan-camp-lane",
+        "to": "greek-ajax-household",
+        "kind": "exit",
+        "gate": "place:greek-ajax-household"
+      },
+      {
+        "from": "greek-trojan-camp-lane",
+        "to": "greek-greek-camp",
+        "kind": "exit",
+        "gate": null
+      },
+      {
         "from": "greek-trojan-camp",
         "to": "greek-troy",
         "kind": "exit",
@@ -1531,7 +1615,7 @@
       },
       {
         "from": "greek-underworld",
-        "to": "greek-eleusis",
+        "to": "greek-eleusis-lower-precinct",
         "kind": "exit",
         "gate": null
       },
@@ -1727,6 +1811,34 @@
           ],
           "item": [
             "greek-atreid-record"
+          ]
+        }
+      },
+      {
+        "id": "place:greek-trojan-camp-lane",
+        "kind": "place",
+        "title": "Camp Lane appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-ajax-open,value=true)"
+            }
+          ]
+        },
+        "words": "greek-ajax-open is set",
+        "ids": "greek-ajax-open is set",
+        "latch": [
+          "flag(key=greek-ajax-open,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-ajax-invitation"
+          ],
+          "flag": [
+            "greek-ajax-open"
           ]
         }
       },
@@ -2029,9 +2141,9 @@
         }
       },
       {
-        "id": "route:greek-argolid-road>greek-mycenae-palace",
+        "id": "route:greek-argive-jury>greek-mycenae-palace",
         "kind": "route",
-        "title": "The Argolid Crossroads to Mycenaean Palace",
+        "title": "The Jury Yard of Argos to Mycenaean Palace",
         "cond": {
           "op": "and",
           "of": [
@@ -2066,9 +2178,9 @@
         }
       },
       {
-        "id": "route:greek-argolid-road>greek-argive-farm",
+        "id": "route:greek-argive-jury>greek-argive-farm",
         "kind": "route",
-        "title": "The Argolid Crossroads to The Argive Farmhouse",
+        "title": "The Jury Yard of Argos to The Argive Farmhouse",
         "cond": {
           "op": "and",
           "of": [
@@ -23382,6 +23494,7 @@
           "place:greek-ajax-grave",
           "place:greek-ajax-household",
           "place:greek-ajax-landing",
+          "place:greek-trojan-camp-lane",
           "resident:greek-ajax-odysseus",
           "resident:greek-ajax-tecmessa",
           "resident:greek-ajax-teucer",
@@ -23391,6 +23504,7 @@
           "topic:greek-ajax-shield-teucer"
         ],
         "gates": [
+          "place:greek-trojan-camp-lane",
           "place:greek-ajax-landing",
           "place:greek-ajax-household",
           "place:greek-ajax-grave",
@@ -29277,6 +29391,9 @@
       "place:greek-mycenae-palace": [
         "choice:greek-atreid-account=sophocles"
       ],
+      "place:greek-trojan-camp-lane": [
+        "flag:greek-ajax-open"
+      ],
       "place:greek-troy-beach": [
         "choice:greek-helen-account=troy"
       ],
@@ -29488,20 +29605,20 @@
         "item:greek-story-aristophanes-acharnians-object",
         "resident:greek-story-aristophanes-acharnians-second"
       ],
-      "route:greek-argolid-road>greek-argive-farm": [
+      "route:greek-argive-jury>greek-argive-farm": [
         "choice:greek-atreid-account=euripides",
         "item:greek-atreid-record",
         "resident:greek-baker"
+      ],
+      "route:greek-argive-jury>greek-mycenae-palace": [
+        "choice:greek-atreid-account=sophocles",
+        "item:greek-atreid-record",
+        "resident:greek-creon"
       ],
       "route:greek-argolid-road>greek-argos-tomb": [
         "choice:greek-atreid-account=aeschylus",
         "item:greek-atreid-record",
         "resident:greek-ismene"
-      ],
-      "route:greek-argolid-road>greek-mycenae-palace": [
-        "choice:greek-atreid-account=sophocles",
-        "item:greek-atreid-record",
-        "resident:greek-creon"
       ],
       "route:greek-argos-tomb>greek-argos-palace": [
         "choice:greek-atreid-account=aeschylus",
