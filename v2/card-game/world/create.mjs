@@ -71,7 +71,6 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
 export function seedRun(s, seed) {
   if (s.run || !validSeed(seed)) return s;
   s.run = { seed };
-  // Doors placed before the world had a seed move to the seed's picks.
   delete s.doors;
   installPacks(s);
   if (s.revision === 0) scatterWayfinder(s);

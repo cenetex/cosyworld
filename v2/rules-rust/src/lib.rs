@@ -26,6 +26,7 @@ mod profiles;
 mod reset;
 mod seed;
 mod seed_packs;
+mod seed_wayfinder;
 mod validate;
 
 pub use create_geography::Geography;
@@ -110,6 +111,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("hold") => opening::hold(request).unwrap_or(Value::Null),
         Some("seed_doors") => seed::door_projection(request).unwrap_or(Value::Null),
         Some("seed_specials") => seed::specials_projection(request).unwrap_or(Value::Null),
+        Some("seed_opening") => seed::opening_projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),

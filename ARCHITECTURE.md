@@ -64,6 +64,8 @@ The browser follows a bounded, hashed chain of changes to that player's view. Th
 
 ## Opening history
 
+A fresh world's seed chooses its home doors, pack specials, and Wayfinder landing from the mounted data. The Rust seed stage applies these choices before resident history.
+
 A new shared world is created with `history: true`. The rules then apply the checked-in patch in `v2/card-game/world-history.json`.
 
 That patch is produced by `v2/scripts/world-history.mjs`, which plays resident life forward from a fixed seed and keeps a result only when `refusal` is empty. The run is refused if it changes the opening cast, their trust toward protected people, items near the opening, which boxes are open, or the first legal cards. Residents may already have wants, trust among themselves, and memories. The player's first hand stays the hand a fresh world would deal.
