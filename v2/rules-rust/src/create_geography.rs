@@ -409,6 +409,11 @@ impl<'a> Geography<'a> {
         self.packs.iter().copied()
     }
 
+    pub(super) fn resident_pack(&self, id: &str) -> Option<&'a Value> {
+        let &(pack, _) = self.entities.get(id)?;
+        (!self.humans.contains(&id) && pack["avatars"].get(id).is_some()).then_some(pack)
+    }
+
     pub(super) fn files(&self) -> &'a Value {
         self.files
     }

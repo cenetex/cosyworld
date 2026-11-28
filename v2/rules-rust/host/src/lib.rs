@@ -114,6 +114,16 @@ fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, S
         .as_object()
         .ok_or("Rules Wasm needs a request object with pack content.")?
         .clone();
+    request.remove("actorOrder");
+    if request.get("op").and_then(Value::as_str) == Some("opening_wait_roster") {
+        if let Some(actors) = request
+            .get("world")
+            .and_then(|world| world["actors"].as_object())
+        {
+            let order = actors.keys().cloned().map(Value::String).collect();
+            request.insert("actorOrder".into(), Value::Array(order));
+        }
+    }
     request.insert("packContentJson".into(), Value::String(pack_json.into()));
     let input = serde_json::to_vec(&request).map_err(wasm_error)?;
     if input.len() > MAX_WIRE_BYTES {
@@ -162,11 +172,21 @@ mod tests {
     #[test]
     fn preserves_raw_pack_content_and_checks_request_and_pack_sizes() {
         let pack = "{\n  \"z\": \"étang\", \"a\": 1\n}\n";
-        let input = encode_request(&json!({"op":"view"}), Some(pack)).unwrap();
+        let input =
+            encode_request(&json!({"op":"view","actorOrder":["vale"]}), Some(pack)).unwrap();
         assert_eq!(
             serde_json::from_slice::<Value>(&input).unwrap(),
             json!({"op":"view", "packContentJson":pack})
         );
+        let roster = json!({"op":"opening_wait_roster", "world":{"actors":{"vale":{},"ada":{}}},"actorOrder":["vale","ada"]});
+        let input = encode_request(&roster, Some(pack)).unwrap();
+        let encoded: Value = serde_json::from_slice(&input).unwrap();
+        let keys: Vec<_> = roster["world"]["actors"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect();
+        assert_eq!(encoded["actorOrder"], json!(keys));
         let long = "x".repeat(MAX_JSON_BYTES + 1);
         assert!(encode_request(&json!({"op":"view"}), Some(&long)).is_err());
         assert!(encode_request(&json!({"op":"view", "world":long}), Some(pack)).is_err());
