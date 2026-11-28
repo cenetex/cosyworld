@@ -9,8 +9,7 @@ export const connectedHumans = (world) =>
     : [];
 export const boardyActive = (world) => connectedHumans(world).length >= 2;
 
-// Facts only: where Boardy's home is and where each human was last seen.
-// His temperament lives in the persona, not in authored first-person lines.
+// Boardy reports his home and where he last saw each person.
 export function boardyFacts(world, nameOf) {
   const here = world.actors[BOARDY].place;
   return [
