@@ -58,16 +58,27 @@ fn quiet_turn(world: &Value) -> Option<u64> {
     Some(turn)
 }
 
-fn historic_cass_turn(world: &Value, geo: &Geography<'_>, actor: &str) -> Option<u64> {
-    if actor != "orin" {
-        return None;
-    }
-    let arrival = opening_station_move::historic_arrival(world)?;
+fn historic_visitor_turn(
+    world: &Value,
+    geo: &Geography<'_>,
+    actor: &str,
+    home: &str,
+    item: &str,
+) -> Option<(u64, &'static str)> {
+    let (target, to) = match (actor, home, item) {
+        ("orin", "pavilion", "board")
+            if world["actors"]["willows-swede"]["place"] == "willows-camp"
+                && geo.entity_active(world, "willows-swede")? =>
+        {
+            ("willows-swede", "willows-bank")
+        }
+        ("ada", "loft", "shears") if world["run"]["seed"] == 99 => ("vale", "greek-ship"),
+        _ => return None,
+    };
+    let follow = opening_station_move::historic_follow(world)?;
     let turn = world["turn"].as_u64()?;
-    let follow = arrival.checked_add(1)?;
     let log = world["log"].as_array()?;
-    let last = log.last()?;
-    let cass = &world["actors"][actor];
+    let visitor = &world["actors"][actor];
     if world["playerActorId"] != "vale"
         || ["heldActors", "presentActors", "controlledActors"]
             .iter()
@@ -78,25 +89,11 @@ fn historic_cass_turn(world: &Value, geo: &Geography<'_>, actor: &str) -> Option
             .as_array()?
             .iter()
             .any(|record| record["turn"].as_u64().is_none_or(|at| at >= turn))
-        || world["actors"]["moth"]["place"] != "station"
-        || !world["actors"]["moth"]["sleeping"].is_null()
         || world["eventSeq"] != follow
-        || last["seq"] != follow
-        || last["turn"] != turn
-        || last["kind"] != "action"
-        || last["generated"] == true
-        || last["actorId"] != "moth"
-        || last["verb"] != "move"
-        || last["fromLocationId"] != "pond"
-        || last["locationId"] != "station"
-        || last["targetId"] != "station"
-        || !last["itemId"].is_null()
-        || cass["place"] != "pavilion"
-        || cass["visited"] != json!(["pavilion"])
-        || cass["want"]
-            != json!({"kind":"person","target":"willows-swede","since":480,"refusals":0})
-        || world["actors"]["willows-swede"]["place"] != "willows-camp"
-        || !geo.entity_active(world, "willows-swede")?
+        || log.last()?["seq"] != follow
+        || visitor["place"] != home
+        || visitor["visited"] != json!([home])
+        || visitor["want"] != json!({"kind":"person","target":target,"since":480,"refusals":0})
         || !geo.visiting_resident(world, actor)
     {
         return None;
@@ -105,11 +102,32 @@ fn historic_cass_turn(world: &Value, geo: &Geography<'_>, actor: &str) -> Option
         event["actorId"] == actor && event["kind"] == "action" && event["generated"] != true
     })?;
     (take["turn"] == 481
-        && take["seq"].as_u64()? < arrival
+        && take["seq"].as_u64()?.checked_add(1)? < follow
         && take["verb"] == "take"
-        && take["itemId"] == "board"
-        && take["locationId"] == "pavilion")
-        .then_some(turn)
+        && take["itemId"] == item
+        && take["locationId"] == home)
+        .then_some((turn, to))
+}
+
+fn board_historic_ship(world: &mut Value, geo: &Geography<'_>, turn: u64) -> Option<()> {
+    let ship = geo
+        .packs()
+        .find_map(|pack| pack["transports"].get("greek-ship"))?;
+    let state = world.get_mut("transports")?.get_mut("greek-ship")?;
+    if ship["place"] != "greek-ship"
+        || ship["at"] != "greek-harbor"
+        || state["version"] != 3
+        || state["phase"] != "docked"
+        || state["dock"] != ship["at"]
+        || !state["destination"].is_null()
+        || !state["recall"].is_null()
+        || !state["riders"].as_array()?.is_empty()
+        || state["since"].as_u64()? >= turn
+    {
+        return None;
+    }
+    state["since"] = json!(turn);
+    Some(())
 }
 
 fn room<'a>(geo: &Geography<'a>, id: &str) -> Option<&'a Value> {
@@ -330,15 +348,18 @@ fn perform_visitor(
     visitor: Visitor<'_>,
 ) -> Option<()> {
     let actor = visitor.actor;
-    let turn = quiet_turn(world).or_else(|| historic_cass_turn(world, geo, actor))?;
-    let historic = turn == 482;
     let avatar = entries(&geo.files()["v2/card-game/shared-cast.json"]["avatars"])
         .find(|avatar| avatar["id"] == actor)?;
     let home = avatar["home"]["id"].as_str()?;
     let item = avatar["item"]["id"].as_str()?;
+    let (turn, historic_to) = if let Some(turn) = quiet_turn(world) {
+        (turn, None)
+    } else {
+        let (turn, to) = historic_visitor_turn(world, geo, actor, home, item)?;
+        (turn, Some(to))
+    };
     let a = world["actors"].get(actor)?;
-    if (historic && (home != "pavilion" || item != "board"))
-        || !entries(&a["visited"]).any(|place| place == home)
+    if !entries(&a["visited"]).any(|place| place == home)
         || ["sleeping", "homeward", "attend", "guarding", "under"]
             .iter()
             .any(|field| !a[*field].is_null())
@@ -369,7 +390,7 @@ fn perform_visitor(
         return None;
     }
     let destination = home_destination(world, geo, actor, home)?;
-    if (historic && destination != Some("willows-bank"))
+    if (historic_to.is_some() && destination != historic_to)
         || (destination.is_some() && opening_station_move::departure_turn(world).is_some())
     {
         return None;
@@ -387,6 +408,7 @@ fn perform_visitor(
         .find(|crossing| crossing["from"] == home && crossing["to"] == to)?;
     let id = crossing["id"].as_str()?;
     let meeting = to == "station" && world["actors"]["vale"]["place"] == to;
+    let historic_boarding = historic_to == Some("greek-ship");
     if (meeting && !visitor.station_meeting)
         || world["doors"][home] != to
         || crossing["retired"] == true
@@ -394,11 +416,12 @@ fn perform_visitor(
         || !crossing["transport"].is_null()
         || world["actors"][actor]["crossed"] != 0
         || entries(&homes["choices"]).next().is_some()
-        || geo.packs().any(|pack| {
-            pack["transports"]
-                .as_object()
-                .is_some_and(|ships| ships.values().any(|ship| ship["place"] == to))
-        })
+        || (!historic_boarding
+            && geo.packs().any(|pack| {
+                pack["transports"]
+                    .as_object()
+                    .is_some_and(|ships| ships.values().any(|ship| ship["place"] == to))
+            }))
     {
         return None;
     }
@@ -426,7 +449,11 @@ fn perform_visitor(
     a["heldItem"] = Value::Null;
     a["place"] = json!(to);
     a["crossed"] = json!(1);
-    a["dwellUntil"] = json!(dwell);
+    if historic_boarding {
+        board_historic_ship(world, geo, turn)?;
+    } else {
+        a["dwellUntil"] = json!(dwell);
+    }
     opening_crossings::no_crossing_unlocks(world, geo)?;
     if meeting {
         record_station_meeting(world, geo, actor)?;
@@ -472,5 +499,7 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
             station_meeting: true,
         },
     )?;
-    Some(json!({"ok":true,"world":world}))
+    let mut response = json!({"ok":true});
+    response["world"] = world;
+    Some(response)
 }
