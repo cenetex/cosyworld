@@ -56,7 +56,6 @@ export const STALL_TURNS = 48;
 export const REST_TURNS = 3;
 export const CONTENT_TURNS = 24;
 
-// A pack's residents become known once the player has found a way in.
 export function knownActors(s, place) {
   const discovered = new Map();
   const ids = new Set([

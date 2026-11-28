@@ -77,7 +77,7 @@ fn begin_wait(world: &mut Value, files: &Value) -> Option<Value> {
     Some(event)
 }
 
-pub(super) fn projection(request: &Value) -> Option<Value> {
+pub(super) fn wait_world(request: &Value) -> Option<&Value> {
     let world = opening::supported_world(request)?;
     let action = &request["action"];
     if request["actor"] != ACTOR
@@ -92,6 +92,11 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     {
         return None;
     }
+    Some(world)
+}
+
+pub(super) fn projection(request: &Value) -> Option<Value> {
+    let world = wait_world(request)?;
     let files = opening_play::attic_files(world, request)?;
     let mut next = world.clone();
     let event = begin_wait(&mut next, &files)?;
