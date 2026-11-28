@@ -1,13 +1,17 @@
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
+import { cardActions } from "../v2/card-game/cards.mjs";
 import {
   handFocusId,
   holdDialogueChoice,
   loadClientViewModel,
+  matchingPairAction,
   phase,
   roomCardOrder,
 } from "../v2/card-game/presentation.mjs";
 import { lockedStack } from "../v2/card-game/mystery-view.mjs";
+import { pickedQuestAction } from "../v2/card-game/quest-action.mjs";
+import { createWorld } from "../v2/card-game/world.mjs";
 
 function combinations(fields) {
   return Array.from({ length: 2 ** fields.length }, (_, bits) =>
@@ -17,7 +21,7 @@ function combinations(fields) {
   );
 }
 
-it("keeps dialogue and hand presentation identical with the Rust module", async () => {
+it("keeps dialogue, hand, and action presentation identical with the Rust module", async () => {
   const phases = combinations([
     "reviewing",
     "revealing",
@@ -55,6 +59,32 @@ it("keeps dialogue and hand presentation identical with the Rust module", async 
     ids.flatMap((id) => [`local:${id}`, `way:${id}`]),
   );
   const roomEnds = [null, "a", "c", "missing"];
+  const trade = createWorld({ seed: 9 });
+  trade.actors.moth.place = "station";
+  trade.items.lamp.holder = "vale";
+  const uncover = structuredClone(trade);
+  uncover.items.cloth.holder = "lamp";
+  const pairOptions = [
+    { kind: "trade", cards: ["lamp", "cloth"], key: "wrong-kind" },
+    { kind: "use", cards: ["lamp", "cloth", "vale"], key: "wide" },
+    { kind: "use", cards: ["lamp", "lamp"], key: "one-card" },
+    { kind: "use", cards: ["cloth", "lamp"], key: "first" },
+    { kind: "use", cards: ["lamp", "cloth"], key: "second" },
+  ];
+  const questOptions = [
+    { kind: "drop", tarot: 0, item: "lamp", key: "item" },
+    { kind: "accept", tarot: 1, label: "Collect", key: "wrong-quest" },
+    { kind: "drop", tarot: 0, key: "discard" },
+    { kind: "accept", tarot: 0, label: "Turn over", key: "turn" },
+    { kind: "accept", tarot: 0, label: "Collect", key: "reward" },
+  ];
+  const quests = ["down", "up", "reward", "locked", "offered"].map((face) => ({
+    kind: "arcanum",
+    face,
+    turnable: face === "down",
+    index: 0,
+    key: "tarot:0",
+  }));
   const project = () => [
     phases.map(phase),
     choices.map(holdDialogueChoice),
@@ -79,6 +109,20 @@ it("keeps dialogue and hand presentation identical with the Rust module", async 
         ),
       ),
     ),
+    [trade, uncover].map((world) =>
+      [
+        ["lamp", "cloth"],
+        ["cloth", "lamp"],
+      ].map((pair) => cardActions(world, pair)),
+    ),
+    [false, true].map((exact) =>
+      matchingPairAction(pairOptions, "use", ["lamp", "cloth"], exact),
+    ),
+    quests.flatMap((quest) =>
+      [questOptions, questOptions.slice(0, 3), []].map((options) =>
+        pickedQuestAction(quest, options, 7, "7:tarot:0"),
+      ),
+    ),
   ];
   const before = project();
 
@@ -94,10 +138,19 @@ it("keeps dialogue and hand presentation identical with the Rust module", async 
   expect(instance.exports.hand_focus).toBeTypeOf("function");
   expect(instance.exports.locked_stack).toBeTypeOf("function");
   expect(instance.exports.room_card_order).toBeTypeOf("function");
+  expect(instance.exports.quest_action).toBeTypeOf("function");
+  expect(instance.exports.matching_pair_action).toBeTypeOf("function");
   expect(
     await loadClientViewModel(
       `data:application/wasm;base64,${wasm.toString("base64")}`,
     ),
   ).toBe(true);
   expect(project()).toEqual(before);
+  expect(cardActions(trade, ["lamp", "cloth"]).actions[0]?.kind).toBe("trade");
+  expect(matchingPairAction(pairOptions, "use", ["lamp", "cloth"], true)).toBe(
+    pairOptions[3],
+  );
+  expect(pickedQuestAction(quests[2], questOptions, 7, null).action).toBe(
+    questOptions[4],
+  );
 });
