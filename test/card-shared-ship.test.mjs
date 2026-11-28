@@ -116,7 +116,6 @@ describe("shared ship boarding", () => {
       const staleBoarding = ask(s, "ash").actions.find(
         (a) => a.kind === "move" && a.target === "greek-ship",
       );
-      // Mara's course card goes stale once Vale sets the course.
       const staleCourse = ask(s, "mara").actions.find(
         (a) => a.kind === "course",
       );

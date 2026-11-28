@@ -48,6 +48,14 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
     if key == Some(super::opening_pond_lamp_drop::DROP) {
         return super::opening_full_pond_call::reduce(request);
     }
+    if request["world"]["turn"] == 7
+        && matches!(
+            key,
+            Some("move:vale::greek-ship" | "move:vale:cloth:greek-ship")
+        )
+    {
+        return super::opening_full_pond_ship_board::reduce(request);
+    }
     if request["world"]["turn"] == 1 {
         return match key {
             Some("move:vale::pond" | "move:vale:lamp:pond") => {
