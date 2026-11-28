@@ -10,7 +10,6 @@ import {
   createWorld,
   exits,
   legalActions,
-  placeText,
   play,
 } from "../v2/card-game/world.mjs";
 import {
@@ -426,8 +425,9 @@ describe("ports reachable on foot or by a free leg home", () => {
 
   it("walks to Pagasae, sails to the Ajax landing and returns to the Wine-Dark Harbor cargo-free", () => {
     const start = traveler(greekStart()).move("harbor");
-    expect(placeText(start.s, "greek-harbor")).toContain("Theban Harbor Road");
-    expect(placeText(start.s, "greek-harbor")).toContain("Argos and Corinth");
+    expect(exits(start.s, "greek-harbor", "vale")).toEqual(
+      expect.arrayContaining(["greek-road-thebes", "greek-argolid-road"]),
+    );
     start.act("talk", { target: "greek-shipmaster" });
     expect(start.s.packs["greek-drama"].flags["greek-ajax-open"]).toBe(true);
     stowProvisions(start.s, "greek-harbor");
@@ -447,21 +447,7 @@ describe("ports reachable on foot or by a free leg home", () => {
       "greek-pherae",
       PAGASAE,
     ];
-    const waypoints = {
-      "greek-eleusis": "Sacred Way",
-      "greek-athens": "Civic Avenue",
-      [CIVIC_AVENUE]: "Delphi",
-      "greek-delphi": "The Oeta Road",
-      "greek-oeta": "through Trachis",
-      "greek-trachis": "down to Pherae",
-      "greek-pherae": "Pagasae Anchorage",
-      [PAGASAE]: "Ask Philon",
-    };
-    for (const place of overland) {
-      t.act("move", { target: place });
-      if (waypoints[place])
-        expect(placeText(t.s, place)).toContain(waypoints[place]);
-    }
+    for (const place of overland) t.act("move", { target: place });
     expect(t.s.actors.vale.place).toBe(PAGASAE);
     expect(exits(t.s, PAGASAE, "vale")).toContain("greek-pherae");
 

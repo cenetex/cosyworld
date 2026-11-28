@@ -2856,13 +2856,9 @@ impl<'a> Check<'a> {
         let disclosed = knowledge::reserved_names(self.context, &self.entity.id, self.part);
         named_spans(text).into_iter().any(|(span, id)| {
             let label = &profiles()[id]["name"];
-            let plain = label
-                .as_str()
-                .is_some_and(|l| grounding::GENERIC_NOUNS.contains(&l.to_lowercase().as_str()));
             !disclosed.contains(&id)
                 && (self.context.concealed.contains(id)
-                    || (!plain
-                        && label.as_str() == Some(&text[span])
+                    || (grounding::named(label, &text[span])
                         && !self
                             .known
                             .iter()
