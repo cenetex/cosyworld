@@ -1,7 +1,7 @@
 use super::{
     lamp_state,
     opening::{self, MAX_REVISION},
-    opening_content, opening_crossings, opening_pickups, opening_play,
+    opening_content, opening_crossings, opening_pickups, opening_play, opening_wait_response,
     pack_state::Catalog,
     resident_evidence::ResidentEvidence,
     Geography, LampPosition,
@@ -11,7 +11,7 @@ use serde_json::{json, Map, Value};
 const VALE: &str = "vale";
 const ROOM: &str = "attic";
 const LAMP: &str = "lamp";
-const DROP: &str = "drop:vale:lamp:attic";
+pub(super) const DROP: &str = "drop:vale:lamp:attic";
 
 pub(super) fn drop_world(request: &Value) -> Option<&Value> {
     let world = opening::supported_world(request)?;
@@ -101,6 +101,40 @@ pub(super) fn begin(
     evidence.record(&mut world, &[VALE], &[LAMP], detail, true)?;
     let event = world["log"].as_array()?.last()?.clone();
     Some((world, event))
+}
+
+pub(super) fn completed_response(
+    mut world: Value,
+    files: &Value,
+    before_seq: u64,
+    mirror: opening_play::Mirror,
+) -> Option<Value> {
+    let events: Vec<_> = world["log"]
+        .as_array()?
+        .iter()
+        .filter_map(|entry| {
+            entry["seq"]
+                .as_u64()
+                .filter(|seq| *seq > before_seq)
+                .map(|_| entry.clone())
+        })
+        .collect();
+    let first = events.first()?;
+    if first["seq"].as_u64() != before_seq.checked_add(1)
+        || first["actorId"] != VALE
+        || first["verb"] != "drop"
+        || first["itemId"] != LAMP
+        || first["locationId"] != ROOM
+        || events.last()?["seq"] != world["eventSeq"]
+        || world["actors"][VALE]["waitSpeech"] != json!({"place":ROOM,"turn":null})
+    {
+        return None;
+    }
+    opening_wait_response::apply_vale_voice(&mut world)?;
+    let mut response =
+        opening_play::attic_response(opening::stored_response(world)?, files, mirror)?;
+    response["events"] = json!(events);
+    Some(response)
 }
 
 pub(super) fn projection(request: &Value) -> Option<Value> {

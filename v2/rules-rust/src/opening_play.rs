@@ -39,6 +39,9 @@ pub(super) fn reduce(request: &Value) -> Option<Value> {
         ),
         Some(ACCEPT_POND) if actor == "vale" => accept_pond(world, request),
         Some("wait:vale::") if actor == "vale" => super::opening_full_wait::reduce(request),
+        Some(super::opening_drop::DROP) if actor == "vale" => {
+            super::opening_full_wait::reduce_drop(request)
+        }
         Some(_) => None,
     }
 }

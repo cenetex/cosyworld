@@ -100,7 +100,10 @@ pub(super) fn verify(world: &mut Value, geo: &Geography) -> Option<()> {
         || world.get("began").is_some_and(|t| t != 0)
         || world["sharedVersion"] != 1
         || world["actors"]["vale"]["place"] != "attic"
-        || world["items"]["lamp"]["holder"] != "vale"
+        || !matches!(
+            world["items"]["lamp"]["holder"].as_str(),
+            Some("vale" | "attic")
+        )
         || !world["actors"]["vale"]["arcana"].is_null()
         || !world["standoffs"].as_array()?.is_empty()
         || ["heldActors", "controlledActors", "presentActors"]

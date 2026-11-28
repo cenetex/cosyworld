@@ -123,7 +123,7 @@ fn previous_wait_turn(actor: &Value, log: &[Value], id: &str, place: &str) -> Op
     )
 }
 
-pub(super) fn settle_visit_speech(before: &Value, next: &mut Value) -> Option<()> {
+pub(super) fn settle_visit_speech(before: &Value, next: &mut Value, waited: bool) -> Option<()> {
     let before_seq = before["eventSeq"].as_u64()?;
     let turn = next["turn"].as_u64()?;
     let log_before = before["log"].as_array()?;
@@ -139,15 +139,15 @@ pub(super) fn settle_visit_speech(before: &Value, next: &mut Value) -> Option<()
             || log_after.iter().any(|entry| {
                 entry["seq"].as_u64().is_some_and(|seq| seq > before_seq) && moved(entry, id)
             });
-        let mut waited = if left {
+        let mut last_wait = if left {
             Value::Null
         } else {
             previous_wait_turn(prior, log_before, id, place)?
         };
-        if id == VALE && !left && waited.is_null() {
-            waited = json!(turn);
+        if waited && id == VALE && !left && last_wait.is_null() {
+            last_wait = json!(turn);
         }
-        updates.push((id.clone(), json!({"place":place,"turn":waited})));
+        updates.push((id.clone(), json!({"place":place,"turn":last_wait})));
     }
     for (id, state) in updates {
         next["actors"]
@@ -167,7 +167,7 @@ pub(super) fn projection(request: &Value) -> Option<Value> {
     let (mut next, _, files) = opening_wait::begin(request)?;
     rest_vale(&mut next, &files)?;
     settle_vale_wants(&mut next, &files)?;
-    settle_visit_speech(before, &mut next)?;
+    settle_visit_speech(before, &mut next, true)?;
     Some(json!({
         "ok":true,
         "vale":next["actors"][VALE],
@@ -203,7 +203,7 @@ mod tests {
             json!({"seq":9,"actorId":"mara","fromLocationId":"pond","locationId":"station"}),
             json!({"seq":10,"actorId":"mara","fromLocationId":"station","locationId":"pond"}),
         ]);
-        assert_eq!(settle_visit_speech(&before, &mut next), Some(()));
+        assert_eq!(settle_visit_speech(&before, &mut next, true), Some(()));
         assert_eq!(
             next["actors"]["vale"]["waitSpeech"],
             json!({"place":"attic","turn":5})
