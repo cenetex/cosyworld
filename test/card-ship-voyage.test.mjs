@@ -338,7 +338,6 @@ describe("calling the empty ship", () => {
     s.turn = 1;
     callTransport(s, "greek-harbor", true);
     expect(state(s)).toMatchObject({ dock: "greek-harbor", since: 1 });
-    // One lane a round, however many people wait.
     s.actors.vale.place = "pond";
     callTransport(s, "pond");
     expect(state(s).dock).toBe("greek-harbor");
