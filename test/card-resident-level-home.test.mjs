@@ -83,7 +83,6 @@ describe("resident levels earned at a fixed home", () => {
     expect(plan(s, resident).action.kind).toBe("wait");
     // Two moves, each after a stay: wait for her, not for a count of turns.
     for (let i = 0; i < 200 && s.actors[resident].place !== home; i++) act();
-    // Walking two stops meets a want on the way, so xp is 1 or more.
     expect(s.actors[resident]).toMatchObject({ place: home, level: 2 });
     expect(s.actors[resident].xp).toBeGreaterThanOrEqual(1);
     expect(levelReturnHome(s, resident)).toBeNull();
