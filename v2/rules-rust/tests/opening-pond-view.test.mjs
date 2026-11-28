@@ -112,3 +112,80 @@ test("the fresh and historic first pond views preserve pinned offers and private
     }
   }
 });
+
+test("the pond view keeps the second Move speech cue and private memories", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [17, 2, 4242]) {
+    for (const mode of ["stowed", "dry"]) {
+      let { world } = success(pinned, { op: "create", seed });
+      if (mode === "stowed") {
+        ({ world } = success(pinned, {
+          ...seats,
+          op: "hold",
+          world,
+          choice: { item: null, revision: world.revision },
+        }));
+      } else {
+        Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+      }
+      ({ world } = success(pinned, {
+        ...seats,
+        op: "play",
+        world,
+        action: "wait:vale::",
+      }));
+      ({ world } = success(pinned, {
+        ...seats,
+        op: "speech",
+        room: "attic",
+        world,
+        lines: [{ entityId: "attic", text: "The floor settles." }],
+      }));
+      const played = success(pinned, {
+        ...seats,
+        op: "play",
+        world,
+        action: mode === "stowed" ? "move:vale::pond" : "move:vale:lamp:pond",
+      });
+      assert.equal(played.world.turn, 2);
+      assert.deepEqual(played.world.speechVoices.vale, ["vale", "moth"]);
+      assert.deepEqual(played.world.actors.vale.waitSpeech, {
+        place: "pond",
+        turn: null,
+      });
+      const spoken = success(pinned, {
+        ...seats,
+        op: "speech",
+        room: "pond",
+        world: played.world,
+        lines: [
+          { actorId: "vale", text: "A narrow shore." },
+          { actorId: "moth", text: "Follow me." },
+          { entityId: "pond", text: "The ripples spread." },
+        ],
+      });
+      for (const state of [played.world, spoken.world]) {
+        for (const present of [seats.present, []]) {
+          const request = { ...seats, present, op: "view", world: state };
+          const actual = wasm(request);
+          const label = JSON.stringify({
+            seed,
+            mode,
+            present,
+            seq: state.eventSeq,
+          });
+          assert.ok(actual, label);
+          assert.deepEqual(actual, success(pinned, request), label);
+          assert.deepEqual(actual.world.memories.vale, state.memories.vale);
+          assert.equal(actual.world.memories.moth.subjects, undefined);
+          assert.equal(actual.world.memories.moth.learning, undefined);
+        }
+      }
+      const invalid = structuredClone(played.world);
+      invalid.log.find(
+        (entry) => entry.verb === "wait" && entry.actorId === "vale",
+      ).sleep = true;
+      assert.equal(wasm({ ...seats, op: "view", world: invalid }), null);
+    }
+  }
+});

@@ -209,7 +209,7 @@ fn vale_action(entry: &Value) -> bool {
     entry["kind"] == "action" && entry["actorId"] == ACTOR && entry["generated"] != true
 }
 
-fn ordinary_attic_wait(entry: &Value) -> bool {
+pub(super) fn ordinary_attic_wait(entry: &Value) -> bool {
     vale_action(entry)
         && entry["locationId"] == ROOM
         && entry["verb"] == "wait"

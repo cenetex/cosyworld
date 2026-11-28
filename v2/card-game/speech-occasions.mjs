@@ -57,7 +57,6 @@ export const SPEECH_OCCASIONS = [
   "action",
 ];
 
-// The actor's first arrival at this place, read from committed travel.
 function firstArrival(world, location) {
   const actor = currentActor(world);
   const arrived = (entry) =>
