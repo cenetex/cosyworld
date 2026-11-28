@@ -30,12 +30,11 @@ import { stowProvisions } from "./helpers/provisions.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
-import { worldLife } from "../v2/card-game/resident-home.mjs";
-import { act as actOn, reload } from "./helpers/play.mjs";
+import { act as actOn, lifeIn, reload } from "./helpers/play.mjs";
 // The errands are played with the cast standing still (still-cast, imported by
 // the journey); this file's walks run with the world alive, so build, then restore.
 const errandsDone = greekErrands().opened;
-worldLife.on = true;
+lifeIn(true);
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
   "greek-harbor",

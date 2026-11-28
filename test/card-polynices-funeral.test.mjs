@@ -1,6 +1,5 @@
 import "./helpers/no-dwell.mjs";
 import { expect, it } from "vitest";
-import { worldLife } from "../v2/card-game/resident-home.mjs";
 import { journeyWorlds } from "./helpers/journey.mjs";
 import { greekGateOpen, greekGateOpenFull } from "./journeys/greek-before-funeral.mjs";
 import { questCards, questVisible, questVerb } from "../v2/card-game/quest-card.mjs";
@@ -13,11 +12,12 @@ import {
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
+import { lifeIn } from "./helpers/play.mjs";
 
 // The journeys play with the cast standing still (still-cast, imported by the
 // journey module); this file's residents walk, so build first, then let them.
 const gateOpen = { opening: journeyWorlds(greekGateOpen), full: journeyWorlds(greekGateOpenFull) };
-worldLife.on = true;
+lifeIn(true);
 
 const pack = "greek-drama";
 const hollow = "greek-polynices-hollow";
