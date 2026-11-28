@@ -1,0 +1,16 @@
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "Use an ordered map for deterministic rules." },
+  { path = "std::collections::HashSet", reason = "Use an ordered set for deterministic rules." },
+  { path = "std::hash::RandomState", reason = "Keep entropy outside the reducer." },
+  { path = "std::time::Instant", reason = "Supply time in the request." },
+  { path = "std::time::SystemTime", reason = "Supply time in the request." },
+  { path = "f32", reason = "Use integer or fixed-point state." },
+  { path = "f64", reason = "Use integer or fixed-point state." },
+]
+disallowed-methods = [
+  { path = "rand::random", allow-invalid = true, reason = "Supply an explicit seed in the request." },
+  { path = "rand::thread_rng", allow-invalid = true, reason = "Supply an explicit seed in the request." },
+  { path = "rand::rng", allow-invalid = true, reason = "Supply an explicit seed in the request." },
+  { path = "getrandom::getrandom", allow-invalid = true, reason = "Keep entropy outside the reducer." },
+  { path = "getrandom::fill", allow-invalid = true, reason = "Keep entropy outside the reducer." },
+]

@@ -1,5 +1,4 @@
-//! The shipping card rules run in QuickJS, a C interpreter. Rust supplies JSON
-//! and owns IO; the interpreter has no filesystem, network, clocks or randomness.
+//! Rust passes JSON to QuickJS with no filesystem, network, clock or entropy access.
 use super::{content, store::Result};
 use cosyworld_orchestrator::card_assets;
 use rquickjs::{Context, Function, Runtime};
@@ -160,8 +159,7 @@ fn reduce_source(
         Some((_, pack)) => view_cache_key(&format!("{version}+{pack}"), &input),
         None => view_cache_key(version, &input),
     });
-    // A projection is pure for its exact world, actor, claims and presence.
-    // Keep only successful serialized projections. Commands always run in C.
+    // Cache successful projections by their exact serialized inputs.
     if let Some(cache_key) = cache_key.as_deref() {
         let cached = views()
             .lock()
