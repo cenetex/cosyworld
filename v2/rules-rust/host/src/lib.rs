@@ -2,7 +2,7 @@
 
 use cosyworld_rules::{MAX_JSON_BYTES, MAX_WIRE_BYTES};
 use serde_json::Value;
-use wasmi::{Config, Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuilder};
+use wasmi::{Config, Engine, ExternType, Linker, Module, Store, StoreLimits, StoreLimitsBuilder};
 
 const MAX_MODULE_BYTES: usize = 2 * 1024 * 1024;
 const MEMORY_BYTES: usize = 96 * 1024 * 1024;
@@ -30,7 +30,7 @@ impl Rules {
     }
 
     pub fn reduce(&self, request: &Value) -> Result<Option<Value>, String> {
-        self.reduce_input(&encode_request(request, None)?, FUEL)
+        self.reduce_input(&encode_request(request, None, false)?, FUEL)
     }
 
     pub fn reduce_with_pack(
@@ -42,7 +42,11 @@ impl Rules {
             Some("create" | "validate" | "upgrade") => RECONSTRUCTION_FUEL,
             _ => FUEL,
         };
-        self.reduce_input(&encode_request(request, Some(pack_json))?, fuel)
+        let raw_pack = matches!(
+            self.module.get_export("supports_raw_pack"),
+            Some(ExternType::Func(_))
+        );
+        self.reduce_input(&encode_request(request, Some(pack_json), raw_pack)?, fuel)
     }
 
     fn reduce_input(&self, input: &[u8], fuel: u64) -> Result<Option<Value>, String> {
@@ -99,7 +103,11 @@ impl Rules {
     }
 }
 
-fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, String> {
+fn encode_request(
+    request: &Value,
+    pack_json: Option<&str>,
+    raw_pack: bool,
+) -> Result<Vec<u8>, String> {
     let input = serde_json::to_vec(request).map_err(wasm_error)?;
     if input.len() > MAX_JSON_BYTES {
         return Err("Rules Wasm request is too large.".into());
@@ -144,6 +152,18 @@ fn encode_request(request: &Value, pack_json: Option<&str>) -> Result<Vec<u8>, S
             request.insert("placeCardOrder".into(), Value::Array(order));
         }
     }
+    if raw_pack {
+        request.remove("packContentJson");
+        let json = serde_json::to_vec(&request).map_err(wasm_error)?;
+        if json.len() <= MAX_JSON_BYTES {
+            let mut input = Vec::with_capacity(5 + json.len() + pack_json.len());
+            input.push(0);
+            input.extend_from_slice(&(json.len() as u32).to_le_bytes());
+            input.extend_from_slice(&json);
+            input.extend_from_slice(pack_json.as_bytes());
+            return Ok(input);
+        }
+    }
     request.insert("packContentJson".into(), Value::String(pack_json.into()));
     let input = serde_json::to_vec(&request).map_err(wasm_error)?;
     if input.len() > MAX_WIRE_BYTES {
@@ -162,10 +182,15 @@ mod tests {
     use serde_json::json;
 
     fn guest(memory_pages: u32, reducer: &str) -> Rules {
+        guest_with_marker(memory_pages, reducer, "")
+    }
+
+    fn guest_with_marker(memory_pages: u32, reducer: &str, marker: &str) -> Rules {
         let wasm = wat::parse_str(format!(
             r#"(module
             (memory (export "memory") {memory_pages})
             (data (i32.const 64) "null")
+            {marker}
             (func (export "reserve_input") (param i32) (result i32) i32.const 1024)
             (func (export "reduce") (result i32) {reducer})
             (func (export "output_ptr") (result i32) i32.const 64))"#
@@ -195,6 +220,7 @@ mod tests {
         let input = encode_request(
             &json!({"op":"view","actorOrder":["vale"],"placeCardOrder":["attic"]}),
             Some(pack),
+            false,
         )
         .unwrap();
         assert_eq!(
@@ -202,7 +228,7 @@ mod tests {
             json!({"op":"view", "packContentJson":pack})
         );
         let roster = json!({"op":"opening_wait_roster", "world":{"actors":{"vale":{},"ada":{}}},"actorOrder":["vale","ada"]});
-        let input = encode_request(&roster, Some(pack)).unwrap();
+        let input = encode_request(&roster, Some(pack), false).unwrap();
         let encoded: Value = serde_json::from_slice(&input).unwrap();
         let keys: Vec<_> = roster["world"]["actors"]
             .as_object()
@@ -211,7 +237,7 @@ mod tests {
             .collect();
         assert_eq!(encoded["actorOrder"], json!(keys));
         let returns = json!({"op":"opening_place_return", "world":{"placeCard":{"z":"glass","a":"thermos"}}, "placeCardOrder":["other"]});
-        let input = encode_request(&returns, Some(pack)).unwrap();
+        let input = encode_request(&returns, Some(pack), false).unwrap();
         let encoded: Value = serde_json::from_slice(&input).unwrap();
         let keys: Vec<_> = returns["world"]["placeCard"]
             .as_object()
@@ -220,8 +246,37 @@ mod tests {
             .collect();
         assert_eq!(encoded["placeCardOrder"], json!(keys));
         let long = "x".repeat(MAX_JSON_BYTES + 1);
-        assert!(encode_request(&json!({"op":"view"}), Some(&long)).is_err());
-        assert!(encode_request(&json!({"op":"view", "world":long}), Some(pack)).is_err());
+        assert!(encode_request(&json!({"op":"view"}), Some(&long), false).is_err());
+        assert!(encode_request(&json!({"op":"view", "world":long}), Some(pack), false).is_err());
+    }
+
+    #[test]
+    fn sends_raw_pack_only_to_guests_with_the_marker() {
+        let check = |leading| {
+            format!(
+            "i32.const 1024 i32.load8_u i32.const {leading} i32.eq if (result i32) i32.const 4 else i32.const 0 end"
+        )
+        };
+        let request = json!({"op":"view"});
+        let legacy = guest(1, &check(b'{'));
+        assert_eq!(legacy.reduce_with_pack(&request, "{}").unwrap(), None);
+        let packed = guest_with_marker(
+            1,
+            &check(0),
+            r#"(func (export "supports_raw_pack") (result i32) i32.const 1)"#,
+        );
+        assert_eq!(packed.reduce_with_pack(&request, "{}").unwrap(), None);
+        let pack = "{\"é\": true}";
+        let input = encode_request(
+            &json!({"op":"view", "packContentJson":"ignored"}),
+            Some(pack),
+            true,
+        )
+        .unwrap();
+        assert_eq!(input[0], 0);
+        let len = u32::from_le_bytes(input[1..5].try_into().unwrap()) as usize;
+        assert_eq!(&input[5..5 + len], br#"{"op":"view"}"#);
+        assert_eq!(&input[5 + len..], pack.as_bytes());
     }
 
     #[test]

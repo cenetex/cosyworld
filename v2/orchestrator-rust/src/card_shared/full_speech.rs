@@ -349,7 +349,6 @@ mod tests {
     #[test]
     fn shared_scenes_voice_only_their_given_speakers() {
         let mut work = json!({"room":"station","context":{"location":"station","speakers":["pip"],"scenery":false,"outcome":{"card":{"kind":"give","target":"pip","accepted":false}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
-        // A refusal voices the refuser alone; the actor stays quiet.
         let (_, ids) = prepared(0, &work).unwrap();
         assert_eq!(ids, vec!["pip"]);
         let refused = parse(

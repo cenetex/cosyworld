@@ -21,14 +21,19 @@ export function browserRules(bytes) {
   )
     throw new Error("Rules WASM is missing required ABI exports");
 
+  const rawPack = exports.get("supports_raw_pack") === "function";
   return (request, packContentJson) => {
     let input = encoder.encode(JSON.stringify(request));
     if (!input.length || input.length > MAX_JSON_BYTES)
       throw new Error("Invalid rules WASM request size");
     if (packContentJson !== undefined) {
+      const pack =
+        typeof packContentJson === "string"
+          ? encoder.encode(packContentJson)
+          : null;
       if (
-        typeof packContentJson !== "string" ||
-        encoder.encode(packContentJson).length > MAX_JSON_BYTES ||
+        !pack ||
+        pack.length > MAX_JSON_BYTES ||
         request === null ||
         typeof request !== "object" ||
         Array.isArray(request)
@@ -51,13 +56,18 @@ export function browserRules(bytes) {
         cards && typeof cards === "object" && !Array.isArray(cards)
           ? Object.keys(cards)
           : undefined;
-      input = encoder.encode(
-        JSON.stringify({
-          ...request,
-          packContentJson,
-          actorOrder,
-          placeCardOrder,
-        }),
+      const prepared = {
+        ...request,
+        packContentJson: undefined,
+        actorOrder,
+        placeCardOrder,
+      };
+      input =
+        rawPack && !/[\uD800-\uDFFF]/u.test(packContentJson)
+          ? packRequest(encoder.encode(JSON.stringify(prepared)), pack)
+          : null;
+      input ??= encoder.encode(
+        JSON.stringify({ ...prepared, packContentJson }),
       );
       if (input.length > MAX_WIRE_BYTES)
         throw new Error("Rules WASM input is too large");
@@ -76,6 +86,15 @@ export function browserRules(bytes) {
       throw new Error("Rules WASM response must include an outcome");
     return result;
   };
+}
+
+function packRequest(request, pack) {
+  if (!request.length || request.length > MAX_JSON_BYTES) return null;
+  const input = new Uint8Array(5 + request.length + pack.length);
+  new DataView(input.buffer).setUint32(1, request.length, true);
+  input.set(request, 5);
+  input.set(pack, 5 + request.length);
+  return input;
 }
 
 function buffer(memory, offset, length) {
