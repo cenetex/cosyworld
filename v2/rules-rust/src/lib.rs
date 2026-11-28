@@ -34,6 +34,7 @@ mod opening_place_cards;
 mod opening_play;
 mod opening_pond_ask;
 mod opening_pond_place_returns;
+mod opening_pond_view;
 mod opening_quiet_life;
 mod opening_reflection;
 mod opening_resident_sleep;
@@ -61,6 +62,7 @@ mod seed_wayfinder;
 mod validate;
 
 pub use create_geography::Geography;
+pub use opening_pond_view::completed_move_response;
 pub use opening_view::create_response;
 pub use opening_wait_response::completed_wait_response;
 

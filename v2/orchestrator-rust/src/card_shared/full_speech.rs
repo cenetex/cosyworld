@@ -246,7 +246,6 @@ mod tests {
         assert_eq!(result[1]["actorId"], "pip");
         assert_eq!(result[2]["actorId"], "mara");
         assert!(silent(&work, 0, &result).is_empty());
-        // A line that does not come stays silent, the actor's too.
         let quiet = parse(
             r#"{"entries":[{"id":"vale","text":"What caught your eye?"}]}"#,
             &work,

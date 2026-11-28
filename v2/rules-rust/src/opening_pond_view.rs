@@ -1,0 +1,343 @@
+use super::{lamp_state, opening, opening_pickups::item_as_named, profiles, Geography};
+use serde_json::{json, Value};
+
+const VALE: &str = "vale";
+const PIP: &str = "moth";
+const POND: &str = "pond";
+const STATION: &str = "station";
+const LAMP: &str = "lamp";
+const CLOTH: &str = "cloth";
+const KEY: &str = "ratiradio-station-key";
+const WAYFINDER: &str = "elysium-wayfinder";
+const SHIP: &str = "greek-ship";
+
+fn entries(value: &Value) -> impl Iterator<Item = &Value> {
+    value.as_array().into_iter().flatten()
+}
+
+fn arrival(world: &Value) -> Option<u64> {
+    let seq = world["arrival"]["seq"].as_u64()?;
+    let mut actions = entries(&world["log"]).filter(|entry| {
+        entry["kind"] == "action" && entry["actorId"] == VALE && entry["generated"] != true
+    });
+    let event = actions.next()?;
+    (world["arrival"]["fromLocationId"] == "attic"
+        && world["arrival"]["locationId"] == POND
+        && event["seq"] == seq
+        && event["verb"] == "move"
+        && event["turn"] == world["turn"]
+        && event["fromLocationId"] == "attic"
+        && event["locationId"] == POND
+        && event["targetId"] == POND
+        && (event["itemId"].is_null() || event["itemId"] == LAMP)
+        && actions.next().is_none())
+    .then_some(seq)
+}
+
+fn quiet_pond(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let vale = &world["actors"][VALE];
+    let pip = &world["actors"][PIP];
+    let lamp = &world["items"][LAMP];
+    let fuel = lamp_state(lamp).ok()?;
+    let forest = &geo.files()["v2/card-game/forest.json"];
+    let mut want = forest["people"][PIP]["want"].as_object()?.clone();
+    want.insert("since".into(), json!(0));
+    want.insert("refusals".into(), json!(1));
+    if world["schema"] != 8
+        || world["sharedVersion"] != 1
+        || world["turn"] != 1
+        || world.get("began").is_some()
+        || !(1..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
+        || world["opening"]["crossed"] != true
+        || world["opening"]["met"][PIP] != 1
+        || world["locations"]["attic"]["anchored"] != true
+        || !world["disabledPacks"].is_null()
+        || !world["placeCard"][POND].is_null()
+        || !world["pondLampLoan"].is_null()
+        || !world["defeats"][VALE].is_null()
+        || !world["standoffs"].as_array()?.is_empty()
+        || vale["place"] != POND
+        || vale["waitSpeech"] != json!({"place":POND,"turn":null})
+        || ["want", "under", "sleeping", "arcana"]
+            .iter()
+            .any(|key| !vale[*key].is_null())
+        || !vale["talked"].as_array()?.is_empty()
+        || !pip["sleeping"].is_null()
+        || pip["place"] != POND
+        || pip["heldItem"] != CLOTH
+        || pip["want"] != Value::Object(want)
+        || pip["trust"][VALE] != 0
+        || world["items"][CLOTH]["holder"] != PIP
+        || world["items"][KEY]["holder"] != POND
+        || lamp["holder"] != VALE
+        || lamp["lit"] != false
+        || fuel.fuel_place != POND
+        || lamp["fuel"] != fuel.fuel_rooms * 4
+        || !(vale["heldItem"].is_null() || (vale["heldItem"] == LAMP && fuel.fuel_rooms == 0))
+        || world["items"]
+            .as_object()?
+            .iter()
+            .any(|(id, item)| match item["holder"].as_str() {
+                Some(POND) => id != KEY && id != WAYFINDER,
+                Some(VALE) => id != LAMP,
+                Some(PIP) => id != CLOTH,
+                Some(LAMP | CLOTH | KEY | WAYFINDER) => true,
+                _ => false,
+            })
+    {
+        return None;
+    }
+    for (id, actor) in world["actors"].as_object()? {
+        if id != VALE && id != PIP && actor["place"] == POND && geo.entity_active(world, id)? {
+            return None;
+        }
+    }
+    arrival(world)?;
+    for id in [VALE, PIP, POND, STATION, LAMP, CLOTH, KEY] {
+        if !geo.entity_active(world, id)? {
+            return None;
+        }
+    }
+    Some(())
+}
+
+fn pond_paths(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    let files = geo.files();
+    let forest = &files["v2/card-game/forest.json"];
+    let mut returns = entries(&forest["reflectionRoutes"]).filter(|route| route["from"] == POND);
+    let route = returns.next()?;
+    if forest["places"][POND]["exits"] != json!([STATION])
+        || route["to"] != "attic"
+        || returns.next().is_some()
+        || geo.reflection_open(world, route)?
+        || entries(&files["v2/card-game/world-life.json"]["guardable"])
+            .any(|way| way["from"] == POND || way["to"] == POND)
+    {
+        return None;
+    }
+    let mut locked_ship = false;
+    for pack in geo.packs() {
+        let pack_id = pack["id"].as_str()?;
+        if pack["places"].get(POND).is_some()
+            || pack["avatars"].get(PIP).is_some()
+            || [LAMP, CLOTH]
+                .iter()
+                .any(|id| pack["items"].get(*id).is_some())
+            || entries(&pack["routes"]).any(|route| route["from"] == POND)
+            || entries(&pack["choices"]).any(|choice| choice["at"] == POND)
+            || pack["fixtures"]
+                .as_object()
+                .into_iter()
+                .flatten()
+                .any(|(_, f)| f["at"] == POND)
+            || pack["transports"]
+                .as_object()
+                .into_iter()
+                .flatten()
+                .any(|(_, t)| t["place"] == POND)
+        {
+            return None;
+        }
+        for crossing in entries(&pack["crossings"]).filter(|crossing| crossing["from"] == POND) {
+            let id = crossing["id"].as_str()?;
+            let discovered = world["crossings"][id]["discovered"].as_bool()?;
+            if crossing["transport"] == SHIP
+                && crossing["unlockMethod"] == "pond-lamp"
+                && crossing["unlockWhen"]
+                    .as_array()?
+                    .iter()
+                    .any(|gate| gate["kind"] == "grounded" && gate["item"] == LAMP)
+                && !discovered
+            {
+                if locked_ship {
+                    return None;
+                }
+                locked_ship = true;
+            } else if !crossing["transport"].is_null()
+                || !crossing["unlockWhen"].is_null()
+                || ((crossing["retired"] != true || discovered)
+                    && (crossing["signal"].is_null()
+                        || world["crossings"][id]["until"].as_u64()? > 1)
+                    && geo.crossing_conditions(
+                        world,
+                        pack_id,
+                        &crossing["requires"],
+                        Some(VALE),
+                    )?)
+            {
+                return None;
+            }
+        }
+    }
+    locked_ship.then_some(())
+}
+
+fn offer(
+    kind: &str,
+    item: Option<&str>,
+    target: Option<&str>,
+    text: String,
+    cards: &[&str],
+) -> Value {
+    let key = format!(
+        "{kind}:{VALE}:{}:{}",
+        item.unwrap_or_default(),
+        target.unwrap_or_default()
+    );
+    json!({"kind":kind,"actor":VALE,"item":item,"target":target,"text":text,"cards":cards,"key":key})
+}
+
+fn pond_response(mut response: Value, plans: Vec<Value>, profiles: Value) -> Value {
+    response["actor"] = json!(VALE);
+    response["room"] = json!(POND);
+    response["actions"] = json!(plans);
+    response["exits"] = json!([STATION]);
+    response["profiles"] = profiles;
+    response
+}
+
+fn actions(world: &Value, geo: &Geography<'_>, profiles: &Value) -> Option<Vec<Value>> {
+    let name = |id: &str| profiles[id]["name"].as_str();
+    let vale = name(VALE)?;
+    let pip = name(PIP)?;
+    let pond = name(POND)?;
+    let station = name(STATION)?;
+    let lamp = item_as_named(name(LAMP)?);
+    let cloth = item_as_named(name(CLOTH)?);
+    let mut accompany = offer(
+        "accompany",
+        None,
+        Some(PIP),
+        format!("{vale} asks {pip} to accompany them to {station}."),
+        &[PIP, STATION],
+    );
+    accompany["destination"] = json!(STATION);
+    accompany["key"] = json!(format!("accompany:{VALE}::{PIP}:{STATION}"));
+    let mut out = vec![
+        offer("wait", None, None, format!("{vale} waits one turn."), &[]),
+        accompany,
+        offer(
+            "move",
+            None,
+            Some(STATION),
+            format!("{vale} goes to {station}."),
+            &[STATION],
+        ),
+        offer(
+            "move",
+            Some(LAMP),
+            Some(STATION),
+            format!("{vale} carries {lamp} to {station}."),
+            &[LAMP, STATION],
+        ),
+        offer(
+            "threaten",
+            Some(CLOTH),
+            Some(PIP),
+            format!("{vale} threatens {pip} over {cloth}."),
+            &[PIP],
+        ),
+        offer(
+            "talk",
+            None,
+            Some(PIP),
+            format!("{vale} has a conversation with {pip}."),
+            &[PIP],
+        ),
+    ];
+    for id in [KEY, WAYFINDER] {
+        if world["items"][id]["holder"] == POND && geo.entity_active(world, id)? {
+            let thing = item_as_named(name(id)?);
+            out.push(offer(
+                "take",
+                Some(id),
+                None,
+                format!("{vale} takes {thing}."),
+                &[id],
+            ));
+        }
+    }
+    out.extend([
+        offer(
+            "drop",
+            Some(LAMP),
+            Some(POND),
+            format!("{vale} puts {lamp} in {pond}."),
+            &[LAMP],
+        ),
+        offer(
+            "give",
+            Some(LAMP),
+            Some(PIP),
+            format!("{vale} gives {lamp} to {pip}."),
+            &[LAMP, PIP],
+        ),
+        offer(
+            "ask",
+            Some(CLOTH),
+            Some(PIP),
+            format!("{vale} asks {pip} for {cloth}."),
+            &[CLOTH, PIP],
+        ),
+    ]);
+    let owned_cloth = name(CLOTH)?;
+    let mut trade = offer(
+        "trade",
+        Some(LAMP),
+        Some(PIP),
+        format!("{vale} trades {lamp} for {pip}’s {owned_cloth}."),
+        &[LAMP, CLOTH],
+    );
+    trade["receive"] = json!(CLOTH);
+    trade["key"] = json!(format!("trade:{VALE}:{LAMP}:{PIP}:{CLOTH}"));
+    let mut quest = offer(
+        "accept",
+        None,
+        None,
+        format!("{vale} accepts the closed box's quest."),
+        &[],
+    );
+    quest["box"] = json!(SHIP);
+    quest["key"] = json!(format!("accept:{VALE}::box:{SHIP}"));
+    out.extend([trade, quest]);
+    Some(out)
+}
+
+pub fn completed_move_response(
+    mut world: Value,
+    geo: &Geography<'_>,
+    before_seq: u64,
+    present: &[&str],
+) -> Option<Value> {
+    if present != [VALE] || arrival(&world)? != before_seq.checked_add(1)? {
+        return None;
+    }
+    quiet_pond(&world, geo)?;
+    pond_paths(&world, geo)?;
+    let files = geo.files();
+    let speech = &files["v2/card-game/speech.json"];
+    if speech["action"] != json!(["actor"]) || speech["first_meeting"] != json!(["newcomer"]) {
+        return None;
+    }
+    let events: Vec<_> = entries(&world["log"])
+        .filter(|entry| entry["seq"].as_u64().is_some_and(|seq| seq > before_seq))
+        .cloned()
+        .collect();
+    if events.first()?["seq"] != world["arrival"]["seq"]
+        || events.last()?["seq"] != world["eventSeq"]
+        || events.iter().any(|entry| entry["generated"] == true)
+    {
+        return None;
+    }
+    world
+        .as_object_mut()?
+        .entry("speechVoices")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()?
+        .insert(VALE.into(), json!([VALE, PIP]));
+    let profiles = profiles::project(files)?;
+    let plans = actions(&world, geo, &profiles)?;
+    let mut response = opening::stored_response(world)?;
+    response["events"] = json!(events);
+    Some(pond_response(response, plans, profiles))
+}
