@@ -543,7 +543,6 @@ mod tests {
             opened(engine::version(), Some(upgrade)).unwrap_err(),
             engine::UPDATING
         );
-        // Rules older than the floor, or unreadable, are closed (full_floor.rs).
         assert_eq!(opened("full-card-world/1", None).unwrap_err(), closed);
         assert_eq!(opened("full-card-world/132", None).unwrap_err(), closed);
         assert_eq!(opened("full-card-world/x", None).unwrap_err(), closed);

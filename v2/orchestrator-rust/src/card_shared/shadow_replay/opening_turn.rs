@@ -307,20 +307,54 @@ fn commit_keeper_quest_pond_with_cloth(
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_quiet_keeper_quest_ship_call() -> Result<()> {
-    let id = "quiet-keeper-quest-ship-call";
-    let (mut c, mut state, mut calls) = commit_keeper_quest_pond_with_cloth(id, Some(17))?;
-    assert_eq!(state.game["run"]["seed"], 17);
+    verify_keeper_quest_ship_call("quiet-keeper-quest-ship-call", Some(17), &[])
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_keeper_quest_ship_call_with_visitors() -> Result<()> {
+    verify_keeper_quest_ship_call(
+        "keeper-quest-ship-call-with-visitors",
+        None,
+        &[
+            ("ada", "loft", "greek-ship", "shears"),
+            ("tavi", "hill", "forest-oak", "kite"),
+        ],
+    )
+}
+
+fn verify_keeper_quest_ship_call(
+    id: &str,
+    seed: Option<u32>,
+    visitors: &[(&str, &str, &str, &str)],
+) -> Result<()> {
+    let (mut c, mut state, mut calls) = commit_keeper_quest_pond_with_cloth(id, seed)?;
+    if let Some(seed) = seed {
+        assert_eq!(state.game["run"]["seed"], seed);
+    }
     let keeper_want = state.game["actors"]["keeper"]["want"].clone();
+    let cloth = state.game["items"]["cloth"].clone();
     let called = commit_keeper_play(&c, id, &mut state, &mut calls, "drop:vale:lamp:pond", 12)?;
-    let [drop, credit, reflection] = called["events"].as_array().unwrap().as_slice() else {
+    let events = called["events"].as_array().unwrap();
+    let [drop, credit, offstage @ .., reflection] = events.as_slice() else {
         panic!("Expected Vale's Drop, the Keeper's quest credit, and the opened reflection");
     };
     let world = &state.game;
     assert_eq!(world["turn"], 7);
-    assert_eq!(world["eventSeq"], 23);
-    for (seq, event) in (21..=23).zip([drop, credit, reflection]) {
+    assert_eq!(world["eventSeq"], reflection["seq"]);
+    for (seq, event) in (21..).zip(events) {
         assert_eq!(event["seq"], seq);
         assert_eq!(event["turn"], 7);
+    }
+    assert_eq!(offstage.len(), visitors.len());
+    for (event, &(actor, from, to, item)) in offstage.iter().zip(visitors) {
+        assert_eq!(event["actorId"], actor);
+        assert_eq!(event["verb"], "move");
+        assert_eq!(event["fromLocationId"], from);
+        assert_eq!(event["locationId"], to);
+        assert_eq!(world["actors"][actor]["place"], to);
+        assert_eq!(world["items"][item]["holder"], from);
+    }
+    for event in [drop, credit, reflection] {
         assert_eq!(event["locationId"], "pond");
         assert_eq!(event["cast"], json!(["vale"]));
         assert_eq!(event["light"], true);
@@ -328,6 +362,7 @@ fn sqlite_rules_wasm_parity_replays_the_quiet_keeper_quest_ship_call() -> Result
     assert_eq!(drop["actorId"], "vale");
     assert_eq!(drop["verb"], "drop");
     assert_eq!(drop["itemId"], "lamp");
+    assert_eq!(drop["targetId"], "pond");
     assert_eq!(credit["actorId"], "vale");
     assert_eq!(credit["verb"], "want_met");
     assert_eq!(credit["wantMet"], json!({"kind":"place","target":"pond"}));
@@ -340,6 +375,7 @@ fn sqlite_rules_wasm_parity_replays_the_quiet_keeper_quest_ship_call() -> Result
     );
     assert_eq!(world["actors"]["vale"]["heldItem"], "cloth");
     assert_eq!(world["actors"]["vale"]["want"], Value::Null);
+    assert_eq!(world["items"]["cloth"], cloth);
     assert_eq!(
         world["actors"]["vale"]["arcana"]["callers"],
         json!(["keeper"])
