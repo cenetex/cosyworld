@@ -5,6 +5,8 @@ pub struct Geography<'a> {
     files: &'a Value,
     packs: Vec<&'a Value>,
     entities: BTreeMap<&'a str, (&'a Value, &'a Value)>,
+    released: BTreeMap<&'a str, BTreeSet<&'a str>>,
+    section_requirements: BTreeMap<(&'a str, &'a str), &'a Value>,
     humans: Vec<&'a str>,
 }
 
@@ -23,11 +25,30 @@ impl<'a> Geography<'a> {
     pub fn new(files: &'a Value, packs: impl Iterator<Item = &'a Value>) -> Option<Self> {
         let packs: Vec<_> = packs.collect();
         let mut entities = BTreeMap::new();
-        for pack in &packs {
+        let mut released = BTreeMap::new();
+        let mut section_requirements = BTreeMap::new();
+        for &pack in &packs {
+            let pack_id = pack["id"].as_str()?;
+            let release = &pack["release"];
+            if release.is_object() {
+                let known = ["places", "avatars", "items"]
+                    .iter()
+                    .flat_map(|field| array(&release[*field]))
+                    .map(Value::as_str)
+                    .collect::<Option<BTreeSet<_>>>()?;
+                released.insert(pack_id, known);
+            }
+            for section in array(&pack["sections"]) {
+                for place in array(&section["places"]) {
+                    section_requirements
+                        .entry((pack_id, place.as_str()?))
+                        .or_insert(&section["requires"]);
+                }
+            }
             for field in ["places", "avatars", "items", "fixtures"] {
                 if let Some(entries) = pack.get(field) {
                     for (id, entry) in entries.as_object()? {
-                        entities.insert(id.as_str(), (*pack, entry));
+                        entities.insert(id.as_str(), (pack, entry));
                     }
                 }
             }
@@ -41,6 +62,8 @@ impl<'a> Geography<'a> {
             files,
             packs,
             entities,
+            released,
+            section_requirements,
             humans,
         })
     }
@@ -102,6 +125,9 @@ impl<'a> Geography<'a> {
         }
         if let Some(home) = entity["home"].as_str() {
             let waits_at_home = world["items"][id]["holder"] == home
+                && state["receipts"]
+                    .as_object()
+                    .is_some_and(|receipts| !receipts.is_empty())
                 && array(&pack["choices"]).any(|choice| {
                     choice["id"]
                         .as_str()
@@ -128,10 +154,10 @@ impl<'a> Geography<'a> {
         }
         let place = section_place(pack, id);
         if state["scope"] != "full" {
-            if let Some(section) = array(&pack["sections"])
-                .find(|section| place.is_some_and(|place| contains(&section["places"], place)))
+            if let Some(requires) =
+                place.and_then(|place| self.section_requirements.get(&(pack_id, place)))
             {
-                if !self.all(ctx, &section["requires"], depth)? {
+                if !self.all(ctx, requires, depth)? {
                     return Some(false);
                 }
             }
@@ -161,9 +187,9 @@ impl<'a> Geography<'a> {
             return self.enabled(world, world["actors"][id]["place"].as_str()?, depth);
         }
         Some(
-            ["places", "avatars", "items"]
-                .iter()
-                .any(|field| contains(&pack["release"][*field], id)),
+            self.released
+                .get(pack_id)
+                .is_some_and(|release| release.contains(id)),
         )
     }
 

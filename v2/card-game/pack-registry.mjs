@@ -19,7 +19,6 @@ import {
 } from "./item-use.mjs";
 import { restForGood } from "./world/for-good.mjs";
 import { hasSpaceForItems } from "./world/items.mjs";
-// The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
 import forest from "./forest.json" with { type: "json" };
