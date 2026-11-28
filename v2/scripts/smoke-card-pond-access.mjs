@@ -298,7 +298,6 @@ try {
     assert.equal(await card("pond").count(), 1);
     await painted("attic-doused");
     assert.equal((await state()).actors.vale.place, "attic");
-    // Holding shuts the mirror again; stowing reopens it.
     await selectCard(page, "lamp");
     await ready();
     await assertLitShut();
