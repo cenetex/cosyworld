@@ -1,0 +1,119 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { reducers } from "./parity.mjs";
+
+const seat = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+const caption = {
+  entityId: "attic",
+  actorId: null,
+  text: "\uFEFFWind nudges the shutters. ",
+};
+const speech = { entityId: "vale", actorId: "vale", text: "I hear the wind." };
+
+function waitInAttic(pinned, seed) {
+  const created = pinned({ op: "create", seed });
+  const joined = pinned({
+    op: "join",
+    actor: "vale",
+    claimed: [],
+    present: [],
+    world: created.world,
+  });
+  const waited = pinned({
+    ...seat,
+    op: "play",
+    world: joined.world,
+    action: "wait:vale::",
+  });
+  assert.equal(waited.ok, true, waited.error);
+  assert.deepEqual(waited.world.speechVoices.vale, ["vale"]);
+  return waited.world;
+}
+
+function exchange(world, lines = [speech, caption]) {
+  return { ...seat, op: "speech", world, room: "attic", entries: [], lines };
+}
+
+test("opening speech records the named voices, sequence, cast, and memories", async () => {
+  const { pinned, wasm } = await reducers();
+  for (const seed of [0, 17, 4242]) {
+    let world = waitInAttic(pinned, seed);
+    if (seed === 17) {
+      const held = pinned({
+        ...seat,
+        op: "hold",
+        world,
+        choice: { item: null, revision: world.revision },
+      });
+      assert.equal(held.ok, true, held.error);
+      world = held.world;
+    }
+    const request = {
+      ...exchange(world),
+      ...(seed === 4242 && { present: [] }),
+    };
+    const expected = pinned(request);
+    assert.equal(expected.ok, true, expected.error);
+    const actual = wasm(request);
+    assert.ok(actual, `missing speech support for seed ${seed}`);
+    assert.deepEqual(actual.lines, expected.lines);
+    for (const id of ["attic", "vale", "lamp"]) {
+      assert.deepEqual(actual.world.memories[id], expected.world.memories[id]);
+    }
+    assert.equal(actual.world.revision, world.revision + 1);
+    assert.equal(actual.world.turn, world.turn);
+    assert.deepEqual(actual.world, expected.world);
+  }
+});
+
+test("generated speech keeps its own retention window", async () => {
+  const { pinned, wasm } = await reducers();
+  const world = waitInAttic(pinned, 19);
+  const { lines } = pinned(exchange(world, [caption]));
+  assert.equal(lines.length, 1);
+  for (let count = 0; count < 100; count++) {
+    world.log.push({ ...lines[0], seq: ++world.eventSeq });
+  }
+  for (const id of ["attic", "vale", "lamp"]) {
+    world.memories[id].events = world.log
+      .slice(-16)
+      .map(({ seq, turn, speaker, text }) => ({
+        seq,
+        turn,
+        kind: "expression",
+        text: `${speaker}: ${text}`,
+      }));
+  }
+  const authoritative = world.log.filter((entry) => !entry.generated);
+  const request = exchange(world);
+  const expected = pinned(request);
+  assert.equal(expected.ok, true, expected.error);
+  const actual = wasm(request);
+  assert.ok(actual);
+  assert.deepEqual(
+    actual.world.log.filter((entry) => !entry.generated),
+    authoritative,
+  );
+  assert.equal(actual.world.log.filter((entry) => entry.generated).length, 100);
+  assert.deepEqual(actual, expected);
+});
+
+test("speech declines unsupported reflection, disclosure, and multi-actor scenes", async () => {
+  const { pinned, wasm } = await reducers();
+  const world = waitInAttic(pinned, 19);
+  const request = exchange(world);
+  const company = structuredClone(world);
+  company.actors.moth.place = "attic";
+  const covering = structuredClone(world);
+  covering.items.cloth.holder = "lamp";
+  for (const changes of [
+    { world: company },
+    { world: covering },
+    { lines: [{ ...speech, disclosed: "fact" }] },
+    { lines: [caption, caption] },
+    { lines: [speech, { ...caption, elysiumName: null }] },
+    { entries: [{ id: "vale", reflection: { thought: "I am listening." } }] },
+  ]) {
+    assert.equal(wasm({ ...request, ...changes }), null);
+  }
+});
