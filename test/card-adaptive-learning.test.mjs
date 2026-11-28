@@ -42,8 +42,7 @@ function spareWorld() {
   w.items.oil.holder = "station";
   return w;
 }
-// Ringing beside the keeper leaves a grudge: it refuses the spare lamp as a
-// gift but still accepts the bell in trade, under different conditions.
+// Ringing leaves a grudge. The keeper refuses the lamp gift and can still trade for the bell.
 function grudgeWorld() {
   return act(spareWorld(), "ring", "bell");
 }

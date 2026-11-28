@@ -2,6 +2,8 @@ use super::{
     initial_wants::root_in,
     lamp_state, opening, opening_content,
     opening_evidence::keeper_call_goal,
+    opening_pickups::item_as_named,
+    opening_pond_call_view::cloth_arrival,
     opening_pond_view::{actions, pond_paths, pond_response},
     opening_station_move::{move_event, quiet_opening},
     opening_station_read::keeper_want_from_read,
@@ -18,6 +20,8 @@ const POND: &str = "pond";
 const STATION: &str = "station";
 const KEY: &str = "ratiradio-station-key";
 const WAYFINDER: &str = "elysium-wayfinder";
+const CLOTH: &str = "cloth";
+const LAMP: &str = "lamp";
 
 pub(super) fn arrival(world: &Value) -> Option<(u64, u64)> {
     let seq = world["arrival"]["seq"].as_u64()?;
@@ -105,11 +109,12 @@ fn event(world: &Value, seq: u64, allow_speech: bool) -> Option<&Value> {
         };
         if !voice
             || line["generated"] != true
-            || line["turn"] != 4
+            || line["turn"] != world["turn"]
             || line["locationId"] != POND
             || line["seq"].as_u64()? != seq.checked_add(i as u64 + 1)?
             || line["cast"] != json!([VALE])
             || line.get("elysiumName").is_some()
+            || (world["turn"] == 6 && (line["light"] != false || line["items"] != primary["items"]))
         {
             return None;
         }
@@ -118,18 +123,46 @@ fn event(world: &Value, seq: u64, allow_speech: bool) -> Option<&Value> {
 }
 
 pub(super) fn verify_arrival(world: &Value, geo: &Geography<'_>) -> Option<()> {
-    let (seq, read) = arrival(world)?;
-    if world["speechVoices"][VALE] != json!([VALE]) {
+    if world["turn"] != 4 || world["speechVoices"][VALE] != json!([VALE]) {
         return None;
     }
-    event(world, seq, true)?;
-    quiet_return(world, geo, read)
+    settled_move(world, geo, true).map(|_| ())
 }
 
-fn quiet_return(world: &Value, geo: &Geography<'_>, read_seq: u64) -> Option<()> {
+pub(super) fn verify_cloth_arrival(world: &Value, geo: &Geography<'_>) -> Option<()> {
+    if world["turn"] != 6 || world["speechVoices"][VALE] != json!([VALE]) {
+        return None;
+    }
+    settled_move(world, geo, true).map(|_| ())
+}
+
+fn settled_move<'a>(world: &'a Value, geo: &Geography<'_>, speech: bool) -> Option<&'a Value> {
+    let with_cloth = world["turn"] == 6;
+    let (seq, read) = if with_cloth {
+        cloth_arrival(world, false)?
+    } else {
+        arrival(world)?
+    };
+    let primary = event(world, seq, speech)?;
+    quiet_return(world, geo, read, with_cloth)?;
+    if with_cloth {
+        cloth_evidence(world, geo, primary)?;
+    }
+    Some(primary)
+}
+
+fn quiet_return(world: &Value, geo: &Geography<'_>, read_seq: u64, with_cloth: bool) -> Option<()> {
     let vale = &world["actors"][VALE];
-    let lamp = &world["items"]["lamp"];
+    let lamp = &world["items"][LAMP];
     let fuel = lamp_state(lamp).ok()?;
+    let (cloth_owner, hand) = if with_cloth {
+        (VALE, vale["heldItem"] == CLOTH)
+    } else {
+        (
+            "moth",
+            vale["heldItem"].is_null() || (vale["heldItem"] == LAMP && fuel.fuel_rooms == 0),
+        )
+    };
     if !(5..=opening::MAX_REVISION).contains(&world["revision"].as_u64()?)
         || vale["want"] != keeper_want_from_read(world, geo, read_seq)?
         || vale["waitSpeech"] != json!({"place":POND,"turn":null})
@@ -146,16 +179,16 @@ fn quiet_return(world: &Value, geo: &Geography<'_>, read_seq: u64) -> Option<()>
         || world["items"]["keeper-log"]["holder"] != STATION
         || world["actors"]["keeper"]["place"] != STATION
         || world["actors"]["moth"]["place"] != STATION
-        || world["items"]["cloth"]["holder"] != "moth"
+        || world["items"][CLOTH]["holder"] != cloth_owner
         || world["items"][KEY]["holder"] != POND
         || !geo.entity_active(world, KEY)?
-        || !geo.entity_active(world, "lamp")?
+        || !geo.entity_active(world, LAMP)?
         || lamp["holder"] != VALE
         || lamp["lit"] != false
         || fuel.fuel_place != POND
         || fuel.fuel_visit
         || lamp["fuel"] != fuel.fuel_rooms * 4
-        || !(vale["heldItem"].is_null() || (vale["heldItem"] == "lamp" && fuel.fuel_rooms == 0))
+        || !hand
     {
         return None;
     }
@@ -168,13 +201,69 @@ fn quiet_return(world: &Value, geo: &Geography<'_>, read_seq: u64) -> Option<()>
     for (id, item) in items {
         if matches!(root_in(items, id)?, POND | VALE)
             && geo.entity_active(world, id)?
-            && !matches!(id.as_str(), "lamp" | KEY)
+            && !matches!(id.as_str(), LAMP | KEY)
+            && !(with_cloth && id == CLOTH)
             && !(id == WAYFINDER && item["holder"] == POND)
         {
             return None;
         }
     }
     pond_paths(world, geo)
+}
+
+fn cloth_evidence(world: &Value, geo: &Geography<'_>, primary: &Value) -> Option<()> {
+    let gift = world["log"].as_array()?.iter().rfind(|event| {
+        event["turn"] == 5 && event["actorId"] == "moth" && event["verb"] == "give"
+    })?;
+    let forest = &geo.files()["v2/card-game/forest.json"];
+    let vale = forest["people"][VALE]["name"].as_str()?;
+    let pond = forest["places"][POND]["name"].as_str()?;
+    let text = match primary["itemId"].as_str() {
+        None if primary["itemId"].is_null() => format!("{vale} goes to {pond}."),
+        Some(id @ (LAMP | CLOTH)) => {
+            let item = item_as_named(forest["things"][id]["name"].as_str()?);
+            format!("{vale} carries {item} to {pond}.")
+        }
+        _ => return None,
+    };
+    let items = &world["items"];
+    let mut visible = vec![KEY];
+    if items[WAYFINDER]["holder"] == POND && geo.entity_active(world, WAYFINDER)? {
+        visible.push(WAYFINDER);
+    }
+    visible.extend([LAMP, CLOTH]);
+    let snapshots = primary["items"].as_array()?;
+    let history = format!("Turn 6: {vale} carried it to {pond}.");
+    let witnesses = gift["witnesses"].as_array()?;
+    (primary["kind"] == "action"
+        && primary["speaker"] == "World"
+        && primary["actorId"] == VALE
+        && primary["generated"] != true
+        && primary["text"] == text
+        && primary["witnesses"] == gift["witnesses"]
+        && [VALE, "moth", "keeper", CLOTH, LAMP]
+            .iter()
+            .all(|id| witnesses.iter().any(|witness| witness == *id))
+        && world["life"]["actors"][VALE]["attachments"][CLOTH] == json!({"from":"moth","turn":5})
+        && geo.entity_active(world, CLOTH)?
+        && [LAMP, CLOTH].iter().all(|id| {
+            items[*id]["history"]
+                .as_array()
+                .and_then(|log| log.last()?.as_str())
+                == Some(history.as_str())
+        })
+        && snapshots.len() == visible.len()
+        && snapshots
+            .iter()
+            .zip(visible)
+            .all(|(item, id)| item["id"] == id && item["holder"] == items[id]["holder"])
+        && snapshots.iter().any(|item| {
+            item["id"] == LAMP
+                && ["fuel", "fuelRooms", "fuelPlace", "fuelVisit", "lit"]
+                    .iter()
+                    .all(|key| item[*key] == items[LAMP][*key])
+        }))
+    .then_some(())
 }
 
 fn reply(reply: Value, world: &Value, geo: &Geography<'_>, profiles: Value) -> Option<Value> {
@@ -194,12 +283,11 @@ pub(super) fn completed_response(
     before_seq: u64,
     profile_source: impl FnOnce() -> Option<Value>,
 ) -> Option<Value> {
-    let (seq, read) = arrival(&world)?;
-    if before_seq.checked_add(1)? != seq {
+    let primary = settled_move(&world, geo, false)?;
+    if primary["seq"] != before_seq.checked_add(1)? {
         return None;
     }
-    quiet_return(&world, geo, read)?;
-    let events = json!([event(&world, seq, false)?]);
+    let events = json!([primary]);
     let profiles = profile_source()?;
     let mut response = reply(json!({"ok":true,"events":events}), &world, geo, profiles)?;
     world["speechVoices"]
@@ -232,7 +320,11 @@ pub(super) fn private_view(request: &Value) -> Option<Value> {
     let (files, _) = opening_content::wait_files(request)?;
     let catalog = Catalog::from_files(&files)?;
     let geo = Geography::new(&files, catalog.packs())?;
-    verify_arrival(world, &geo)?;
+    if world["turn"] == 6 {
+        verify_cloth_arrival(world, &geo)?;
+    } else {
+        verify_arrival(world, &geo)?;
+    }
     reply(
         json!({"ok":true,"world":opening_view::private_world(world, request)?}),
         world,
