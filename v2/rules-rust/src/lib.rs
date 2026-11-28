@@ -25,6 +25,7 @@ mod pack_state;
 mod profiles;
 mod reset;
 mod seed;
+mod seed_arrivals;
 mod seed_packs;
 mod seed_scatter;
 mod seed_wayfinder;
@@ -113,6 +114,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("seed_doors") => seed::door_projection(request).unwrap_or(Value::Null),
         Some("seed_specials") => seed::specials_projection(request).unwrap_or(Value::Null),
         Some("seed_opening") => seed::opening_projection(request).unwrap_or(Value::Null),
+        Some("seed_arrivals") => seed_arrivals::projection(request).unwrap_or(Value::Null),
         Some("play") => opening_play::reduce(request).unwrap_or(Value::Null),
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),

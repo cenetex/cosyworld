@@ -2,9 +2,8 @@
 // Every world picks, from its seed, which authored place each home's door
 // opens at (`doors`). A world opened for an unlocked avatar (`homecoming` on
 // create) also leaves that avatar outside and scatters its belonging to a
-// seeded spot it can reach without Vale's lamp. The quest to bring the
-// the avatar; the seeded world records the rest, so replay never reads a
-// server table.
+// seeded spot it can reach without Vale's lamp. The saved world records the
+// placement for replay.
 import forest from "./forest.json" with { type: "json" };
 import { humanAvatar, lamplessPlaces, visitors } from "./human-cast.mjs";
 import {
