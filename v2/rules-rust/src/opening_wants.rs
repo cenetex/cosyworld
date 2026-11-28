@@ -424,6 +424,22 @@ fn keeper_cloth_route(before: &Value, world: &Value, geo: &Geography<'_>) -> Opt
     opening_station_read::keeper_want_from_read(before, geo, read)
 }
 
+pub(super) fn settle_pond_drop(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
+    if before["items"]["lamp"]["holder"] != "vale"
+        || world["items"]["lamp"]["holder"] != "pond"
+        || !pip_wants_lamp(before)
+        || world["actors"]["moth"]["want"] != before["actors"]["moth"]["want"]
+    {
+        return None;
+    }
+    world["actors"]["moth"]["want"]["refusals"] = json!(0);
+    settle_wants(world, geo, 7, false, false, opening_company::fade_trust)
+}
+
 pub(super) fn station_departure_turn(
     before: &Value,
     world: &Value,
