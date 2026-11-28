@@ -201,7 +201,6 @@ fn queued_opening_reads_the_latest_hand_and_keeps_its_reveal_limits() {
         .as_array()
         .unwrap()
         .contains(&json!(w.room(0).unwrap())));
-    // A hand change keeps the words already written.
     let mut choose = command("hold");
     choose.action = json!({"item":"lamp","revision":w.game["revision"]});
     full::run(&c, &id, "owner", &choose, now()).unwrap();

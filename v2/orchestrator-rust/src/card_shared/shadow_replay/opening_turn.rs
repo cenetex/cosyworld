@@ -19,6 +19,8 @@ const TAKE: (&str, PlayAssertion) = ("take:vale:lamp:", check_lamp_take);
 const BARE_POND_MOVE: (&str, PlayAssertion) = ("move:vale::pond", check_bare_pond_move);
 const BARE_STATION_MOVE: (&str, PlayAssertion) = ("move:vale::station", check_bare_station_move);
 const HISTORIC_POND_MOVE: (&str, PlayAssertion) = (BARE_POND_MOVE.0, check_historic_pond_move);
+const AWAKE_HISTORIC_POND_MOVE: (&str, PlayAssertion) =
+    (BARE_POND_MOVE.0, check_awake_historic_pond_move);
 const KEEPER_LOG_READ: (&str, PlayAssertion) = ("read:vale:keeper-log:", check_keeper_log_read);
 
 #[test]
@@ -170,6 +172,36 @@ fn sqlite_rules_wasm_parity_replays_station_after_history() -> Result<()> {
 }
 
 #[test]
+fn sqlite_rules_wasm_parity_replays_awake_historic_station_follow() -> Result<()> {
+    replay_opening_turns(
+        "awake-historic-station-follow",
+        historic_opening(Some(99))?,
+        true,
+        &[
+            AWAKE_HISTORIC_POND_MOVE,
+            (BARE_STATION_MOVE.0, |lamp, reply| {
+                check_awake_historic_station_move(lamp, reply, false);
+            }),
+        ],
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_awake_historic_station_with_cass() -> Result<()> {
+    replay_opening_turns(
+        "awake-historic-station-with-cass",
+        historic_opening(Some(17))?,
+        true,
+        &[
+            AWAKE_HISTORIC_POND_MOVE,
+            (BARE_STATION_MOVE.0, |lamp, reply| {
+                check_awake_historic_station_move(lamp, reply, true);
+            }),
+        ],
+    )
+}
+
+#[test]
 fn sqlite_rules_wasm_parity_replays_station_train_quest_and_reload() -> Result<()> {
     let id = "station-train-quest";
     let (mut c, mut state, mut calls) = commit_opening_turns(
@@ -239,6 +271,23 @@ fn check_bare_pond_move(lamp: &Value, reply: &Value) {
 }
 
 fn check_historic_pond_move(lamp: &Value, reply: &Value) {
+    check_historic_pond_ask(lamp, reply);
+    let world = &reply["world"];
+    assert_eq!(world["actors"]["moth"]["sleeping"]["since"], world["turn"]);
+}
+
+fn check_awake_historic_pond_move(lamp: &Value, reply: &Value) {
+    check_historic_pond_ask(lamp, reply);
+    let world = &reply["world"];
+    assert_eq!(world["turn"], 481);
+    assert_eq!(world["actors"]["moth"]["sleeping"], Value::Null);
+    assert_eq!(
+        world["actors"]["keeper"]["sleeping"],
+        json!({"since":481,"place":"station","until":482})
+    );
+}
+
+fn check_historic_pond_ask(lamp: &Value, reply: &Value) {
     check_bare_pond_move(lamp, reply);
     let world = &reply["world"];
     let ask = reply["events"]
@@ -251,7 +300,6 @@ fn check_historic_pond_move(lamp: &Value, reply: &Value) {
     assert_eq!(ask["accepted"], false);
     let moth = &world["actors"]["moth"];
     assert_eq!(moth["want"]["refusals"], 1);
-    assert_eq!(moth["sleeping"]["since"], world["turn"]);
 }
 
 fn check_bare_station_move(lamp: &Value, reply: &Value) {
@@ -264,6 +312,41 @@ fn check_bare_station_move(lamp: &Value, reply: &Value) {
     assert_eq!(world["actors"]["moth"]["place"], "station");
     assert_eq!(world["opening"]["met"]["keeper"], world["turn"]);
     assert_eq!(world["speechVoices"]["vale"], json!(["vale", "keeper"]));
+}
+
+fn check_awake_historic_station_move(lamp: &Value, reply: &Value, cass_moves: bool) {
+    check_bare_station_move(lamp, reply);
+    let events = reply["events"].as_array().unwrap();
+    assert_eq!(events.len(), 3 + usize::from(cass_moves));
+    let world = &reply["world"];
+    assert_eq!(world["turn"], 482);
+
+    let pip = &events[1];
+    assert_eq!(pip["fromLocationId"], "pond");
+    assert_eq!(pip["targetId"], "station");
+    assert_eq!(world["actors"]["moth"]["heldItem"], "cloth");
+    assert_eq!(world["actors"]["moth"]["sleeping"], Value::Null);
+
+    if cass_moves {
+        let cass = &events[2];
+        assert_eq!(cass["actorId"], "orin");
+        assert_eq!(cass["verb"], "move");
+        assert_eq!(cass["fromLocationId"], "pavilion");
+        assert_eq!(cass["locationId"], "willows-bank");
+        assert_eq!(world["actors"]["orin"]["place"], "willows-bank");
+        assert_eq!(world["items"]["board"]["holder"], "pavilion");
+    } else {
+        assert_eq!(world["actors"]["orin"]["place"], "pavilion");
+        assert_eq!(world["items"]["board"]["holder"], "orin");
+    }
+
+    let wake = events.last().unwrap();
+    assert_eq!(wake["actorId"], "keeper");
+    assert_eq!(wake["kind"], "narration");
+    assert_eq!(wake["locationId"], "station");
+    assert_eq!(wake["text"], "The keeper wakes.");
+    assert_eq!(wake["seq"], world["eventSeq"]);
+    assert_eq!(world["actors"]["keeper"]["sleeping"], Value::Null);
 }
 
 fn check_keeper_log_read(_: &Value, reply: &Value) {
