@@ -62,7 +62,7 @@ fn move_world_to<'a>(request: &'a Value, to: &str) -> Option<(&'a Value, bool)> 
     Some((before, carry))
 }
 
-fn quiet_opening(world: &Value) -> bool {
+pub(super) fn quiet_opening(world: &Value) -> bool {
     [
         "hidden",
         "absent",
@@ -75,7 +75,7 @@ fn quiet_opening(world: &Value) -> bool {
     .all(|field| world[*field].is_null())
 }
 
-fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool {
+pub(super) fn move_event(event: &Value, turn: u64, from: &str, to: &str) -> bool {
     event["turn"] == turn
         && event["verb"] == "move"
         && event["fromLocationId"] == from

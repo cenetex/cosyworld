@@ -28,6 +28,8 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
   };
   const play = (world, action) => run({ ...seats, op: "play", world, action });
   let sample;
+  let complete;
+  let view;
   for (const [seed, dry, spoken, sorted] of [
     [undefined, false, false, false],
     [0, true, false, true],
@@ -105,6 +107,41 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
       );
       assert.equal(actual.world.items.lamp.fuel, accepted.items.lamp.fuel);
       assert.equal(wasm(request), null);
+      complete = {
+        ...seats,
+        op: "opening_pond_return_view",
+        beforeSeq: accepted.eventSeq,
+        world: { ...reply.world, speechVoices: accepted.speechVoices },
+      };
+      assert.ok(isDeepStrictEqual(wasm(complete), reply), `complete ${label}`);
+      assert.deepEqual(reply.exits, ["station"]);
+      assert.deepEqual(reply.world.speechVoices.vale, ["vale"]);
+      assert.equal(reply.actions.at(-1).key, "drop:vale:::0");
+      assert.ok(reply.actions.every(({ target }) => target !== "moth"));
+      const published = run({
+        ...seats,
+        op: "speech",
+        room: "pond",
+        world: reply.world,
+        lines: [
+          { actorId: "vale", text: "The pond is quiet." },
+          { entityId: "pond", text: "Rain trembles on the water." },
+        ],
+      });
+      for (const world of [reply.world, published]) {
+        for (const present of [seats.present, []]) {
+          view = { ...seats, op: "view", world, present };
+          const projected = wasm(view);
+          const expected = pinned(view);
+          assert.ok(
+            isDeepStrictEqual(projected, expected),
+            `private ${label} ${present.length} ${world === published}`,
+          );
+          assert.equal(projected.world.memories.moth.learning, undefined);
+          assert.deepEqual(projected.world.memories.vale, world.memories.vale);
+          assert.ok(!Object.hasOwn(projected, "events"));
+        }
+      }
       sample = request;
     }
     assert.equal(
@@ -128,4 +165,26 @@ test("Vale's first return to Pond keeps the accepted Keeper quest and lamp state
     assert.equal(wasm({ ...sample, op, world }), null);
   }
   assert.equal(wasm({ ...sample, op, revision: sample.revision - 1 }), null);
+  assert.equal(wasm({ ...complete, beforeSeq: complete.beforeSeq - 1 }), null);
+  for (const mutate of [
+    (world) => {
+      delete world.knowledge.known.vale["quest:keeper:pond"];
+    },
+    (world) => {
+      world.actors.moth.place = "pond";
+    },
+    (world) => {
+      world.crossings["pond-greek-harbor"].discovered = true;
+    },
+    (world) => {
+      world.items.lamp.lit = true;
+    },
+    (world) => {
+      world.items["greek-water-jar"].holder = "pond";
+    },
+  ]) {
+    const world = structuredClone(view.world);
+    mutate(world);
+    assert.equal(wasm({ ...view, world }), null);
+  }
 });

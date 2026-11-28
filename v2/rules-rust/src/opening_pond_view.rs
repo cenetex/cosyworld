@@ -260,7 +260,7 @@ pub(super) fn offer(
     json!({"kind":kind,"actor":VALE,"item":item,"target":target,"text":text,"cards":cards,"key":key})
 }
 
-fn pond_response(mut response: Value, plans: Vec<Value>, profiles: Value) -> Value {
+pub(super) fn pond_response(mut response: Value, plans: Vec<Value>, profiles: Value) -> Value {
     response["actor"] = json!(VALE);
     response["room"] = json!(POND);
     response["actions"] = json!(plans);
@@ -269,11 +269,11 @@ fn pond_response(mut response: Value, plans: Vec<Value>, profiles: Value) -> Val
     response
 }
 
-fn actions(
+pub(super) fn actions(
     world: &Value,
     geo: &Geography<'_>,
     profiles: &Value,
-    pip_sleeping: bool,
+    pip_sleeping: Option<bool>,
 ) -> Option<Vec<Value>> {
     let name = |id: &str| profiles[id]["name"].as_str();
     let vale = name(VALE)?;
@@ -289,7 +289,7 @@ fn actions(
         format!("{vale} waits one turn."),
         &[],
     )];
-    if !pip_sleeping {
+    if pip_sleeping == Some(false) {
         let mut accompany = offer(
             "accompany",
             None,
@@ -316,21 +316,25 @@ fn actions(
             format!("{vale} carries {lamp} to {station}."),
             &[LAMP, STATION],
         ),
-        offer(
-            "threaten",
-            Some(CLOTH),
-            Some(PIP),
-            format!("{vale} threatens {pip} over {cloth}."),
-            &[PIP],
-        ),
-        offer(
-            "talk",
-            None,
-            Some(PIP),
-            format!("{vale} has a conversation with {pip}."),
-            &[PIP],
-        ),
     ]);
+    if pip_sleeping.is_some() {
+        out.extend([
+            offer(
+                "threaten",
+                Some(CLOTH),
+                Some(PIP),
+                format!("{vale} threatens {pip} over {cloth}."),
+                &[PIP],
+            ),
+            offer(
+                "talk",
+                None,
+                Some(PIP),
+                format!("{vale} has a conversation with {pip}."),
+                &[PIP],
+            ),
+        ]);
+    }
     for id in [KEY, WAYFINDER] {
         if world["items"][id]["holder"] == POND && geo.entity_active(world, id)? {
             let thing = item_as_named(name(id)?);
@@ -343,23 +347,23 @@ fn actions(
             ));
         }
     }
-    out.extend([
-        offer(
-            "drop",
-            Some(LAMP),
-            Some(POND),
-            format!("{vale} puts {lamp} in {pond}."),
-            &[LAMP],
-        ),
-        offer(
+    out.push(offer(
+        "drop",
+        Some(LAMP),
+        Some(POND),
+        format!("{vale} puts {lamp} in {pond}."),
+        &[LAMP],
+    ));
+    if pip_sleeping.is_some() {
+        out.push(offer(
             "give",
             Some(LAMP),
             Some(PIP),
             format!("{vale} gives {lamp} to {pip}."),
             &[LAMP, PIP],
-        ),
-    ]);
-    if !pip_sleeping {
+        ));
+    }
+    if pip_sleeping == Some(false) {
         out.push(offer(
             "ask",
             Some(CLOTH),
@@ -437,7 +441,7 @@ pub(super) fn completed_move_response_with_profiles(
         .as_object_mut()?
         .insert(VALE.into(), json!([VALE, PIP]));
     let profiles = profile_source()?;
-    let plans = actions(&world, geo, &profiles, pip_sleeping)?;
+    let plans = actions(&world, geo, &profiles, Some(pip_sleeping))?;
     let mut response = opening::stored_response(world)?;
     response["events"] = Value::Array(events);
     Some(pond_response(response, plans, profiles))
@@ -448,6 +452,9 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
         return None;
     }
     let world = request.get("world")?;
+    if world["turn"] == 4 && world.get("began").is_none() {
+        return super::opening_pond_return_view::private_view(request);
+    }
     if world["speechVoices"][VALE] != json!([VALE, PIP]) {
         return None;
     }
@@ -457,7 +464,7 @@ pub(super) fn private_view(request: &Value, present: &[&str]) -> Option<Value> {
     let pip_sleeping = quiet_pond(world, &geo)?;
     pond_paths(world, &geo)?;
     let profiles = profiles::project(&files)?;
-    let plans = actions(world, &geo, &profiles, pip_sleeping)?;
+    let plans = actions(world, &geo, &profiles, Some(pip_sleeping))?;
     let projected = opening_view::private_world(world, request)?;
     Some(pond_response(
         json!({"ok":true,"world":projected}),
