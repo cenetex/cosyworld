@@ -13,8 +13,7 @@ import {
   conditionsMet,
 } from "./pack-registry.mjs";
 
-// A ship is docked, has a course set, is at sea, or has arrived. It sails
-// authored lanes between its docks. A voyage takes one world round.
+// A voyage takes one world round along authored lanes between docks.
 export const TRANSPORT_VERSION = 3;
 // Route search from aboard a ship plans the whole voyage, not only the
 // course cards in the current hand.

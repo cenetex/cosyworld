@@ -23,6 +23,7 @@ mod opening_reflection;
 mod opening_roaming;
 mod opening_roster;
 pub mod opening_rumours;
+mod opening_settlement;
 mod opening_speech;
 mod opening_view;
 mod opening_visitor_routes;
@@ -129,6 +130,9 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_wait_step") => opening_wait::projection(request).unwrap_or(Value::Null),
         Some("opening_wait_roster") => opening_roster::projection(request).unwrap_or(Value::Null),
         Some("opening_bard_move") => opening_roaming::projection(request).unwrap_or(Value::Null),
+        Some("opening_wait_settlement") => {
+            opening_settlement::projection(request).unwrap_or(Value::Null)
+        }
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
