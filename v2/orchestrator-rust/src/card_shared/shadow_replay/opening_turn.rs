@@ -18,6 +18,7 @@ const DROP: (&str, PlayAssertion) = ("drop:vale:lamp:attic", check_lamp_drop);
 const TAKE: (&str, PlayAssertion) = ("take:vale:lamp:", check_lamp_take);
 const BARE_POND_MOVE: (&str, PlayAssertion) = ("move:vale::pond", check_bare_pond_move);
 const BARE_STATION_MOVE: (&str, PlayAssertion) = ("move:vale::station", check_bare_station_move);
+const HISTORIC_POND_MOVE: (&str, PlayAssertion) = (BARE_POND_MOVE.0, check_historic_pond_move);
 
 #[test]
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait() -> Result<()> {
@@ -33,7 +34,7 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_drop() -> Result<()> {
 fn sqlite_rules_wasm_parity_replays_the_first_attic_wait_after_history() -> Result<()> {
     replay_opening_turns(
         "first-attic-wait-after-history",
-        historic_opening()?,
+        historic_opening(Some(4242))?,
         false,
         &[WAIT],
     )
@@ -43,7 +44,7 @@ fn sqlite_rules_wasm_parity_replays_the_first_attic_wait_after_history() -> Resu
 fn sqlite_rules_wasm_parity_replays_the_first_attic_drop_after_history() -> Result<()> {
     replay_opening_turns(
         "first-attic-drop-after-history",
-        historic_opening()?,
+        historic_opening(Some(4242))?,
         false,
         &[DROP],
     )
@@ -63,20 +64,9 @@ fn sqlite_rules_wasm_parity_replays_the_first_bare_pond_move() -> Result<()> {
 fn sqlite_rules_wasm_parity_replays_the_first_bare_pond_move_after_history() -> Result<()> {
     replay_opening_turns(
         "first-bare-pond-move-after-history",
-        historic_opening()?,
+        historic_opening(Some(4242))?,
         true,
-        &[("move:vale::pond", |lamp, reply| {
-            check_bare_pond_move(lamp, reply);
-            let world = &reply["world"];
-            let ask = &reply["events"][1];
-            assert_eq!(ask["actorId"], "moth");
-            assert_eq!(ask["verb"], "ask");
-            assert_eq!(ask["itemId"], "lamp");
-            assert_eq!(ask["accepted"], false);
-            let moth = &world["actors"]["moth"];
-            assert_eq!(moth["want"]["refusals"], 1);
-            assert_eq!(moth["sleeping"]["since"], world["turn"]);
-        })],
+        &[HISTORIC_POND_MOVE],
     )
 }
 
@@ -134,6 +124,37 @@ fn sqlite_rules_wasm_parity_replays_station_after_the_first_pond_move() -> Resul
         unseeded_opening()?,
         true,
         &[BARE_POND_MOVE, BARE_STATION_MOVE],
+    )
+}
+
+#[test]
+fn sqlite_rules_wasm_parity_replays_station_after_history() -> Result<()> {
+    let state = historic_opening(None)?;
+    assert_eq!(state.game["began"], 480);
+    assert!(state.game.get("run").is_none());
+    replay_opening_turns(
+        "station-after-history",
+        state,
+        true,
+        &[
+            HISTORIC_POND_MOVE,
+            (BARE_STATION_MOVE.0, |lamp, reply| {
+                check_bare_move(lamp, reply, "pond", "station");
+                let world = &reply["world"];
+                assert_eq!(world["turn"], 482);
+                assert_eq!(reply["events"].as_array().unwrap().len(), 1);
+                assert_eq!(world["eventSeq"], world["arrival"]["seq"]);
+                let pip = &world["actors"]["moth"];
+                assert_eq!(pip["place"], "pond");
+                assert_eq!(
+                    pip["sleeping"],
+                    json!({"since":481,"place":"pond","until":503})
+                );
+                assert_eq!(pip["slept"], 481);
+                assert_eq!(world["opening"]["met"]["keeper"], 482);
+                assert_eq!(world["speechVoices"]["vale"], json!(["vale", "keeper"]));
+            }),
+        ],
     )
 }
 
@@ -204,6 +225,22 @@ fn check_bare_pond_move(lamp: &Value, reply: &Value) {
     let world = &reply["world"];
     assert_eq!(world["opening"]["crossed"], true);
     assert_eq!(world["speechVoices"]["vale"], json!(["vale", "moth"]));
+}
+
+fn check_historic_pond_move(lamp: &Value, reply: &Value) {
+    check_bare_pond_move(lamp, reply);
+    let world = &reply["world"];
+    let ask = reply["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|event| event["actorId"] == "moth" && event["verb"] == "ask")
+        .expect("Pip asks for the lamp on the historic Pond arrival");
+    assert_eq!(ask["itemId"], "lamp");
+    assert_eq!(ask["accepted"], false);
+    let moth = &world["actors"]["moth"];
+    assert_eq!(moth["want"]["refusals"], 1);
+    assert_eq!(moth["sleeping"]["since"], world["turn"]);
 }
 
 fn check_bare_station_move(lamp: &Value, reply: &Value) {
@@ -282,12 +319,16 @@ fn check_lamp_take(lamp: &Value, reply: &Value) {
     assert_eq!(taken["fuel"], lamp["fuel"]);
 }
 
-fn historic_opening() -> Result<World> {
-    let created = engine::reduce(json!({"op":"create", "history":true, "seed":4242}))?;
+fn historic_opening(seed: Option<u32>) -> Result<World> {
+    let mut request = json!({"op":"create", "history":true});
+    if let Some(seed) = seed {
+        request["seed"] = json!(seed);
+    }
+    let created = engine::reduce(request)?;
     let save = created["world"].to_string();
     let imported = World::create(Some(&save))?;
     assert_eq!(imported.game, created["world"]);
-    assert_eq!(imported.game["run"]["seed"], 4242);
+    assert_eq!(imported.game["run"]["seed"], json!(seed));
     assert_eq!(imported.game["began"], imported.game["turn"]);
     assert!(imported.game["began"].as_u64().is_some_and(|turn| turn > 0));
     Ok(imported)
