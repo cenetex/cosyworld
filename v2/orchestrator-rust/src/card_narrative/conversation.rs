@@ -162,8 +162,7 @@ pub(super) async fn voice_lines(
         Some(next)
     });
     let context = prepared.as_ref().unwrap_or(context);
-    // Each job owns its id: a borrowed one makes the scene future too
-    // general for `tokio::spawn`.
+    // An owned id: a borrowed one makes the scene future too general for `tokio::spawn`.
     #[allow(clippy::unnecessary_to_owned)]
     let jobs = ids.to_vec().into_iter().map(|id| async move {
         let voice = speak(
