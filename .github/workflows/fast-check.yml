@@ -270,6 +270,7 @@ jobs:
           cargo clippy --locked --manifest-path v2/rules-rust/wasm/Cargo.toml --target wasm32-unknown-unknown -- -D warnings
           cargo test --locked --manifest-path v2/rules-rust/Cargo.toml --workspace
           artifact="$(node v2/scripts/build-rust-rules.mjs)"
+          COSYWORLD_RULES_WASM="$artifact" node --test v2/rules-rust/tests/*.test.mjs
           COSYWORLD_RULES_WASM="$artifact" RUST_MIN_STACK=16777216 \
             cargo test --locked --manifest-path v2/orchestrator-rust/Cargo.toml \
             --features rules-wasm,local-tooling --bin cosyworld-orchestrator sqlite_rules_wasm_parity -- --nocapture
