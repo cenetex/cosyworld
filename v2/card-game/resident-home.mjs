@@ -97,9 +97,8 @@ export function homeOf(id, world) {
     null
   );
 }
-// The hops a resident may stray from home for its wants: 0 keeps it home,
-// Infinity is no limit (the hub's residents). null is no home life at all:
-// players and their away avatars, roamers, journeys and freed residents.
+// Home range is measured in hops: zero stays home, Infinity has no limit.
+// null means no home routine, as for players, roamers, journeys and freed residents.
 export function rangeOf(s, id) {
   if (s && unplayedAvatar(s, id)) return Infinity;
   if (own(forest.people, id))
