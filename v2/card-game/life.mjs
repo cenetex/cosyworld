@@ -124,7 +124,6 @@ export function lifeFacts(s, actor) {
 
 function remember(life, e) {
   const last = life.experiences.at(-1);
-  // A repeated exchange refreshes its memory instead of adding another.
   const same =
     last && ["kind", "other", "item", "place"].every((k) => last[k] === e[k]);
   life.experiences = same

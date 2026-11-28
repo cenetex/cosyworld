@@ -2,7 +2,8 @@ use super::{
     create, initial_wants, opening_attic_rest, opening_content, opening_full_move,
     opening_held_items, opening_mirror_move, opening_quiet_life, opening_resident_sleep,
     opening_roaming, opening_second_attic_lamp, opening_settlement, opening_station_move,
-    opening_station_read, opening_wait_response, opening_wants, pack_state::Catalog, Geography,
+    opening_station_read, opening_station_view, opening_wait_response, opening_wants,
+    pack_state::Catalog, Geography,
 };
 use serde_json::{json, Value};
 
@@ -91,7 +92,8 @@ fn arrived_scene(world: &Value) -> Option<&'static str> {
     if world["actors"]["vale"]["place"] == STATION {
         opening_station_move::arrival(world)
             .or_else(|| opening_station_move::abandoned_train_arrival(world))
-            .or_else(|| opening_station_read::after_first_log(world))?;
+            .or_else(|| opening_station_read::after_first_log(world))
+            .or_else(|| opening_station_view::keeper_abandon_head(world))?;
         (solo(world) && world["playerActorId"] == "vale").then_some(STATION)
     } else {
         opening_mirror_move::second_arrival(world)?;
@@ -380,6 +382,15 @@ pub(super) fn settle_station_read_before_wants(
     catalog: &Catalog<'_>,
 ) -> Option<()> {
     station_read_round(before, world)?;
+    settle_quiet_station_before_wants(before, world, geo, catalog)
+}
+
+pub(super) fn settle_quiet_station_before_wants(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+    catalog: &Catalog<'_>,
+) -> Option<()> {
     opening_settlement::decay_bell(world)?;
     opening_roaming::settle_dwell(world, geo)?;
     opening_quiet_life::verify_opening_day(world, geo)?;
@@ -400,6 +411,14 @@ pub(super) fn settle_station_read_after_wants(
     geo: &Geography<'_>,
 ) -> Option<()> {
     station_read_round(before, world)?;
+    settle_quiet_station_after_wants(before, world, geo)
+}
+
+pub(super) fn settle_quiet_station_after_wants(
+    before: &Value,
+    world: &mut Value,
+    geo: &Geography<'_>,
+) -> Option<()> {
     opening_quiet_life::verify_home_levels(world, geo)?;
     verify_quiet_facts(before, world, geo)?;
     opening_attic_rest::settle_visit_speech(before, world, false)?;

@@ -331,7 +331,8 @@ pub(super) fn settle_station(world: &mut Value, geo: &Geography<'_>) -> Option<(
         }
     } else {
         opening_station_move::arrival(world)
-            .or_else(|| opening_station_move::abandoned_train_arrival(world))?;
+            .or_else(|| opening_station_move::abandoned_train_arrival(world))
+            .or_else(|| opening_station_view::keeper_abandon_head(world))?;
         "station"
     };
     station_wants_state(world, pip_place, &Value::Null)?;
