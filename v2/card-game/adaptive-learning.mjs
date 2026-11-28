@@ -1,4 +1,3 @@
-// Completed plays teach each avatar to value legal actions against its goals.
 import { grievanceActive } from "./knowledge.mjs";
 import { quietWant } from "./want.mjs";
 export const TRIAL_LIMIT = 32;
