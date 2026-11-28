@@ -2558,7 +2558,7 @@
               "greek-demos-house",
               "greek-thinkery"
             ],
-            backdrop: "assets/greek-drama/assembly-hill.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-assembly.webp",
             seed: "The conflict of Assemblywomen is unfolding here."
           },
           "greek-acropolis": {
@@ -2568,7 +2568,7 @@
               "greek-festival",
               "greek-areopagus"
             ],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-acropolis.webp",
             seed: "The conflict of Lysistrata is unfolding here."
           },
           "greek-demos-house": {
@@ -2576,7 +2576,7 @@
             exits: [
               "greek-assembly"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-demos-house.webp",
             seed: "The conflict of Knights is unfolding here."
           },
           "greek-thinkery": {
@@ -2586,7 +2586,7 @@
               "greek-assembly",
               "greek-jury-house"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-thinkery.webp",
             seed: "The conflict of Clouds is unfolding here."
           },
           "greek-jury-house": {
@@ -2594,7 +2594,7 @@
             exits: [
               "greek-thinkery"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-jury-house.webp",
             seed: "The conflict of Wasps is unfolding here."
           },
           "greek-festival": {
@@ -2602,7 +2602,7 @@
             exits: [
               "greek-acropolis"
             ],
-            backdrop: "assets/greek-drama/grove.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-festival.webp",
             seed: "The conflict of Women at the Thesmophoria is unfolding here."
           },
           "greek-attic-farm": {
@@ -2613,7 +2613,7 @@
               "greek-colonus",
               "greek-acharnae"
             ],
-            backdrop: "assets/greek-drama/grove.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-attic-farm.webp",
             seed: "The conflict of Wealth is unfolding here."
           },
           "greek-acharnae": {
@@ -2622,7 +2622,7 @@
               "greek-attic-farm",
               "greek-bird-wilderness"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-acharnae.webp",
             seed: "The conflict of Acharnians is unfolding here."
           },
           "greek-colonus": {
@@ -2819,7 +2819,7 @@
               "greek-argos-sanctuary",
               "greek-troezen"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-corinth.webp",
             seed: "The conflict of Medea is unfolding here."
           },
           "greek-troezen": {
@@ -2827,7 +2827,7 @@
             exits: [
               "greek-corinth"
             ],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-troezen.webp",
             seed: "The conflict of Hippolytus is unfolding here."
           },
           "greek-delphi": {
@@ -2880,7 +2880,7 @@
             exits: [
               "greek-pherae"
             ],
-            backdrop: "assets/greek-drama/pagasae-anchorage.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-pagasae.webp",
             seed: "At the Scylla\u2019s home berth, Philon tells travelers from Pherae how to reach Aulis, Lemnos and Sicily."
           },
           "greek-thetis": {
@@ -2888,7 +2888,7 @@
             exits: [
               "greek-pherae"
             ],
-            backdrop: "assets/greek-drama/book-three-thrace-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-thetis.webp",
             seed: "The conflict of Andromache is unfolding here."
           },
           "greek-troy": {
@@ -2998,7 +2998,7 @@
           "greek-sicily": {
             name: "Sicilian Cave of Polyphemus",
             exits: [],
-            backdrop: "assets/greek-drama/book-three-lemnos-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-sicily.webp",
             seed: "The conflict of Cyclops is unfolding here."
           },
           "greek-susa": {
@@ -3022,7 +3022,7 @@
             exits: [
               "greek-bird-wilderness"
             ],
-            backdrop: "assets/greek-drama/sea.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-divine-heights.webp",
             seed: "The conflict of Peace is unfolding here."
           },
           "greek-bird-wilderness": {
@@ -3031,7 +3031,7 @@
               "greek-acharnae",
               "greek-divine-heights"
             ],
-            backdrop: "assets/greek-drama/hoopoe-thicket.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-bird-wilderness.webp",
             seed: "The conflict of Birds is unfolding here."
           },
           "greek-underworld": {
@@ -3040,7 +3040,7 @@
             exits: [
               "greek-eleusis-lower-precinct"
             ],
-            backdrop: "assets/greek-drama/harbor.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-underworld.webp",
             seed: "The conflict of Frogs is unfolding here."
           },
           "greek-ship": {
@@ -3189,7 +3189,7 @@
               "greek-north-gate",
               "greek-marathon"
             ],
-            backdrop: "assets/greek-drama/grove.svg"
+            backdrop: "assets/greek-drama/repertoire-greek-road-athens-marathon.webp"
           },
           "greek-road-piraeus-eleusis": {
             name: "Eleusis Coast Road",
@@ -3253,7 +3253,7 @@
               "greek-troy",
               "greek-susa"
             ],
-            backdrop: "assets/greek-drama/colonists-road.svg"
+            backdrop: "assets/greek-drama/repertoire-greek-road-royal.webp"
           },
           "greek-road-black-sea": {
             name: "The Black Sea Road",
@@ -3477,7 +3477,7 @@
               "greek-seven-gates",
               "greek-oedipus-court"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-cadmea-street.webp",
             seed: "Here the roads of earlier Thebes lead to the palace and the seven gates."
           },
           "greek-seven-gates": {
@@ -3486,7 +3486,7 @@
               "greek-cadmea-street",
               "greek-cithaeron-shrine"
             ],
-            backdrop: "assets/greek-drama/city-gate-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-seven-gates.webp",
             seed: "The Argive army is outside the walls, before the deaths of the brothers."
           },
           "greek-oedipus-court": {
@@ -3497,7 +3497,7 @@
               "greek-jocasta-rooms",
               "greek-heracles-altar"
             ],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-oedipus-court.webp",
             seed: "The plague has reached Thebes during Oedipus\u2019s reign."
           },
           "greek-jocasta-rooms": {
@@ -3505,7 +3505,7 @@
             exits: [
               "greek-oedipus-court"
             ],
-            backdrop: "assets/greek-drama/palace-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-jocasta-rooms.webp",
             seed: "The brothers are alive and Jocasta is looking for terms before battle."
           },
           "greek-heracles-altar": {
@@ -3513,7 +3513,7 @@
             exits: [
               "greek-oedipus-court"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-heracles-altar.webp",
             seed: "In an earlier generation, Lycus holds Thebes while Heracles is away."
           },
           "greek-cithaeron-shrine": {
@@ -3521,7 +3521,7 @@
             exits: [
               "greek-seven-gates"
             ],
-            backdrop: "assets/greek-drama/bacchae-cithaeron-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-cithaeron-shrine.webp",
             seed: "On Cithaeron the new rites have reached Pentheus\u2019s Thebes."
           },
           "greek-argive-jury": {
@@ -3530,7 +3530,7 @@
             exits: [
               "greek-argos-sanctuary"
             ],
-            backdrop: "assets/greek-drama/house-atreus-palace.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-argive-jury.webp",
             seed: "Argos has convened judgment in the days after Clytemnestra\u2019s death."
           },
           "greek-ion-court": {
@@ -3538,7 +3538,7 @@
             exits: [
               "greek-delphi"
             ],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-ion-court.webp",
             seed: "In Apollo\u2019s temple court, the attendants have not yet agreed who Ion is."
           },
           "greek-areopagus": {
@@ -3546,7 +3546,7 @@
             exits: [
               "greek-acropolis"
             ],
-            backdrop: "assets/greek-drama/areopagus-court.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-areopagus.webp",
             seed: "Athena has called the city\u2019s first court to hear Orestes and the Furies."
           },
           "greek-acharnae-stall": {
@@ -3554,7 +3554,7 @@
             exits: [
               "greek-acharnae"
             ],
-            backdrop: "assets/greek-drama/market-well-day.webp",
+            backdrop: "assets/greek-drama/repertoire-greek-acharnae-stall.webp",
             seed: "Salt and bread change hands under Dicaeopolis\u2019s open market agreement.",
             requires: [
               {
@@ -3570,7 +3570,7 @@
               "greek-tauris",
               "greek-scythian-crag"
             ],
-            backdrop: "assets/greek-drama/black-sea-road.svg",
+            backdrop: "assets/greek-drama/repertoire-greek-road-scythia.webp",
             seed: "The track rises from the Taurian shore to the crag where Prometheus is bound.",
             road: [
               "greek-tauris",
@@ -4755,7 +4755,7 @@
           },
           "greek-story-aeschylus-persians-first": {
             name: "Atossa",
-            portrait: "assets/greek-drama/open-door-aethra.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-persians-first.png",
             place: "greek-susa",
             home: "greek-susa",
             travels: false,
@@ -4770,7 +4770,7 @@
           },
           "greek-story-aeschylus-persians-second": {
             name: "Persian Messenger",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-persians-second.png",
             place: "greek-susa",
             home: "greek-susa",
             travels: false,
@@ -4791,7 +4791,7 @@
           },
           "greek-story-aeschylus-seven-thebes-first": {
             name: "Theban Scout",
-            portrait: "assets/greek-drama/chthonic-guard.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-first.png",
             place: "greek-seven-gates",
             home: "greek-seven-gates",
             travels: false,
@@ -4806,7 +4806,7 @@
           },
           "greek-story-aeschylus-seven-thebes-second": {
             name: "Theban Chorus Leader",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-second.png",
             place: "greek-seven-gates",
             home: "greek-seven-gates",
             travels: false,
@@ -4827,7 +4827,7 @@
           },
           "greek-story-aeschylus-suppliant-women-first": {
             name: "Pelasgus",
-            portrait: "assets/greek-drama/chthonic-elder.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-first.png",
             place: "greek-argos-sanctuary",
             home: "greek-argos-sanctuary",
             travels: false,
@@ -4842,7 +4842,7 @@
           },
           "greek-story-aeschylus-suppliant-women-second": {
             name: "Danaid Chorus Leader",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-second.png",
             place: "greek-argos-sanctuary",
             home: "greek-argos-sanctuary",
             travels: false,
@@ -4863,7 +4863,7 @@
           },
           "greek-story-aeschylus-prometheus-bound-first": {
             name: "Io",
-            portrait: "assets/greek-drama/chthonic-ismene.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-first.png",
             place: "greek-scythian-crag",
             home: "greek-scythian-crag",
             travels: false,
@@ -4878,7 +4878,7 @@
           },
           "greek-story-aeschylus-prometheus-bound-second": {
             name: "Oceanid",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-second.png",
             place: "greek-scythian-crag",
             home: "greek-scythian-crag",
             travels: false,
@@ -4899,7 +4899,7 @@
           },
           "greek-story-aeschylus-agamemnon-first": {
             name: "Clytemnestra",
-            portrait: "assets/greek-drama/book-three-clytemnestra.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-first.png",
             place: "greek-argos-palace",
             home: "greek-argos-palace",
             travels: false,
@@ -4924,7 +4924,7 @@
           },
           "greek-story-aeschylus-agamemnon-second": {
             name: "Cassandra",
-            portrait: "assets/greek-drama/chthonic-antigone.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-second.png",
             place: "greek-argos-palace",
             home: "greek-argos-palace",
             travels: false,
@@ -4955,7 +4955,7 @@
           },
           "greek-story-aeschylus-eumenides-first": {
             name: "Athena",
-            portrait: "assets/greek-drama/open-door-grove-keeper.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-first.png",
             place: "greek-areopagus",
             home: "greek-areopagus",
             travels: false,
@@ -4970,7 +4970,7 @@
           },
           "greek-story-aeschylus-eumenides-second": {
             name: "Leader of the Furies",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-second.png",
             place: "greek-areopagus",
             home: "greek-areopagus",
             travels: false,
@@ -4991,7 +4991,7 @@
           },
           "greek-story-sophocles-women-of-trachis-first": {
             name: "Deianeira",
-            portrait: "assets/greek-drama/open-door-mother.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-first.png",
             place: "greek-trachis",
             home: "greek-trachis",
             travels: false,
@@ -5006,7 +5006,7 @@
           },
           "greek-story-sophocles-women-of-trachis-second": {
             name: "Lichas",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-second.png",
             place: "greek-trachis",
             home: "greek-trachis",
             travels: false,
@@ -5027,7 +5027,7 @@
           },
           "greek-story-sophocles-oedipus-tyrannus-first": {
             name: "Jocasta",
-            portrait: "assets/greek-drama/book-three-clytemnestra.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-first.png",
             place: "greek-oedipus-court",
             home: "greek-oedipus-court",
             travels: false,
@@ -5042,7 +5042,7 @@
           },
           "greek-story-sophocles-oedipus-tyrannus-second": {
             name: "Oedipus",
-            portrait: "assets/greek-drama/chthonic-elder.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-second.png",
             place: "greek-oedipus-court",
             home: "greek-oedipus-court",
             travels: false,
@@ -5063,7 +5063,7 @@
           },
           "greek-story-sophocles-philoctetes-first": {
             name: "Philoctetes",
-            portrait: "assets/greek-drama/book-three-neoptolemus.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-first.png",
             place: "greek-lemnos",
             home: "greek-lemnos",
             travels: false,
@@ -5078,7 +5078,7 @@
           },
           "greek-story-sophocles-philoctetes-second": {
             name: "Odysseus",
-            portrait: "assets/greek-drama/ajax-odysseus.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-second.png",
             place: "greek-lemnos",
             home: "greek-lemnos",
             travels: false,
@@ -5099,7 +5099,7 @@
           },
           "greek-story-euripides-alcestis-first": {
             name: "The Servant of Alcestis",
-            portrait: "assets/greek-drama/chthonic-baker.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-alcestis-first.png",
             place: "greek-pherae",
             home: "greek-pherae",
             travels: false,
@@ -5114,7 +5114,7 @@
           },
           "greek-story-euripides-alcestis-second": {
             name: "Heracles",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-alcestis-second.png",
             place: "greek-pherae",
             home: "greek-pherae",
             travels: false,
@@ -5135,7 +5135,7 @@
           },
           "greek-story-euripides-medea-first": {
             name: "Medea\u2019s Nurse",
-            portrait: "assets/greek-drama/myrine.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-medea-first.png",
             place: "greek-corinth",
             home: "greek-corinth",
             travels: false,
@@ -5150,7 +5150,7 @@
           },
           "greek-story-euripides-medea-second": {
             name: "Medea",
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-medea-second.png",
             place: "greek-corinth",
             home: "greek-corinth",
             travels: false,
@@ -5171,7 +5171,7 @@
           },
           "greek-story-euripides-hippolytus-first": {
             name: "Phaedra\u2019s Nurse",
-            portrait: "assets/greek-drama/open-door-grove-keeper.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-first.png",
             place: "greek-troezen",
             home: "greek-troezen",
             travels: false,
@@ -5186,7 +5186,7 @@
           },
           "greek-story-euripides-hippolytus-second": {
             name: "Theseus",
-            portrait: "assets/greek-drama/open-door-theseus.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-second.png",
             place: "greek-troezen",
             home: "greek-troezen",
             travels: false,
@@ -5207,7 +5207,7 @@
           },
           "greek-story-euripides-andromache-first": {
             name: "Andromache",
-            portrait: "assets/greek-drama/chthonic-attendant.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-andromache-first.png",
             place: "greek-thetis",
             home: "greek-thetis",
             travels: false,
@@ -5222,7 +5222,7 @@
           },
           "greek-story-euripides-andromache-second": {
             name: "Peleus",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-andromache-second.png",
             place: "greek-thetis",
             home: "greek-thetis",
             travels: false,
@@ -5243,7 +5243,7 @@
           },
           "greek-story-euripides-hecuba-first": {
             name: "Hecuba",
-            portrait: "assets/greek-drama/open-door-aethra.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-hecuba-first.png",
             place: "greek-thrace",
             home: "greek-thrace",
             travels: false,
@@ -5258,7 +5258,7 @@
           },
           "greek-story-euripides-hecuba-second": {
             name: "Agamemnon",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-hecuba-second.png",
             place: "greek-thrace",
             home: "greek-thrace",
             travels: false,
@@ -5279,7 +5279,7 @@
           },
           "greek-story-euripides-heracles-first": {
             name: "Amphitryon",
-            portrait: "assets/greek-drama/open-door-iphis.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-heracles-first.png",
             place: "greek-heracles-altar",
             home: "greek-heracles-altar",
             travels: false,
@@ -5294,7 +5294,7 @@
           },
           "greek-story-euripides-heracles-second": {
             name: "Megara",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-heracles-second.png",
             place: "greek-heracles-altar",
             home: "greek-heracles-altar",
             travels: false,
@@ -5315,7 +5315,7 @@
           },
           "greek-story-euripides-trojan-women-first": {
             name: "Andromache",
-            portrait: "assets/greek-drama/ajax-tecmessa.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-first.png",
             place: "greek-troy",
             home: "greek-troy",
             travels: false,
@@ -5330,7 +5330,7 @@
           },
           "greek-story-euripides-trojan-women-second": {
             name: "Talthybius",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-second.png",
             place: "greek-troy",
             home: "greek-troy",
             travels: false,
@@ -5351,7 +5351,7 @@
           },
           "greek-story-euripides-tauris-first": {
             name: "Iphigenia",
-            portrait: "assets/greek-drama/book-three-iphigenia.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-tauris-first.png",
             place: "greek-tauris",
             home: "greek-tauris",
             travels: false,
@@ -5366,7 +5366,7 @@
           },
           "greek-story-euripides-tauris-second": {
             name: "Pylades",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-tauris-second.png",
             place: "greek-tauris",
             home: "greek-tauris",
             travels: false,
@@ -5387,7 +5387,7 @@
           },
           "greek-story-euripides-ion-first": {
             name: "The Pythia",
-            portrait: "assets/greek-drama/chthonic-attendant.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-ion-first.png",
             place: "greek-ion-court",
             home: "greek-ion-court",
             travels: false,
@@ -5402,7 +5402,7 @@
           },
           "greek-story-euripides-ion-second": {
             name: "Creusa",
-            portrait: "assets/greek-drama/open-door-aethra.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-ion-second.png",
             place: "greek-ion-court",
             home: "greek-ion-court",
             travels: false,
@@ -5423,7 +5423,7 @@
           },
           "greek-story-euripides-phoenician-women-first": {
             name: "Jocasta",
-            portrait: "assets/greek-drama/book-three-clytemnestra.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-first.png",
             place: "greek-jocasta-rooms",
             home: "greek-jocasta-rooms",
             travels: false,
@@ -5438,7 +5438,7 @@
           },
           "greek-story-euripides-phoenician-women-second": {
             name: "Antigone",
-            portrait: "assets/greek-drama/chthonic-antigone.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-second.png",
             place: "greek-jocasta-rooms",
             home: "greek-jocasta-rooms",
             travels: false,
@@ -5459,7 +5459,7 @@
           },
           "greek-story-euripides-orestes-first": {
             name: "Electra",
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-orestes-first.png",
             place: "greek-argive-jury",
             home: "greek-argive-jury",
             travels: false,
@@ -5474,7 +5474,7 @@
           },
           "greek-story-euripides-orestes-second": {
             name: "Tyndareus",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-orestes-second.png",
             place: "greek-argive-jury",
             home: "greek-argive-jury",
             travels: false,
@@ -5495,7 +5495,7 @@
           },
           "greek-story-euripides-bacchae-first": {
             name: "Cadmus",
-            portrait: "assets/greek-drama/chthonic-elder.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-bacchae-first.png",
             place: "greek-cithaeron-shrine",
             home: "greek-cithaeron-shrine",
             travels: false,
@@ -5510,7 +5510,7 @@
           },
           "greek-story-euripides-bacchae-second": {
             name: "Pentheus",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-bacchae-second.png",
             place: "greek-cithaeron-shrine",
             home: "greek-cithaeron-shrine",
             travels: false,
@@ -5531,7 +5531,7 @@
           },
           "greek-story-euripides-iphigenia-at-aulis-first": {
             name: "Clytemnestra",
-            portrait: "assets/greek-drama/book-three-clytemnestra.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-first.png",
             place: "greek-aulis",
             home: "greek-aulis",
             travels: false,
@@ -5546,7 +5546,7 @@
           },
           "greek-story-euripides-iphigenia-at-aulis-second": {
             name: "Achilles",
-            portrait: "assets/greek-drama/book-three-achilles.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-second.png",
             place: "greek-aulis",
             home: "greek-aulis",
             travels: false,
@@ -5567,7 +5567,7 @@
           },
           "greek-story-euripides-rhesus-first": {
             name: "Rhesus\u2019s Charioteer",
-            portrait: "assets/greek-drama/ajax-teucer.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-rhesus-first.png",
             place: "greek-trojan-camp",
             home: "greek-trojan-camp",
             travels: false,
@@ -5582,7 +5582,7 @@
           },
           "greek-story-euripides-rhesus-second": {
             name: "Hector",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-rhesus-second.png",
             place: "greek-trojan-camp",
             home: "greek-trojan-camp",
             travels: false,
@@ -5603,7 +5603,7 @@
           },
           "greek-story-euripides-cyclops-first": {
             name: "Silenus",
-            portrait: "assets/greek-drama/chthonic-ferryman.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-cyclops-first.png",
             place: "greek-sicily",
             home: "greek-sicily",
             travels: false,
@@ -5618,7 +5618,7 @@
           },
           "greek-story-euripides-cyclops-second": {
             name: "Polyphemus",
-            portrait: "assets/greek-drama/chthonic-menelaus.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-euripides-cyclops-second.png",
             place: "greek-sicily",
             home: "greek-sicily",
             travels: false,
@@ -5639,7 +5639,7 @@
           },
           "greek-story-aristophanes-acharnians-first": {
             name: "Dicaeopolis",
-            portrait: "assets/greek-drama/chthonic-neighbor.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-first.webp",
             place: "greek-acharnae",
             home: "greek-acharnae",
             travels: false,
@@ -5654,7 +5654,7 @@
           },
           "greek-story-aristophanes-acharnians-second": {
             name: "Megarian Trader",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-second.webp",
             place: "greek-acharnae",
             home: "greek-acharnae",
             travels: false,
@@ -5675,7 +5675,7 @@
           },
           "greek-story-aristophanes-knights-first": {
             name: "Demos",
-            portrait: "assets/greek-drama/open-door-iphis.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-knights-first.webp",
             place: "greek-demos-house",
             home: "greek-demos-house",
             travels: false,
@@ -5690,7 +5690,7 @@
           },
           "greek-story-aristophanes-knights-second": {
             name: "Sausage Seller",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-knights-second.webp",
             place: "greek-demos-house",
             home: "greek-demos-house",
             travels: false,
@@ -5711,7 +5711,7 @@
           },
           "greek-story-aristophanes-clouds-first": {
             name: "Strepsiades",
-            portrait: "assets/greek-drama/chthonic-elder.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-first.webp",
             place: "greek-thinkery",
             home: "greek-thinkery",
             travels: false,
@@ -5726,7 +5726,7 @@
           },
           "greek-story-aristophanes-clouds-second": {
             name: "Horse Creditor",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-second.webp",
             place: "greek-thinkery",
             home: "greek-thinkery",
             travels: false,
@@ -5747,7 +5747,7 @@
           },
           "greek-story-aristophanes-wasps-first": {
             name: "Philocleon",
-            portrait: "assets/greek-drama/open-door-iphis.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-first.webp",
             place: "greek-jury-house",
             home: "greek-jury-house",
             travels: false,
@@ -5762,7 +5762,7 @@
           },
           "greek-story-aristophanes-wasps-second": {
             name: "Bdelycleon",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-second.webp",
             place: "greek-jury-house",
             home: "greek-jury-house",
             travels: false,
@@ -5783,7 +5783,7 @@
           },
           "greek-story-aristophanes-peace-first": {
             name: "Trygaeus",
-            portrait: "assets/greek-drama/chthonic-neighbor.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-peace-first.webp",
             place: "greek-divine-heights",
             home: "greek-divine-heights",
             travels: false,
@@ -5798,7 +5798,7 @@
           },
           "greek-story-aristophanes-peace-second": {
             name: "Hermes",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-peace-second.webp",
             place: "greek-divine-heights",
             home: "greek-divine-heights",
             travels: false,
@@ -5819,7 +5819,7 @@
           },
           "greek-story-aristophanes-birds-first": {
             name: "Peisthetaerus",
-            portrait: "assets/greek-drama/chthonic-singer.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-birds-first.webp",
             place: "greek-bird-wilderness",
             home: "greek-bird-wilderness",
             travels: false,
@@ -5855,7 +5855,7 @@
           },
           "greek-story-aristophanes-lysistrata-first": {
             name: "Lysistrata",
-            portrait: "assets/greek-drama/chthonic-antigone.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-first.webp",
             place: "greek-acropolis",
             home: "greek-acropolis",
             travels: false,
@@ -5870,7 +5870,7 @@
           },
           "greek-story-aristophanes-lysistrata-second": {
             name: "Lampito",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-second.webp",
             place: "greek-acropolis",
             home: "greek-acropolis",
             travels: false,
@@ -5891,7 +5891,7 @@
           },
           "greek-story-aristophanes-thesmophoria-first": {
             name: "The First Woman",
-            portrait: "assets/greek-drama/open-door-mother.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-first.webp",
             place: "greek-festival",
             home: "greek-festival",
             travels: false,
@@ -5906,7 +5906,7 @@
           },
           "greek-story-aristophanes-thesmophoria-second": {
             name: "Mnesilochus",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-second.webp",
             place: "greek-festival",
             home: "greek-festival",
             travels: false,
@@ -5927,7 +5927,7 @@
           },
           "greek-story-aristophanes-frogs-first": {
             name: "Aeschylus",
-            portrait: "assets/greek-drama/chthonic-elder.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-first.webp",
             place: "greek-underworld",
             home: "greek-underworld",
             travels: false,
@@ -5942,7 +5942,7 @@
           },
           "greek-story-aristophanes-frogs-second": {
             name: "Euripides",
-            portrait: "assets/greek-drama/open-door-iphis.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-second.webp",
             place: "greek-underworld",
             home: "greek-underworld",
             travels: false,
@@ -5963,7 +5963,7 @@
           },
           "greek-story-aristophanes-assemblywomen-first": {
             name: "Praxagora",
-            portrait: "assets/greek-drama/myrine.webp",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-first.webp",
             place: "greek-assembly",
             home: "greek-assembly",
             travels: false,
@@ -5978,7 +5978,7 @@
           },
           "greek-story-aristophanes-assemblywomen-second": {
             name: "Chremes",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-second.webp",
             place: "greek-assembly",
             home: "greek-assembly",
             travels: false,
@@ -5999,7 +5999,7 @@
           },
           "greek-story-aristophanes-wealth-first": {
             name: "Chremylus",
-            portrait: "assets/greek-drama/chthonic-neighbor.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-first.webp",
             place: "greek-attic-farm",
             home: "greek-attic-farm",
             travels: false,
@@ -6014,7 +6014,7 @@
           },
           "greek-story-aristophanes-wealth-second": {
             name: "Informer",
-            portrait: "assets/greek-drama/chthonic-shipmaster.png",
+            portrait: "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-second.webp",
             place: "greek-attic-farm",
             home: "greek-attic-farm",
             travels: false,
@@ -6038,7 +6038,7 @@
             place: "greek-colonus",
             home: "greek-colonus",
             values: {},
-            portrait: "assets/greek-drama/open-door-theseus.webp",
+            portrait: "assets/greek-drama/repertoire-greek-colonus-theseus.png",
             seed: "Theseus brings Oedipus\u2019s daughters back from Creon\u2019s men and comes to hear Oedipus at the grove.",
             tastes: {
               likes: "keeping a guest safe",
@@ -6058,7 +6058,7 @@
             place: "greek-marathon",
             home: "greek-marathon",
             values: {},
-            portrait: "assets/greek-drama/open-door-mother.webp",
+            portrait: "assets/greek-drama/repertoire-greek-marathon-alcmene.png",
             seed: "Heracles\u2019s mother shelters his children at the altar and demands that Eurystheus answer for driving them from home.",
             tastes: {
               likes: "care for her grandchildren",
@@ -6070,7 +6070,7 @@
             name: "Nausicrates the Pilot",
             place: "greek-piraeus",
             home: "greek-piraeus",
-            portrait: "assets/greek-drama/chthonic-ferryman.png",
+            portrait: "assets/greek-drama/repertoire-greek-piraeus-pilot.webp",
             travels: false,
             standoffs: false,
             personalQuests: false,
@@ -6084,7 +6084,7 @@
             name: "Philon the Pilot",
             place: "greek-pagasae",
             home: "greek-pagasae",
-            portrait: "assets/greek-drama/chthonic-attendant.png",
+            portrait: "assets/greek-drama/repertoire-greek-pagasae-pilot.webp",
             travels: false,
             standoffs: false,
             personalQuests: false,
@@ -33186,7 +33186,7 @@
     "greek-road-thebes": art("theban-harbor-road-night"),
     "greek-athens-harbor": art("athens-harbor-open-berth-night"),
     "greek-piraeus": art("piraeus-open-berth-night"),
-    "greek-pagasae": art("pagasae-anchorage-night"),
+    "greek-pagasae": art("repertoire-greek-pagasae-night"),
     "greek-athens": art("athens-grand-agora-night"),
     "greek-colonus": art("open-door-colonus-night"),
     "greek-eleusis": art("open-door-eleusis-night"),
@@ -33197,7 +33197,7 @@
     "greek-road-athens-piraeus": art("attic-road-night"),
     "greek-road-athens-colonus": art("attic-road-night"),
     "greek-road-athens-eleusis": art("sacred-way-dipylon-night"),
-    "greek-road-athens-marathon": art("attic-road-night"),
+    "greek-road-athens-marathon": art("repertoire-greek-road-athens-marathon-night"),
     "greek-road-piraeus-eleusis": art("attic-road-night"),
     "greek-road-colonus-eleusis": art("attic-road-night"),
     "greek-road-colonus-marathon": art("attic-road-night"),
@@ -35205,6 +35205,21 @@
   // v2/card-game/portrait-facing.mjs
   var groups = {
     right: [
+      ...[
+        "greek-story-aeschylus-prometheus-bound-first.png",
+        "greek-story-aeschylus-prometheus-bound-second.png",
+        "greek-story-aristophanes-assemblywomen-second.webp",
+        "greek-story-aristophanes-frogs-first.webp",
+        "greek-story-aristophanes-frogs-second.webp",
+        "greek-story-aristophanes-knights-first.webp",
+        "greek-story-euripides-bacchae-second.png",
+        "greek-story-euripides-cyclops-first.png",
+        "greek-story-euripides-cyclops-second.png",
+        "greek-story-euripides-orestes-second.png",
+        "greek-story-euripides-rhesus-first.png",
+        "greek-story-euripides-rhesus-second.png",
+        "greek-story-sophocles-philoctetes-first.png"
+      ].map((file) => `assets/greek-drama/repertoire-${file}`),
       ...sleepPortraitAssets.filter((file) => file.includes("/shared/")),
       ...castCombatFacings("right"),
       ...rarityPortraitAssets.filter((file) => file.startsWith("assets/combat/")),
@@ -35229,6 +35244,68 @@
       )
     ],
     left: [
+      ...[
+        "greek-colonus-theseus.png",
+        "greek-marathon-alcmene.png",
+        "greek-pagasae-pilot.webp",
+        "greek-piraeus-pilot.webp",
+        "greek-story-aeschylus-agamemnon-first.png",
+        "greek-story-aeschylus-agamemnon-second.png",
+        "greek-story-aeschylus-eumenides-first.png",
+        "greek-story-aeschylus-eumenides-second.png",
+        "greek-story-aeschylus-persians-first.png",
+        "greek-story-aeschylus-persians-second.png",
+        "greek-story-aeschylus-seven-thebes-first.png",
+        "greek-story-aeschylus-seven-thebes-second.png",
+        "greek-story-aeschylus-suppliant-women-first.png",
+        "greek-story-aeschylus-suppliant-women-second.png",
+        "greek-story-aristophanes-acharnians-first.webp",
+        "greek-story-aristophanes-acharnians-second.webp",
+        "greek-story-aristophanes-assemblywomen-first.webp",
+        "greek-story-aristophanes-birds-first.webp",
+        "greek-story-aristophanes-clouds-first.webp",
+        "greek-story-aristophanes-clouds-second.webp",
+        "greek-story-aristophanes-knights-second.webp",
+        "greek-story-aristophanes-lysistrata-first.webp",
+        "greek-story-aristophanes-lysistrata-second.webp",
+        "greek-story-aristophanes-peace-first.webp",
+        "greek-story-aristophanes-peace-second.webp",
+        "greek-story-aristophanes-thesmophoria-first.webp",
+        "greek-story-aristophanes-thesmophoria-second.webp",
+        "greek-story-aristophanes-wasps-first.webp",
+        "greek-story-aristophanes-wasps-second.webp",
+        "greek-story-aristophanes-wealth-first.webp",
+        "greek-story-aristophanes-wealth-second.webp",
+        "greek-story-euripides-alcestis-first.png",
+        "greek-story-euripides-alcestis-second.png",
+        "greek-story-euripides-andromache-first.png",
+        "greek-story-euripides-andromache-second.png",
+        "greek-story-euripides-bacchae-first.png",
+        "greek-story-euripides-hecuba-first.png",
+        "greek-story-euripides-hecuba-second.png",
+        "greek-story-euripides-heracles-first.png",
+        "greek-story-euripides-heracles-second.png",
+        "greek-story-euripides-hippolytus-first.png",
+        "greek-story-euripides-hippolytus-second.png",
+        "greek-story-euripides-ion-first.png",
+        "greek-story-euripides-ion-second.png",
+        "greek-story-euripides-iphigenia-at-aulis-first.png",
+        "greek-story-euripides-iphigenia-at-aulis-second.png",
+        "greek-story-euripides-medea-first.png",
+        "greek-story-euripides-medea-second.png",
+        "greek-story-euripides-orestes-first.png",
+        "greek-story-euripides-phoenician-women-first.png",
+        "greek-story-euripides-phoenician-women-second.png",
+        "greek-story-euripides-tauris-first.png",
+        "greek-story-euripides-tauris-second.png",
+        "greek-story-euripides-trojan-women-first.png",
+        "greek-story-euripides-trojan-women-second.png",
+        "greek-story-sophocles-oedipus-tyrannus-first.png",
+        "greek-story-sophocles-oedipus-tyrannus-second.png",
+        "greek-story-sophocles-philoctetes-second.png",
+        "greek-story-sophocles-women-of-trachis-first.png",
+        "greek-story-sophocles-women-of-trachis-second.png"
+      ].map((file) => `assets/greek-drama/repertoire-${file}`),
       "assets/sleep/moth-sleeping.webp",
       "assets/sleep/keeper-sleeping.webp",
       ...castCombatFacings("left"),
@@ -35244,6 +35321,8 @@
         )
       ),
       "assets/greek-drama/myrine.webp",
+      "assets/greek-drama/cilissa.webp",
+      "assets/greek-drama/hoopoe.webp",
       "assets/greek-drama/polynices-shade.webp",
       "assets/sleep/greek-baker-sleeping.png",
       "assets/sleep/residents/greek-antigone-sleeping.png",

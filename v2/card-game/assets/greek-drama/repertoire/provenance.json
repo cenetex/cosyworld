@@ -1,0 +1,2100 @@
+{
+  "tool": "image_gen",
+  "direction": "The Wine-Dark Sea expansion art direction, Delphi matte-oil concept",
+  "assets": [
+    {
+      "id": "greek-story-aeschylus-persians-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-persians-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "5bf44d61eb3cf8bc666f4a015a10377dab602663ae13f77e96a510024ebffa9e"
+    },
+    {
+      "id": "greek-story-aeschylus-persians-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-persians-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "b3a0527a99e2d451e913beeb4e22049dfdd650042d5442662254ca35af715886"
+    },
+    {
+      "id": "greek-story-aeschylus-seven-thebes-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "ca6e6067ffb8f3210a9776f80dd60fce329fae882566346435caa9d547732678"
+    },
+    {
+      "id": "greek-story-aeschylus-seven-thebes-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-seven-thebes-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "d5265513a9628414a91a0439a28a8b19e169bc001dd667859ddbe35b723cb8da"
+    },
+    {
+      "id": "greek-story-aeschylus-suppliant-women-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "19f3f8bc896ed746bf0597dcc3b5be52b34bf871836953ac76bb8f8e8b2921e8"
+    },
+    {
+      "id": "greek-story-aeschylus-suppliant-women-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-suppliant-women-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "b227843763b742ff8f2c3ce42a64d59200e2bae19ae514919b272e1b6411751d"
+    },
+    {
+      "id": "greek-story-aeschylus-prometheus-bound-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "6e50572d3aac6459776f8c896f817117acae2e34e6ea300923174660b16c593d"
+    },
+    {
+      "id": "greek-story-aeschylus-prometheus-bound-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-prometheus-bound-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "f311eeb6da88e94c0015966278d4812dae82c66af981957178a2d3dd4f1b1a51"
+    },
+    {
+      "id": "greek-story-aeschylus-agamemnon-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "b32f59849f5ac63524371afdc3798241aa68f9c62c3545cb9ebcc6b463a5a890"
+    },
+    {
+      "id": "greek-story-aeschylus-agamemnon-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-agamemnon-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "625bd7d70372bdea184dc521244130dee91cbd5952c73dd1ec3e2d64b12c31f5"
+    },
+    {
+      "id": "greek-story-aeschylus-eumenides-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "213493c3b27b630bd14cd63b46c6d88c5dba2c3b21c4d6a91f16c9f120c4e122"
+    },
+    {
+      "id": "greek-story-aeschylus-eumenides-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aeschylus-eumenides-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "49fbdfd8b7986f03f38b3754acb32b82af79c5a4675a65a4ef02e2b161055e9c"
+    },
+    {
+      "id": "greek-story-sophocles-women-of-trachis-first",
+      "file": "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "560fff8f0c4de101ee2662f8a913d419502465a803cee9fd324768002107bcd6"
+    },
+    {
+      "id": "greek-story-sophocles-women-of-trachis-second",
+      "file": "assets/greek-drama/repertoire-greek-story-sophocles-women-of-trachis-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "5858bc4f8f58a543a5bc2c8a7a2b1e6842dd8699bc17ad98359c92d4da4c001b"
+    },
+    {
+      "id": "greek-story-sophocles-oedipus-tyrannus-first",
+      "file": "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "871f1497004ab189c0ed3ac24e9c92910604525cf838043ce12643451301fa12"
+    },
+    {
+      "id": "greek-story-sophocles-oedipus-tyrannus-second",
+      "file": "assets/greek-drama/repertoire-greek-story-sophocles-oedipus-tyrannus-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "08dc17df5e902bc98a92e921c4a7219a8e7500bd8513f2ef0bdc919c3b1aa73b"
+    },
+    {
+      "id": "greek-story-sophocles-philoctetes-first",
+      "file": "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-first.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "ca769a67b836bfb15d23d6aff5e6ccabb2f96b792197330a9ea4bc7f92f70ba1"
+    },
+    {
+      "id": "greek-story-sophocles-philoctetes-second",
+      "file": "assets/greek-drama/repertoire-greek-story-sophocles-philoctetes-second.png",
+      "width": 512,
+      "height": 768,
+      "sha256": "177dbbe567ed31ab807a347bd7c8ce2fa367aaf2c6458fd9b51ea73775e9e91a"
+    },
+    {
+      "id": "greek-story-euripides-alcestis-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-alcestis-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "63f06048ef5810ff3297e1988525515494e8d08dcde4060b5557984982866783"
+    },
+    {
+      "id": "greek-story-euripides-alcestis-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-alcestis-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "d8ca7d37cb11137453353a2b236a4cc129e32f5c5cbf778a0ff79f58b15a5ca3"
+    },
+    {
+      "id": "greek-story-euripides-medea-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-medea-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "6304d0c07aca0d0b9cfdbd08c9a05f7eb949c018afdc59a114b21919d834152e"
+    },
+    {
+      "id": "greek-story-euripides-medea-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-medea-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "6c3962e4f7141e103e8285437fa2fc5f803afc70fb783db030344c203418ceda"
+    },
+    {
+      "id": "greek-story-euripides-hippolytus-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "d6a4c1df64e0b4d875ed5972bf5f2e41914515397c2b68453611488aaee91c8d"
+    },
+    {
+      "id": "greek-story-euripides-hippolytus-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-hippolytus-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "8c4c0b9bc6bfb50ed85926b498543eb0d2e0cb4dde19de9e7254c692f6a3b5a2"
+    },
+    {
+      "id": "greek-story-euripides-andromache-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-andromache-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "3829df81687e48f523a84a697a1247d640e95f15e26180755d533b7040bca69e"
+    },
+    {
+      "id": "greek-story-euripides-andromache-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-andromache-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "a2369ffe1187bf5a11cdd09b46ad7230b3801adcaa3c03fc2ae1bd497711c264"
+    },
+    {
+      "id": "greek-story-euripides-hecuba-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-hecuba-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "de4c08fdc742ca6551b9318695c6340b0b7c67089fecfedb7943fe72715512a6"
+    },
+    {
+      "id": "greek-story-euripides-hecuba-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-hecuba-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "360f406419718bff15b862e47f167f2e7e4a3028c65daf7f69ed93a1ee944cab"
+    },
+    {
+      "id": "greek-story-euripides-heracles-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-heracles-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "49fcc25755f025449b735d21a5511cdac5a5df73857280730d2ec9717e44f451"
+    },
+    {
+      "id": "greek-story-euripides-heracles-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-heracles-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "45777f7b0a32dc587bdca55ccf80f425d0ca93db42106be1d968ace3046f9790"
+    },
+    {
+      "id": "greek-story-euripides-trojan-women-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "69da977fab9db4ab10ecf29b78f1efaf78aa333be3429ef9a507de2c3455b7cb"
+    },
+    {
+      "id": "greek-story-euripides-trojan-women-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-trojan-women-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "cc7a8922957eb2d8587793e106e975cbab1079861315001155e1979008101883"
+    },
+    {
+      "id": "greek-story-euripides-tauris-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-tauris-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "b113e29f1a0ad3179281168b5e0e924526d0d11d9e9a58cb300aaa7fd30f8ed0"
+    },
+    {
+      "id": "greek-story-euripides-tauris-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-tauris-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "578b6559b42e3527363203608309d0040e15e3bb811b8f96a4fcd1ee01a37f8a"
+    },
+    {
+      "id": "greek-story-euripides-ion-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-ion-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "90e35492e2b012841da8ce830676f246d99f9f83822de2f38fb2849337ff984c"
+    },
+    {
+      "id": "greek-story-euripides-ion-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-ion-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "b96322f653c3f6562ab70055b88b0452df367690572e541220013ee2a56c9784"
+    },
+    {
+      "id": "greek-story-euripides-phoenician-women-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "f11d3ea3cef69243992adc0e8cfafd6816a27d2a13775805379a3a13b7b23ef9"
+    },
+    {
+      "id": "greek-story-euripides-phoenician-women-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-phoenician-women-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "7a936af0336f3124d1e1aebcc7c3b419ec64c7b15b9b3e5a9b23272a5bb4d18c"
+    },
+    {
+      "id": "greek-story-euripides-orestes-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-orestes-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "a25df5aa77353cf5b9a263d5f13d6980527ffa116c75a1f86c48e3ae4515866d"
+    },
+    {
+      "id": "greek-story-euripides-orestes-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-orestes-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "9b29b714fc7b5488ef523a64ba22d5a1a524896ddb3a8f98f2d4d22d2b33aa96"
+    },
+    {
+      "id": "greek-story-euripides-bacchae-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-bacchae-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "f29e1d83a1c15c8fc07a131dd908492ba7d1b2737d6f58d385ebf1582ad3fa3f"
+    },
+    {
+      "id": "greek-story-euripides-bacchae-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-bacchae-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "fa450a9ca98cb80154f728c8cb5623468e178230753eeaf804b6339e0f70118e"
+    },
+    {
+      "id": "greek-story-euripides-iphigenia-at-aulis-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "e157a85440ad09afd28cb54f2f71677bb9d83283c47fdaee623e2943aa3f3e78"
+    },
+    {
+      "id": "greek-story-euripides-iphigenia-at-aulis-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-iphigenia-at-aulis-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "94f082bfb482fa085146fe382ca5ebb620e358dcc1ffdfd52ddbafbde5c01877"
+    },
+    {
+      "id": "greek-story-euripides-rhesus-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-rhesus-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "daf493f4155166750cfd7e475740cc33d056b32871707399d6d56531a67fb77b"
+    },
+    {
+      "id": "greek-story-euripides-rhesus-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-rhesus-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "4ba4f7eb712f185154508868f2deb374aa7e4a10b817f90e90125077138a5199"
+    },
+    {
+      "id": "greek-story-euripides-cyclops-first",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-cyclops-first.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "07eec2313cffc48a2d21c673dbf8c874d0c667cc4430049ec37794342db0cef6"
+    },
+    {
+      "id": "greek-story-euripides-cyclops-second",
+      "file": "assets/greek-drama/repertoire-greek-story-euripides-cyclops-second.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "9e909c408e2ab0be7c67eb33ff1e9654abda049a72126f27cf78890f37a6a9c5"
+    },
+    {
+      "id": "greek-story-aristophanes-acharnians-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "133ff0b062f4fc50c94f7d2d8f38f022f9d36e72d5c673d2879b3ef6a84cc8fc"
+    },
+    {
+      "id": "greek-story-aristophanes-acharnians-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-acharnians-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "883ca6d165b813c96a5f3f6cdaeabef42e6e5990c63375932438691711995cf5"
+    },
+    {
+      "id": "greek-story-aristophanes-knights-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "2e20eae44f4fed306b2afb45d1f77778596f80e187f8a7c6ff8035939d94a2b2"
+    },
+    {
+      "id": "greek-story-aristophanes-knights-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-knights-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "f92cf5fccbdbc8dede9731053502494f08cc97f270f86a6e49ee6040017cf88d"
+    },
+    {
+      "id": "greek-story-aristophanes-clouds-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "083f9ca5148fbe2723107e7f608237d911b05007d351434606241d20cf2fa449"
+    },
+    {
+      "id": "greek-story-aristophanes-clouds-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-clouds-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "90f3fdeeb10b1855e39de59fd2dc8b405391031c04ad7e241c6ef4c0c79b0d5c"
+    },
+    {
+      "id": "greek-story-aristophanes-wasps-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "bb02cfb7dabee2dc3f12d238ebb6b171046bc077c45ed52d72c5eacb94cb27c5"
+    },
+    {
+      "id": "greek-story-aristophanes-wasps-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-wasps-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "dd9c71074aba191a75225601394c3a7eb2f7dc28c82e13dd163efe68abf7da96"
+    },
+    {
+      "id": "greek-story-aristophanes-peace-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "cfc3ad350fc7c788d102fa71a58fdfeb2709b4a3b60869deb134920e9d1e4770"
+    },
+    {
+      "id": "greek-story-aristophanes-peace-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-peace-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "dbe588f636f127d32f9d4dfbabddcd57046a34bd2360d510c364e9bbf9b29da4"
+    },
+    {
+      "id": "greek-story-aristophanes-birds-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-birds-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "b7de4d8b79c363ecc5e9ddcfe65147210efe1c6b8aba19e8caeffe8c0bca6aa2"
+    },
+    {
+      "id": "greek-story-aristophanes-lysistrata-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "56c2fe196bb039fbcd1851cc074a0ab58b1542445f7047a64ce67d9bdb51a20d"
+    },
+    {
+      "id": "greek-story-aristophanes-lysistrata-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-lysistrata-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "68fa082f40f7f34984ac66262ce5f8d7ab10606ec01118cb1e0fdc410aba24f6"
+    },
+    {
+      "id": "greek-story-aristophanes-thesmophoria-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "a2205b77a5f960ae97a23bb8f4c5fb9886bc06e71b094091afba98551397a895"
+    },
+    {
+      "id": "greek-story-aristophanes-thesmophoria-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-thesmophoria-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "bfd2f3f15f332442fa544d7f29065cf401bbc3243d5455c05871792e63f17d7d"
+    },
+    {
+      "id": "greek-story-aristophanes-frogs-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "3176ad6052f7f1c63d30a1916c6383cfc3aa05cd385eb42cf9e5b5ff2a150239"
+    },
+    {
+      "id": "greek-story-aristophanes-frogs-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-frogs-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "e8148ce01f6f6b191357b43b2977be8fac1657b932d5715abe3577863d5b6251"
+    },
+    {
+      "id": "greek-story-aristophanes-assemblywomen-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "30ff8a8a7fde6fc6f0283ec5ea16ff50895e86bbb35ad80dae092d0d81124f30"
+    },
+    {
+      "id": "greek-story-aristophanes-assemblywomen-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-assemblywomen-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "bd6a65bfa074128c7670a5e5202abd22015e2131d70fef9c03056e003488c208"
+    },
+    {
+      "id": "greek-story-aristophanes-wealth-first",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-first.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "d3bb280d56fc590ca49bd5fa572fe2c1dd4e0e9e13c3f2be0ee8a6a3ba591a82"
+    },
+    {
+      "id": "greek-story-aristophanes-wealth-second",
+      "file": "assets/greek-drama/repertoire-greek-story-aristophanes-wealth-second.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "62ad9643b95046f76b4581a1bad213623de1b034f8d56dadb8ea21f22eb03e05"
+    },
+    {
+      "id": "greek-colonus-theseus",
+      "file": "assets/greek-drama/repertoire-greek-colonus-theseus.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "c272c161da58f4e740531e945ae2776f17c49af730956c387e760f1545366e78"
+    },
+    {
+      "id": "greek-marathon-alcmene",
+      "file": "assets/greek-drama/repertoire-greek-marathon-alcmene.png",
+      "width": 1024,
+      "height": 1536,
+      "sha256": "760f8866fbc77dfd73b81385687f1217341dc3c3ce8c4a59b5ea4d76fa7901bb"
+    },
+    {
+      "id": "greek-piraeus-pilot",
+      "file": "assets/greek-drama/repertoire-greek-piraeus-pilot.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "ae57168d804c45bac530c4610e4ce236776a7abe843a5670616e4ccf26e669fe"
+    },
+    {
+      "id": "greek-pagasae-pilot",
+      "file": "assets/greek-drama/repertoire-greek-pagasae-pilot.webp",
+      "width": 512,
+      "height": 768,
+      "sha256": "479797f9c6f1dbfe4c83bc9e4e99ef1d5444f2f307252de415043d27819cee0c"
+    },
+    {
+      "id": "greek-pagasae",
+      "file": "assets/greek-drama/repertoire-greek-pagasae.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "e06f030bc70638bce48c129a422794041439018ea58dd00ab2e28cb67e8440a1"
+    },
+    {
+      "id": "greek-pagasae",
+      "file": "assets/greek-drama/repertoire-greek-pagasae-night.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "19f455c56c5f3ed15074b77ef30bdc3e88fdaa04fd21ac51d1aa9093b66757ff"
+    },
+    {
+      "id": "greek-cadmea-street",
+      "file": "assets/greek-drama/repertoire-greek-cadmea-street.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "5015386c00419be63fd7f15f9a64739cba494c1c0a9a6f29cca979db53abfbbd"
+    },
+    {
+      "id": "greek-seven-gates",
+      "file": "assets/greek-drama/repertoire-greek-seven-gates.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "f60660ce2421ef0f267042e2b576f122cfec0ba3a6e9bee0a1d2e3486d04b1a1"
+    },
+    {
+      "id": "greek-oedipus-court",
+      "file": "assets/greek-drama/repertoire-greek-oedipus-court.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "6a117a3810c803501df3197e2c26011f9d428bbeb22d80beace88018252b1c21"
+    },
+    {
+      "id": "greek-jocasta-rooms",
+      "file": "assets/greek-drama/repertoire-greek-jocasta-rooms.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "c4cbde645affc06baaf9913a7d35639878f285a571e48f0d8bbfdbbf4fbac735"
+    },
+    {
+      "id": "greek-heracles-altar",
+      "file": "assets/greek-drama/repertoire-greek-heracles-altar.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "7b9ddc115249fced2bf7463153516893ef696c428205baf91b1cfda480fc12ce"
+    },
+    {
+      "id": "greek-cithaeron-shrine",
+      "file": "assets/greek-drama/repertoire-greek-cithaeron-shrine.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "cefe766d9ac4291b17c53ec3f7b3a48ff087f992084c54af40fe72f83586fee2"
+    },
+    {
+      "id": "greek-argive-jury",
+      "file": "assets/greek-drama/repertoire-greek-argive-jury.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "20b6b58af8f3dfda214d0394bdd09bafb269e3388c09840b661746e5f63990c6"
+    },
+    {
+      "id": "greek-ion-court",
+      "file": "assets/greek-drama/repertoire-greek-ion-court.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "f408671873ce27ccdd014a7aa27e01db5b1ba89a13e5f566e2943bf0dda52aa0"
+    },
+    {
+      "id": "greek-areopagus",
+      "file": "assets/greek-drama/repertoire-greek-areopagus.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "3a2aacc6a8a8b67580221d35e30632bad6d303b6e8db6d5c24709b8c482dfb05"
+    },
+    {
+      "id": "greek-acharnae-stall",
+      "file": "assets/greek-drama/repertoire-greek-acharnae-stall.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "9d507fc0a648f88593a69fd6fd91a1249b2dc55a7e899747c64bda99f3eb7c98"
+    },
+    {
+      "id": "greek-road-scythia",
+      "file": "assets/greek-drama/repertoire-greek-road-scythia.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "1106d7658cfb5792aaab18d9eee5257193abea4ba7ceb38d73adf662f2c99c7e"
+    },
+    {
+      "id": "greek-corinth",
+      "file": "assets/greek-drama/repertoire-greek-corinth.webp",
+      "width": 1104,
+      "height": 621,
+      "sha256": "5f9efb3ecee82efecdee5f9fffc14da3047d992d982f4a9d977e6718c98f9616"
+    },
+    {
+      "id": "greek-troezen",
+      "file": "assets/greek-drama/repertoire-greek-troezen.webp",
+      "width": 1104,
+      "height": 621,
+      "sha256": "a05632b2f496a30d28e0e6e4493bba3f15d4634e23c3ea49d629ea17cbd7bc2e"
+    },
+    {
+      "id": "greek-thetis",
+      "file": "assets/greek-drama/repertoire-greek-thetis.webp",
+      "width": 1104,
+      "height": 621,
+      "sha256": "2e064f139deea643bb473a04f600a3f85dea36a3e7e8d85eb34d8f70800b85fe"
+    },
+    {
+      "id": "greek-sicily",
+      "file": "assets/greek-drama/repertoire-greek-sicily.webp",
+      "width": 1104,
+      "height": 621,
+      "sha256": "5bf10d0c72399a67b12f934d6ae7bc5fadf59380a11fba8d44ffaaa594e78efe"
+    },
+    {
+      "id": "greek-acharnae",
+      "file": "assets/greek-drama/repertoire-greek-acharnae.webp",
+      "width": 1104,
+      "height": 621,
+      "sha256": "92b23801157858b6dd3e1992623ee85cefbe283de5d98d2e2179004e39f5fb2c"
+    },
+    {
+      "id": "greek-demos-house",
+      "file": "assets/greek-drama/repertoire-greek-demos-house.webp",
+      "width": 1104,
+      "height": 621,
+      "sha256": "0885e095c059e71aac7e67fa997da0d9cf461d94060aae51dfa9f31218b865cc"
+    },
+    {
+      "id": "greek-thinkery",
+      "file": "assets/greek-drama/repertoire-greek-thinkery.webp",
+      "width": 1104,
+      "height": 621,
+      "sha256": "23297ced2557187cc09e333a2791335e7682882ab5347b40abc89ca7fef72469"
+    },
+    {
+      "id": "greek-jury-house",
+      "file": "assets/greek-drama/repertoire-greek-jury-house.webp",
+      "width": 1104,
+      "height": 621,
+      "sha256": "35ee3f9ef982fffabcb062ec774dbc161b1137219fa19c34700aac7225b8cace"
+    },
+    {
+      "id": "greek-divine-heights",
+      "file": "assets/greek-drama/repertoire-greek-divine-heights.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "fd3d59c131eae1d7e48392eef13c604b2e0021596c7b124aff3b50aed76f82f2"
+    },
+    {
+      "id": "greek-bird-wilderness",
+      "file": "assets/greek-drama/repertoire-greek-bird-wilderness.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "43ba32b39d250f687745402e24449d41fa8d23dc92b2598a6a3503dea6466802"
+    },
+    {
+      "id": "greek-acropolis",
+      "file": "assets/greek-drama/repertoire-greek-acropolis.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "d226647beffab859796014590b9b7569c28a3361ae8815e4366b275f5a9d71f4"
+    },
+    {
+      "id": "greek-festival",
+      "file": "assets/greek-drama/repertoire-greek-festival.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "7dac314605021f63fdd3cd8f91124f33bf3a18ebd1a0bee14c750557d942970d"
+    },
+    {
+      "id": "greek-underworld",
+      "file": "assets/greek-drama/repertoire-greek-underworld.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "3448ab0a396d7a297652efee5d52a14c85d0e32903e00cbbacee0638902e1685"
+    },
+    {
+      "id": "greek-assembly",
+      "file": "assets/greek-drama/repertoire-greek-assembly.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "f6f9dcd9f231487c70bb79ed961f9e8d66f00c102c3099e9b3c2251d58393dfa"
+    },
+    {
+      "id": "greek-attic-farm",
+      "file": "assets/greek-drama/repertoire-greek-attic-farm.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "ed69cba84238dc284c09b8734d7464f172f004f0e11319e1fdb2e850cf5e87a7"
+    },
+    {
+      "id": "greek-road-athens-marathon",
+      "file": "assets/greek-drama/repertoire-greek-road-athens-marathon.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "df1a7b4628a7cd23778f3424dd5239503dbd22555e9ab56006019d6d6a4c6f83"
+    },
+    {
+      "id": "greek-road-royal",
+      "file": "assets/greek-drama/repertoire-greek-road-royal.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "5b2c43d14b92e3eb801ef5aee6cffdbfe4b3e820e54cca911142142b6e35db35"
+    },
+    {
+      "id": "greek-road-athens-marathon",
+      "file": "assets/greek-drama/repertoire-greek-road-athens-marathon-night.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "37f3161beeacd7435ebc85e54bf860f7220f22a4faad21a17a6a8f1cba37e8e5"
+    }
+  ],
+  "generation": {
+    "avatars-aeschylus-sophocles": {
+      "tool": "image_gen",
+      "export": "ImageMagick grid-cell extraction and transparent centering on 512 × 768 without resampling",
+      "atlases": [
+        {
+          "file": "source/aeschylus-susa-thebes-argive-shore.png",
+          "generatedFile": "exec-28455f7b-925d-4c7f-bb97-a92e698fbd56.png",
+          "width": 1254,
+          "height": 1254,
+          "sha256": "bfa30aea37582ddf032c9e4b2e860699c8ef9ce41b3fdd5cfbac6c9f1a6cff57",
+          "prompt": "A square sprite sheet for CosyWorld's ancient Greek drama narrative game. Realistic finely brushed MATTE OIL-PAINTED full body characters, worn fabric, believable adult faces and proportions, historical-mythic antique clothing, unique silhouettes, rich dark earth and bronze alongside each assigned accent color, softly directional neutral light, like high-end painted game standees. TRUE ENTIRE TRANSPARENT ALPHA outside each person, no fake checkerboard or color key or backdrop or floor shadow, no ornaments, no captions, no lines, no dividers, no lettering, no UI, no numbers, no signatures. Exactly six separated individual human-scale adult figures, strict mathematical 3 columns x 2 rows. One isolated complete solo character in each rectangular 2:3 cell, equal cell dimensions. Put their centers at x=1/6, 1/2, 5/6 and their y-midpoints at 1/4, 3/4. Show complete heads/hair and sandals, every part of each silhouette within its cell, evenly scaled heights of about 78% of cell height where natural, clear wide transparent gutters between cells, 11% transparent top/bottom margin within each cell, no overlaps, no props projecting beyond cell. Each person is in a different three-quarter posture angled slightly toward our left, eyes and hands rendered, strong upper-body reads. The arrangement and transparent isolation are mandatory. This is a production sprite sheet, not a scene, collage or concept montage. Top row left to right: (1) Atossa, mature Persian queen with upright narrow ivory Achaemenid headdress, a veil falling straight to one shoulder, deep madder Persian court robe, and upright open receiving palm; (2) the Persian Messenger, a fit brown-skinned younger courier with a close cloth cap, faded ochre riding coat and fitted trousers, one knee flexed from his climb, and empty hand lifted; (3) the Theban Scout, lean and forward tilted, low leather cap, short charcoal shoulder cape over dust-stiff faded red tunic, one hand shades the eyes. Bottom row left to right: (4) the older Theban Chorus Leader, sturdy woman with a high triangular cream kerchief, full muted ochre skirts, and a low wide welcoming gesture; (5) Pelasgus, mature Greek king, square broad build, deep-set listening eyes, heavy square olive wool mantle, one hand empty and welcoming; (6) the Danaid Chorus Leader, young dark-skinned woman with compact braided crown under fringed off-white headcloth, rust hem, upright protective posture."
+        },
+        {
+          "file": "source/aeschylus-crag-and-argive-court.png",
+          "generatedFile": "exec-e0f7e403-a319-4bca-8ff3-feeb68504ced.png",
+          "width": 1254,
+          "height": 1254,
+          "sha256": "c24b729f632f8d683fdc2735740eb7f23f36836f00487f2ea0ccb36b055a4550",
+          "prompt": "A square sprite sheet for CosyWorld's ancient Greek drama narrative game. Realistic finely brushed MATTE OIL-PAINTED full body characters, worn fabric, believable adult faces and proportions, historical-mythic antique clothing, unique silhouettes, rich dark earth and bronze alongside each assigned accent color, softly directional neutral light, like high-end painted game standees. TRUE ENTIRE TRANSPARENT ALPHA outside each person, no fake checkerboard or color key or backdrop or floor shadow, no ornaments, no captions, no lines, no dividers, no lettering, no UI, no numbers, no signatures. Exactly six separated individual human-scale adult figures, strict mathematical 3 columns x 2 rows. One isolated complete solo character in each rectangular 2:3 cell, equal cell dimensions. Put their centers at x=1/6, 1/2, 5/6 and their y-midpoints at 1/4, 3/4. Show complete heads/hair and sandals, every part of each silhouette within its cell, evenly scaled heights of about 78% of cell height where natural, clear wide transparent gutters between cells, 11% transparent top/bottom margin within each cell, no overlaps, no props projecting beyond cell. Each person is in a different three-quarter posture angled slightly toward our left, eyes and hands rendered, strong upper-body reads. The arrangement and transparent isolation are mandatory. This is a production sprite sheet, not a scene, collage or concept montage. Top row left to right: (1) Io, a young dark-haired woman with small pale bovine horns emerging from high swept hair, torn saffron wrap across slate tunic, impatient weight on forward sandal; (2) Oceanid, a serene adult sea nymph, very distinct upright column in blue-green cloth, broad scalloped sleeves, long dark wet-looking hair falling straight; (3) Clytemnestra, tall Mycenaean queen aged about 43, sharp almond eyes, straight royal nose, dark center-parted hair gathered low under a narrow gold headband, a deep plum mantle held taut across square shoulders. Bottom row left to right: (4) Cassandra, tall spare Trojan young woman, loose black curls with a broken off-white wool fillet, ash-blue drape bunched at one elbow, apprehensive lean; (5) Athena, towering adult woman in upright bronze and ivory, high folded helmet crest, compact scaly aegis on shoulder, measured empty lowered hand, openly visible face, no weapons; (6) Leader of the Furies, adult woman with two small actual serpent coils in soot-black hair, high jagged mantle fading to smoke-gray hem, rooted low stance with poised hands, individually rendered fully visible feet and dark brown skin."
+        },
+        {
+          "file": "source/sophocles-trachis-thebes-lemnos.png",
+          "generatedFile": "exec-add2ecbf-35e7-4f1a-961b-e39715e48b7d.png",
+          "width": 1254,
+          "height": 1254,
+          "sha256": "8eefe3b63749fcc445e10104ff572d80714dfa6665287a5a4f4c7cb00b240e44",
+          "prompt": "A square sprite sheet for CosyWorld's ancient Greek drama narrative game. Realistic finely brushed MATTE OIL-PAINTED full body characters, worn fabric, believable adult faces and proportions, historical-mythic antique clothing, unique silhouettes, rich dark earth and bronze alongside each assigned accent color, softly directional neutral light, like high-end painted game standees. TRUE ENTIRE TRANSPARENT ALPHA outside each person, no fake checkerboard or color key or backdrop or floor shadow, no ornaments, no captions, no lines, no dividers, no lettering, no UI, no numbers, no signatures. Exactly six separated individual human-scale adult figures, strict mathematical 3 columns x 2 rows. One isolated complete solo character in each rectangular 2:3 cell, equal cell dimensions. Put their centers at x=1/6, 1/2, 5/6 and their y-midpoints at 1/4, 3/4. Show complete heads/hair and sandals, every part of each silhouette within its cell, evenly scaled heights of about 78% of cell height where natural, clear wide transparent gutters between cells, 11% transparent top/bottom margin within each cell, no overlaps, no props projecting beyond cell. Each person is in a different three-quarter posture angled slightly toward our left, eyes and hands rendered, strong upper-body reads. The arrangement and transparent isolation are mandatory. This is a production sprite sheet, not a scene, collage or concept montage. Top row left to right: (1) Deianeira, woman of about 45, copper-gray hair folded in a flat knot, honey-brown sleeveless A-line overwrap, hands near chest; (2) Lichas, wiry Greek herald under a narrow ochre felt travel hat with round cap and small brim, short faded-red cape and dust-gray tunic, turned-away stance; (3) Jocasta, older queen with a long curved nose, gray at both temples and knot at her nape, rigid chalk-linen neckline and claret overfold, calm sober face under a bare head. Bottom row left to right: (4) an adult fully sighted Oedipus, serious Greek king with broad straight brows, long prominent straight nose, black short beard and few silver strands, unbroken gold brow band and long iron-blue cloak with a sharp upright fold, direct searching gaze; (5) Philoctetes, weather-beaten scruffy man, rough goatskin half-cape, wrapped ankle, asymmetrical stance and an unstrung wood bow held close and low, bow tip remains securely within his cell; (6) Odysseus, olive skin, short dark beard with gray at chin and strong cheek and nose, low felt sailor cap, dark sea-green half-cape and compact scouting stance, lighter garment at legs."
+        }
+      ],
+      "avatars": [
+        {
+          "residentId": "greek-story-aeschylus-persians-first",
+          "file": "greek-story-aeschylus-persians-first.png",
+          "atlas": "source/aeschylus-susa-thebes-argive-shore.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            108,
+            77,
+            426,
+            664
+          ],
+          "sha256": "5bf44d61eb3cf8bc666f4a015a10377dab602663ae13f77e96a510024ebffa9e"
+        },
+        {
+          "residentId": "greek-story-aeschylus-persians-second",
+          "file": "greek-story-aeschylus-persians-second.png",
+          "atlas": "source/aeschylus-susa-thebes-argive-shore.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 418,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            94,
+            94,
+            406,
+            660
+          ],
+          "sha256": "b3a0527a99e2d451e913beeb4e22049dfdd650042d5442662254ca35af715886"
+        },
+        {
+          "residentId": "greek-story-aeschylus-seven-thebes-first",
+          "file": "greek-story-aeschylus-seven-thebes-first.png",
+          "atlas": "source/aeschylus-susa-thebes-argive-shore.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 836,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            77,
+            93,
+            405,
+            661
+          ],
+          "sha256": "ca6e6067ffb8f3210a9776f80dd60fce329fae882566346435caa9d547732678"
+        },
+        {
+          "residentId": "greek-story-aeschylus-seven-thebes-second",
+          "file": "greek-story-aeschylus-seven-thebes-second.png",
+          "atlas": "source/aeschylus-susa-thebes-argive-shore.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            70,
+            88,
+            454,
+            680
+          ],
+          "sha256": "d5265513a9628414a91a0439a28a8b19e169bc001dd667859ddbe35b723cb8da"
+        },
+        {
+          "residentId": "greek-story-aeschylus-suppliant-women-first",
+          "file": "greek-story-aeschylus-suppliant-women-first.png",
+          "atlas": "source/aeschylus-susa-thebes-argive-shore.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 418,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            70,
+            74,
+            421,
+            682
+          ],
+          "sha256": "19f3f8bc896ed746bf0597dcc3b5be52b34bf871836953ac76bb8f8e8b2921e8"
+        },
+        {
+          "residentId": "greek-story-aeschylus-suppliant-women-second",
+          "file": "greek-story-aeschylus-suppliant-women-second.png",
+          "atlas": "source/aeschylus-susa-thebes-argive-shore.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 836,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            145,
+            83,
+            376,
+            681
+          ],
+          "sha256": "b227843763b742ff8f2c3ce42a64d59200e2bae19ae514919b272e1b6411751d"
+        },
+        {
+          "residentId": "greek-story-aeschylus-prometheus-bound-first",
+          "file": "greek-story-aeschylus-prometheus-bound-first.png",
+          "atlas": "source/aeschylus-crag-and-argive-court.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            121,
+            87,
+            402,
+            689
+          ],
+          "sha256": "6e50572d3aac6459776f8c896f817117acae2e34e6ea300923174660b16c593d"
+        },
+        {
+          "residentId": "greek-story-aeschylus-prometheus-bound-second",
+          "file": "greek-story-aeschylus-prometheus-bound-second.png",
+          "atlas": "source/aeschylus-crag-and-argive-court.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 418,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            86,
+            88,
+            427,
+            684
+          ],
+          "sha256": "f311eeb6da88e94c0015966278d4812dae82c66af981957178a2d3dd4f1b1a51"
+        },
+        {
+          "residentId": "greek-story-aeschylus-agamemnon-first",
+          "file": "greek-story-aeschylus-agamemnon-first.png",
+          "atlas": "source/aeschylus-crag-and-argive-court.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 836,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            125,
+            86,
+            407,
+            689
+          ],
+          "sha256": "b32f59849f5ac63524371afdc3798241aa68f9c62c3545cb9ebcc6b463a5a890"
+        },
+        {
+          "residentId": "greek-story-aeschylus-agamemnon-second",
+          "file": "greek-story-aeschylus-agamemnon-second.png",
+          "atlas": "source/aeschylus-crag-and-argive-court.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            99,
+            92,
+            349,
+            689
+          ],
+          "sha256": "625bd7d70372bdea184dc521244130dee91cbd5952c73dd1ec3e2d64b12c31f5"
+        },
+        {
+          "residentId": "greek-story-aeschylus-eumenides-first",
+          "file": "greek-story-aeschylus-eumenides-first.png",
+          "atlas": "source/aeschylus-crag-and-argive-court.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 418,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            107,
+            74,
+            382,
+            690
+          ],
+          "sha256": "213493c3b27b630bd14cd63b46c6d88c5dba2c3b21c4d6a91f16c9f120c4e122"
+        },
+        {
+          "residentId": "greek-story-aeschylus-eumenides-second",
+          "file": "greek-story-aeschylus-eumenides-second.png",
+          "atlas": "source/aeschylus-crag-and-argive-court.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 836,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            94,
+            89,
+            445,
+            691
+          ],
+          "sha256": "49fbdfd8b7986f03f38b3754acb32b82af79c5a4675a65a4ef02e2b161055e9c"
+        },
+        {
+          "residentId": "greek-story-sophocles-women-of-trachis-first",
+          "file": "greek-story-sophocles-women-of-trachis-first.png",
+          "atlas": "source/sophocles-trachis-thebes-lemnos.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            167,
+            101,
+            364,
+            683
+          ],
+          "sha256": "560fff8f0c4de101ee2662f8a913d419502465a803cee9fd324768002107bcd6"
+        },
+        {
+          "residentId": "greek-story-sophocles-women-of-trachis-second",
+          "file": "greek-story-sophocles-women-of-trachis-second.png",
+          "atlas": "source/sophocles-trachis-thebes-lemnos.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 418,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            142,
+            96,
+            359,
+            682
+          ],
+          "sha256": "5858bc4f8f58a543a5bc2c8a7a2b1e6842dd8699bc17ad98359c92d4da4c001b"
+        },
+        {
+          "residentId": "greek-story-sophocles-oedipus-tyrannus-first",
+          "file": "greek-story-sophocles-oedipus-tyrannus-first.png",
+          "atlas": "source/sophocles-trachis-thebes-lemnos.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 1
+          },
+          "sourceCrop": {
+            "x": 836,
+            "y": 0,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            145,
+            104,
+            351,
+            685
+          ],
+          "sha256": "871f1497004ab189c0ed3ac24e9c92910604525cf838043ce12643451301fa12"
+        },
+        {
+          "residentId": "greek-story-sophocles-oedipus-tyrannus-second",
+          "file": "greek-story-sophocles-oedipus-tyrannus-second.png",
+          "atlas": "source/sophocles-trachis-thebes-lemnos.png",
+          "atlasCell": {
+            "column": 1,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            129,
+            86,
+            377,
+            683
+          ],
+          "sha256": "08dc17df5e902bc98a92e921c4a7219a8e7500bd8513f2ef0bdc919c3b1aa73b"
+        },
+        {
+          "residentId": "greek-story-sophocles-philoctetes-first",
+          "file": "greek-story-sophocles-philoctetes-first.png",
+          "atlas": "source/sophocles-trachis-thebes-lemnos.png",
+          "atlasCell": {
+            "column": 2,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 418,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            111,
+            90,
+            416,
+            677
+          ],
+          "sha256": "ca769a67b836bfb15d23d6aff5e6ccabb2f96b792197330a9ea4bc7f92f70ba1"
+        },
+        {
+          "residentId": "greek-story-sophocles-philoctetes-second",
+          "file": "greek-story-sophocles-philoctetes-second.png",
+          "atlas": "source/sophocles-trachis-thebes-lemnos.png",
+          "atlasCell": {
+            "column": 3,
+            "row": 2
+          },
+          "sourceCrop": {
+            "x": 836,
+            "y": 627,
+            "width": 418,
+            "height": 627
+          },
+          "width": 512,
+          "height": 768,
+          "hasAlpha": true,
+          "visibleAlphaBounds": [
+            129,
+            101,
+            391,
+            680
+          ],
+          "sha256": "177dbbe567ed31ab807a347bd7c8ce2fa367aaf2c6458fd9b51ea73775e9e91a"
+        }
+      ]
+    },
+    "avatars-comedy-pilots": {
+      "tool": "image_gen",
+      "export": "Transparent 512x768 WebP, padded from a 3x2 source atlas",
+      "sources": [
+        {
+          "source": "exec-a0e9fec2-62e8-4279-b982-0b7aca905e70.png",
+          "cells": [
+            {
+              "row": 1,
+              "column": 1,
+              "id": "greek-story-aristophanes-acharnians-first",
+              "file": "greek-story-aristophanes-acharnians-first.webp",
+              "design": "Broad, square-set farmer with an uneven pepper beard, rolled clay-red sleeves and a charcoal hem. A crooked half-smile and one open palm make him look mid-bargain."
+            },
+            {
+              "row": 1,
+              "column": 2,
+              "id": "greek-story-aristophanes-acharnians-second",
+              "file": "greek-story-aristophanes-acharnians-second.webp",
+              "design": "Long, lean traveler with a close-cropped beard, a tall eggshell felt cap and a salt-stiff lapis cloak. His free hand spreads low over an ordinary sample pouch."
+            },
+            {
+              "row": 1,
+              "column": 3,
+              "id": "greek-story-aristophanes-knights-first",
+              "file": "greek-story-aristophanes-knights-first.webp",
+              "design": "Soft, round household patriarch with white curls and heavy lids, enveloped by an ample saffron mantle. His chin projects and one eyebrow lifts at the sound of a compliment."
+            },
+            {
+              "row": 2,
+              "column": 1,
+              "id": "greek-story-aristophanes-knights-second",
+              "file": "greek-story-aristophanes-knights-second.webp",
+              "design": "A compact street vendor with a shaven scalp, an indigo apron folded diagonally across the chest and dust-red bands at the wrists. He has a wide, quick grin and stands with elbows akimbo."
+            },
+            {
+              "row": 2,
+              "column": 2,
+              "id": "greek-story-aristophanes-clouds-first",
+              "file": "greek-story-aristophanes-clouds-first.webp",
+              "design": "Wiry, stooped farmer with flyaway white hair, a frayed brown shoulder throw and one crooked eyebrow. His fingers count against his palm while his eyes search for a way out."
+            },
+            {
+              "row": 2,
+              "column": 3,
+              "id": "greek-story-aristophanes-clouds-second",
+              "file": "greek-story-aristophanes-clouds-second.webp",
+              "design": "Tall, erect horse dealer with a narrow black mustache, a high ochre collar and a geometric rust-and-cream shoulder panel. A folded lead rein at the hip suggests his trade."
+            }
+          ]
+        },
+        {
+          "source": "exec-58b4845d-7af9-40fb-8359-31683baaf23b.png",
+          "cells": [
+            {
+              "row": 1,
+              "column": 1,
+              "id": "greek-story-aristophanes-wasps-first",
+              "file": "greek-story-aristophanes-wasps-first.webp",
+              "design": "Spare old juror who leans forward like a hook, with a sharp nose, white chin tuft and a near-black mantle slashed with ochre. His raised thumb and forefinger are poised to count a vote."
+            },
+            {
+              "row": 1,
+              "column": 2,
+              "id": "greek-story-aristophanes-wasps-second",
+              "file": "greek-story-aristophanes-wasps-second.webp",
+              "design": "Relaxed adult son with a woolly dark crop, a long, soft umber-and-sage mantle and hands spread in a calming gesture. Carry his father's nose shape into an otherwise open, rounded profile."
+            },
+            {
+              "row": 1,
+              "column": 3,
+              "id": "greek-story-aristophanes-peace-first",
+              "file": "greek-story-aristophanes-peace-first.webp",
+              "design": "Sun-browned vintner with a barrel chest, short work tunic and an olive shoulder sash patterned with vine tendrils. His knees bend and his weight drops as if testing a heavy pull."
+            },
+            {
+              "row": 2,
+              "column": 1,
+              "id": "greek-story-aristophanes-peace-second",
+              "file": "greek-story-aristophanes-peace-second.webp",
+              "design": "Youthful, straight-backed god with shining black curls, a flat traveler’s hat with a brass wing brooch and a short pale mantle. He holds his hand out lightly, amused and expectant."
+            },
+            {
+              "row": 2,
+              "column": 2,
+              "id": "greek-story-aristophanes-birds-first",
+              "file": "greek-story-aristophanes-birds-first.webp",
+              "design": "Sharp-cheeked civic schemer in a wedge-shaped fox-red cloak with a narrow cream lining. His chin and index finger point along the same imagined line of construction."
+            },
+            {
+              "row": 2,
+              "column": 3,
+              "id": "greek-story-aristophanes-lysistrata-first",
+              "file": "greek-story-aristophanes-lysistrata-first.webp",
+              "design": "Straight-backed organizer with one thick dark braid across her crown and a dark plum mantle pinned high on a single shoulder. Her upright palm and steady gaze are enough to halt a delegation."
+            }
+          ]
+        },
+        {
+          "source": "exec-05ff2285-284e-4285-8264-2b2c8403f6a6.png",
+          "cells": [
+            {
+              "row": 1,
+              "column": 1,
+              "id": "greek-story-aristophanes-lysistrata-second",
+              "file": "greek-story-aristophanes-lysistrata-second.webp",
+              "design": "Tall, athletic Spartan with cropped curls and a pale clay peplos pinned high, crossed by a broad madder stripe. Plant both feet and have her beckon with a low, practical gesture."
+            },
+            {
+              "row": 1,
+              "column": 2,
+              "id": "greek-story-aristophanes-thesmophoria-first",
+              "file": "greek-story-aristophanes-thesmophoria-first.webp",
+              "design": "Stately festival speaker with braided gray loops at her temples, a chalk linen mantle and a wide pomegranate-red collar. One level palm offers the floor to the next speaker."
+            },
+            {
+              "row": 1,
+              "column": 3,
+              "id": "greek-story-aristophanes-thesmophoria-second",
+              "file": "greek-story-aristophanes-thesmophoria-second.webp",
+              "design": "Long-limbed, balding kinsman in a muted fig cloak with fresh shaving nicks and a pin left crooked on one shoulder. A sidelong, rueful look carries the joke about the failed disguise."
+            },
+            {
+              "row": 2,
+              "column": 1,
+              "id": "greek-story-aristophanes-frogs-first",
+              "file": "greek-story-aristophanes-frogs-first.webp",
+              "design": "Heavy-browed dead poet with a block-cut gray beard and a broad ash-black mantle edged in tarnished gold. He plants his feet square and measures a line of verse with a fist."
+            },
+            {
+              "row": 2,
+              "column": 2,
+              "id": "greek-story-aristophanes-frogs-second",
+              "file": "greek-story-aristophanes-frogs-second.webp",
+              "design": "Slender dead poet with a high bald crown, fine forked beard and a rippling blue-gray drape. Two raised fingers and a skeptical tilt set his argument in motion."
+            },
+            {
+              "row": 2,
+              "column": 3,
+              "id": "greek-story-aristophanes-assemblywomen-first",
+              "file": "greek-story-aristophanes-assemblywomen-first.webp",
+              "design": "Intent speaker with dark cropped hair under a tawny cap, a dense slate cloak cut in a broad triangle and a bright green wool pin. Her hand opens toward the gathering as she addresses it."
+            }
+          ]
+        },
+        {
+          "source": "exec-75f8a33c-d3e6-4814-905b-e724e3333a50.png",
+          "cells": [
+            {
+              "row": 1,
+              "column": 1,
+              "id": "greek-story-aristophanes-assemblywomen-second",
+              "file": "greek-story-aristophanes-assemblywomen-second.webp",
+              "design": "Deep-chested neighbor with a grizzled fringe, ecru sleeves rolled to different heights and a rust-red shoulder wrap. His weight tips toward the plain grain sack balanced over one shoulder."
+            },
+            {
+              "row": 1,
+              "column": 2,
+              "id": "greek-story-aristophanes-wealth-first",
+              "file": "greek-story-aristophanes-wealth-first.webp",
+              "design": "Lank grain farmer with a deep widow’s peak, tan face and bar-shaped green patches on a dull flax tunic. He cups his empty hands as if ready to walk the rows sowing."
+            },
+            {
+              "row": 1,
+              "column": 3,
+              "id": "greek-story-aristophanes-wealth-second",
+              "file": "greek-story-aristophanes-wealth-second.webp",
+              "design": "Trim informer with a needle-point beard, angular brows and a purple-black mantle folded into a tight vertical pleat. A stylus behind his ear sits high enough to read on the card."
+            },
+            {
+              "row": 2,
+              "column": 1,
+              "id": "greek-piraeus-pilot",
+              "file": "greek-piraeus-pilot.webp",
+              "design": "Weathered, heavyset harbor pilot with a shorn gray beard, a broad undyed felt hat and a sea-green cloak fastened with a large bronze ring. His thumb hooks back toward the quay."
+            },
+            {
+              "row": 2,
+              "column": 2,
+              "id": "greek-pagasae-pilot",
+              "file": "greek-pagasae-pilot.webp",
+              "design": "Lithe mooring pilot with windblown silver temples, a triangular indigo shoulder wrap with an ivory wave stripe and a flat chart case tucked high against the ribs. He points out across the bay."
+            }
+          ]
+        }
+      ],
+      "retained": {
+        "id": "greek-story-aristophanes-birds-second",
+        "repoPath": "v2/card-game/assets/greek-drama/hoopoe.webp",
+        "gitBlob": "cad71c8814569e45be797bf4333b89b2ba3c0227"
+      }
+    },
+    "avatars-euripides-east": {
+      "export": {
+        "size": [
+          1024,
+          1536
+        ],
+        "format": "RGBA PNG",
+        "method": "Independent atlas region extraction, narrow low-alpha fringe normalization, aspect-preserving resize with Lanczos, transparent padding. Atlas-based figures are upsampled from their source cell."
+      },
+      "existing": {
+        "id": "greek-cilissa",
+        "source": "https://github.com/cenetex/cosyworld/blob/main/v2/card-game/assets/greek-drama/cilissa.webp",
+        "method": "Decoded original bespoke WebP to RGBA PNG, dimensions and rendered pixels preserved."
+      },
+      "atlases": {
+        "delphi": {
+          "source": "/workspace/generated_images/exec-2590e259-d3f5-40f1-801a-f36349fe5d29.png",
+          "prompt": "Original Ancient Greek narrative card game portrait asset production. Make one TRANSPARENT ALPHA sprite atlas with exactly six separated full-body standees in a perfectly regular 3 COLUMN by 2 ROW grid. Square sheet aspect 1:1. Each equal cell is portrait 2:3. Respect the grid exactly and keep ALL painted pixels within the central 78% of width and 86% of height of their own specified cell. The feet align on a full-body baseline at 90% cell height and the head is well below top of cell. Entire sandal and fingertips visible, complete bodies in standing relaxed three-quarter view. Transparent alleys between figures, transparent above heads, below feet, behind figures, between legs. No cast shadows or horizon, no stage, no gradients or scenery or backgrounds, no checkerboard paint, no writing, no lettering, no index marks, no frames. All figures are adults, rendered with painterly realism in richly tactile old-master matte oil and sun-baked Mediterranean colors, warm soft lateral light, clear individually distinct silhouettes, fine wool and bronze. The given reference sets painting style, with two explicit face and costume matches if in the prompt. The final asset contains six people and only those people. Strict reading order. TOP LEFT the Pythia from the approved concept image: older angular Mediterranean face, broad white linen crest, a single vertical laurel sprig beside her face, long dark charcoal mantle. TOP CENTRE Creusa exactly like the approved concept: middle-aged woman, braided black hair, deep madder cloak, amber clasps, folded cream embroidered cloth. TOP RIGHT Pylades, young traveler with dark close beard, boxy worn brown leather shoulder cape, low gray-blue wrap, standing a little contrapposto. BOTTOM LEFT Tyndareus, firm compact older king, square cropped white beard, heavy dark-bronze shoulder guards, faded-red narrow mantle, straight posture close-set feet. BOTTOM CENTRE Cadmus, stooping reed-thin old man, loose white hair, faded grape-brown drape gathered low, leafy thyrsus close to one shoulder. BOTTOM RIGHT Pentheus, upright young ruler, close-tied black curls, short angular vermilion mantle sharply pinned to one shoulder above warm cream tunic, feet firmly apart, chin forward.",
+          "references": [
+            "/workspace/Delphi-concept-board.png"
+          ],
+          "portraits": [
+            "greek-story-euripides-ion-first",
+            "greek-story-euripides-ion-second",
+            "greek-story-euripides-tauris-second",
+            "greek-story-euripides-orestes-second",
+            "greek-story-euripides-bacchae-first",
+            "greek-story-euripides-bacchae-second"
+          ]
+        },
+        "thrace": {
+          "source": "/workspace/generated_images/exec-c5dea318-aa8e-4f73-83e5-cc138a0985ec.png",
+          "prompt": "Original Ancient Greek narrative card game portrait asset production. Make one TRANSPARENT ALPHA sprite atlas with exactly six separated full-body standees in a perfectly regular 3 COLUMN by 2 ROW grid. Square sheet aspect 1:1. Each equal cell is portrait 2:3. Respect the grid exactly and keep ALL painted pixels within the central 78% of width and 86% of height of their own specified cell. The feet align on a full-body baseline at 90% cell height and the head is well below top of cell. Entire sandal and fingertips visible, complete bodies in standing relaxed three-quarter view. Transparent alleys between figures, transparent above heads, below feet, behind figures, between legs. No cast shadows or horizon, no stage, no gradients or scenery or backgrounds, no checkerboard paint, no writing, no lettering, no index marks, no frames. All figures are adults, rendered with painterly realism in richly tactile old-master matte oil and sun-baked Mediterranean colors, warm soft lateral light, clear individually distinct silhouettes, fine wool and bronze. The given reference sets painting style, with two explicit face and costume matches if in the prompt. The final asset contains six people and only those people. Strict reading order. TOP LEFT Rhesus’s compact Thracian charioteer, blunt high felt cap, pale reins coiled near elbow, damp blue-gray coat banded at cuffs, weight thrown sharply to one side. TOP CENTER Hector, balanced dark-curled Trojan, low-crested bronze helmet over dark maroon field mantle and pale wrap on upper arm, shoulders level. TOP RIGHT Silenus, jovial ancient barrel-bodied aged satyr, bald crown and wide goat ears, shaggy calves with hooves, wiry gray beard and short ochre shepherd cape over a belted cream tunic covering his body. BOTTOM LEFT Polyphemus, broad lumpy giant with a single clearly visible central eye, square jaw, long heavy forearms, single asymmetrical charcoal goatskin cape over a belted tunic covering his body, simple clear cutout. BOTTOM CENTER Alcmene, elderly Greek woman, dark strong level brows, flat white braid, broad madder shawl, grounded protective stance with an arm curved behind her. BOTTOM RIGHT Theseus, rugged middle-aged Greek king with a dark square beard and straight black hairline receding at the temples, open teal mantle over an undyed linen tunic, one open hand low in welcome.",
+          "references": [
+            "/workspace/Delphi-concept-board.png"
+          ],
+          "portraits": [
+            "greek-story-euripides-rhesus-first",
+            "greek-story-euripides-rhesus-second",
+            "greek-story-euripides-cyclops-first",
+            "greek-story-euripides-cyclops-second",
+            "greek-marathon-alcmene",
+            {
+              "id": "greek-colonus-theseus",
+              "used": false,
+              "replaced_by": "courts"
+            }
+          ]
+        },
+        "continuity": {
+          "source": "/workspace/generated_images/exec-6870a858-ac96-406d-bc42-ded21f2763ca.png",
+          "references": [
+            "https://github.com/cenetex/cosyworld/blob/main/v2/card-game/assets/greek-drama/book-three-iphigenia.png",
+            "https://github.com/cenetex/cosyworld/blob/main/v2/card-game/assets/greek-drama/chthonic-antigone.png",
+            "https://github.com/cenetex/cosyworld/blob/main/v2/card-game/assets/greek-drama/chthonic-electra.png",
+            "https://github.com/cenetex/cosyworld/blob/main/v2/card-game/assets/greek-drama/book-three-achilles.png"
+          ],
+          "portraits": [
+            "greek-story-euripides-tauris-first",
+            "greek-story-euripides-phoenician-women-second",
+            "greek-story-euripides-orestes-first",
+            "greek-story-euripides-iphigenia-at-aulis-second"
+          ],
+          "initial_source": "/workspace/generated_images/exec-6b8354ed-66df-4ef2-a176-cd456095dbc5.png",
+          "initial_prompt": "A TRANSPARENT RGBA art production atlas of exactly four distinct full-body ancient Greek stage standees arranged in a 2 by 2 grid, portrait overall aspect 2:3. Each of the four rectangular cells is also 2:3. Top-left Iphigenia; top-right Antigone; bottom-left Electra; bottom-right Achilles. Treat the four reference pictures in this exact order as face/hair design references, retain their individual faces, hair and similarly tactile fine matte oils. Each full figure fits inside the inner 80% of its cell, with wide invisible transparent gutters both through middle and at the image perimeter. Feet and head fully visible. Each faces about 25 degrees toward the left, detailed oil brushwork and warm realistic Mediterranean lighting, 100% transparent alpha behind and between each separate standee, no cast shadows, surroundings, line art, labels, lettering, glyphs or borders. Iphigenia has her recognizable wavy dark hair pinned high, contrasting squared ivory temple mantle over deep Aegean navy floor-length dress, still, balanced, fingers of both hands joining at waist. Antigone has the long dark wavy hair, same profile as the earlier portrait, half-step forward, an unweathered ivory wrap secured at one shoulder over near-black linen with a little dark red at waist. Electra has the shorter pinned-up dark hair and narrow sharp cheekbones of her original portrait, a battered gray wool mantle with one ashy madder-red stripe diagonally over charcoal dress, one palm arguing clearly held out. Achilles has the same youthful light brown curly hair, compact face and warm bright skin as his original portrait, a short sea-blue field cape and youthful exposed elbows, carrying his pale-crested helmet under one arm rather than wearing it, natural linen under bronze body armor. Full sandals and headroom for all four. Match detailed materials and do not combine people.",
+          "alpha_cleanup_prompt": "Perform a precise background removal on the supplied game atlas. Keep EXACTLY its four original distinct full-body people, placement, size, identity, colors, art and arrangement, including complete sandals, hair and all cloth, armor and props. Remove ALL brown gray fog, ALL halo, vignette, glow and floor or shadow so there is a real fully transparent RGBA canvas with four cleanly cut standalone character silhouettes. Empty gap between all four characters. Fully zero alpha outside the four physical silhouettes, with softly antialiased silhouette edges. No background color, no checkerboard drawn, no effects. Keep the portrait 2:3 canvas and original 2x2 layout."
+        },
+        "courts": {
+          "source": "/workspace/generated_images/exec-84310e02-cb45-4b67-966e-b8f1987dcc69.png",
+          "prompt": "A 2:1 WIDE horizontal TRANSPARENT RGBA asset sheet with exactly THREE separated fully visible full-body game characters, side by side in ONE ROW, three equal 2:3 portrait cells. Preserve each face from its corresponding reference but change clothing and gesture to what follows. Leftmost reference is Jocasta, center reference Clytemnestra, rightmost reference Theseus. Leftmost Jocasta: silver-gray hair with the same low knot, same deep-set brow and prominent slightly curved nose, same older face. For her negotiation, softer dusty-claret drape spanning both forearms, hands open in a quiet appeasing gesture, warm white garment. Center Clytemnestra: same mature pale angular face with straight nose and dark swept low hair, same narrow gold band. At Aulis, salt-gray traveling mantle in dynamic wind-caught diagonal over plum robe glimpse, flaring on one side, gently resolute stance. Rightmost Theseus: same tousled graying brown curls and slightly narrow rugged olive complexion as the reference, same angular bearded face, dark teal open mantle over short natural linen tunic, one welcoming empty palm low. Painstaking matte oils on realistic costume textures and fine details. Each character completely separated from neighbors, with headroom, full sandals, all hands, margins on every side. ZERO visible background, no cast shadows or fog, no drawn checkers, no labels, no lettering, no boxes or framing. Make them visually different and exact in left-to-right order.",
+          "references": [
+            "/workspace/greek-art/avatars-aeschylus-sophocles/greek-story-sophocles-oedipus-tyrannus-first.png",
+            "/workspace/greek-art/avatars-aeschylus-sophocles/greek-story-aeschylus-agamemnon-first.png",
+            "https://github.com/cenetex/cosyworld/blob/main/v2/card-game/assets/greek-drama/open-door-theseus.webp"
+          ],
+          "portraits": [
+            "greek-story-euripides-phoenician-women-first",
+            "greek-story-euripides-iphigenia-at-aulis-first",
+            "greek-colonus-theseus"
+          ],
+          "crops": [
+            "550x887+0+0",
+            "605x887+550+0",
+            "619x887+1155+0"
+          ]
+        }
+      },
+      "sha256": {
+        "greek-cilissa": "dd335bc1eb00464392a7bc0088babfee2cf483e4da1e78c2667c63fa41c19c4a",
+        "greek-colonus-theseus": "c272c161da58f4e740531e945ae2776f17c49af730956c387e760f1545366e78",
+        "greek-marathon-alcmene": "760f8866fbc77dfd73b81385687f1217341dc3c3ce8c4a59b5ea4d76fa7901bb",
+        "greek-story-euripides-bacchae-first": "f29e1d83a1c15c8fc07a131dd908492ba7d1b2737d6f58d385ebf1582ad3fa3f",
+        "greek-story-euripides-bacchae-second": "fa450a9ca98cb80154f728c8cb5623468e178230753eeaf804b6339e0f70118e",
+        "greek-story-euripides-cyclops-first": "07eec2313cffc48a2d21c673dbf8c874d0c667cc4430049ec37794342db0cef6",
+        "greek-story-euripides-cyclops-second": "9e909c408e2ab0be7c67eb33ff1e9654abda049a72126f27cf78890f37a6a9c5",
+        "greek-story-euripides-ion-first": "90e35492e2b012841da8ce830676f246d99f9f83822de2f38fb2849337ff984c",
+        "greek-story-euripides-ion-second": "b96322f653c3f6562ab70055b88b0452df367690572e541220013ee2a56c9784",
+        "greek-story-euripides-iphigenia-at-aulis-first": "e157a85440ad09afd28cb54f2f71677bb9d83283c47fdaee623e2943aa3f3e78",
+        "greek-story-euripides-iphigenia-at-aulis-second": "94f082bfb482fa085146fe382ca5ebb620e358dcc1ffdfd52ddbafbde5c01877",
+        "greek-story-euripides-orestes-first": "a25df5aa77353cf5b9a263d5f13d6980527ffa116c75a1f86c48e3ae4515866d",
+        "greek-story-euripides-orestes-second": "9b29b714fc7b5488ef523a64ba22d5a1a524896ddb3a8f98f2d4d22d2b33aa96",
+        "greek-story-euripides-phoenician-women-first": "f11d3ea3cef69243992adc0e8cfafd6816a27d2a13775805379a3a13b7b23ef9",
+        "greek-story-euripides-phoenician-women-second": "7a936af0336f3124d1e1aebcc7c3b419ec64c7b15b9b3e5a9b23272a5bb4d18c",
+        "greek-story-euripides-rhesus-first": "daf493f4155166750cfd7e475740cc33d056b32871707399d6d56531a67fb77b",
+        "greek-story-euripides-rhesus-second": "4ba4f7eb712f185154508868f2deb374aa7e4a10b817f90e90125077138a5199",
+        "greek-story-euripides-tauris-first": "b113e29f1a0ad3179281168b5e0e924526d0d11d9e9a58cb300aaa7fd30f8ed0",
+        "greek-story-euripides-tauris-second": "578b6559b42e3527363203608309d0040e15e3bb811b8f96a4fcd1ee01a37f8a"
+      }
+    },
+    "avatars-euripides-west": {
+      "tool": "image_gen",
+      "method": "Transparent source atlases, sliced by cell and resized proportionately onto 1024 × 1536 RGBA PNG. All figures visually checked for complete extremities and alpha separation.",
+      "batches": [
+        {
+          "generatedFile": "exec-89b3abc1-244a-4e63-82d5-6b73fdff7b30.png",
+          "generatedSha256": "a1fa61b88bead2c9d24f10be237461865ec6b407aff2cfe0d1e7005ad7cce289",
+          "references": [
+            "Delphi-concept-board.png",
+            "theseus.webp"
+          ],
+          "prompt": "Create a production sprite atlas for COSYWORLD, an original ancient Greek narrative game. EXACTLY 3 columns by 2 rows, six separate occupied equal square-grid positions, data-grid placement left to right top then bottom, NO visible gridlines and NO text. Output as a near SQUARE atlas so every cell is portrait 2:3. Each is an independent full-body person standing naturally, slight 3/4 facing left, matte traditional realist oil illustration, muted pigment, tactile worn linen and wool, Greek leather sandals and bronze, lightly diffused warm daylight like the approved Delphi concept reference. NOT a group composition. Keep each character centered in its own equal cell with strong alpha separation, large blank gutters at row center and column boundaries. Leave visible empty breathing room above head/hair/prop and below both complete feet and sandals. All items held close to body and no objects in empty spaces. True alpha transparency everywhere beyond figures and through negative spaces in clothing/poses. No checkerboard pixels, no background or paper, no casting shadow, no ground, no props unless described. Make heads and bodies individually distinctive. The second reference is Theseus only; use his same strong angular brow, graying curls and close beard for bottom-right. TOP LEFT: male servant of Alcestis, wiry close-cropped middle-aged Greek household attendant, long undyed apron with dark russet sleeves, loosely clasped hands under ribs, half-turned attention. TOP MIDDLE: broad muscular Heracles in wine-red antique tunic, tawny lion skin draped over both shoulders, preserved hood-like face of the lion on one shoulder, loose stance with bare forearms and no weapon. TOP RIGHT: Medea's older nurse, bent forward with low rounded indigo hood, full apron, one rolled sleeve, concerned. BOTTOM LEFT: Medea, poised arresting woman, angular braided crown and charcoal-over-saffron coat, strongly upright and symmetrical posture, hands visible, direct level gaze. BOTTOM MIDDLE: Phaedra's wiry gray-haired nurse, pointed slate headcloth, narrow gray pleats, hand folding the cloak inward under chin. BOTTOM RIGHT: Theseus, matching the second reference face and graying curly hair and beard, stern at Troezen, dark teal mantle across both shoulders closed with narrow bronze clasp.",
+          "grid": [
+            3,
+            2
+          ],
+          "assets": [
+            {
+              "id": "greek-story-euripides-alcestis-first",
+              "file": "greek-story-euripides-alcestis-first.png",
+              "cell": 1,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "63f06048ef5810ff3297e1988525515494e8d08dcde4060b5557984982866783"
+            },
+            {
+              "id": "greek-story-euripides-alcestis-second",
+              "file": "greek-story-euripides-alcestis-second.png",
+              "cell": 2,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "d8ca7d37cb11137453353a2b236a4cc129e32f5c5cbf778a0ff79f58b15a5ca3"
+            },
+            {
+              "id": "greek-story-euripides-medea-first",
+              "file": "greek-story-euripides-medea-first.png",
+              "cell": 3,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "6304d0c07aca0d0b9cfdbd08c9a05f7eb949c018afdc59a114b21919d834152e"
+            },
+            {
+              "id": "greek-story-euripides-medea-second",
+              "file": "greek-story-euripides-medea-second.png",
+              "cell": 4,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "6c3962e4f7141e103e8285437fa2fc5f803afc70fb783db030344c203418ceda"
+            },
+            {
+              "id": "greek-story-euripides-hippolytus-first",
+              "file": "greek-story-euripides-hippolytus-first.png",
+              "cell": 5,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "d6a4c1df64e0b4d875ed5972bf5f2e41914515397c2b68453611488aaee91c8d"
+            },
+            {
+              "id": "greek-story-euripides-hippolytus-second",
+              "file": "greek-story-euripides-hippolytus-second.png",
+              "cell": 6,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "8c4c0b9bc6bfb50ed85926b498543eb0d2e0cb4dde19de9e7254c692f6a3b5a2"
+            }
+          ]
+        },
+        {
+          "generatedFile": "exec-a6ac1731-5579-42b3-b898-7c0ebef10f1c.png",
+          "generatedSha256": "4300d5ac9db0570790c56cf6f04dce77f259604093c6264f4b580ae4818609e2",
+          "references": [
+            "Delphi-concept-board.png"
+          ],
+          "prompt": "Create a production sprite atlas for COSYWORLD, an original ancient Greek narrative game. EXACTLY 3 columns by 2 rows, six separate occupied equal square-grid positions, data-grid placement left to right top then bottom, NO visible gridlines and NO text. Output as a near SQUARE atlas so every cell is portrait 2:3. Each is an independent full-body person standing naturally, slight 3/4 facing left, matte traditional realist oil illustration, muted pigment, tactile worn linen and wool, Greek leather sandals and bronze, lightly diffused warm daylight like the approved Delphi concept reference. NOT a group composition. Keep each character centered in its own equal cell with strong alpha separation, large blank gutters at row center and column boundaries. Leave visible empty breathing room above head/hair/prop and below both complete feet and sandals. All items held close to body and no objects in empty spaces. True alpha transparency everywhere beyond figures and through negative spaces in clothing/poses. No checkerboard pixels, no background or paper, no casting shadow, no ground, no props unless described. Make heads and bodies individually distinctive. TOP LEFT: Andromache of Phthia, tall slender Trojan woman, medium olive skin, same distinctive long narrow face, clear dark brows and long center-parted dark braids as top middle, palms visible, large flat cream shelter shawl over faded indigo-blue dress. TOP MIDDLE: Andromache of Troy, EXACT SAME facial features, hair, and faded indigo-blue fabric as top left, but in shortened torn rust-red traveling cloak, holding a folded wrap against chest. TOP RIGHT: Peleus, broad elderly man with bent white mane, bone-gray mantle, crooked olivewood staff held closely, squared feet. BOTTOM LEFT: Hecuba, sorrowing elderly queen with loose white strands under charcoal veil, faded violet borders and elbow pulling the heavy cloth around her. BOTTOM MIDDLE: Agamemnon, broad-faced middle-aged bearded king with a long dark wine-red commander's cloak, riveted bronze shoulder guard, empty hand out at chest height near silhouette. BOTTOM RIGHT: Talthybius, clean-shaven medium-build adult herald, pale small helmet, gray-beige uniform pleats, downturned gaze and loose hands.",
+          "grid": [
+            3,
+            2
+          ],
+          "assets": [
+            {
+              "id": "greek-story-euripides-andromache-first",
+              "file": "greek-story-euripides-andromache-first.png",
+              "cell": 1,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "3829df81687e48f523a84a697a1247d640e95f15e26180755d533b7040bca69e"
+            },
+            {
+              "id": "greek-story-euripides-trojan-women-first",
+              "file": "greek-story-euripides-trojan-women-first.png",
+              "cell": 2,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "69da977fab9db4ab10ecf29b78f1efaf78aa333be3429ef9a507de2c3455b7cb"
+            },
+            {
+              "id": "greek-story-euripides-andromache-second",
+              "file": "greek-story-euripides-andromache-second.png",
+              "cell": 3,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "a2369ffe1187bf5a11cdd09b46ad7230b3801adcaa3c03fc2ae1bd497711c264"
+            },
+            {
+              "id": "greek-story-euripides-hecuba-first",
+              "file": "greek-story-euripides-hecuba-first.png",
+              "cell": 4,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "de4c08fdc742ca6551b9318695c6340b0b7c67089fecfedb7943fe72715512a6"
+            },
+            {
+              "id": "greek-story-euripides-hecuba-second",
+              "file": "greek-story-euripides-hecuba-second.png",
+              "cell": 5,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "360f406419718bff15b862e47f167f2e7e4a3028c65daf7f69ed93a1ee944cab"
+            },
+            {
+              "id": "greek-story-euripides-trojan-women-second",
+              "file": "greek-story-euripides-trojan-women-second.png",
+              "cell": 6,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "cc7a8922957eb2d8587793e106e975cbab1079861315001155e1979008101883"
+            }
+          ]
+        },
+        {
+          "generatedFile": "exec-4443ec6f-dc67-4b4f-b887-e9118df8cee7.png",
+          "generatedSha256": "537f9c3f634c59fab4eaae25ef35b523a406a13ea1f7a201961f09cbfe7e8420",
+          "references": [
+            "Delphi-concept-board.png"
+          ],
+          "prompt": "Create production sprite art for COSYWORLD, an original ancient Greek narrative game. An approximately 4:3 wide canvas contains exactly TWO full-body isolated figures at the same scale, each centered in its own EQUALLY wide portrait half of the canvas, widely separated by empty space. No lines or text. Inspired by the approved Delphi concept figures' palette and matte oil painting, not the environment: grounded realism, Greek wool, linen, bronze, leather sandals. Each figure stands in subtle left-facing three-quarter view. TRUE transparent alpha everywhere outside the figures, clear blank margins around both. No cast shadow or surfaces. Include complete hair, clothing, feet and sandals, and all objects described. LEFT: Amphitryon, reed-thin elderly man with neatly forked white beard and narrow brown-umber pleats, shallow forward lean braced on a straight ash walking stick held close. RIGHT: Megara, an upright Greek woman with large low braid and ochre-stone overwrap, squared sidelong stance, forearm arcing behind her in protecting gesture, face clearly visible, no companions. Keep both legs and faces well defined at reduction.",
+          "grid": [
+            2,
+            1
+          ],
+          "assets": [
+            {
+              "id": "greek-story-euripides-heracles-first",
+              "file": "greek-story-euripides-heracles-first.png",
+              "cell": 1,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "49fcc25755f025449b735d21a5511cdac5a5df73857280730d2ec9717e44f451"
+            },
+            {
+              "id": "greek-story-euripides-heracles-second",
+              "file": "greek-story-euripides-heracles-second.png",
+              "cell": 2,
+              "width": 1024,
+              "height": 1536,
+              "hasAlpha": true,
+              "sha256": "45777f7b0a32dc587bdca55ccf80f425d0ca93db42106be1d968ace3046f9790"
+            }
+          ]
+        }
+      ]
+    },
+    "new-locations": {
+      "generatedOn": "2026-11-28",
+      "reference": "Delphi-concept-board.png",
+      "referenceSha256": "7c16f7870c7890d312043efc9f1faec55a77bb3a8e6a52c0af561ede90863e89",
+      "encoding": "ImageMagick WebP quality 94, native full canvas, opaque RGB",
+      "verification": "Inspection uses landscape master, 740 × 360 short cover crop, and 317 × 704 cover crops centered on x 44%, 50%, and 56%. These mockups show scenery without actors or runtime UI.",
+      "assets": [
+        {
+          "placeId": "greek-ion-court",
+          "name": "Apollo’s Temple at Delphi",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-81bcdadf-4e38-4582-97b9-6399e988b68d.png",
+          "generatedSha256": "7407701f06047ee9a4dbea28a3fd01f3a3e37f9b995c49a66390c9e00128eaec",
+          "runtimeImage": "greek-ion-court.webp",
+          "runtimeSha256": "f408671873ce27ccdd014a7aa27e01db5b1ba89a13e5f566e2943bf0dda52aa0",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Use the attached board only for the original game's rendering style: grounded, carefully observed ancient Mediterranean matte oil concept painting, tactile brush surfaces and warm stone, moderate color, atmospheric depth and gentle directional light. Output a single, opaque ultrawide horizontal scene, 16:9 or wider edge-to-edge only, with no border, panels, canvas surround, letters, people or animals. Standing-height ground-level camera. The bottom third is calm open walkable ground for 2–6 separately composited character standees. Keep the signature silhouette centered in middle 24% of the canvas width, no lower than mid-height, to survive a very narrow center portrait crop; side wings add context. Distinctive scene identity in both widths; no UI. Apollo's sanctuary at Delphi in warm early light. A central tall patinated black bronze oracle tripod with flared bowl and spread legs on an elevated chalk limestone riser, immediately in front of a great vertical violet-gray rock cleft. Core silhouette centered precisely horizontally at 50%, bowl positioned 38% down canvas. A wisp drifts into the shadowed cleft. Twin short steps fan outward on either side; the wider frame shows stepped retaining walls, small fluted pillars and the valley against dusky violet mountains. Clean quiet paved apron below, no vegetation on standing ground."
+        },
+        {
+          "placeId": "greek-seven-gates",
+          "name": "The Seventh Gate of Thebes",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-7811f978-a3cc-4f16-a42b-89ddfddaa3e1.png",
+          "generatedSha256": "117bdefa64dc85b7ffcb8a945ed6f18df59796c9510dad08d38dffd030056a51",
+          "runtimeImage": "greek-seven-gates.webp",
+          "runtimeSha256": "f60660ce2421ef0f267042e2b576f122cfec0ba3a6e9bee0a1d2e3486d04b1a1",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Use the attached board only for the original game's rendering style: grounded, carefully observed ancient Mediterranean matte oil concept painting, tactile brush surfaces and warm stone, moderate color, atmospheric depth and gentle directional light. Output a single, opaque ultrawide horizontal scene, 16:9 or wider edge-to-edge only, with no border, panels, canvas surround, letters, people or animals. Standing-height ground-level camera. The bottom third is calm open walkable ground for 2–6 separately composited character standees. Keep the signature silhouette centered in middle 24% of the canvas width, no lower than mid-height, to survive a very narrow center portrait crop; side wings add context. Distinctive scene identity in both widths; no UI. The Seventh Gate of ancient Thebes. Deep nearly black rectangular passage in a tall, weathered rust red mudbrick gate tower on massive stone foundations, with paired partially-open archaic heavy cedar doors and matte bronze circular bosses. The vertical black gate slot is precisely centered and recognizable in a narrow crop, with a line of dim light through the inner gap; no massive exotic monument, medieval battlements or fantasy castle. Side wings show low arrow slits, plain walls and a tiny glimpse of sparse Argive camp canvas beyond the passage. Clear dry tawny hardpack road in the near foreground. Red ochre, charcoal, old bronze and bone dust. Late dry afternoon, spare and tense."
+        },
+        {
+          "placeId": "greek-acharnae-stall",
+          "name": "The Megarian’s Market Stall",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-3cdff009-00d3-4f8f-b564-77aed4b19f1e.png",
+          "generatedSha256": "7d9f47e1eb86e879ed8f72b7eab167782c3f009f1a9e944a0e97e3848c4eafec",
+          "runtimeImage": "greek-acharnae-stall.webp",
+          "runtimeSha256": "9d507fc0a648f88593a69fd6fd91a1249b2dc55a7e899747c64bda99f3eb7c98",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Use the attached board only for the original game's rendering style: grounded, carefully observed ancient Mediterranean matte oil concept painting, tactile brush surfaces and warm stone, moderate color, atmospheric depth and gentle directional light. Output a single, opaque ultrawide horizontal scene, 16:9 or wider edge-to-edge only, with no border, panels, canvas surround, letters, people or animals. Standing-height ground-level camera. The bottom third is calm open walkable ground for 2–6 separately composited character standees. Keep the signature silhouette centered in middle 24% of the canvas width, no lower than mid-height, to survive a very narrow center portrait crop; side wings add context. Distinctive scene identity in both widths; no UI. A single modest trader stall in the Acharnae market. Center of the image is a low, rust-and-undyd-cream broad striped cloth awning, supported by plain olivewood uprights, and directly beneath, a pale distinctive small heap of sea salt on a raised shallow stone weighing pan. Both central visual signals survive a portrait center crop. The wings open to a board with rough bread loaves, a slack rope lane and parked charcoal baskets at a neighboring muted stall, ancient timber and rough plaster behind. No fancy drapery, plinths, or monumental architecture. Wide clear compact apron of weathered clay and cobbled edges in the lower third, hard warm Attic sunlight through canvas. A domestic warm lived-in place, no people."
+        },
+        {
+          "placeId": "greek-cadmea-street",
+          "name": "Cadmea Street",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-5bc221da-d993-40d3-b605-a2c14c03f2ce.png",
+          "generatedSha256": "5886103e05fba3b658cb097f6a518b3714d58a3b1c4111cdeda4ea75fe097c3d",
+          "runtimeImage": "greek-cadmea-street.webp",
+          "runtimeSha256": "5015386c00419be63fd7f15f9a64739cba494c1c0a9a6f29cca979db53abfbbd",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Treat the supplied board solely as visual medium reference. Create one standalone opaque 16:9 wide game stage environment painting (native 1672×941 or similar), original hand-painted naturalistic Mediterranean matte oil, tactile and specifically ancient Greek. The only delivered image is this scene, edge-to-edge and uncaptioned. No panel design, card edges, logos, people or animals. Medium-low visual noise and quiet unobstructed ground across the bottom third, seen at standing eye height, used for separately composited actors. Put the landmark between x=46–54% and around y=35–55% so it survives a portrait crop; the wide wings offer secondary setting context. Compose for a single wide painting that holds up with both sides chopped. A stressed city lane in ancient Thebes, compact everyday built space, a low spring house built into the chalk-lime plaster front of a small building below dark timber eaves. Precisely centered at x=50%, a large recognizable green-bronze pipe in the shape of a simple lion head feeds fresh water into a shallow stone catch basin above three distinctive worn stairs. One narrow steep side lane peels towards the palace on one side, and a shallow dusty lane towards towers on the other side. Broken roof silhouettes, spare walls, not an open plaza or commercial street. Broad unobstructed foreground in muted warm white; turquoise-green spout and charcoal balconies with pale chalk front strongly distinguished. Clear cool-weather daylight."
+        },
+        {
+          "placeId": "greek-oedipus-court",
+          "name": "Oedipus’s Palace Forecourt",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-99529e87-d4ad-4066-a324-2a7cbbd0e39c.png",
+          "generatedSha256": "12701a60acb400316a18d44eaf4daaf97db30ea4f278308b322fa8ba40022d7f",
+          "runtimeImage": "greek-oedipus-court.webp",
+          "runtimeSha256": "6a117a3810c803501df3197e2c26011f9d428bbeb22d80beace88018252b1c21",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Refine this original Greek game stage of the Theban Palace Forecourt to make it immediately legible as a solemn public palace court during a plague. Keep the naturalistic matte oil painting, opaque edge-to-edge 1672×941 matte concept stage, and the broad empty pale flagstone apron in the bottom third. Recompose the central 25% around a large clear bundle of upright long branches wrapped conspicuously with bands of pale wool and worn white lengths of cloth. Hold the standing branches in a flush block of pale battered limestone in front of a pale doorway with a pulled-down light, dusty gray linen covering, keeping both branches and light-covered threshold together at x=49–54%. This makes the silhouette of the abandoned votive gathering clear in the narrow crop. A small low unlit black flat fire dish may sit among the very lowest offerings, with no visible tripod, no bronze bowl, no deep black opening, no gate, no furniture on the foreground. Pale cream and blue-slate color palette, overcast sky. Broad, very shallow ceremonial steps, pale stucco and charcoal segmented beams in the wings. No figures, lettering, frames, temples, modern elements or religious insignia. Stark and calm rather than magnificent.",
+          "revisionReference": "exec-e8a4be75-c05b-4b05-8a96-c22ca48ae4ac.png",
+          "revisionReferenceSha256": "afbf995f420371995ecab70ebb024291881a01e90bdfb8878a464ccd893c4a11"
+        },
+        {
+          "placeId": "greek-jocasta-rooms",
+          "name": "Theban Palace Court",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-09536586-0e17-4f64-9884-32846f8c94ff.png",
+          "generatedSha256": "c7ed0f4a71b007aa4e5201db951a7c45df57df779d3829055c9ac7ad84914648",
+          "runtimeImage": "greek-jocasta-rooms.webp",
+          "runtimeSha256": "c4cbde645affc06baaf9913a7d35639878f285a571e48f0d8bbfdbbf4fbac735",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Treat the supplied board solely as visual medium reference. Create one standalone opaque 16:9 wide game stage environment painting (native 1672×941 or similar), original hand-painted naturalistic Mediterranean matte oil, tactile and specifically ancient Greek. The only delivered image is this scene, edge-to-edge and uncaptioned. No panel design, card edges, logos, people or animals. Medium-low visual noise and quiet unobstructed ground across the bottom third, seen at standing eye height, used for separately composited actors. Put the landmark between x=46–54% and around y=35–55% so it survives a portrait crop; the wide wings offer secondary setting context. Compose for a single wide painting that holds up with both sides chopped. A sheltered female household and negotiation court of a Theban palace, an intimate rectangular interior roof-light court, much smaller than a palace facade. A tall, standing archaic wooden warp-weighted loom right in the center, unmistakable with pale white truce wool stretched horizontally across dark reddish wooden beam, natural long vertical warp strands and small weights near the bottom. Two simple low stone benches symmetrically facing inward in the wings. Soft clear warm wine-claret plaster and cedar rafters, top light from the open sky recess directly above loom, floor is a bare spacious smooth flagstone apron. No doorway at composition center and no column piazza."
+        },
+        {
+          "placeId": "greek-heracles-altar",
+          "name": "Zeus’s Altar in the House of Heracles",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-8cac7206-4eda-4cef-b2ae-47c6c9fd9201.png",
+          "generatedSha256": "4017b66daefdd363a7a2c9f522c48cce77ab1ec96624f5b784d75f2108ad4663",
+          "runtimeImage": "greek-heracles-altar.webp",
+          "runtimeSha256": "7b9ddc115249fced2bf7463153516893ef696c428205baf91b1cfda480fc12ce",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Treat the supplied board solely as visual medium reference. Create one standalone opaque 16:9 wide game stage environment painting (native 1672×941 or similar), original hand-painted naturalistic Mediterranean matte oil, tactile and specifically ancient Greek. The only delivered image is this scene, edge-to-edge and uncaptioned. No panel design, card edges, logos, people or animals. Medium-low visual noise and quiet unobstructed ground across the bottom third, seen at standing eye height, used for separately composited actors. Put the landmark between x=46–54% and around y=35–55% so it survives a portrait crop; the wide wings offer secondary setting context. Compose for a single wide painting that holds up with both sides chopped. Zeus’s domestic altar at the occupied House of Heracles, an ordinary old trapped household room. In the center of an otherwise dark blue-gray ancient Greek limewashed room sits a soot-blackened low altar built into a rusticated small block pedestal, lit by one oblique shaft of daylight from an opening high above. A very simple raised bronze lightning shape affixed to the face of the fixed altar helps distinguish it. Strong naturalistic contrast, modest scuffed ochre pavement open in the lower third. The wide edges show recesses with a clay bread oven and a few ancient terracotta loom weights. No temple pillars, no spectacle, no incense or fire."
+        },
+        {
+          "placeId": "greek-cithaeron-shrine",
+          "name": "The Hillside Sanctuary of Cithaeron",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-25dd72c8-6b18-423d-bbd1-84a90e3c75a8.png",
+          "generatedSha256": "566f0bc05147e9c7bbe93514690bd6b20c46ea831c9f0e52b8682c05f686410a",
+          "runtimeImage": "greek-cithaeron-shrine.webp",
+          "runtimeSha256": "cefe766d9ac4291b17c53ec3f7b3a48ff087f992084c54af40fe72f83586fee2",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Replace the referenced setting with a substantially different original 16:9 video game stage painting for the hillside Dionysian sanctuary on ancient Mount Cithaeron. Borrow the naturalistic oil brushwork only, with a new asymmetrical composition. Set the scene in a close forest hollow, cold dark firs broken by late blue-green light. In the middle the forked trunk of a very old fir twists sharply up and right, gold-green ivy runs visibly up and around it, and two upright rough oblong fieldstones (one split) of its rustic shrine emerge from the roots. The altar is an ancient rural stone seat or shelf between these tall stones on which a few bunches of wild ivy rest. There is no bowl, no urn, no cauldron, no tripod, no bronze, no smoke, no fire, no large plinth/pedestal, no tall columns, and no open valley vista. This humble woodland altar is only rough gray fieldstones, wild ivy, and a tree. One old stepped track angles back towards higher ground on the right and very dense shadowy woodland is on the left. Keep lower third clear flat earth with a few pine needles, no characters. The ivy-trunk and split fieldstone converge in the middle quarter so each is visible even in a tall narrow center crop. Green-black, sap olive, cool blue gray, light only picked through fir branches. Opaque, edge-to-edge no marks or border. Use output canvas 1672 x 941 if available.",
+          "revisionReference": "exec-c753c1c7-23dc-4184-b53a-998fffd9bdb9.png",
+          "revisionReferenceSha256": "502a0e97dcee03eaa84dacaec00919c02d96b6b7300833fa69a737db44feff8d"
+        },
+        {
+          "placeId": "greek-argive-jury",
+          "name": "The Jury Yard of Argos",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-7c1ba8a5-47b2-441f-bbff-ff8a30beecab.png",
+          "generatedSha256": "269900e35707137e56f683e97ef06017893409ca9cb8b1041bb26f9ceacd8bfc",
+          "runtimeImage": "greek-argive-jury.webp",
+          "runtimeSha256": "20b6b58af8f3dfda214d0394bdd09bafb269e3388c09840b661746e5f63990c6",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Treat the supplied board solely as visual medium reference. Create one standalone opaque 16:9 wide game stage environment painting (native 1672×941 or similar), original hand-painted naturalistic Mediterranean matte oil, tactile and specifically ancient Greek. The only delivered image is this scene, edge-to-edge and uncaptioned. No panel design, card edges, logos, people or animals. Medium-low visual noise and quiet unobstructed ground across the bottom third, seen at standing eye height, used for separately composited actors. Put the landmark between x=46–54% and around y=35–55% so it survives a portrait crop; the wide wings offer secondary setting context. Compose for a single wide painting that holds up with both sides chopped. Public gravel jury yard of ancient Argos in the aftermath of the palace crisis. Landmark in a narrow portrait crop is a sharply contrasted pair of ancient Greek ballot vessels, one lustrous black ceramic and one warm terracotta, sitting together on a waist-high simple ochre gravel-and-brick plinth. Jury yard overall is a modest open civic enclosure with pale fine gravel all across the open lower 35%, sides have low low-backed public benches and a narrow side alley out toward sanctuary. No grand temple or limestone crag. Muted colors with brick red and black jug contrast, high midmorning air."
+        },
+        {
+          "placeId": "greek-road-scythia",
+          "name": "The Scythian Coast Road",
+          "generationTool": "image_gen",
+          "generatedImage": "exec-7875db50-d9be-4d4b-a126-cfb4a6fcdd05.png",
+          "generatedSha256": "4473af1e24152b3b8b252dadec3ccd25674d8df9922d45867f93577ed2b5f264",
+          "runtimeImage": "greek-road-scythia.webp",
+          "runtimeSha256": "1106d7658cfb5792aaab18d9eee5257193abea4ba7ceb38d73adf662f2c99c7e",
+          "width": 1672,
+          "height": 941,
+          "alpha": false,
+          "prompt": "Treat the supplied board solely as visual medium reference. Create one standalone opaque 16:9 wide game stage environment painting (native 1672×941 or similar), original hand-painted naturalistic Mediterranean matte oil, tactile and specifically ancient Greek. The only delivered image is this scene, edge-to-edge and uncaptioned. No panel design, card edges, logos, people or animals. Medium-low visual noise and quiet unobstructed ground across the bottom third, seen at standing eye height, used for separately composited actors. Put the landmark between x=46–54% and around y=35–55% so it survives a portrait crop; the wide wings offer secondary setting context. Compose for a single wide painting that holds up with both sides chopped. Scythian Coast Road climbing from the ancient Taurian shore towards the crag, a rugged Black Sea terrain with the thin pale road steadily ascending through a very distinct vertical rocky notch between two dark graphite-black basalt monoliths, notch centered in mid-to-upper height. Cold iron-blue sea and silver surf low to one wing beneath a precipitous drop, interrupted by foreground-safe broad light stony ground with no drop along the stage front, and a winding lower dusty switchback in other wing. Breezy grass in sparse off-axis clumps. Cold mist with pale cloud and steely-blue ocean, a very different outdoor look from mellow Greek hills. No people, ruins, modern road or signs."
+        }
+      ]
+    },
+    "reframed-locations": {
+      "assets": [
+        {
+          "id": "greek-pagasae",
+          "prompt": "Edit only the supplied environment painting. Return one edge-to-edge landscape 16:9 opaque matte oil environment for the same Greek drama game. Keep the environment's atmosphere and source identity, no text, people, framing or UI. In this existing scene keep the exact quiet Thessalian blue bay and boathouse on the right, and bring one distinct notched, weathered sandstone mooring stone from the left toward the centerline (near x=51%, y=57% of the frame) on the same level quay. Curve the shore away in the midground so the stone belongs to the near quay. Make it high enough to remain identifiable against the bay. Keep the clear walking apron in the lower third.",
+          "ref": "pagasae-anchorage.webp",
+          "source": "exec-50234c68-e8e0-4f84-9b58-5e9110d416c5.png",
+          "file": "greek-pagasae.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-pagasae-night",
+          "prompt": "Edit this exact image of Pagasae Anchorage into a matching moonlit nighttime environment with the same composition, perspective, rocky silhouette, foreground, identical location and shape of the central notched mooring stone, coast on the left, quiet bay and boathouse across the water. A soft warm lamp at the shore gives just enough illumination to read the stone, and the bare walkable ground remains clearly visible for separate sprites. Clear indigo night sky and subtle still blue reflections. Same matte oil painterly Greek stage style, full bleed landscape 16:9 opaque, empty scene, no figures, text or UI. Change only lighting and time of day. Keep a strong landmark in narrow portrait crop.",
+          "ref": "/workspace/generated_images/exec-50234c68-e8e0-4f84-9b58-5e9110d416c5.png",
+          "source": "exec-cb3e0302-f328-4a6a-8135-4de0a630fdd0.png",
+          "file": "greek-pagasae-night.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-areopagus",
+          "prompt": "Edit only the supplied environment painting. Return one edge-to-edge landscape 16:9 opaque matte oil environment for the same Greek drama game. Keep the environment's atmosphere and source identity, no text, people, framing or UI. In this specific witness terrace painting keep the existing golden afternoon light, distant Acropolis, layered rough limestone and walkable court. Add a black blocky stone witness slab with one old bronze ballot bowl at center mid-distance, with the rock seam behind it. Ensure this landmark reads against the pale stone in a narrow vertical crop. Keep any seated benches empty and the foreground clear.",
+          "ref": "areopagus-court.webp",
+          "source": "exec-b60c1c92-d895-4bd2-a326-f5ddf009538a.png",
+          "file": "greek-areopagus.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-bird-wilderness",
+          "prompt": "Edit only the supplied environment painting. Return one edge-to-edge landscape 16:9 opaque matte oil environment for the same Greek drama game. Keep the environment's atmosphere and source identity, no text, people, framing or UI. In this specific woodland painting keep the ancient thicket's alive, tangled branching arch and open dirt clearing. Bring a forked trunk toward the center and add a medium-sized incomplete woven branch ring suspended high against it, like a partially made bird dwelling. Make the ring and its gap read immediately against darker foliage. Keep the ring well above the clean walkable foreground.",
+          "ref": "hoopoe-thicket.webp",
+          "source": "exec-f476c5d8-d61e-4ce5-8d14-7ddcc49e7cd2.png",
+          "file": "greek-bird-wilderness.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-assembly",
+          "prompt": "Edit only the supplied environment painting. Return one edge-to-edge landscape 16:9 opaque matte oil environment for the same Greek drama game. Keep the environment's atmosphere and source identity, no text, people, framing or UI. In this specific assembly hill painting preserve the low civic terraces, distant town and clear foreground. Give the center an ochre speaker's platform framed by subtle arcs in the pale seating. Place a distinct rounded terracotta grain pot on the platform in the middle distance, large enough to register against the landscape even in portrait. Paint clear daylight with olive and ochre and a walkable foreground.",
+          "ref": "assembly-hill.webp",
+          "source": "exec-abe941fc-ea83-4fe7-b46a-f963314ea488.png",
+          "file": "greek-assembly.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        }
+      ]
+    },
+    "returning-east": {
+      "assets": [
+        {
+          "id": "greek-divine-heights",
+          "prompt": "A single original 16:9 wide landscape game environment painting, 1672x941 if available, opaque, without lettering, people, figures, UI, borders or collage, for the Greek drama narrative tabletop game The Wine-Dark Sea. Render with grounded, tactile, naturalistic matte oil paint, a little grain, strong intentional geometry, accurate ancient Greek material culture where applicable, and restrained local color. Seen from ground level. Concentrate the key silhouette in the center quarter and top-middle half so it can be identified when cropped to 9:20. Leave the lower third calm, flat and physically walkable as standing room for independent characters. Let side wings show geography. Use an establishing framing unique to this location. The Divine Heights. Build a tall cleft between clouds above a pale ledge with an iron ring set in the stone. Wide frame reveals a bank of clouds spilling around the terrace. Give Hermes and Trygaeus solid, quiet ground.",
+          "source": "exec-89184bf5-d273-4bc7-8bba-2e62f120aa13.png",
+          "file": "greek-divine-heights.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-acropolis",
+          "prompt": "A single original 16:9 wide landscape game environment painting, 1672x941 if available, opaque, without lettering, people, figures, UI, borders or collage, for the Greek drama narrative tabletop game The Wine-Dark Sea. Render with grounded, tactile, naturalistic matte oil paint, a little grain, strong intentional geometry, accurate ancient Greek material culture where applicable, and restrained local color. Seen from ground level. Concentrate the key silhouette in the center quarter and top-middle half so it can be identified when cropped to 9:20. Leave the lower third calm, flat and physically walkable as standing room for independent characters. Let side wings show geography. Use an establishing framing unique to this location. Acropolis Treasury. Center a high bronze-studded treasury door in the shade of pale, fluted stone. Expand to a retaining wall and high terrace in landscape, with the city glimpsed beyond one side.",
+          "source": "exec-5127095a-9900-484b-8fa1-d33cfb45f443.png",
+          "file": "greek-acropolis.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-festival",
+          "prompt": "A single original 16:9 wide landscape game environment painting, 1672x941 if available, opaque, without lettering, people, figures, UI, borders or collage, for the Greek drama narrative tabletop game The Wine-Dark Sea. Render with grounded, tactile, naturalistic matte oil paint, a little grain, strong intentional geometry, accurate ancient Greek material culture where applicable, and restrained local color. Seen from ground level. Concentrate the key silhouette in the center quarter and top-middle half so it can be identified when cropped to 9:20. Leave the lower third calm, flat and physically walkable as standing room for independent characters. Let side wings show geography. Use an establishing framing unique to this location. The Thesmophorion. Center clay baskets and a low earthen ritual enclosure under two dark sacred trees. A chalk-cloth canopy and vivid pomegranate details can unfold sideways, leaving a clean dirt apron.",
+          "source": "exec-5a90fca9-b3bf-4f73-9675-88c6a197376c.png",
+          "file": "greek-festival.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-underworld",
+          "prompt": "A single original 16:9 wide landscape game environment painting, 1672x941 if available, opaque, without lettering, people, figures, UI, borders or collage, for the Greek drama narrative tabletop game The Wine-Dark Sea. Render with grounded, tactile, naturalistic matte oil paint, a little grain, strong intentional geometry, accurate ancient Greek material culture where applicable, and restrained local color. Seen from ground level. Concentrate the key silhouette in the center quarter and top-middle half so it can be identified when cropped to 9:20. Leave the lower third calm, flat and physically walkable as standing room for independent characters. Let side wings show geography. Use an establishing framing unique to this location. The Underworld Landing. Build a narrowing stair into a black river with a single low mooring post and reflected blue-green torchlight. Let reed shadows and a barely seen far bank occupy the wings. Keep the stage foreground solid and dry.",
+          "source": "exec-13a84756-3a5b-4036-8a1f-b23218595cf4.png",
+          "file": "greek-underworld.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-attic-farm",
+          "prompt": "A single original 16:9 wide landscape game environment painting, 1672x941 if available, opaque, without lettering, people, figures, UI, borders or collage, for the Greek drama narrative tabletop game The Wine-Dark Sea. Render with grounded, tactile, naturalistic matte oil paint, a little grain, strong intentional geometry, accurate ancient Greek material culture where applicable, and restrained local color. Seen from ground level. Concentrate the key silhouette in the center quarter and top-middle half so it can be identified when cropped to 9:20. Leave the lower third calm, flat and physically walkable as standing room for independent characters. Let side wings show geography. Use an establishing framing unique to this location. The Attic Farm. Center a straw-colored threshing floor, low field gate and rough grain shed. Let parallel furrows run outward, with muted stubble and a fig tree to frame the domestic scale.",
+          "source": "exec-339d77e9-f451-4f82-a986-60116d77b26f.png",
+          "file": "greek-attic-farm.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-road-athens-marathon",
+          "prompt": "A single original 16:9 wide landscape game environment painting, 1672x941 if available, opaque, without lettering, people, figures, UI, borders or collage, for the Greek drama narrative tabletop game The Wine-Dark Sea. Render with grounded, tactile, naturalistic matte oil paint, a little grain, strong intentional geometry, accurate ancient Greek material culture where applicable, and restrained local color. Seen from ground level. Concentrate the key silhouette in the center quarter and top-middle half so it can be identified when cropped to 9:20. Leave the lower third calm, flat and physically walkable as standing room for independent characters. Let side wings show geography. Use an establishing framing unique to this location. Marathon Road. Frame a pale ridge track slipping through a dry-stone saddle beside a bent olive tree. Wide view spans the low plain and field terraces. Keep the shared grove scenery for its wooded locations.",
+          "source": "exec-59059442-b3a5-4319-a595-ff01eb2c23f6.png",
+          "file": "greek-road-athens-marathon.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "id": "greek-road-royal",
+          "prompt": "A single original 16:9 wide landscape game environment painting, 1672x941 if available, opaque, without lettering, people, figures, UI, borders or collage, for the Greek drama narrative tabletop game The Wine-Dark Sea. Render with grounded, tactile, naturalistic matte oil paint, a little grain, strong intentional geometry, accurate ancient Greek material culture where applicable, and restrained local color. Seen from ground level. Concentrate the key silhouette in the center quarter and top-middle half so it can be identified when cropped to 9:20. Leave the lower third calm, flat and physically walkable as standing room for independent characters. Let side wings show geography. Use an establishing framing unique to this location. The Royal Road. Center a pair of mudbrick waystation pylons where a straight dusty road meets a low rise. Let ochre terraces and blue mountain haze span the wings. Echo the clay of Susa without borrowing its court silhouette.",
+          "source": "exec-1b27ba26-4c7c-4aa3-a54f-3bf0ea923836.png",
+          "file": "greek-road-royal.webp",
+          "width": 1672,
+          "height": 941,
+          "tool": "image_gen",
+          "export": "Centered 16:9 frame, WebP quality 91"
+        },
+        {
+          "file": "greek-road-athens-marathon-night.webp",
+          "source": "exec-fdc55185-ea5a-4765-b417-36ce8ff5aa6c.png",
+          "reference": "greek-road-athens-marathon.webp",
+          "prompt": "Relight this exact ancient Greek landscape to clear, moody moonlit night. Keep the full composition, walking floor, centered pale ridge path and dry stone walls, with bent olive tree to the left and distant mountains same as source. Keep path clearly readable, cool restrained matte painted colors, silver-blue ambient light, no lamps, figures, UI, letters or frame. One edge-to-edge wide 16:9 painting."
+        }
+      ]
+    },
+    "returning-west": {
+      "assets": [
+        {
+          "id": "greek-corinth",
+          "file": "greek-corinth.webp",
+          "tool": "image_gen",
+          "style_reference": "Delphi-concept-board.png",
+          "panel": "top",
+          "crop": {
+            "x": 75,
+            "y": 0,
+            "width": 1104,
+            "height": 621
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. This image will be sliced into two independent clean environment PNG backgrounds. Overall final image aspect ratio EXACTLY SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one landscape in TOP half of the canvas and the completely unrelated other landscape in BOTTOM half. Both panels are equally high; both occupy full width from extreme left to extreme right. The ONLY seam between them is a perfectly horizontal three pixel high solid hot-magenta (#ff00ff) separator line exactly through the center covered from edge to edge. No margins, exterior frames, logos, titles, marks, layouts or lettering at all. No vertical panel seams, no additional panels. Both panels separately finished in naturalistic fine matte oil-paint textures, like the authentic architectural art in the two left panels of the supplied Delphi style reference (do not reproduce its composition, landscape, tripod, layout or characters). Tactile period-accurate ancient Greek material surfaces, clear dimensional depth, soft painter’s marks. Each scene has one immediately recognizable major subject at exactly the horizontal center, vertically at about 36 to 52 percent of its own panel, so it survives the central narrow portrait crop. Entire bottom 30 percent of each panel remains EMPTY walkable textured ground, a playable stage apron free of obstructions, well suited for character standees added later. Camera at consistent eye height. The designs must differ immediately despite the shared painterly technique. Strictly NO people, figures, animals, lettering, fantasy effects, or interface elements. TOP virtual location: Medea’s house in Corinth. Limewashed side court with narrow doorway at center, a distinctive dark woven reed screen angled across it and a sharp wedge of amber light at its foot. Put low tiled rooflines and slight glimpses down the courtyard exit in the wings. Mostly warm ivory and tobacco-dark weave. Bright late afternoon shaded interior. Humble private house. BOTTOM virtual location: The palace steps at Troezen. Ascend three or four broad chalk limestone steps to the exceptionally tall dark cedar double door with three hammered horizontal bronze bands at center. A short sea-glass shadow slices across the stairs. Reveal a blue Aegean harbor glimpse only at the far right wing. Keep a broad flat landing downstage at viewer’s feet. Regal, sun-bleached, crisp coastal light and a muted teal accent. This is not a storyboard: it is two full-bleed wide production backgrounds with a precisely straight horizontal separator.",
+          "generatedFile": "exec-fd7e63f9-9b8b-4aba-ad6f-ca2c0cab0779.png"
+        },
+        {
+          "id": "greek-troezen",
+          "file": "greek-troezen.webp",
+          "tool": "image_gen",
+          "style_reference": "Delphi-concept-board.png",
+          "panel": "bottom",
+          "crop": {
+            "x": 75,
+            "y": 633,
+            "width": 1104,
+            "height": 621
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. This image will be sliced into two independent clean environment PNG backgrounds. Overall final image aspect ratio EXACTLY SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one landscape in TOP half of the canvas and the completely unrelated other landscape in BOTTOM half. Both panels are equally high; both occupy full width from extreme left to extreme right. The ONLY seam between them is a perfectly horizontal three pixel high solid hot-magenta (#ff00ff) separator line exactly through the center covered from edge to edge. No margins, exterior frames, logos, titles, marks, layouts or lettering at all. No vertical panel seams, no additional panels. Both panels separately finished in naturalistic fine matte oil-paint textures, like the authentic architectural art in the two left panels of the supplied Delphi style reference (do not reproduce its composition, landscape, tripod, layout or characters). Tactile period-accurate ancient Greek material surfaces, clear dimensional depth, soft painter’s marks. Each scene has one immediately recognizable major subject at exactly the horizontal center, vertically at about 36 to 52 percent of its own panel, so it survives the central narrow portrait crop. Entire bottom 30 percent of each panel remains EMPTY walkable textured ground, a playable stage apron free of obstructions, well suited for character standees added later. Camera at consistent eye height. The designs must differ immediately despite the shared painterly technique. Strictly NO people, figures, animals, lettering, fantasy effects, or interface elements. TOP virtual location: Medea’s house in Corinth. Limewashed side court with narrow doorway at center, a distinctive dark woven reed screen angled across it and a sharp wedge of amber light at its foot. Put low tiled rooflines and slight glimpses down the courtyard exit in the wings. Mostly warm ivory and tobacco-dark weave. Bright late afternoon shaded interior. Humble private house. BOTTOM virtual location: The palace steps at Troezen. Ascend three or four broad chalk limestone steps to the exceptionally tall dark cedar double door with three hammered horizontal bronze bands at center. A short sea-glass shadow slices across the stairs. Reveal a blue Aegean harbor glimpse only at the far right wing. Keep a broad flat landing downstage at viewer’s feet. Regal, sun-bleached, crisp coastal light and a muted teal accent. This is not a storyboard: it is two full-bleed wide production backgrounds with a precisely straight horizontal separator.",
+          "generatedFile": "exec-fd7e63f9-9b8b-4aba-ad6f-ca2c0cab0779.png"
+        },
+        {
+          "id": "greek-thetis",
+          "file": "greek-thetis.webp",
+          "tool": "image_gen",
+          "style_reference": "Delphi-concept-board.png",
+          "panel": "top",
+          "crop": {
+            "x": 75,
+            "y": 0,
+            "width": 1104,
+            "height": 621
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. This image will be sliced into two independent clean environment PNG backgrounds. Overall final image aspect ratio EXACTLY SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one landscape in TOP half of the canvas and the completely unrelated other landscape in BOTTOM half. Both panels are equally high; both occupy full width from extreme left to extreme right. The ONLY seam between them is a perfectly horizontal three pixel high solid hot-magenta (#ff00ff) separator line exactly through the center covered from edge to edge. No margins, exterior frames, logos, titles, marks, layouts or lettering at all. No vertical panel seams, no additional panels. Both panels separately finished in naturalistic fine matte oil-paint textures, like the authentic architectural art in the two left panels of the supplied Delphi style reference (do not reproduce its composition, landscape, tripod, layout or characters). Tactile period-accurate ancient Greek material surfaces, clear dimensional depth, soft painter’s marks. Each scene has one immediately recognizable major subject at exactly the horizontal center, vertically at about 36 to 52 percent of its own panel, so it survives the central narrow portrait crop. Entire bottom 30 percent of each panel remains EMPTY walkable textured ground, a playable stage apron free of obstructions, well suited for character standees added later. Camera at consistent eye height. The designs must differ immediately despite the shared painterly technique. Strictly NO people, figures, animals, lettering, fantasy effects, or interface elements. TOP virtual location: Thetis’s altar in Phthia. A luminous shell-white sea-goddess altar at the middle of a sparse dry hillside worship terrace, two solemn dark cypresses immediately behind it rise either side of the center, a low cut-limestone enclosing wall on the left and Attic gold plain opening at right. Pale daylight, dry ochre grass, airy chalky textures. BOTTOM virtual location: Sicilian cave of Polyphemus. A giant arch of black lava at center, its nested volcanic ribs gracefully curving away. A low bed of embers in middle distance with warm ochre smoke lit by a narrow shaft of daylight, rough empty sheep pens stretch far into wings. Dark mineral gray walls against ochre warm backlight, very large scale. Foreground is broad empty charcoal-tan uneven but walkable packed ground for very large characters. No animals or people. This is not a storyboard: it is two full-bleed wide production backgrounds with a precisely straight horizontal separator.",
+          "generatedFile": "exec-6a095be4-d72a-481f-93b8-feb68cf92de9.png"
+        },
+        {
+          "id": "greek-sicily",
+          "file": "greek-sicily.webp",
+          "tool": "image_gen",
+          "style_reference": "Delphi-concept-board.png",
+          "panel": "bottom",
+          "crop": {
+            "x": 75,
+            "y": 633,
+            "width": 1104,
+            "height": 621
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. This image will be sliced into two independent clean environment PNG backgrounds. Overall final image aspect ratio EXACTLY SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one landscape in TOP half of the canvas and the completely unrelated other landscape in BOTTOM half. Both panels are equally high; both occupy full width from extreme left to extreme right. The ONLY seam between them is a perfectly horizontal three pixel high solid hot-magenta (#ff00ff) separator line exactly through the center covered from edge to edge. No margins, exterior frames, logos, titles, marks, layouts or lettering at all. No vertical panel seams, no additional panels. Both panels separately finished in naturalistic fine matte oil-paint textures, like the authentic architectural art in the two left panels of the supplied Delphi style reference (do not reproduce its composition, landscape, tripod, layout or characters). Tactile period-accurate ancient Greek material surfaces, clear dimensional depth, soft painter’s marks. Each scene has one immediately recognizable major subject at exactly the horizontal center, vertically at about 36 to 52 percent of its own panel, so it survives the central narrow portrait crop. Entire bottom 30 percent of each panel remains EMPTY walkable textured ground, a playable stage apron free of obstructions, well suited for character standees added later. Camera at consistent eye height. The designs must differ immediately despite the shared painterly technique. Strictly NO people, figures, animals, lettering, fantasy effects, or interface elements. TOP virtual location: Thetis’s altar in Phthia. A luminous shell-white sea-goddess altar at the middle of a sparse dry hillside worship terrace, two solemn dark cypresses immediately behind it rise either side of the center, a low cut-limestone enclosing wall on the left and Attic gold plain opening at right. Pale daylight, dry ochre grass, airy chalky textures. BOTTOM virtual location: Sicilian cave of Polyphemus. A giant arch of black lava at center, its nested volcanic ribs gracefully curving away. A low bed of embers in middle distance with warm ochre smoke lit by a narrow shaft of daylight, rough empty sheep pens stretch far into wings. Dark mineral gray walls against ochre warm backlight, very large scale. Foreground is broad empty charcoal-tan uneven but walkable packed ground for very large characters. No animals or people. This is not a storyboard: it is two full-bleed wide production backgrounds with a precisely straight horizontal separator.",
+          "generatedFile": "exec-6a095be4-d72a-481f-93b8-feb68cf92de9.png"
+        },
+        {
+          "id": "greek-acharnae",
+          "file": "greek-acharnae.webp",
+          "tool": "image_gen",
+          "style_reference": "Delphi-concept-board.png",
+          "panel": "top",
+          "crop": {
+            "x": 75,
+            "y": 0,
+            "width": 1104,
+            "height": 621
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. This image will be sliced into two independent clean environment PNG backgrounds. Overall final image aspect ratio EXACTLY SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one landscape in TOP half of the canvas and the completely unrelated other landscape in BOTTOM half. Both panels are equally high; both occupy full width from extreme left to extreme right. The ONLY seam between them is a perfectly horizontal three pixel high solid hot-magenta (#ff00ff) separator line exactly through the center covered from edge to edge. No margins, exterior frames, logos, titles, marks, layouts or lettering at all. No vertical panel seams, no additional panels. Both panels separately finished in naturalistic fine matte oil-paint textures, like the authentic architectural art in the two left panels of the supplied Delphi style reference (do not reproduce its composition, landscape, tripod, layout or characters). Tactile period-accurate ancient Greek material surfaces, clear dimensional depth, soft painter’s marks. Each scene has one immediately recognizable major subject at exactly the horizontal center, vertically at about 36 to 52 percent of its own panel, so it survives the central narrow portrait crop. Entire bottom 30 percent of each panel remains EMPTY walkable textured ground, a playable stage apron free of obstructions, well suited for character standees added later. Camera at consistent eye height. The designs must differ immediately despite the shared painterly technique. Strictly NO people, figures, animals, lettering, fantasy effects, or interface elements. TOP virtual location: Acharnae’s outdoor charcoal market. A low unobstructed wooden weighing beam with stone weights is raised at exact center, with clustered black charcoal baskets on its two sides at the back of the open plaza. Gray pottery dust, slate gray and warm gray earth underfoot. Put unstriped weathered canvas, olive branches, dark cart ruts and rough shop fronts in the outer wings. No bread, no striped awning, no urban stone palaces. Working and bustling in spirit, but absolutely no people either. BOTTOM virtual location: House of Demos in ancient Athens. A large worn, humble olivewood household chair at center in a deep, rounded yellow plaster porch shaded by a timber roof. Some worn chalk painted strips on the molding. An empty worn street food preparation board and stoneware bowl off to the side, substantial open muted terracotta floor in the foreground. Warm clay browns, honeyed ochre light, quiet domestic scale. The chair is the focal piece. This is not a storyboard: it is two full-bleed wide production backgrounds with a precisely straight horizontal separator.",
+          "generatedFile": "exec-0e3f7128-efe7-4685-9ffd-5f11062dc22a.png"
+        },
+        {
+          "id": "greek-demos-house",
+          "file": "greek-demos-house.webp",
+          "tool": "image_gen",
+          "style_reference": "Delphi-concept-board.png",
+          "panel": "bottom",
+          "crop": {
+            "x": 75,
+            "y": 633,
+            "width": 1104,
+            "height": 621
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. This image will be sliced into two independent clean environment PNG backgrounds. Overall final image aspect ratio EXACTLY SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one landscape in TOP half of the canvas and the completely unrelated other landscape in BOTTOM half. Both panels are equally high; both occupy full width from extreme left to extreme right. The ONLY seam between them is a perfectly horizontal three pixel high solid hot-magenta (#ff00ff) separator line exactly through the center covered from edge to edge. No margins, exterior frames, logos, titles, marks, layouts or lettering at all. No vertical panel seams, no additional panels. Both panels separately finished in naturalistic fine matte oil-paint textures, like the authentic architectural art in the two left panels of the supplied Delphi style reference (do not reproduce its composition, landscape, tripod, layout or characters). Tactile period-accurate ancient Greek material surfaces, clear dimensional depth, soft painter’s marks. Each scene has one immediately recognizable major subject at exactly the horizontal center, vertically at about 36 to 52 percent of its own panel, so it survives the central narrow portrait crop. Entire bottom 30 percent of each panel remains EMPTY walkable textured ground, a playable stage apron free of obstructions, well suited for character standees added later. Camera at consistent eye height. The designs must differ immediately despite the shared painterly technique. Strictly NO people, figures, animals, lettering, fantasy effects, or interface elements. TOP virtual location: Acharnae’s outdoor charcoal market. A low unobstructed wooden weighing beam with stone weights is raised at exact center, with clustered black charcoal baskets on its two sides at the back of the open plaza. Gray pottery dust, slate gray and warm gray earth underfoot. Put unstriped weathered canvas, olive branches, dark cart ruts and rough shop fronts in the outer wings. No bread, no striped awning, no urban stone palaces. Working and bustling in spirit, but absolutely no people either. BOTTOM virtual location: House of Demos in ancient Athens. A large worn, humble olivewood household chair at center in a deep, rounded yellow plaster porch shaded by a timber roof. Some worn chalk painted strips on the molding. An empty worn street food preparation board and stoneware bowl off to the side, substantial open muted terracotta floor in the foreground. Warm clay browns, honeyed ochre light, quiet domestic scale. The chair is the focal piece. This is not a storyboard: it is two full-bleed wide production backgrounds with a precisely straight horizontal separator.",
+          "generatedFile": "exec-0e3f7128-efe7-4685-9ffd-5f11062dc22a.png"
+        },
+        {
+          "id": "greek-thinkery",
+          "file": "greek-thinkery.webp",
+          "tool": "image_gen",
+          "style_reference": "Delphi-concept-board.png",
+          "panel": "top",
+          "crop": {
+            "x": 75,
+            "y": 0,
+            "width": 1104,
+            "height": 621
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. This image will be sliced into two independent clean environment PNG backgrounds. Overall final image aspect ratio EXACTLY SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one landscape in TOP half of the canvas and the completely unrelated other landscape in BOTTOM half. Both panels are equally high; both occupy full width from extreme left to extreme right. The ONLY seam between them is a perfectly horizontal three pixel high solid hot-magenta (#ff00ff) separator line exactly through the center covered from edge to edge. No margins, exterior frames, logos, titles, marks, layouts or lettering at all. No vertical panel seams, no additional panels. Both panels separately finished in naturalistic fine matte oil-paint textures, like the authentic architectural art in the two left panels of the supplied Delphi style reference (do not reproduce its composition, landscape, tripod, layout or characters). Tactile period-accurate ancient Greek material surfaces, clear dimensional depth, soft painter’s marks. Each scene has one immediately recognizable major subject at exactly the horizontal center, vertically at about 36 to 52 percent of its own panel, so it survives the central narrow portrait crop. Entire bottom 30 percent of each panel remains EMPTY walkable textured ground, a playable stage apron free of obstructions, well suited for character standees added later. Camera at consistent eye height. The designs must differ immediately despite the shared painterly technique. Strictly NO people, figures, animals, lettering, fantasy effects, or interface elements. TOP virtual location: The Thinkery in ancient Athens. A spherical woven empty basket seat hanging from a rope and remarkably obvious at center of a lofty scuffed teaching court. A slim plumb line hangs alongside it. Uneven terracotta roof, pale age-battered plaster, unlabeled wax tablets and sparse low stools in the outer wings. Blue-gray shade and warm limestone, sunlight from an unseen roof gap. Completely open packed clay ground in foreground. BOTTOM virtual location: The Juror’s House in ancient Athens. Central very solid weathered square timber door with pronounced external wooden bars held in iron brackets, and a modest narrow bench at one side of the door. A blank clay voting vessel and a shallow trough off axis hint at legal practice. Dry dusty warm clay light, burnt rust trimmed plaster, roof shadow. Broad clear walkable dusty courtyard in front. Domestic modesty, no monumental architecture. This is not a storyboard: it is two full-bleed wide production backgrounds with a precisely straight horizontal separator.",
+          "generatedFile": "exec-874f6a53-f9c1-4ec3-8296-62185ec81eb8.png"
+        },
+        {
+          "id": "greek-jury-house",
+          "file": "greek-jury-house.webp",
+          "tool": "image_gen",
+          "style_reference": "Delphi-concept-board.png",
+          "panel": "bottom",
+          "crop": {
+            "x": 75,
+            "y": 633,
+            "width": 1104,
+            "height": 621
+          },
+          "prompt": "Create a TWO-PANEL production contact sheet of original landscape painting assets for a Greek drama game. This image will be sliced into two independent clean environment PNG backgrounds. Overall final image aspect ratio EXACTLY SQUARE 1:1. STACK exactly two full bleed panoramic landscapes vertically: one landscape in TOP half of the canvas and the completely unrelated other landscape in BOTTOM half. Both panels are equally high; both occupy full width from extreme left to extreme right. The ONLY seam between them is a perfectly horizontal three pixel high solid hot-magenta (#ff00ff) separator line exactly through the center covered from edge to edge. No margins, exterior frames, logos, titles, marks, layouts or lettering at all. No vertical panel seams, no additional panels. Both panels separately finished in naturalistic fine matte oil-paint textures, like the authentic architectural art in the two left panels of the supplied Delphi style reference (do not reproduce its composition, landscape, tripod, layout or characters). Tactile period-accurate ancient Greek material surfaces, clear dimensional depth, soft painter’s marks. Each scene has one immediately recognizable major subject at exactly the horizontal center, vertically at about 36 to 52 percent of its own panel, so it survives the central narrow portrait crop. Entire bottom 30 percent of each panel remains EMPTY walkable textured ground, a playable stage apron free of obstructions, well suited for character standees added later. Camera at consistent eye height. The designs must differ immediately despite the shared painterly technique. Strictly NO people, figures, animals, lettering, fantasy effects, or interface elements. TOP virtual location: The Thinkery in ancient Athens. A spherical woven empty basket seat hanging from a rope and remarkably obvious at center of a lofty scuffed teaching court. A slim plumb line hangs alongside it. Uneven terracotta roof, pale age-battered plaster, unlabeled wax tablets and sparse low stools in the outer wings. Blue-gray shade and warm limestone, sunlight from an unseen roof gap. Completely open packed clay ground in foreground. BOTTOM virtual location: The Juror’s House in ancient Athens. Central very solid weathered square timber door with pronounced external wooden bars held in iron brackets, and a modest narrow bench at one side of the door. A blank clay voting vessel and a shallow trough off axis hint at legal practice. Dry dusty warm clay light, burnt rust trimmed plaster, roof shadow. Broad clear walkable dusty courtyard in front. Domestic modesty, no monumental architecture. This is not a storyboard: it is two full-bleed wide production backgrounds with a precisely straight horizontal separator.",
+          "generatedFile": "exec-874f6a53-f9c1-4ec3-8296-62185ec81eb8.png"
+        }
+      ]
+    }
+  }
+}

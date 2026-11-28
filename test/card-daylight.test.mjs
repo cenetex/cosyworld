@@ -114,7 +114,12 @@ describe("day and night in Greece", () => {
     ["greek-road-athens-eleusis", "sacred-way-dipylon", "on the Sacred Way"],
     ["greek-marathon", "open-door-marathon", "at Marathon Altar"],
     ["greek-ship", "ship-deck", "aboard the Charybdis"],
-    ["greek-pagasae", "pagasae-anchorage", "at Pagasae Anchorage"],
+    ["greek-pagasae", "repertoire-greek-pagasae", "at Pagasae Anchorage"],
+    [
+      "greek-road-athens-marathon",
+      "repertoire-greek-road-athens-marathon",
+      "on the Attic roads",
+    ],
     ["greek-scylla", "scylla-deck", "aboard the Scylla"],
   ])(
     "gives %s its own night painting and place facts",
@@ -154,9 +159,9 @@ describe("day and night in Greece", () => {
         world.turn = world.revision = turn;
         const phase = turn === DAYLIGHT_TURNS ? "night" : "day";
         const suffix = phase === "night" ? "-night" : "";
-        const painting = phase === "day" && road === "greek-road-athens-marathon"
-          ? "./assets/greek-drama/grove.svg"
-          : `./assets/greek-drama/attic-road${suffix}.webp`;
+        const file =
+          road === "greek-road-athens-marathon" ? `repertoire-${road}` : "attic-road";
+        const painting = `./assets/greek-drama/${file}${suffix}.webp`;
         for (const from of greek.places[road].road) {
           world.actors.vale.place = from;
           expect(travelCard(world, road).art).toBe(painting);
