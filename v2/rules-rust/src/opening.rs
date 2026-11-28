@@ -1,4 +1,7 @@
-use super::{lamp_state, Lamp, LampPosition};
+use super::{
+    lamp_state, opening_content, opening_play, opening_second_attic_tail, opening_take_response,
+    opening_wait_response, pack_state::Catalog, Geography, Lamp, LampPosition,
+};
 use serde_json::{json, Value};
 
 pub(super) const MAX_REVISION: u64 = 9_007_199_254_740_991;
@@ -32,7 +35,7 @@ struct Opening {
     held: bool,
     grounded: bool,
     revision: u64,
-    station: Vec<&'static str>,
+    station: Option<Vec<&'static str>>,
 }
 
 impl Opening {
@@ -51,8 +54,38 @@ impl Opening {
             claimed,
             present,
             unplayed_turn(world)?,
-            station_order(world)?,
+            Some(station_order(world)?),
         )
+    }
+
+    fn after_quiet_play(request: &Value) -> Option<(&Value, Self)> {
+        let world = request.get("world")?;
+        let turn = world["turn"].as_u64()?;
+        if request["actor"] != "vale"
+            || seats(&request["claimed"])? != ["vale"]
+            || seats(&request["present"])? != ["vale"]
+            || ["disabledPacks", "gone", "hidden", "absent", "homecoming"]
+                .iter()
+                .any(|key| !world[*key].is_null())
+            || world["actors"]
+                .as_object()?
+                .values()
+                .any(|actor| !actor["sleeping"].is_null() && actor["sleeping"]["until"].is_null())
+            || !(opening_wait_response::settled_first_wait(world) == Some(turn)
+                || opening_wait_response::settled_second_wait(world).is_some()
+                || opening_take_response::lamp_take_committed(world).is_some())
+        {
+            return None;
+        }
+        opening_second_attic_tail::no_box_release(world)?;
+        let (files, _) = opening_content::wait_files(request)?;
+        opening_play::attic_content(&files)?;
+        let catalog = Catalog::from_files(&files)?;
+        let geo = Geography::new(&files, catalog.packs())?;
+        opening_second_attic_tail::verify_station_order(world, &geo)?;
+        let solo = ["vale"];
+        let opening = Self::at_turn(world, "vale", &solo, &solo, turn, None)?;
+        Some((world, opening))
     }
 
     fn at_turn(
@@ -61,7 +94,7 @@ impl Opening {
         claimed: &[&str],
         present: &[&str],
         turn: u64,
-        station: Vec<&'static str>,
+        station: Option<Vec<&'static str>>,
     ) -> Option<Self> {
         let actors = world["actors"].as_object()?;
         let items = world["items"].as_object()?;
@@ -117,7 +150,9 @@ impl Opening {
                 grounded: self.grounded,
             })
             .write(&mut world["items"]["lamp"]);
-        world["stationExitOrder"] = json!(self.station);
+        if let Some(station) = self.station {
+            world["stationExitOrder"] = json!(station);
+        }
         world
     }
 
@@ -221,7 +256,7 @@ pub(super) fn supported_after_first_turn(request: &Value) -> Option<&Value> {
         &seats(&request["claimed"])?,
         &seats(&request["present"])?,
         1,
-        Vec::new(),
+        None,
     )?;
     Some(world)
 }
@@ -232,12 +267,15 @@ pub(super) fn hold(request: &Value) -> Option<Value> {
     if !present.iter().any(|id| id == actor) {
         return None;
     }
-    let (world, opening) = Opening::supported(request)?;
     let choice = request["choice"].as_object()?;
-    if choice.len() != 2 || choice.get("revision")?.as_u64()? != opening.revision {
+    if choice.len() != 2
+        || choice.get("revision")?.as_u64()? != request["world"]["revision"].as_u64()?
+    {
         return None;
     }
     let item = choice.get("item")?;
+    let (world, opening) =
+        Opening::supported(request).or_else(|| Opening::after_quiet_play(request))?;
     let hold = Hold::planned(world, opening, actor, item)?;
     stored_response(hold.apply(world.clone(), actor, item))
 }
