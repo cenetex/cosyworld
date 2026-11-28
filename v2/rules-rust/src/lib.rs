@@ -13,6 +13,7 @@ mod opening_reflection;
 mod reset;
 
 pub const MAX_JSON_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_WIRE_BYTES: usize = 3 * MAX_JSON_BYTES + 64;
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

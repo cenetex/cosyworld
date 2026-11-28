@@ -38,6 +38,8 @@ Each shared world is a SQLite journal. Writers for one database take a single tu
 
 The Rust rules candidate in `v2/rules-rust` covers room fuel, opening lamp holds, grounded station-door admission, and opening presence, including worlds seeded with resident history. CI exercises the import-free WASM guest through the browser-compatible JSON interface, compares complete responses with pinned JavaScript on supported fixtures, and runs Wasmi against QuickJS in read-only SQLite replay. Wasmi limits memory, tables, and execution fuel for each server-side call.
 
+Replay passes the original, hash-verified pack JSON to the candidate as `packContentJson`. The guest receives these exact bytes in a JSON string, preserving author order for reducers that need it.
+
 With the Rust `wasm32-unknown-unknown` target installed, build and replay a candidate from the repository root.
 
 ```sh

@@ -2,7 +2,7 @@
 
 #[cfg(target_arch = "wasm32")]
 mod guest {
-    use cosyworld_rules::MAX_JSON_BYTES;
+    use cosyworld_rules::{MAX_JSON_BYTES, MAX_WIRE_BYTES};
     use std::cell::RefCell;
 
     thread_local! {
@@ -16,7 +16,7 @@ mod guest {
         OUTPUT.with_borrow_mut(Vec::clear);
         INPUT.with_borrow_mut(|buffer| {
             buffer.clear();
-            if len == 0 || len > MAX_JSON_BYTES {
+            if len == 0 || len > MAX_WIRE_BYTES {
                 return 0;
             }
             buffer.resize(len, 0);
