@@ -18,6 +18,7 @@ mod opening_candidates;
 mod opening_content;
 pub mod opening_evidence;
 pub mod opening_history;
+mod opening_pickups;
 mod opening_play;
 mod opening_reflection;
 mod opening_roaming;
@@ -133,6 +134,7 @@ pub fn reduce(request: &Value) -> Value {
         Some("opening_wait_settlement") => {
             opening_settlement::projection(request).unwrap_or(Value::Null)
         }
+        Some("opening_pickups") => opening_pickups::projection(request).unwrap_or(Value::Null),
         Some("view") => opening_view::reduce(request).unwrap_or(Value::Null),
         Some("reset") => reset::reset(request).unwrap_or(Value::Null),
         Some("reflect") => opening_reflection::reduce(request).unwrap_or(Value::Null),
